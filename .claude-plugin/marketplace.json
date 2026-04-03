@@ -1,0 +1,27 @@
+{
+  "name": "storyforge",
+  "display_name": "StoryForge",
+  "description": "AI-powered book writing pipeline: brainstorm, concept, plot, characters, chapters, export. Author profiles for authentic voice. Genre-mixing. EPUB/PDF/MOBI export via Pandoc.",
+  "version": "0.1.0-dev",
+  "author": {
+    "name": "Markus Michalski"
+  },
+  "license": "MIT",
+  "keywords": [
+    "writing",
+    "books",
+    "fiction",
+    "novel",
+    "short-story",
+    "plot",
+    "characters",
+    "worldbuilding",
+    "epub",
+    "pdf",
+    "pandoc",
+    "author-profile",
+    "genre",
+    "creative-writing"
+  ],
+  "categories": ["creative", "writing", "productivity"]
+}

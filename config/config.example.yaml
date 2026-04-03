@@ -1,0 +1,29 @@
+# StoryForge Configuration
+# Copy to ~/.storyforge/config.yaml and adjust
+
+# Paths
+paths:
+  content_root: "~/projekte/book-projects"
+  authors_root: "~/.storyforge/authors"
+
+# Defaults
+defaults:
+  language: "en"          # Primary writing language
+  book_type: "novel"      # short-story, novelette, novella, novel, epic
+
+# Export settings
+export:
+  pandoc_path: "pandoc"           # Path to pandoc binary
+  calibre_path: "ebook-convert"   # Path to Calibre's ebook-convert (for MOBI)
+  default_format: "epub"          # epub, pdf, mobi
+  pdf_engine: "xelatex"           # xelatex for full Unicode support
+
+# Cover art generation
+cover:
+  platform: "midjourney"    # midjourney, dall-e
+  default_style: "realistic"
+
+# Translation
+translation:
+  preserve_formatting: true
+  include_glossary: true

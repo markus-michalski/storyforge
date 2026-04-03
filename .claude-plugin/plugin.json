@@ -1,0 +1,11 @@
+{
+  "name": "storyforge",
+  "version": "0.1.0-dev",
+  "description": "AI-powered book writing pipeline: brainstorm, concept, plot, characters, chapters, export",
+  "author": {
+    "name": "Markus Michalski"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "storyforge-mcp": {
+      "type": "stdio",
+      "command": "${HOME}/.storyforge/venv/bin/python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/storyforge-server/run.py"]
+    }
+  }
+}
