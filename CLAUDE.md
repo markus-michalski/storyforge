@@ -43,6 +43,7 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 | "Export" / "EPUB" / "PDF" / "MOBI" | `/storyforge:export-engineer` |
 | "Übersetzen" / "Translate" | `/storyforge:translator` |
 | "Cover" / "Buchcover" | `/storyforge:cover-artist` |
+| "Promo" / "Social Media" / "Marketing" / "bewerben" | `/storyforge:promo-writer` |
 | "Neues Genre" / "Genre-Mix" | `/storyforge:genre-creator` |
 | "Hilfe" / "Help" | `/storyforge:help` |
 | "Setup" / "Einrichten" | `/storyforge:setup` |
@@ -71,7 +72,8 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 10. `/storyforge:voice-checker` — Verify authenticity
 11. `/storyforge:cover-artist` — Generate cover prompts
 12. `/storyforge:export-engineer` — EPUB/PDF/MOBI via Pandoc
-13. `/storyforge:translator` — Translate to other languages
+13. `/storyforge:promo-writer` — Social media campaign (FB, Instagram, TikTok, X, Bluesky, Newsletter)
+14. `/storyforge:translator` — Translate to other languages
 
 ## Project Structure
 

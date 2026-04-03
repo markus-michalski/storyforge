@@ -64,6 +64,7 @@ Show the user this overview:
 | Command | What it does |
 |---------|-------------|
 | `/storyforge:export-engineer` | Generate EPUB/PDF/MOBI |
+| `/storyforge:promo-writer` | Social media promo (FB, Instagram, TikTok, X, Bluesky, Newsletter) |
 | `/storyforge:translator` | Translate chapter by chapter |
 | `/storyforge:cover-artist` | Generate cover art prompts |
 | `/storyforge:genre-creator` | Create new genre definitions |

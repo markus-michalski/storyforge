@@ -72,7 +72,7 @@ storyforge/
 | **Creative** | book-conceptualizer, plot-architect, character-creator, world-builder |
 | **Writing** | chapter-writer, chapter-reviewer |
 | **Research** | researcher, sensitivity-reader |
-| **Production** | export-engineer, translator, cover-artist |
+| **Production** | export-engineer, promo-writer, translator, cover-artist |
 | **Utility** | genre-creator, series-planner, help, setup, configure |
 
 ## License
