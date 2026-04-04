@@ -2,7 +2,10 @@
 
 All notable changes to StoryForge will be documented in this file.
 
-## [0.1.0-dev] - 2026-04-03
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
 
 ### Added
 - Initial plugin scaffold with full directory structure
@@ -16,7 +19,7 @@ All notable changes to StoryForge will be documented in this file.
 - 9 genre-specific craft references (horror, fantasy, thriller, romance, sci-fi, mystery, literary, supernatural, LGBTQ+)
 - 14 genre definitions with conventions, tropes, anti-patterns, and mixing notes
 - Analysis tools: word counter, style analyzer (AI-tell detection), continuity checker
-- PDF/EPUB text extraction for author style analysis
+- PDF/EPUB/DOCX text extraction for author style analysis
 - Pandoc wrapper for EPUB/PDF/MOBI export
 - Author profile system with style extraction and banned-word lists
 - Series support with shared canon and timeline management
@@ -24,3 +27,20 @@ All notable changes to StoryForge will be documented in this file.
 - Export reference docs (Pandoc guide, EPUB standards, cover specs)
 - Translation reference (best practices for fiction translation)
 - Meta references (terminology, model strategy, state schema)
+
+### Changed
+- Nothing yet
+
+### Deprecated
+- Nothing yet
+
+### Removed
+- Nothing yet
+
+### Fixed
+- Nothing yet
+
+### Security
+- Nothing yet
+
+[Unreleased]: https://github.com/markus-michalski/storyforge/compare/HEAD
