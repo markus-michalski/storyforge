@@ -17,9 +17,9 @@ Extract concrete writing patterns from existing books/texts and encode them into
 ## Workflow
 
 ### Phase 1: Input
-1. **Get file path** — User provides path to PDF, EPUB, TXT, or MD file
+1. **Get file path** — User provides path to PDF, EPUB, DOCX, TXT, or MD file (max 50 MB)
 2. **Get author** — Which author profile to update? Show list via MCP `list_authors()`
-3. **Read the file** — Use the Read tool for text/markdown files. For PDFs, use the Read tool (it supports PDFs).
+3. **Read the file** — Use the Read tool for text/markdown/PDF files. For EPUB and DOCX, the MCP server's `extract_text_from_file()` handles extraction. Supported: PDF, EPUB, DOCX, TXT, MD. Max 50 MB, max 200k words (larger files are auto-sampled from beginning, middle, and end).
 
 ### Phase 2: Analysis
 Analyze the text for these concrete patterns:
