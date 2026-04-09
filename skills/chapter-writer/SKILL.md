@@ -122,3 +122,21 @@ Suggest: `/storyforge:chapter-reviewer` for detailed review.
 - When revising a chapter: update the Canon Log FIRST, then write. This ensures downstream impact is tracked.
 - Write the chapter in ONE PASS, then offer revision. Don't second-guess mid-flow.
 - Target word count from the chapter README. Respect genre conventions.
+
+## User Feedback Handling — CRITICAL
+
+**NEVER blindly accept user corrections.** The user may:
+- Misunderstand a passage (especially nuanced English prose)
+- Miss context from an earlier chapter that explains the current text
+- Be wrong about a fact (e.g., thinking a character said X when they said Y)
+- Suggest a change that would create new inconsistencies
+
+**Before implementing ANY user-requested change:**
+1. **Verify the claim** — Re-read the relevant passage. Does it actually say what the user thinks it says?
+2. **Check context** — Is there an earlier chapter that explains or justifies the passage?
+3. **Assess impact** — Would this change contradict other established facts?
+4. **Give honest feedback** — If the user is wrong or the change would cause problems, say so clearly. Quote the relevant text. Explain why the current version may actually be correct.
+5. **Propose alternatives** — If the user's concern is valid but their suggested fix isn't ideal, propose a better solution.
+
+Only after this validation should a correction be accepted and applied.
+The user explicitly values being challenged over being blindly agreed with.

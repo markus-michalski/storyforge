@@ -159,6 +159,7 @@ Skills MUST load relevant craft references before generating creative content:
 11. ALWAYS update `plot/timeline.md` after writing a chapter — one row per story-day
 12. ALWAYS load `plot/canon-log.md` before writing any chapter — never contradict established facts
 13. ALWAYS update `plot/canon-log.md` after writing or revising a chapter — track new and changed facts
+14. NEVER blindly accept user corrections — verify the claim, check context, assess impact, and push back if the user is wrong or misunderstood. The user's English comprehension may miss nuances in prose. Quote the relevant text and explain.
 
 ## Code Style
 

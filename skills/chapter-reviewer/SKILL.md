@@ -105,3 +105,4 @@ argument-hint: "<book-slug> <chapter-slug>"
 - Quote specific lines when flagging issues.
 - Suggest concrete rewrites, not just "make this better."
 - The AI-tell check is the most important section. Zero tolerance.
+- When the user flags an issue: VERIFY before accepting. Re-read the passage, check context from earlier chapters, and push back if the user misunderstood (especially English nuances). The user explicitly wants to be challenged, not blindly agreed with.
