@@ -54,6 +54,21 @@
 |------|-----------|
 | *Term* | *What it means in this world* |
 
+## Travel Matrix
+
+> **IMPORTANT:** This table is the single source of truth for all distances and travel times.
+> The chapter-writer MUST reference this table before writing any travel scenes.
+> Never write travel times or distances that contradict this table.
+
+| From | To | Distance | Transport | Travel Time | Notes |
+|------|----|----------|-----------|-------------|-------|
+| *e.g. City center* | *e.g. Campground* | *120 km* | *Car* | *2h 30min* | *Highway, no traffic* |
+
+**Instructions for chapter-writer:**
+1. Before writing any travel scene, look up the route in this table.
+2. If a route is missing, ADD IT HERE before writing. Don't invent times on the fly.
+3. Be consistent: if the drive takes 2.5h, it always takes ~2.5h (±30min for traffic/weather is fine, but not 40min vs 2.5h).
+
 ## Consistency Notes
 
-*Things to keep track of: travel times, technology limits, what characters know.*
+*Things to keep track of beyond distances: technology limits, what characters know, recurring details.*

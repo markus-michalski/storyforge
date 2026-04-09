@@ -28,8 +28,9 @@ Before writing a SINGLE word, load ALL of these:
    - `anti-ai-patterns` (what to avoid at ALL costs)
    - `prose-style` (word choice, rhythm, devices)
 8. **Character files** — Read all characters appearing in this chapter.
-9. **World files** — Read relevant world/setting files if the chapter involves world elements.
-10. **Series canon** — If part of a series, read `{series}/world/canon.md`.
+9. **World files** — Read `{project}/world/setting.md` (includes the Travel Matrix). Mandatory if the chapter involves any travel or location references.
+10. **Story timeline** — Read `{project}/plot/timeline.md`. Mandatory for ALL chapters. This is the canonical day/date reference.
+11. **Series canon** — If part of a series, read `{series}/world/canon.md`.
 
 ## Writing Process
 
@@ -93,6 +94,8 @@ Reference `chapter-construction.md` on endings:
 2. Count words — report to user
 3. Update chapter status to "Draft" via MCP `update_field()`
 4. If this is the first chapter being drafted, update book status to "Drafting"
+5. **Update timeline** — Add all days/events from this chapter to `{project}/plot/timeline.md`. One row per story-day. This is MANDATORY.
+6. **Update Travel Matrix** — If new routes were introduced in this chapter, add them to the Travel Matrix in `{project}/world/setting.md`.
 
 ### Step 8: Self-Review
 Before presenting to user, quick-check:
@@ -110,6 +113,8 @@ Suggest: `/storyforge:chapter-reviewer` for detailed review.
 - Every scene needs conflict. No exceptions.
 - Dialog must have subtext. Characters don't say what they mean.
 - The banned word list is non-negotiable. Zero AI-tells.
-- Continuity with previous chapters is mandatory — check names, locations, time of day.
+- Continuity is GLOBAL, not just local: always check `plot/timeline.md` and `world/setting.md` Travel Matrix, not just the previous chapter.
+- Never invent a travel time or distance that isn't in the Travel Matrix. Add it first, then write.
+- Never write a day-of-week or date that contradicts `plot/timeline.md`. Update timeline first if needed.
 - Write the chapter in ONE PASS, then offer revision. Don't second-guess mid-flow.
 - Target word count from the chapter README. Respect genre conventions.

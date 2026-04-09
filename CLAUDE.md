@@ -37,6 +37,7 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 | "Welt" / "World" / "Setting" / "Magic System" | `/storyforge:world-builder` |
 | "Kapitel schreiben" / "Write chapter" | `/storyforge:chapter-writer` |
 | "Kapitel reviewen" / "Review chapter" | `/storyforge:chapter-reviewer` |
+| "Continuity prüfen" / "Check continuity" / "Zeitlinie prüfen" / "Timeline prüfen" | `/storyforge:continuity-checker` |
 | "Voice check" / "Klingt das nach AI?" | `/storyforge:voice-checker` |
 | "Recherche" / "Research" | `/storyforge:researcher` |
 | "Sensitivity" / "Problematisch?" | `/storyforge:sensitivity-reader` |
@@ -67,7 +68,8 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 5. `/storyforge:plot-architect` — Structure plot with acts, beats, arcs
 6. `/storyforge:character-creator` — Build characters with depth
 7. `/storyforge:world-builder` — Setting, rules, history
-8. `/storyforge:chapter-writer` — Write chapters in author's voice
+8. `/storyforge:chapter-writer` — Write chapters in author's voice (loads timeline + travel matrix)
+9. `/storyforge:continuity-checker` — (Optional, after several chapters) Validate timeline and location consistency
 9. `/storyforge:chapter-reviewer` — Review each chapter
 10. `/storyforge:voice-checker` — Verify authenticity
 11. `/storyforge:cover-artist` — Generate cover prompts
@@ -82,9 +84,9 @@ Books live at `{content_root}/projects/{slug}/`:
 {book-slug}/
 ├── README.md           # Book metadata (YAML frontmatter)
 ├── synopsis.md         # Back-cover blurb + long synopsis
-├── plot/               # outline.md, acts.md, timeline.md, arcs.md
+├── plot/               # outline.md, acts.md, timeline.md (story calendar), arcs.md
 ├── characters/         # INDEX.md + individual character files
-├── world/              # setting.md, rules.md, history.md, glossary.md
+├── world/              # setting.md (incl. Travel Matrix), rules.md, history.md, glossary.md
 ├── research/           # sources.md + notes/
 ├── chapters/
 │   └── {NN-slug}/
@@ -152,6 +154,9 @@ Skills MUST load relevant craft references before generating creative content:
 6. ALL prose must be written in the author's voice (tone, vocabulary, rhythm)
 7. Writing language is ENGLISH by default (configurable per book)
 8. Code comments in English, user-facing output follows CLAUDE.md global settings
+9. ALWAYS load `plot/timeline.md` before writing any chapter — temporal consistency is mandatory
+10. ALWAYS load `world/setting.md` (Travel Matrix) before any scene involving travel or location
+11. ALWAYS update `plot/timeline.md` after writing a chapter — one row per story-day
 
 ## Code Style
 

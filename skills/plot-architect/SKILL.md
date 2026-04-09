@@ -87,6 +87,15 @@ Generate a chapter-by-chapter plan with:
 
 Offer to create chapter directories via MCP `create_chapter()`.
 
+### Step 8: Initialize Story Timeline
+Create `{project}/plot/timeline.md` from the template `plot-timeline.md`:
+1. Ask the user: "Wann beginnt die Geschichte? Brauchst du ein konkretes Datum oder reicht ein Wochentag?"
+2. Establish the **Anchor Point** (Story Day 1 = which day of week, optionally a real date)
+3. Pre-fill the Event Calendar with the major plot beats from Step 3 (rough day estimates)
+4. Mark all pre-filled entries as `[PLANNED]` — the chapter-writer will refine them
+
+This step is MANDATORY. A book without a timeline anchor cannot maintain temporal consistency.
+
 Update book status to "Plot Outlined" via MCP `update_field()`.
 
 ## Rules
