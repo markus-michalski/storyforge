@@ -30,7 +30,8 @@ Before writing a SINGLE word, load ALL of these:
 8. **Character files** — Read all characters appearing in this chapter.
 9. **World files** — Read `{project}/world/setting.md` (includes the Travel Matrix). Mandatory if the chapter involves any travel or location references.
 10. **Story timeline** — Read `{project}/plot/timeline.md`. Mandatory for ALL chapters. This is the canonical day/date reference.
-11. **Series canon** — If part of a series, read `{series}/world/canon.md`.
+11. **Canon log** — Read `{project}/plot/canon-log.md`. Mandatory for ALL chapters. This tracks established facts and revision changes. Pay special attention to facts marked `CHANGED` — never reference the old version.
+12. **Series canon** — If part of a series, read `{series}/world/canon.md`.
 
 ## Writing Process
 
@@ -96,6 +97,7 @@ Reference `chapter-construction.md` on endings:
 4. If this is the first chapter being drafted, update book status to "Drafting"
 5. **Update timeline** — Add all days/events from this chapter to `{project}/plot/timeline.md`. One row per story-day. This is MANDATORY.
 6. **Update Travel Matrix** — If new routes were introduced in this chapter, add them to the Travel Matrix in `{project}/world/setting.md`.
+7. **Update Canon Log** — Add any new facts established in this chapter to `{project}/plot/canon-log.md`. If this is a **revision** of an existing chapter, mark changed facts as `CHANGED` with the old version in Notes, and add all downstream chapters to the Revision Impact Tracker.
 
 ### Step 8: Self-Review
 Before presenting to user, quick-check:
@@ -116,5 +118,7 @@ Suggest: `/storyforge:chapter-reviewer` for detailed review.
 - Continuity is GLOBAL, not just local: always check `plot/timeline.md` and `world/setting.md` Travel Matrix, not just the previous chapter.
 - Never invent a travel time or distance that isn't in the Travel Matrix. Add it first, then write.
 - Never write a day-of-week or date that contradicts `plot/timeline.md`. Update timeline first if needed.
+- Never contradict a fact in the Canon Log. If a fact is marked `CHANGED`, use the NEW version only.
+- When revising a chapter: update the Canon Log FIRST, then write. This ensures downstream impact is tracked.
 - Write the chapter in ONE PASS, then offer revision. Don't second-guess mid-flow.
 - Target word count from the chapter README. Respect genre conventions.

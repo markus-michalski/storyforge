@@ -18,6 +18,9 @@ argument-hint: "<book-slug> <chapter-slug>"
 - Read the chapter draft: `{project}/chapters/{chapter}/draft.md`
 - Read the chapter outline: `{project}/chapters/{chapter}/README.md`
 - Read previous chapter draft for continuity
+- Read `{project}/plot/canon-log.md` — check for facts marked `CHANGED` that this chapter may still reference incorrectly
+- Read `{project}/plot/timeline.md` — verify temporal claims match the canonical timeline
+- Read `{project}/world/setting.md` — verify travel times/distances match the Travel Matrix
 
 ## Review Checklist — 20 Points
 
@@ -42,19 +45,26 @@ argument-hint: "<book-slug> <chapter-slug>"
 14. **Sentence rhythm** — Varied length? Matches author's style?
 15. **Dialog voice** — Each character distinguishable without tags?
 
+### Continuity (5 points)
+16. **Canon consistency** — Does the chapter contradict any fact in the Canon Log? Pay special attention to `CHANGED` facts.
+17. **Timeline accuracy** — Do day/date references match `plot/timeline.md`?
+18. **Travel consistency** — Do distances/travel times match the Travel Matrix?
+19. **Stale references** — Is this chapter flagged as `[STALE]` in the Revision Impact Tracker? If so, list all outdated references.
+20. **Character facts** — Do character descriptions/behaviors match established facts? (e.g., does a vampire eat or not?)
+
 ### Anti-AI (5 points)
-16. **AI vocabulary** — Any words from the banned list? (delve, tapestry, nuanced, etc.)
-17. **Structural uniformity** — Are paragraphs/sentences suspiciously uniform in length?
-18. **Generic descriptions** — Any "bustling city", "warm smile", "piercing gaze" clichés?
-19. **Emotional telling** — Any "he felt a wave of sadness" instead of showing?
-20. **Neat resolution** — Does every scene wrap up too tidily?
+21. **AI vocabulary** — Any words from the banned list? (delve, tapestry, nuanced, etc.)
+22. **Structural uniformity** — Are paragraphs/sentences suspiciously uniform in length?
+23. **Generic descriptions** — Any "bustling city", "warm smile", "piercing gaze" clichés?
+24. **Emotional telling** — Any "he felt a wave of sadness" instead of showing?
+25. **Neat resolution** — Does every scene wrap up too tidily?
 
 ## Output Format
 
 ```markdown
 ## Chapter Review: {Chapter Title}
 
-### Score: [X]/20
+### Score: [X]/25
 
 ### Strengths
 - *What works well*
@@ -70,6 +80,12 @@ argument-hint: "<book-slug> <chapter-slug>"
 
 #### Minor (Nice to Have)
 - [Issue] — [Location] — [Suggested fix]
+
+### Continuity Report
+- Canon conflicts: [count] — [details]
+- Timeline conflicts: [count] — [details]
+- Travel Matrix conflicts: [count] — [details]
+- Stale references (from revisions): [count] — [details]
 
 ### AI-Tell Report
 - Flagged words: [list]

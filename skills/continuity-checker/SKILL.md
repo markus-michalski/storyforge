@@ -20,8 +20,10 @@ Systematically scan all chapter drafts for inconsistencies in:
 ## Prerequisites
 - Load book data via MCP `get_book_full()`
 - Read `{project}/plot/timeline.md` — canonical timeline
+- Read `{project}/plot/canon-log.md` — established facts and revision tracking
 - Read `{project}/world/setting.md` — Travel Matrix and location data
 - Read ALL chapter drafts: `{project}/chapters/*/draft.md`
+- Read ALL character files: `{project}/characters/*.md`
 
 ## Workflow
 
@@ -95,7 +97,31 @@ If Travel Matrix in `world/setting.md` is empty or has gaps:
 3. Note conflicts in the matrix
 4. Add proposed entries with `[RECONSTRUCTED]` marker
 
-### Step 6: Output Report
+### Step 6: Validate Fact Consistency (Canon Log)
+
+**If `plot/canon-log.md` exists:**
+1. For each fact marked `CHANGED`, scan all chapters AFTER the revision for references to the OLD version
+2. For each fact marked `ACTIVE`, verify it isn't contradicted in any chapter
+
+**If `plot/canon-log.md` is empty or missing:**
+1. Extract key facts from each chapter (character traits, abilities, relationships, rules)
+2. Build a proposed Canon Log organized by domain (Character, Relationship, World, Plot)
+3. Identify contradictions between chapters (e.g., Ch 4 says "eats normally" but Ch 8 says "doesn't eat")
+4. Write the proposed Canon Log to `{project}/plot/canon-log.md` with `[RECONSTRUCTED]` markers
+
+**Fact categories to extract:**
+- Character abilities/limitations (e.g., "can/cannot eat", "has/doesn't have powers")
+- Character descriptions (appearance, age, occupation)
+- Relationship status (who knows whom, family ties)
+- Rules of the world (how magic/supernatural elements work)
+- Object ownership/possession (who has the key, where is the artifact)
+
+Flag as **FACT CONFLICT** if:
+- A chapter references the old version of a `CHANGED` fact
+- Two chapters make contradictory claims about the same fact
+- A character behaves inconsistently with established abilities/traits
+
+### Step 7: Output Report
 
 ```markdown
 # Continuity Check Report — {Book Title}
@@ -105,7 +131,8 @@ Generated: {date}
 - Chapters scanned: X
 - Timeline entries: X
 - Travel Matrix routes: X
-- CONFLICTS: X
+- Canon facts tracked: X
+- CONFLICTS: X (temporal: X, spatial: X, fact: X)
 - WARNINGS: X
 
 ---
@@ -130,6 +157,16 @@ Generated: {date}
 
 ---
 
+## Fact Conflicts
+
+### CONFLICT: Chapter 4 (revised) vs Chapter 8
+**Canon Log:** "Marcus eats normal food" (CHANGED in Ch 4 revision, was: "Marcus doesn't eat")
+**Chapter 8:** "You don't eat, remember?" — Lena said, pushing her plate aside.
+**Analysis:** Chapter 8 still references pre-revision fact. Marcus now eats normally per Ch 4.
+**Suggested fix:** Rewrite Ch 8 dialog to reflect that Marcus eats.
+
+---
+
 ## Warnings (verify manually)
 
 - Chapter 4: "a few days later" — ambiguous, not reflected in timeline.md
@@ -143,11 +180,18 @@ Generated: {date}
 ...
 ```
 
-### Step 7: Save Report
+### Step 8: Save Report
 
 Write report to `{project}/research/continuity-report.md`.
 
 Suggest: Fix conflicts manually or ask chapter-reviewer to address specific chapters.
+
+### Step 9: Update Canon Log
+
+If the Canon Log was reconstructed or new facts were discovered:
+1. Save the updated Canon Log to `{project}/plot/canon-log.md`
+2. Populate the Revision Impact Tracker with chapters that need attention
+3. Report to the user which chapters are flagged as `[STALE]`
 
 ## Rules
 - Report ALL conflicts, even minor ones. The author decides what to fix.

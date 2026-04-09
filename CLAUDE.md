@@ -84,7 +84,7 @@ Books live at `{content_root}/projects/{slug}/`:
 {book-slug}/
 ├── README.md           # Book metadata (YAML frontmatter)
 ├── synopsis.md         # Back-cover blurb + long synopsis
-├── plot/               # outline.md, acts.md, timeline.md (story calendar), arcs.md
+├── plot/               # outline.md, acts.md, timeline.md (story calendar), canon-log.md (story bible), arcs.md
 ├── characters/         # INDEX.md + individual character files
 ├── world/              # setting.md (incl. Travel Matrix), rules.md, history.md, glossary.md
 ├── research/           # sources.md + notes/
@@ -157,6 +157,8 @@ Skills MUST load relevant craft references before generating creative content:
 9. ALWAYS load `plot/timeline.md` before writing any chapter — temporal consistency is mandatory
 10. ALWAYS load `world/setting.md` (Travel Matrix) before any scene involving travel or location
 11. ALWAYS update `plot/timeline.md` after writing a chapter — one row per story-day
+12. ALWAYS load `plot/canon-log.md` before writing any chapter — never contradict established facts
+13. ALWAYS update `plot/canon-log.md` after writing or revising a chapter — track new and changed facts
 
 ## Code Style
 
