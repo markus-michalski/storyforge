@@ -23,6 +23,7 @@ from tools.shared.config import load_config, get_content_root, get_authors_root,
 from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_author_path, find_projects, find_chapters, find_authors, find_series, resolve_series_path
 from tools.state.indexer import StateCache, build_state, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file
+from tools.analysis.repetition_checker import scan_repetitions, render_report
 
 mcp = FastMCP("storyforge-mcp")
 _cache = StateCache()
@@ -192,6 +193,56 @@ def rebuild_state() -> str:
         "books": books_count,
         "authors": authors_count,
         "message": f"Rebuilt state: {books_count} books, {authors_count} authors",
+    })
+
+
+@mcp.tool()
+def scan_book_repetitions(
+    book_slug: str,
+    min_occurrences: int = 2,
+    write_report: bool = True,
+    max_findings_per_category: int = 40,
+) -> str:
+    """Scan all chapter drafts of a book for repeated phrases, similes,
+    character tells, blocking tics, and structural patterns.
+
+    Returns the structured findings as JSON. When `write_report` is true,
+    also writes a human-readable Markdown report to
+    `<book>/research/repetition-report.md` and returns the path.
+
+    Args:
+        book_slug: The book project slug.
+        min_occurrences: Minimum number of times a phrase must appear to count
+            as a repetition. Default 2.
+        write_report: When true, also writes the Markdown report file.
+        max_findings_per_category: Cap per category to keep the report focused.
+    """
+    config = load_config()
+    book_path = resolve_project_path(config, book_slug)
+    if not book_path.exists():
+        return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
+
+    result = scan_repetitions(
+        book_path=book_path,
+        min_occurrences=min_occurrences,
+        max_findings_per_category=max_findings_per_category,
+    )
+
+    report_path: str | None = None
+    if write_report:
+        research_dir = book_path / "research"
+        research_dir.mkdir(parents=True, exist_ok=True)
+        report_file = research_dir / "repetition-report.md"
+        report_file.write_text(render_report(result), encoding="utf-8")
+        report_path = str(report_file)
+
+    return json.dumps({
+        "book_slug": book_slug,
+        "chapters_scanned": result["chapters_scanned"],
+        "findings_count": len(result["findings"]),
+        "summary": result["summary"],
+        "report_path": report_path,
+        "findings": result["findings"],
     })
 
 

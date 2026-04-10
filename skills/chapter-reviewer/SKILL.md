@@ -21,6 +21,7 @@ argument-hint: "<book-slug> <chapter-slug>"
 - Read `{project}/plot/canon-log.md` — check for facts marked `CHANGED` that this chapter may still reference incorrectly
 - Read `{project}/plot/timeline.md` — verify temporal claims match the canonical timeline
 - Read `{project}/world/setting.md` — verify travel times/distances match the Travel Matrix
+- Optional: If `{project}/research/repetition-report.md` exists, read it and check whether any of THIS chapter's distinctive 5-7 word phrases already appear in earlier chapters (lightweight cross-chapter repetition check). Flag any matches in the Continuity Report section.
 
 ## Review Checklist — 20 Points
 

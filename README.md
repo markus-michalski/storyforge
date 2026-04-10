@@ -22,6 +22,7 @@ StoryForge guides you through the entire fiction writing process:
 - **Genre System** — 14 genres, mixable (e.g., LGBTQ+ Supernatural). Create custom genre combinations.
 - **Craft Knowledge Base** — 27 reference documents (73,000+ words) on writing craft, from story structure to dialog to anti-AI patterns.
 - **Voice Checker** — Scores text for AI-tells across 7 dimensions. Zero tolerance for generic output.
+- **Repetition Checker** — Scans the full manuscript for repeated similes, character tells, blocking tics, and signature phrases that creep in when chapters are written in isolation. Run it at the drafting → revision transition.
 - **Series Support** — Plan multi-book series with shared canon, characters, and timelines.
 
 ## Quick Start
@@ -70,7 +71,7 @@ storyforge/
 | **Core** | new-book, session-start, resume, next-step, book-dashboard, brainstorm |
 | **Author** | create-author, study-author, voice-checker |
 | **Creative** | book-conceptualizer, plot-architect, character-creator, world-builder |
-| **Writing** | chapter-writer, chapter-reviewer |
+| **Writing** | chapter-writer, chapter-reviewer, repetition-checker |
 | **Research** | researcher, sensitivity-reader |
 | **Production** | export-engineer, promo-writer, translator, cover-artist |
 | **Utility** | genre-creator, series-planner, help, setup, configure |

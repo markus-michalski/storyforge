@@ -27,6 +27,7 @@ user-invocable: true
    | Characters Created | `/storyforge:world-builder` | Build the world (if fantasy/sci-fi/supernatural) or skip to Drafting |
    | World Built | `/storyforge:chapter-writer` ch.1 | Start writing! |
    | Drafting | `/storyforge:chapter-writer` next unwritten chapter | Keep writing |
+   | Drafting → Revision (all chapters drafted) | `/storyforge:repetition-checker` | Catch cross-chapter prose tics before per-chapter revision |
    | Revision | `/storyforge:chapter-reviewer` on first unreviewed chapter | Review and polish |
    | Editing | `/storyforge:voice-checker` | Final authenticity check |
    | Proofread | `/storyforge:export-engineer` | Generate the book file |
@@ -36,5 +37,6 @@ user-invocable: true
    - Any chapters in "Draft" that need review? → Suggest `chapter-reviewer`
    - Characters still in "Concept"? → Suggest `character-creator`
    - Missing plot outline? → Suggest `plot-architect`
+   - All chapters drafted but `research/repetition-report.md` missing? → Suggest `repetition-checker` before per-chapter revisions begin
 
 5. **Present recommendation** with clear reasoning
