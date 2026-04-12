@@ -98,6 +98,29 @@ This step is MANDATORY. A book without a timeline anchor cannot maintain tempora
 
 Update book status to "Plot Outlined" via MCP `update_field()`.
 
+### Step 9: Create Tonal Document
+Create `{project}/plot/tone.md` from template `plot-tone.md`. This step is MANDATORY for new books.
+
+1. **Interview the user** (use AskUserQuestion or conversational flow):
+   - What should this book feel like to read? (overall emotional texture)
+   - Which authors or works should we channel for tone? Which to avoid?
+   - Are there non-negotiable rules? (e.g. humor must always be present, certain characters always felt)
+   - What would be a WARNING sign that the tone is drifting?
+
+2. **Populate the Tonal Arc** based on the act structure from Step 3:
+   - Map dominant/secondary tone per act/stage
+   - Define warning signs per stage (what would be WRONG)
+   - The tonal arc should SHIFT across the story — monotone is death
+
+3. **Define the Litmus Test** — 5-6 yes/no questions the chapter-writer answers after every chapter.
+   These should be specific to THIS book, not generic craft questions.
+
+4. **Non-Negotiable Rules** — Book-specific prose rules beyond the author profile's general style.
+
+5. Write the completed document to `{project}/plot/tone.md`.
+
+This document guards against tonal drift during long-form writing. Without it, books tend to collapse into generic "literary" mode after ~15 chapters.
+
 ## Rules
 - Structure serves story — never force a story into a structure that doesn't fit
 - Every beat must have emotional PURPOSE, not just plot function

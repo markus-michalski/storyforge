@@ -21,9 +21,12 @@ argument-hint: "<book-slug> <chapter-slug>"
 - Read `{project}/plot/canon-log.md` — check for facts marked `CHANGED` that this chapter may still reference incorrectly
 - Read `{project}/plot/timeline.md` — verify temporal claims match the canonical timeline
 - Read `{project}/world/setting.md` — verify travel times/distances match the Travel Matrix
+- Read `{project}/plot/tone.md` if it exists — check tonal rules, warning signs, and litmus test for this chapter's arc position
+- Read the `## Chapter Timeline` section from this chapter's `README.md` — verify all time references in the prose match the logged times
+- Read the `## Chapter Timeline` from the PREVIOUS chapter's `README.md` — verify cross-chapter time references (e.g. "an hour ago" across chapter boundaries)
 - Optional: If `{project}/research/repetition-report.md` exists, read it and check whether any of THIS chapter's distinctive 5-7 word phrases already appear in earlier chapters (lightweight cross-chapter repetition check). Flag any matches in the Continuity Report section.
 
-## Review Checklist — 20 Points
+## Review Checklist — 28 Points (20 core + 5 tonal + 3 timeline)
 
 ### Structure (5 points)
 1. **Opening hook** — Does the first paragraph grab? Would you keep reading?
@@ -53,6 +56,18 @@ argument-hint: "<book-slug> <chapter-slug>"
 19. **Stale references** — Is this chapter flagged as `[STALE]` in the Revision Impact Tracker? If so, list all outdated references.
 20. **Character facts** — Do character descriptions/behaviors match established facts? (e.g., does a vampire eat or not?)
 
+### Tonal Consistency (5 points) — only if `plot/tone.md` exists
+21. **Dominant mode** — Does the chapter match the dominant mode defined in the Tonal Arc table for this chapter's position?
+22. **Warning signs** — Does the chapter exhibit any of the warning-sign patterns listed for this stage?
+23. **Non-negotiable rules** — Are ALL non-negotiable rules satisfied? (humor density, dialog ratio, character presence, etc.)
+24. **Litmus test** — Answer every question from the Litmus Test section. Report pass/fail for each.
+25. **Banned patterns** — Does the chapter use any of the book-specific banned prose patterns?
+
+### Intra-Day Timeline (3 points)
+26. **Time anchor** — Does the chapter establish when it starts? Is this consistent with the previous chapter's ending time?
+27. **Internal consistency** — Do all relative time references ("ten minutes later", "an hour ago") match the Chapter Timeline in README.md?
+28. **Cross-chapter consistency** — Do references to earlier events use durations that match the previous chapter's timeline?
+
 ### Anti-AI (5 points)
 21. **AI vocabulary** — Any words from the banned list? (delve, tapestry, nuanced, etc.)
 22. **Structural uniformity** — Are paragraphs/sentences suspiciously uniform in length?
@@ -65,7 +80,7 @@ argument-hint: "<book-slug> <chapter-slug>"
 ```markdown
 ## Chapter Review: {Chapter Title}
 
-### Score: [X]/25
+### Score: [X]/25 (core) + [X]/5 (tonal, if tone.md exists) + [X]/3 (timeline)
 
 ### Strengths
 - *What works well*
@@ -87,6 +102,18 @@ argument-hint: "<book-slug> <chapter-slug>"
 - Timeline conflicts: [count] — [details]
 - Travel Matrix conflicts: [count] — [details]
 - Stale references (from revisions): [count] — [details]
+
+### Tonal Report (if tone.md exists)
+- Dominant mode match: [yes/no — expected: X, actual: Y]
+- Warning signs triggered: [list or "none"]
+- Non-negotiable rules: [PASS/FAIL per rule]
+- Litmus test: [pass/fail per question]
+- Banned patterns found: [list or "none"]
+
+### Chapter Timeline Report
+- Time anchor: [established / missing / inconsistent with previous chapter]
+- Internal time conflicts: [count] — [details]
+- Cross-chapter time conflicts: [count] — [details]
 
 ### AI-Tell Report
 - Flagged words: [list]

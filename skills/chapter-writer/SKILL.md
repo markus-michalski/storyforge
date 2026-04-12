@@ -32,6 +32,8 @@ Before writing a SINGLE word, load ALL of these:
 10. **Story timeline** — Read `{project}/plot/timeline.md`. Mandatory for ALL chapters. This is the canonical day/date reference.
 11. **Canon log** — Read `{project}/plot/canon-log.md`. Mandatory for ALL chapters. This tracks established facts and revision changes. Pay special attention to facts marked `CHANGED` — never reference the old version.
 12. **Series canon** — If part of a series, read `{series}/world/canon.md`.
+13. **Tonal document** — Read `{project}/plot/tone.md` if it exists. This defines book-specific tonal rules, warning signs, and the litmus test for this chapter's position in the tonal arc. Older books may not have this file — proceed without it, but recommend creating one.
+14. **Previous chapter timeline** — Read the `## Chapter Timeline` section from `{project}/chapters/{prev}/README.md`. This tells you what time of day the previous chapter ended, which determines when this chapter starts. Critical for time references like "an hour ago" or "that morning."
 
 ## Writing Process
 
@@ -98,6 +100,7 @@ Reference `chapter-construction.md` on endings:
 5. **Update timeline** — Add all days/events from this chapter to `{project}/plot/timeline.md`. One row per story-day. This is MANDATORY.
 6. **Update Travel Matrix** — If new routes were introduced in this chapter, add them to the Travel Matrix in `{project}/world/setting.md`.
 7. **Update Canon Log** — Add any new facts established in this chapter to `{project}/plot/canon-log.md`. If this is a **revision** of an existing chapter, mark changed facts as `CHANGED` with the old version in Notes, and add all downstream chapters to the Revision Impact Tracker.
+8. **Update Chapter Timeline** — Fill in the `## Chapter Timeline` section in this chapter's `README.md`. Log every time-anchored event with approximate times (`~HH:MM`). Track elapsed durations. This is MANDATORY — future chapters depend on this for temporal consistency.
 
 ### Step 8: Self-Review
 Before presenting to user, quick-check:
@@ -106,6 +109,8 @@ Before presenting to user, quick-check:
 - Is there conflict in every scene?
 - Does the POV character's emotional state change?
 - Would a reader know which character is speaking without dialog tags?
+- **Litmus test** — If `plot/tone.md` exists, answer EVERY question from the Litmus Test section. If more than 1 answer is "no", flag it to the user and suggest specific revisions before proceeding.
+- **Time consistency** — Verify that every time reference in the chapter (explicit or relative) is consistent with the Chapter Timeline you created in Step 7.
 
 Suggest: `/storyforge:chapter-reviewer` for detailed review.
 
@@ -120,6 +125,9 @@ Suggest: `/storyforge:chapter-reviewer` for detailed review.
 - Never write a day-of-week or date that contradicts `plot/timeline.md`. Update timeline first if needed.
 - Never contradict a fact in the Canon Log. If a fact is marked `CHANGED`, use the NEW version only.
 - When revising a chapter: update the Canon Log FIRST, then write. This ensures downstream impact is tracked.
+- If `plot/tone.md` exists, check the Tonal Arc table for this chapter's position. Write in the dominant mode specified. If you catch yourself drifting into a warning-sign pattern, stop and course-correct.
+- Never write a relative time reference ("an hour ago", "ten minutes later") without checking it against the Chapter Timeline. If the math doesn't work, adjust the prose, not the timeline.
+- The Chapter Timeline in README.md is MANDATORY for every chapter. No exceptions. Future chapters depend on it.
 - Write the chapter in ONE PASS, then offer revision. Don't second-guess mid-flow.
 - Target word count from the chapter README. Respect genre conventions.
 

@@ -29,6 +29,22 @@ word_count_target: 3000
 
 *What does the POV character feel at the start vs. end of this chapter?*
 
+## Chapter Timeline
+
+*Intra-day time tracking. The chapter-writer MUST update this after writing.*
+*The chapter-reviewer checks all time references against this table.*
+
+| Time | Event | Notes |
+|------|-------|-------|
+| | | |
+
+**Instructions:**
+- Log every time-anchored event (explicit clock times, "ten minutes later", sunrise/sunset)
+- Use approximate times with `~` prefix (e.g. `~8:45`) when not stated explicitly
+- Track elapsed durations in Notes (e.g. "11 min since arrival")
+- The previous chapter's timeline determines this chapter's starting time
+- Any "X hours/minutes ago" reference MUST be consistent with the logged times
+
 ## Notes
 
 *Writing notes, research needed, continuity reminders.*
