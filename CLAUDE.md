@@ -66,10 +66,10 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 2. `/storyforge:study-author` — (Optional) Analyze PDFs for style extraction
 3. `/storyforge:new-book` — Create project scaffold
 4. `/storyforge:book-conceptualizer` — Develop concept in 5 phases
-5. `/storyforge:plot-architect` — Structure plot with acts, beats, arcs
+5. `/storyforge:plot-architect` — Structure plot with acts, beats, arcs + tonal document
 6. `/storyforge:character-creator` — Build characters with depth
 7. `/storyforge:world-builder` — Setting, rules, history
-8. `/storyforge:chapter-writer` — Write chapters in author's voice (loads timeline + travel matrix)
+8. `/storyforge:chapter-writer` — Write chapters in author's voice (loads timeline + travel matrix + tonal document + chapter timeline)
 9. `/storyforge:continuity-checker` — (Optional, after several chapters) Validate timeline and location consistency
 9. `/storyforge:chapter-reviewer` — Review each chapter
 9b. `/storyforge:repetition-checker` — (At drafting → revision transition) Scan for cross-chapter repeated phrases, similes, character tells
@@ -86,7 +86,7 @@ Books live at `{content_root}/projects/{slug}/`:
 {book-slug}/
 ├── README.md           # Book metadata (YAML frontmatter)
 ├── synopsis.md         # Back-cover blurb + long synopsis
-├── plot/               # outline.md, acts.md, timeline.md (story calendar), canon-log.md (story bible), arcs.md
+├── plot/               # outline.md, acts.md, timeline.md (story calendar), tone.md (tonal guard rails), canon-log.md (story bible), arcs.md
 ├── characters/         # INDEX.md + individual character files
 ├── world/              # setting.md (incl. Travel Matrix), rules.md, history.md, glossary.md
 ├── research/           # sources.md + notes/
@@ -162,6 +162,8 @@ Skills MUST load relevant craft references before generating creative content:
 12. ALWAYS load `plot/canon-log.md` before writing any chapter — never contradict established facts
 13. ALWAYS update `plot/canon-log.md` after writing or revising a chapter — track new and changed facts
 14. NEVER blindly accept user corrections — verify the claim, check context, assess impact, and push back if the user is wrong or misunderstood. The user's English comprehension may miss nuances in prose. Quote the relevant text and explain.
+15. ALWAYS load `plot/tone.md` before writing any chapter (if it exists) — tonal consistency is mandatory
+16. ALWAYS update the `## Chapter Timeline` section in the chapter's README.md after writing — intra-day time tracking prevents temporal inconsistencies
 
 ## Code Style
 
