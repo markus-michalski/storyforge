@@ -42,7 +42,14 @@ argument-hint: "<book-slug>"
    |---|-------|--------|-------|
    ```
 
-8. **Recommend next action** — Based on book status:
+8. **Load per-book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. If it exists, show a compact summary:
+   - Active **Workflow** entries (verbatim)
+   - Active **Rules** (verbatim, up to 10 most recent)
+   - **Callbacks** pending resolution (verbatim)
+
+   If the file is missing (older book predating this feature): offer to run `init_book_claudemd` with the collected book facts.
+
+9. **Recommend next action** — Based on book status:
 
    | Book Status | Recommended Skill |
    |-------------|-------------------|

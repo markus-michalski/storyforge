@@ -34,6 +34,10 @@ Before writing a SINGLE word, load ALL of these:
 12. **Series canon** — If part of a series, read `{series}/world/canon.md`.
 13. **Tonal document** — Read `{project}/plot/tone.md` if it exists. This defines book-specific tonal rules, warning signs, and the litmus test for this chapter's position in the tonal arc. Older books may not have this file — proceed without it, but recommend creating one.
 14. **Previous chapter timeline** — Read the `## Chapter Timeline` section from `{project}/chapters/{prev}/README.md`. This tells you what time of day the previous chapter ended, which determines when this chapter starts. Critical for time references like "an hour ago" or "that morning."
+15. **Per-book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. Mandatory. Contains workflow rules, book-scoped rules, and callback register. Honor every entry:
+    - **Rules**: Apply to this chapter's prose (e.g. "avoid passive voice").
+    - **Workflow**: Follow the stated process (e.g. "scene-by-scene").
+    - **Callbacks**: Weave in the listed characters, objects, or plot threads where natural. Do not force them, but look for an organic moment.
 
 ## Writing Process
 

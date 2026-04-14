@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${HOME}/.storyforge/venv/bin/python3 ${CLAUDE_PLUGIN_ROOT}/hooks/precompact_sync_claudemd.py"
+          }
+        ]
+      }
+    ]
+  }
+}
