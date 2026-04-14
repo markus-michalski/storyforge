@@ -25,6 +25,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.1.0] - 2026-04-14
+
+### Added
+- reframe review-comment rule as verify-first
+- per-book CLAUDE.md with auto-sync via PreCompact hook
+- add scene-by-scene writing mode to chapter-writer
+- add tonal document and chapter timeline tracking
+- add repetition-checker for cross-chapter prose tics
+- add user feedback validation — never accept corrections blindly
+- add Canon Log for fact consistency across chapter revisions
+- add continuity tracking for timeline and location consistency
+
 ## [1.0.0] - 2026-04-04
 
 ### Added
@@ -42,3 +54,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - marketplace.json schema (owner + plugins format)
 
 [1.0.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.0.0
+[1.1.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.1.0
