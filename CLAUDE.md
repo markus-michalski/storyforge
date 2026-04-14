@@ -47,6 +47,7 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 | "Cover" / "Buchcover" | `/storyforge:cover-artist` |
 | "Promo" / "Social Media" / "Marketing" / "bewerben" | `/storyforge:promo-writer` |
 | "Neues Genre" / "Genre-Mix" | `/storyforge:genre-creator` |
+| `Regel:` / `Workflow:` / `Callback:` prefix, "merke dir" | `/storyforge:register-callback` |
 | "Hilfe" / "Help" | `/storyforge:help` |
 | "Setup" / "Einrichten" | `/storyforge:setup` |
 | "Config" / "Konfiguration" | `/storyforge:configure` |
@@ -164,6 +165,8 @@ Skills MUST load relevant craft references before generating creative content:
 14. NEVER blindly accept user corrections — verify the claim, check context, assess impact, and push back if the user is wrong or misunderstood. The user's English comprehension may miss nuances in prose. Quote the relevant text and explain.
 15. ALWAYS load `plot/tone.md` before writing any chapter (if it exists) — tonal consistency is mandatory
 16. ALWAYS update the `## Chapter Timeline` section in the chapter's README.md after writing — intra-day time tracking prevents temporal inconsistencies
+17. ALWAYS load the book's `CLAUDE.md` via MCP `get_book_claudemd()` before writing or reviewing a chapter — it contains persisted workflow rules and callbacks that survive session compaction
+18. Prefix grammar for persistence: messages starting with `Regel:`, `Workflow:`, or `Callback:` are extracted by the PreCompact hook and written to the book's CLAUDE.md. Unprefixed messages are never persisted automatically.
 
 ## Code Style
 

@@ -1,0 +1,36 @@
+# {{book_title}}
+
+Per-book context file. Loaded automatically by StoryForge skills and persisted across sessions.
+
+## Book Facts
+
+- **POV:** {{pov}}
+- **Tense:** {{tense}}
+- **Genre:** {{genre}}
+- **Writing Mode:** {{writing_mode}}
+
+## Workflow
+
+- Writing mode: **{{writing_mode}}** (scene-by-scene | chapter | book)
+- Wait for explicit user approval before setting `status: review`
+- Chapter Timeline in `README.md` is mandatory at review-status
+- Review comments come in ` ```textile Markus: ... ``` ` blocks inside the draft — **verify first, implement second**: quote the passage, check the claim against tone/canon/craft context, and push back if the comment is wrong or based on a misreading. Only fix after verification passes. Fix only what is commented, do not assume other changes.
+
+<!-- WORKFLOW:START -->
+<!-- WORKFLOW:END -->
+
+## Rules
+
+<!-- RULES:START -->
+<!-- RULES:END -->
+
+## Callback Register
+
+Characters, objects, or plot threads the user wants to recur in later chapters.
+
+<!-- CALLBACKS:START -->
+<!-- CALLBACKS:END -->
+
+---
+
+_Managed by StoryForge. Add entries via `Regel:`, `Workflow:`, or `Callback:` prefixes in your messages, or use `/storyforge:register-callback`._

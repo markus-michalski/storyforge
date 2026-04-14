@@ -28,11 +28,13 @@ argument-hint: "[title]"
 
 2. **Create project** — Use MCP `create_book_structure()` with collected info
 
-3. **Update session** — Use MCP `update_session()` with the new book as active
+3. **Create CLAUDE.md** — Use MCP `init_book_claudemd(book_slug, book_title, pov, tense, genre, writing_mode)` to scaffold the per-book context file. Ask the user for `writing_mode` if not obvious: `scene-by-scene` (default), `chapter`, or `book`. Per-chapter progress is NOT stored here — it lives in `update_session()`.
 
-4. **Load genre README(s)** — Use MCP `get_genre()` for each selected genre. Show key conventions to the user.
+4. **Update session** — Use MCP `update_session()` with the new book as active
 
-5. **Suggest next steps** — Based on the genre and book type:
+5. **Load genre README(s)** — Use MCP `get_genre()` for each selected genre. Show key conventions to the user.
+
+6. **Suggest next steps** — Based on the genre and book type:
    - "Start with `/storyforge:book-conceptualizer` to develop your concept"
    - "Or jump to `/storyforge:plot-architect` if you already know the story"
    - "Need characters first? Try `/storyforge:character-creator`"

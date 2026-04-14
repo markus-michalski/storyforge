@@ -24,6 +24,16 @@ from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_pa
 from tools.state.indexer import StateCache, build_state, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file
 from tools.analysis.repetition_checker import scan_repetitions, render_report
+from tools.claudemd.manager import (
+    append_callback as _append_callback_impl,
+    append_rule as _append_rule_impl,
+    append_workflow as _append_workflow_impl,
+    get_claudemd as _get_claudemd_impl,
+    init_claudemd as _init_claudemd_impl,
+    resolve_claudemd_path as _resolve_claudemd_path_impl,
+    update_book_facts as _update_book_facts_impl,
+)
+from tools.claudemd.parser import extract_prefixed_lines as _extract_prefixed_lines
 
 mcp = FastMCP("storyforge-mcp")
 _cache = StateCache()
@@ -1002,6 +1012,156 @@ def list_craft_references() -> str:
     if genre_dir.exists():
         result["genre"] = sorted(f.stem for f in genre_dir.glob("*.md"))
 
+    return json.dumps(result)
+
+
+# ============================================================
+# Per-Book CLAUDE.md Tools
+# ============================================================
+
+
+@mcp.tool()
+def init_book_claudemd(
+    book_slug: str,
+    book_title: str = "",
+    pov: str = "",
+    tense: str = "",
+    genre: str = "",
+    writing_mode: str = "scene-by-scene",
+    overwrite: bool = False,
+) -> str:
+    """Create CLAUDE.md from template in the book project root.
+
+    Called by new-book after scaffolding a project. Populates the Book Facts
+    section from the given metadata. Use overwrite=True to regenerate.
+
+    Ephemeral state (current chapter, next beat) is NOT stored here — it
+    belongs in the session cache (``update_session``) because it changes
+    after every chapter.
+    """
+    config = load_config()
+    facts = {
+        "book_title": book_title or book_slug,
+        "pov": pov,
+        "tense": tense,
+        "genre": genre,
+        "writing_mode": writing_mode,
+    }
+    try:
+        path = _init_claudemd_impl(
+            config, Path(plugin_root), book_slug, facts=facts, overwrite=overwrite
+        )
+    except FileExistsError as exc:
+        return json.dumps({"error": str(exc)})
+    except FileNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+    return json.dumps({"path": str(path), "created": True})
+
+
+@mcp.tool()
+def get_book_claudemd(book_slug: str) -> str:
+    """Read the current CLAUDE.md for a book."""
+    config = load_config()
+    try:
+        content = _get_claudemd_impl(config, book_slug)
+    except FileNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+    return json.dumps({"content": content})
+
+
+@mcp.tool()
+def append_book_rule(book_slug: str, text: str) -> str:
+    """Append a rule to the Rules section of a book's CLAUDE.md."""
+    config = load_config()
+    try:
+        path = _append_rule_impl(config, book_slug, text)
+    except (FileNotFoundError, ValueError) as exc:
+        return json.dumps({"error": str(exc)})
+    return json.dumps({"path": str(path), "kind": "rule", "text": text})
+
+
+@mcp.tool()
+def append_book_workflow(book_slug: str, text: str) -> str:
+    """Append a workflow instruction to a book's CLAUDE.md."""
+    config = load_config()
+    try:
+        path = _append_workflow_impl(config, book_slug, text)
+    except (FileNotFoundError, ValueError) as exc:
+        return json.dumps({"error": str(exc)})
+    return json.dumps({"path": str(path), "kind": "workflow", "text": text})
+
+
+@mcp.tool()
+def append_book_callback(book_slug: str, text: str) -> str:
+    """Append a callback to the Callback Register of a book's CLAUDE.md."""
+    config = load_config()
+    try:
+        path = _append_callback_impl(config, book_slug, text)
+    except (FileNotFoundError, ValueError) as exc:
+        return json.dumps({"error": str(exc)})
+    return json.dumps({"path": str(path), "kind": "callback", "text": text})
+
+
+@mcp.tool()
+def update_book_claudemd_facts(
+    book_slug: str,
+    pov: str = "",
+    tense: str = "",
+    genre: str = "",
+    writing_mode: str = "",
+) -> str:
+    """Update one or more Book Facts fields in a book's CLAUDE.md.
+
+    Empty strings are ignored (field left unchanged). Only stable facts
+    live in CLAUDE.md; per-chapter progress belongs in the session cache.
+    """
+    config = load_config()
+    provided = {
+        "pov": pov,
+        "tense": tense,
+        "genre": genre,
+        "writing_mode": writing_mode,
+    }
+    facts = {k: v for k, v in provided.items() if v}
+    if not facts:
+        return json.dumps({"error": "No fields provided"})
+    try:
+        path = _update_book_facts_impl(config, book_slug, facts)
+    except FileNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+    return json.dumps({"path": str(path), "updated": list(facts.keys())})
+
+
+@mcp.tool()
+def sync_book_claudemd_from_text(book_slug: str, text: str) -> str:
+    """Extract prefixed entries (Regel:/Workflow:/Callback:) and persist them.
+
+    Used by the PreCompact hook: pass a text blob (e.g. recent session
+    messages) and all matching lines are appended to the appropriate
+    sections. Returns counts per kind.
+    """
+    config = load_config()
+    entries = _extract_prefixed_lines(text)
+    counts = {"rule": 0, "workflow": 0, "callback": 0, "errors": 0}
+    errors: list[str] = []
+
+    impl_map = {
+        "rule": _append_rule_impl,
+        "workflow": _append_workflow_impl,
+        "callback": _append_callback_impl,
+    }
+
+    for kind, body in entries:
+        try:
+            impl_map[kind](config, book_slug, body)
+            counts[kind] += 1
+        except (FileNotFoundError, ValueError) as exc:
+            counts["errors"] += 1
+            errors.append(f"{kind}: {exc}")
+
+    result: dict[str, Any] = {"counts": counts}
+    if errors:
+        result["errors"] = errors
     return json.dumps(result)
 
 
