@@ -25,6 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.2.0] - 2026-04-15
+
+### Added
+- add per-idea file state management with status progression
+
+### Changed
+- add GitHub Actions workflow with pytest and ruff
+
+### Fixed
+- remove unused imports in test_analysis.py (ruff)
+
 ## [1.1.0] - 2026-04-14
 
 ### Added
@@ -55,3 +66,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [1.0.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.0.0
 [1.1.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.1.0
+[1.2.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.2.0
