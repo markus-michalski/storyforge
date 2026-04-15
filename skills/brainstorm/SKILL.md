@@ -38,13 +38,25 @@ Once the user picks a direction:
 - **Comparable titles:** "X meets Y"
 
 ### Phase 4: Save
-Save the idea via MCP `create_idea()` with title, genres, and concept.
+Save the idea via MCP `create_idea()` with title, genres, logline, and concept body.
 
-Ask: "Ready to turn this into a project? → `/storyforge:new-book`"
-Or: "Want to let it marinate and brainstorm another?"
+The idea gets status `raw` by default. If the user has fully developed it (logline + themes + comps),
+call `update_idea(slug, "status", "explored")` immediately after saving.
+
+Tell the user the slug so they can reference it later: "Saved as `{slug}`."
+
+Ask: "Ready to turn this into a project? → `/storyforge:new-book --from-idea {slug}`"
+Or: "Want to let it marinate? Check your ideas with `/storyforge:ideas`."
+
+### Phase 5: Resuming an idea (optional)
+If the user returns to an existing idea (e.g. "continue the clockmaker idea"):
+1. Load it via MCP `get_idea(slug)`
+2. Continue development from where it left off
+3. Update fields via `update_idea()` as the concept grows
 
 ## Rules
 - Be provocative and unexpected. Don't offer safe, generic ideas.
 - Push the user toward specificity — "a vampire story" is not enough. WHOSE vampire story? What makes it THEIRS?
 - Mix genres freely. The best ideas live at intersections.
 - Always save ideas — even rejected ones might resurface later.
+- Always fill in the logline before saving — a vague idea without a logline is hard to revisit.

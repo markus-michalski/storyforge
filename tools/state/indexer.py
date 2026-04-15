@@ -19,6 +19,7 @@ from tools.state.parsers import (
     parse_book_readme,
     parse_chapter_readme,
     parse_character_file,
+    parse_frontmatter,
     parse_series_readme,
 )
 
@@ -121,9 +122,8 @@ def build_state() -> dict[str, Any]:
         state["series"] = _scan_series(series_dir)
 
     # Scan ideas
-    ideas_file = content_root / "IDEAS.md"
-    if ideas_file.exists():
-        state["ideas"] = _scan_ideas(ideas_file)
+    ideas_dir = content_root / "ideas"
+    state["ideas"] = _scan_ideas_dir(ideas_dir)
 
     _write_state(state)
     return state
@@ -262,22 +262,35 @@ def _scan_series(series_dir: Path) -> dict[str, Any]:
     return all_series
 
 
-def _scan_ideas(ideas_file: Path) -> list[dict[str, str]]:
-    """Parse IDEAS.md into a list of idea entries."""
-    text = ideas_file.read_text(encoding="utf-8")
+def _scan_ideas_dir(ideas_dir: Path) -> list[dict]:
+    """Scan ideas/ directory and return a list of idea metadata dicts.
+
+    Each .md file (excluding _archive/ subdirectory) is parsed for its
+    YAML frontmatter. Non-.md files are silently ignored.
+    """
+    if not ideas_dir.exists():
+        return []
+
     ideas = []
-    current: dict[str, str] = {}
-
-    for line in text.splitlines():
-        if line.startswith("## "):
-            if current:
-                ideas.append(current)
-            current = {"title": line[3:].strip(), "notes": ""}
-        elif current:
-            current["notes"] += line + "\n"
-
-    if current:
-        ideas.append(current)
+    for md_file in sorted(ideas_dir.glob("*.md")):
+        if not md_file.is_file():
+            continue
+        try:
+            meta, _ = parse_frontmatter(md_file.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not meta:
+            continue
+        ideas.append({
+            "slug": meta.get("slug", md_file.stem),
+            "title": meta.get("title", md_file.stem),
+            "status": meta.get("status", "raw"),
+            "genres": meta.get("genres", []),
+            "logline": meta.get("logline", ""),
+            "created": str(meta.get("created", "")),
+            "last_touched": str(meta.get("last_touched", "")),
+            "promoted_to": meta.get("promoted_to"),
+        })
 
     return ideas
 
