@@ -1,6 +1,5 @@
 """Tests for StoryForge path utilities."""
 
-import pytest
 from pathlib import Path
 from tools.shared.paths import (
     slugify,

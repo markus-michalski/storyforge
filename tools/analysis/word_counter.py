@@ -69,7 +69,7 @@ def analyze_sentence_lengths(text: str) -> dict:
 
     lengths = [len(s.split()) for s in sentences]
     mean = sum(lengths) / len(lengths)
-    variance = sum((l - mean) ** 2 for l in lengths) / len(lengths)
+    variance = sum((n - mean) ** 2 for n in lengths) / len(lengths)
     std_dev = variance ** 0.5
 
     # Human writing typically has std_dev > 8

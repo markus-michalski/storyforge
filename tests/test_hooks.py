@@ -1,7 +1,6 @@
 """Tests for StoryForge PostToolUse hooks."""
 
-import pytest
-from hooks.validate_chapter import validate_chapter, AI_TELL_WORDS
+from hooks.validate_chapter import validate_chapter
 from hooks.validate_character import validate_character
 
 

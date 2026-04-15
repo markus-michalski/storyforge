@@ -1,0 +1,7 @@
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# E402: module-level import not at top of file
+# Intentional in server.py — sys.path must be set before importing local tools
+ignore = ["E402"]

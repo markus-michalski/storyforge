@@ -69,7 +69,7 @@ def validate_chapter(file_path: str) -> list[str]:
     if len(sentences) > 10:
         lengths = [len(s.split()) for s in sentences]
         mean = sum(lengths) / len(lengths)
-        variance = sum((l - mean) ** 2 for l in lengths) / len(lengths)
+        variance = sum((n - mean) ** 2 for n in lengths) / len(lengths)
         std_dev = variance ** 0.5
 
         if std_dev < 4:

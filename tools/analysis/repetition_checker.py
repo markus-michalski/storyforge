@@ -487,9 +487,9 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
         )
     if cat == "character_tell":
         return (
-            f"_Recommendation:_ A repeated body-part tell becomes invisible after "
-            f"the second use. Keep one or two, then vary the physical signal — "
-            f"a different body part, an action, or a verbal beat."
+            "_Recommendation:_ A repeated body-part tell becomes invisible after "
+            "the second use. Keep one or two, then vary the physical signal — "
+            "a different body part, an action, or a verbal beat."
         )
     if cat == "blocking_tic":
         return (

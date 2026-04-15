@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -21,9 +21,9 @@ if tools_path not in sys.path:
 
 from mcp.server.fastmcp import FastMCP
 
-from tools.shared.config import load_config, get_content_root, get_authors_root, get_genres_dir, get_reference_dir, get_templates_dir
-from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_author_path, find_projects, find_chapters, find_authors, find_series, resolve_series_path
-from tools.state.indexer import StateCache, build_state, rebuild
+from tools.shared.config import load_config, get_content_root, get_genres_dir, get_reference_dir
+from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_author_path, find_chapters, resolve_series_path
+from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file
 from tools.analysis.repetition_checker import scan_repetitions, render_report
 from tools.claudemd.manager import (
@@ -32,7 +32,6 @@ from tools.claudemd.manager import (
     append_workflow as _append_workflow_impl,
     get_claudemd as _get_claudemd_impl,
     init_claudemd as _init_claudemd_impl,
-    resolve_claudemd_path as _resolve_claudemd_path_impl,
     update_book_facts as _update_book_facts_impl,
 )
 from tools.claudemd.parser import extract_prefixed_lines as _extract_prefixed_lines
@@ -491,7 +490,7 @@ updated: "{today}"
 
     # Export
     (project_dir / "export" / "front-matter.md").write_text(f"---\ntitle: \"{title}\"\nauthor: \"\"\ncopyright_year: {date.today().year}\n---\n\n# {title}\n\n*by [Author Name]*\n\nCopyright {date.today().year}\n\nAll rights reserved.\n", encoding="utf-8")
-    (project_dir / "export" / "back-matter.md").write_text(f"# About the Author\n\n*Author bio.*\n\n# Also by [Author Name]\n\n*Other books.*\n", encoding="utf-8")
+    (project_dir / "export" / "back-matter.md").write_text("# About the Author\n\n*Author bio.*\n\n# Also by [Author Name]\n\n*Other books.*\n", encoding="utf-8")
 
     _cache.invalidate()
     return json.dumps({

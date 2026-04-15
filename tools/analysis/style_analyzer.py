@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from pathlib import Path
 from typing import Any
 
 
@@ -137,7 +136,7 @@ def check_paragraph_uniformity(text: str) -> dict[str, Any]:
 
     lengths = [len(p.split()) for p in paragraphs]
     mean = sum(lengths) / len(lengths)
-    variance = sum((l - mean) ** 2 for l in lengths) / len(lengths)
+    variance = sum((n - mean) ** 2 for n in lengths) / len(lengths)
     std_dev = variance ** 0.5
 
     # Human paragraphs vary a LOT

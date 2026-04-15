@@ -1,13 +1,10 @@
 """Tests for StoryForge frontmatter parsers."""
 
-import pytest
-from pathlib import Path
 from tools.state.parsers import (
     parse_frontmatter,
     parse_book_readme,
     parse_chapter_readme,
     parse_character_file,
-    parse_author_profile,
     count_words_in_file,
     _normalize_book_status,
     _normalize_chapter_status,
