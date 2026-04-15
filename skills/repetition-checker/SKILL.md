@@ -138,6 +138,13 @@ This keeps the canon log honest about what was changed during revision.
   think the detector is wrong about a finding, push back.
 - Honor the author profile. If a profile defines a signature phrase as
   intentional, exclude it from rewrite recommendations.
+- **Honor the book's CLAUDE.md rules.** The scan automatically loads
+  `<book>/CLAUDE.md`, extracts the `## Rules` section (static entries + the
+  `<!-- RULES:START -->` block), and reports matches as `book_rule_violation`
+  findings with severity `high` — independent of n-gram frequency. These
+  always sort to the top of the report, and the offending rule text is shown
+  verbatim so the user sees *why* something was flagged. Treat these as the
+  most important findings: the user explicitly wrote the rule for this book.
 
 ## Algorithmic notes (for transparency)
 
@@ -154,6 +161,24 @@ The underlying detector lives at `tools/analysis/repetition_checker.py`.
   (`the kind of`, `for X years`), and sensory tokens.
 - Pure stdlib — no NLP dependencies — so the scan runs in seconds even on
   100k-word manuscripts.
+
+### Book-rule pattern extraction
+
+For `book_rule_violation` findings, the scanner extracts patterns from each
+rule bullet using simple heuristics:
+
+- **Backtick-wrapped regex** — if the content contains regex metacharacters
+  (`|`, `(`, `)`, `[`, `]`, `\`, `^`, `$`, `?`, `+`, `*`, `{`, `}`), it's
+  compiled as a case-insensitive regex. Example: `` `the (specific|particular) [a-z]+ (that|of)` ``
+- **Backtick-wrapped literal** — otherwise treated as a literal case-insensitive
+  substring. Example: `` ` thing ` ``
+- **Double-quoted phrases** (≥3 chars) — treated as literal substring patterns.
+  Example: `"opened his mouth. Closed it."`
+- Italics (`*foo*`) are **ignored** — they're used for narrative examples, not
+  scannable bans.
+- Rules without any extractable pattern produce no findings, even if the rule
+  text references a concept. Rephrase the rule with backticks or quotes to
+  make it machine-readable.
 
 ## Error handling
 
