@@ -78,16 +78,16 @@ Target ~900 words per scene (can vary — some scenes need 600, others 1200). Th
 For the current scene, apply ALL craft rules (Steps 3-6 from Mode B below). Write ONLY this scene — do not continue into the next scene.
 
 After writing the scene:
-1. Present it to the user
-2. Report word count for this scene
-3. **WAIT for user feedback.** Do NOT proceed to the next scene until the user approves or corrects.
+1. **Append the scene text directly to `{project}/chapters/{chapter}/draft.md`.** Do NOT paste the scene into chat. The user reviews in their editor and annotates with inline `` ```textile Markus: ... ``` `` comment blocks — that workflow only works if the prose is in the file. If `draft.md` does not exist yet, create it with a chapter heading (`# Chapter N: Title`) above the first scene. Separate scenes with a blank line; do not add scene headings unless the chapter outline specifies them.
+2. In chat, report only: scene number, final word count, and a one-line summary of what the scene covers. Do NOT repeat the scene prose in chat.
+3. **WAIT for user feedback.** Corrections come back as inline `Markus:` blocks inside `draft.md` — read them from the updated file and apply per the User Feedback Handling rules.
 
 #### Step A3: User Review Loop
-The user reads and may correct the scene. Handle corrections per the User Feedback Handling rules (verify, check context, assess impact, push back if wrong).
+The user reads the scene in their editor and may add `` ```textile Markus: ... ``` `` comment blocks inline in `draft.md`. Re-read the file after the user signals feedback, extract the `Markus:` blocks, and handle each correction per the User Feedback Handling rules (verify, check context, assess impact, push back if wrong).
 
 Once the user approves the scene (explicitly or by asking to continue):
-1. Append the approved scene to `{project}/chapters/{chapter}/draft.md`
-2. Move to the next scene (Step A2)
+1. Remove any applied `Markus:` comment blocks from `draft.md` — the scene prose stays, the review annotations go.
+2. Move to the next scene (Step A2).
 
 #### Step A4: Chapter Completion
 After ALL scenes are approved and appended to draft.md:
@@ -190,6 +190,9 @@ Suggest: `/storyforge:chapter-reviewer` for detailed review.
 - The Chapter Timeline in README.md is MANDATORY for every chapter. No exceptions. Future chapters depend on it.
 - In full-chapter mode: Write in ONE PASS, then offer revision. Don't second-guess mid-flow.
 - In scene-by-scene mode: Write ONLY the current scene. STOP and WAIT for user feedback. NEVER proceed to the next scene without explicit approval. Each scene applies ALL craft rules (author voice, anti-AI, sensory details) — short scenes are not an excuse for lower quality.
+- In scene-by-scene mode: Scene text goes **into `draft.md`**, not into chat. The user's inline-review workflow (`` ```textile Markus: ... ``` `` blocks inside the draft) breaks if prose sits in chat. Report only metadata in chat: scene number, word count, one-line summary.
+- **One Claude Code session per chapter.** Do not span a chapter across sessions. The chapter-writer's cold-start prerequisite load (author profile, tone doc, canon log, previous chapter, book CLAUDE.md) is designed for a fresh session; scene-by-scene review cycles burn context fast. If auto-compaction fires mid-chapter it can silently drop earlier review decisions. All persistent state is on disk — finish the chapter, close the session, open a new one for the next chapter.
+- **Never power through mid-chapter compaction pressure.** If context pressure starts to mount during a scene-by-scene chapter, STOP and tell the user. A scene written after partial context loss degrades silently — previous review decisions, tonal cues, and canon facts may have been compressed away. Better to end the session and resume fresh than to ship a degraded scene.
 - Target word count from the chapter README. Respect genre conventions.
 
 ## User Feedback Handling — CRITICAL
