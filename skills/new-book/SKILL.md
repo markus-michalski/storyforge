@@ -13,6 +13,13 @@ argument-hint: "[title]"
 
 ## Workflow
 
+### If called with `--from-idea {slug}`
+1. Load the idea via MCP `get_idea(slug)`
+2. Pre-fill title, genres, and logline from the idea's frontmatter
+3. Skip re-asking for fields that are already populated (ask only for missing ones)
+4. After creating the book, call MCP `promote_idea(slug, book_slug)` to mark the idea as promoted
+
+### Standard flow
 1. **Gather information** — Ask the user (use AskUserQuestion):
    - **Title** — What's the working title?
    - **Genre(s)** — Show available genres via MCP `list_genres()`. Allow 1-3 selections. Mention genre-mixing.

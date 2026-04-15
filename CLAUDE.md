@@ -25,6 +25,7 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 |------------|-------|
 | "New book" / "Neues Buch" | `/storyforge:new-book` IMMEDIATELY |
 | "Brainstorm" / "Idee" / "Was könnte ich schreiben?" | `/storyforge:brainstorm` |
+| "Meine Ideen" / "Ideas" / "Was habe ich gespeichert?" | `/storyforge:ideas` |
 | Book title/name mentioned | `/storyforge:resume [name]` |
 | "What's next?" / "Was steht an?" | `/storyforge:next-step` |
 | "Dashboard" / "Status" / "Fortschritt" | `/storyforge:book-dashboard` |
