@@ -1,6 +1,5 @@
 """Tests for StoryForge analysis tools."""
 
-import pytest
 from tools.analysis.word_counter import (
     count_words,
     estimate_reading_time,
@@ -9,7 +8,6 @@ from tools.analysis.word_counter import (
 from tools.analysis.style_analyzer import (
     scan_ai_tells,
     scan_filter_words,
-    analyze_vocabulary_complexity,
     analyze_dialog_ratio,
     check_paragraph_uniformity,
 )
