@@ -11,13 +11,12 @@ from typing import Any
 
 import yaml
 
-# Ensure tools directory is on path
+# Ensure plugin root is on path so `tools` can be imported as a package
 plugin_root = os.environ.get(
     "CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent.parent)
 )
-tools_path = str(Path(plugin_root) / "tools")
-if tools_path not in sys.path:
-    sys.path.insert(0, tools_path)
+if plugin_root not in sys.path:
+    sys.path.insert(0, plugin_root)
 
 from mcp.server.fastmcp import FastMCP
 

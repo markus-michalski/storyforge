@@ -20,10 +20,15 @@ def main() -> None:
     )
     os.environ["CLAUDE_PLUGIN_ROOT"] = plugin_root
 
-    # Add tools directory to Python path
-    tools_path = str(Path(plugin_root) / "tools")
-    if tools_path not in sys.path:
-        sys.path.insert(0, tools_path)
+    # Add plugin root to Python path so `tools` can be imported as a package
+    if plugin_root not in sys.path:
+        sys.path.insert(0, plugin_root)
+    # Also propagate via PYTHONPATH so it survives os.execv below
+    os.environ["PYTHONPATH"] = (
+        plugin_root + os.pathsep + os.environ["PYTHONPATH"]
+        if os.environ.get("PYTHONPATH")
+        else plugin_root
+    )
 
     venv_python = VENV_PATH / "bin" / "python3"
     server_path = Path(__file__).resolve().parent / "server.py"
