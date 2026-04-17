@@ -8,24 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- manuscript-checker: `cliche` detection against a curated banlist (~35 entries)
-- manuscript-checker: `question_as_statement` detection — dialogue starting with
-  an interrogative word but ending with "." instead of "?" (McCarthy-style
-  overuse detector). Recommends either converting to "?" or pairing the flat
-  delivery with a narrative beat ("It was a demand, not a question.")
-- manuscript-checker: `filter_word` detection — POV-distancing verbs per
-  chapter with density thresholds
-- manuscript-checker: `adverb_density` detection — per-chapter `-ly` adverb
-  ratio with density thresholds
+- Nothing yet
 
 ### Changed
-- rename skill `repetition-checker` → `manuscript-checker`, reflecting its
-  full scope beyond n-gram repetition
-- rename MCP tool `scan_book_repetitions` → `scan_manuscript`
-- rename report file `research/repetition-report.md` → `research/manuscript-report.md`
-- rename module `tools/analysis/repetition_checker.py` → `manuscript_checker.py`
-- book-rule violations and clichés now always sort to the top of the report,
-  ahead of n-gram findings
+- Nothing yet
 
 ### Deprecated
 - Nothing yet
@@ -38,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Nothing yet
+
+## [1.5.0] - 2026-04-17
+
+### Added
+- rename repetition-checker → manuscript-checker + 4 new detectors
+
+### Fixed
+- drop unused f-string prefixes to satisfy ruff F541
 
 ## [1.4.1] - 2026-04-17
 
@@ -105,3 +99,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.3.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.3.1
 [1.4.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.4.0
 [1.4.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.4.1
+[1.5.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.5.0
