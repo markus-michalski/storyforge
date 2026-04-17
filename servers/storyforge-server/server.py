@@ -24,7 +24,7 @@ from tools.shared.config import load_config, get_content_root, get_genres_dir, g
 from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_author_path, find_chapters, resolve_series_path
 from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file
-from tools.analysis.repetition_checker import scan_repetitions, render_report
+from tools.analysis.manuscript_checker import scan_repetitions, render_report
 from tools.claudemd.manager import (
     append_callback as _append_callback_impl,
     append_rule as _append_rule_impl,
@@ -207,18 +207,27 @@ def rebuild_state() -> str:
 
 
 @mcp.tool()
-def scan_book_repetitions(
+def scan_manuscript(
     book_slug: str,
     min_occurrences: int = 2,
     write_report: bool = True,
     max_findings_per_category: int = 40,
 ) -> str:
-    """Scan all chapter drafts of a book for repeated phrases, similes,
-    character tells, blocking tics, and structural patterns.
+    """Scan all chapter drafts of a book for prose-quality issues that only
+    surface when the whole manuscript is read in one pass.
+
+    Detects:
+    - Violations of rules from the book's CLAUDE.md (highest priority)
+    - Curated fiction clichés ("blood ran cold", "time stood still", ...)
+    - Dialogue punctuation anomalies (Q-word opener + trailing period)
+    - POV filter-word overuse per chapter ("felt", "noticed", "saw that", ...)
+    - Per-chapter `-ly` adverb density
+    - Cross-chapter repeated phrases: similes, character tells, blocking tics,
+      structural patterns, signature phrases
 
     Returns the structured findings as JSON. When `write_report` is true,
     also writes a human-readable Markdown report to
-    `<book>/research/repetition-report.md` and returns the path.
+    `<book>/research/manuscript-report.md` and returns the path.
 
     Args:
         book_slug: The book project slug.
@@ -242,7 +251,7 @@ def scan_book_repetitions(
     if write_report:
         research_dir = book_path / "research"
         research_dir.mkdir(parents=True, exist_ok=True)
-        report_file = research_dir / "repetition-report.md"
+        report_file = research_dir / "manuscript-report.md"
         report_file.write_text(render_report(result), encoding="utf-8")
         report_path = str(report_file)
 

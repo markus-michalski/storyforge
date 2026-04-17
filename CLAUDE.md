@@ -40,7 +40,7 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 | "Kapitel reviewen" / "Review chapter" | `/storyforge:chapter-reviewer` |
 | "Continuity prüfen" / "Check continuity" / "Zeitlinie prüfen" / "Timeline prüfen" | `/storyforge:continuity-checker` |
 | "Voice check" / "Klingt das nach AI?" | `/storyforge:voice-checker` |
-| "Repetition check" / "Wiederholungen prüfen" / "Prose tics" | `/storyforge:repetition-checker` |
+| "Manuscript check" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" | `/storyforge:manuscript-checker` |
 | "Beta feedback" / "ARC feedback" / "Reader feedback" / "Beta-Feedback verarbeiten" | `/storyforge:beta-feedback` |
 | "Recherche" / "Research" | `/storyforge:researcher` |
 | "Sensitivity" / "Problematisch?" | `/storyforge:sensitivity-reader` |
@@ -75,7 +75,7 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 8. `/storyforge:chapter-writer` — Write chapters in author's voice (loads timeline + travel matrix + tonal document + chapter timeline)
 9. `/storyforge:continuity-checker` — (Optional, after several chapters) Validate timeline and location consistency
 9. `/storyforge:chapter-reviewer` — Review each chapter
-9b. `/storyforge:repetition-checker` — (At drafting → revision transition) Scan for cross-chapter repeated phrases, similes, character tells
+9b. `/storyforge:manuscript-checker` — (At drafting → revision transition) Scan the whole manuscript for book-rule violations, clichés, dialogue punctuation, filter words, adverb density, and cross-chapter repetition
 9c. `/storyforge:beta-feedback` — (After eBook/ARC stage) Process curated beta-reader feedback, triage, revision plan
 10. `/storyforge:voice-checker` — Verify authenticity
 11. `/storyforge:cover-artist` — Generate cover prompts

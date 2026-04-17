@@ -71,7 +71,7 @@ storyforge/
 | **Core** | new-book, session-start, resume, next-step, book-dashboard, brainstorm |
 | **Author** | create-author, study-author, voice-checker |
 | **Creative** | book-conceptualizer, plot-architect, character-creator, world-builder |
-| **Writing** | chapter-writer, chapter-reviewer, repetition-checker |
+| **Writing** | chapter-writer, chapter-reviewer, manuscript-checker |
 | **Research** | researcher, sensitivity-reader |
 | **Production** | export-engineer, promo-writer, translator, cover-artist |
 | **Utility** | genre-creator, series-planner, help, setup, configure |

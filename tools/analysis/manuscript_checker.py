@@ -1,25 +1,27 @@
-"""Cross-chapter repetition detection.
+"""Cross-chapter manuscript checker.
 
-Scans all chapter drafts of a book for repeated phrases, similes, character
-tells, blocking tics, and structural patterns. The output is a structured
-report meant to be consumed by the `repetition-checker` skill, which then
-turns it into a human-readable Markdown file with revision recommendations.
+Scans all chapter drafts of a book for prose-quality issues that only surface
+when the whole manuscript is read in one pass. Produces a structured report
+for the `manuscript-checker` skill, which turns it into human-readable
+Markdown with revision recommendations.
 
-Algorithmic approach
+Detection categories
 --------------------
-- Normalise text (strip frontmatter, lowercase, collapse whitespace, strip
-  punctuation that doesn't matter for n-gram identity).
-- Build n-grams of length 4..7 over the running prose, recording every
-  occurrence with chapter slug + line number + a context snippet.
-- Drop n-grams that appear only once.
-- Drop n-grams that are dominated by stop-words (every token is a stop-word).
-- Classify each repeated n-gram into a category by inspecting its tokens and
-  the immediate surrounding context (similes via "like|as|as if|as though",
-  blocking tics via verb patterns, character tells via body-part vocabulary).
-- Rank by severity: 4+ occurrences = high, 2..3 = medium.
+- **book_rule_violation** — Patterns extracted from the book's CLAUDE.md rules.
+- **simile / character_tell / blocking_tic / sensory / structural /
+  signature_phrase** — Cross-chapter repeated n-grams.
+- **filter_word** — POV-distancing verbs ("felt", "noticed", "saw that") that
+  weaken close-third narration by mediating sensation through the POV head.
+- **adverb_density** — Per-chapter `-ly` adverb ratio. Heavy adverb use is a
+  craft-level red flag independent of repetition.
+- **cliche** — Curated banlist of worn-out fiction phrasings
+  ("blood ran cold", "heart skipped a beat", etc.).
+- **question_as_statement** — Dialogue that starts with an interrogative word
+  but ends with a period instead of a question mark. Usable once as style
+  (McCarthy-style flat delivery), monotonous when systematic.
 
-The module is intentionally dependency-free (stdlib only) so it can run
-inside the MCP server without extra installs.
+The module is dependency-free (stdlib only) so it can run inside the MCP
+server without extra installs.
 """
 
 from __future__ import annotations
@@ -492,6 +494,414 @@ def _scan_book_rules(book_path: Path) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
+# Filter words — POV distancing verbs
+# ---------------------------------------------------------------------------
+
+# Verbs that mediate sensation through the POV character's head rather than
+# letting the reader experience it directly. Overuse is a close-third
+# weakness. Patterns use word boundaries and, where necessary, require a
+# disambiguating follower (e.g. "saw that" vs. just "saw") to avoid flagging
+# legitimate uses.
+FILTER_WORD_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("felt",        re.compile(r"\b(?:felt)\b", re.IGNORECASE)),
+    ("noticed",     re.compile(r"\bnoticed\b", re.IGNORECASE)),
+    ("saw that",    re.compile(r"\bsaw\s+(?:that|how|the\s+way)\b", re.IGNORECASE)),
+    ("heard that",  re.compile(r"\bheard\s+(?:that|how|the)\b", re.IGNORECASE)),
+    ("seemed",      re.compile(r"\bseemed\b", re.IGNORECASE)),
+    ("appeared",    re.compile(r"\bappeared\s+to\b", re.IGNORECASE)),
+    ("realized",    re.compile(r"\brealized\b", re.IGNORECASE)),
+    ("wondered",    re.compile(r"\bwondered\b", re.IGNORECASE)),
+    ("watched",     re.compile(r"\bwatched\b", re.IGNORECASE)),
+    ("observed",    re.compile(r"\bobserved\b", re.IGNORECASE)),
+    ("thought that", re.compile(r"\bthought\s+(?:that|of)\b", re.IGNORECASE)),
+    ("decided",     re.compile(r"\bdecided\b", re.IGNORECASE)),
+    ("knew that",   re.compile(r"\bknew\s+(?:that|how)\b", re.IGNORECASE)),
+    ("remembered",  re.compile(r"\bremembered\b", re.IGNORECASE)),
+    ("sensed",      re.compile(r"\bsensed\b", re.IGNORECASE)),
+)
+
+# Per-chapter thresholds. Below medium_threshold is acceptable. Between
+# medium_threshold and high_threshold is medium severity; at or above
+# high_threshold is high severity. Expressed as counts-per-1000-words so
+# short chapters aren't over-penalised.
+FILTER_WORD_MEDIUM_PER_1K = 3.0
+FILTER_WORD_HIGH_PER_1K = 6.0
+
+
+def _scan_filter_words(book_path: Path) -> list[Finding]:
+    """Flag POV filter-word overuse per chapter.
+
+    Produces one Finding per chapter that exceeds the medium threshold,
+    listing the top filter-word hits plus total density.
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    findings: list[Finding] = []
+    for chapter_slug, raw_text in drafts:
+        cleaned = _strip_markdown(raw_text)
+        word_count = len(_tokenise(cleaned))
+        if word_count < 200:
+            # Too short to draw a meaningful density conclusion.
+            continue
+
+        occurrences: list[Occurrence] = []
+        per_word_counts: dict[str, int] = defaultdict(int)
+        for line_no, line in enumerate(cleaned.splitlines(), start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            # Skip dialogue-only lines: filter words inside quotes are
+            # character speech, not narration.
+            narration = _strip_dialogue(stripped)
+            if not narration.strip():
+                continue
+            for label, pattern in FILTER_WORD_PATTERNS:
+                for m in pattern.finditer(narration):
+                    per_word_counts[label] += 1
+                    # Snippet from the original line so the reader sees the
+                    # full context (including any surrounding dialogue).
+                    occurrences.append(
+                        Occurrence(
+                            chapter=chapter_slug,
+                            line=line_no,
+                            snippet=_make_snippet(stripped, m.group(0).lower()),
+                        )
+                    )
+
+        if not occurrences:
+            continue
+
+        density = (len(occurrences) / word_count) * 1000.0
+        if density < FILTER_WORD_MEDIUM_PER_1K:
+            continue
+        severity = "high" if density >= FILTER_WORD_HIGH_PER_1K else "medium"
+
+        # Build phrase label showing top offenders.
+        top = sorted(per_word_counts.items(), key=lambda kv: -kv[1])[:3]
+        top_str = ", ".join(f"{word}×{n}" for word, n in top)
+        phrase = f"{chapter_slug}: {top_str} ({density:.1f}/1k words)"
+
+        findings.append(
+            Finding(
+                phrase=phrase,
+                category="filter_word",
+                severity=severity,
+                count=len(occurrences),
+                occurrences=occurrences[:20],  # cap per chapter
+            )
+        )
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Adverb density — `-ly` adverbs per 1000 words
+# ---------------------------------------------------------------------------
+
+# `-ly` words that are NOT adverbs or are unavoidable (pronouns, nouns,
+# common function words). Excluded from the density count to keep the signal
+# meaningful.
+_LY_EXCLUSIONS = frozenset(
+    {
+        # Not adverbs
+        "only", "family", "belly", "jelly", "rally", "folly", "holly", "silly",
+        "bully", "lily", "ally", "really",  # "really" is an adverb but so
+        # common (often in dialogue) that flagging it adds noise
+        "early", "lovely", "lonely", "lively", "friendly", "deadly",
+        "ugly", "holy", "homely", "ghastly", "ghostly", "gnarly", "scholarly",
+        "timely", "costly", "oily", "hilly", "jolly", "chilly", "wooly",
+        "woolly", "manly", "knightly", "kingly", "queenly", "princely",
+        # Proper/place names that often end in -ly (kept small)
+        "italy",
+    }
+)
+
+# Thresholds per 1000 words.
+ADVERB_MEDIUM_PER_1K = 8.0
+ADVERB_HIGH_PER_1K = 14.0
+
+_LY_WORD_RE = re.compile(r"\b([a-z]+ly)\b", re.IGNORECASE)
+
+
+def _scan_adverb_density(book_path: Path) -> list[Finding]:
+    """Flag chapters with heavy `-ly` adverb density.
+
+    One Finding per flagged chapter with the top adverbs and density metric.
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    findings: list[Finding] = []
+    for chapter_slug, raw_text in drafts:
+        cleaned = _strip_markdown(raw_text)
+        tokens = _tokenise(cleaned)
+        word_count = len(tokens)
+        if word_count < 200:
+            continue
+
+        adverb_counts: dict[str, int] = defaultdict(int)
+        occurrences: list[Occurrence] = []
+        for line_no, line in enumerate(cleaned.splitlines(), start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            # Count adverbs in narration only — dialogue adverbs are the
+            # character's speech, not the narrator's voice.
+            narration = _strip_dialogue(stripped)
+            for m in _LY_WORD_RE.finditer(narration):
+                word = m.group(1).lower()
+                if word in _LY_EXCLUSIONS:
+                    continue
+                # Skip 3-letter "-ly" like "sly" / "fly" — they aren't adverbs.
+                if len(word) < 5:
+                    continue
+                adverb_counts[word] += 1
+                if len(occurrences) < 20:
+                    occurrences.append(
+                        Occurrence(
+                            chapter=chapter_slug,
+                            line=line_no,
+                            snippet=_make_snippet(stripped, word),
+                        )
+                    )
+
+        total = sum(adverb_counts.values())
+        if total == 0:
+            continue
+        density = (total / word_count) * 1000.0
+        if density < ADVERB_MEDIUM_PER_1K:
+            continue
+        severity = "high" if density >= ADVERB_HIGH_PER_1K else "medium"
+
+        top = sorted(adverb_counts.items(), key=lambda kv: -kv[1])[:5]
+        top_str = ", ".join(f"{w}×{n}" for w, n in top)
+        phrase = f"{chapter_slug}: {top_str} ({density:.1f}/1k words, {total} total)"
+
+        findings.append(
+            Finding(
+                phrase=phrase,
+                category="adverb_density",
+                severity=severity,
+                count=total,
+                occurrences=occurrences,
+            )
+        )
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Cliché detection — curated banlist
+# ---------------------------------------------------------------------------
+
+# Curated list of the worst-offender fiction clichés. Kept deliberately short
+# — better to catch the 30 phrases that are unambiguously stale than to
+# false-positive on borderline imagery. Each entry compiled case-insensitive,
+# word-bounded where needed.
+CLICHE_PHRASES: tuple[str, ...] = (
+    # Cardiovascular clichés
+    "blood ran cold",
+    "heart skipped a beat",
+    "heart sank",
+    "heart pounded in his chest",
+    "heart pounded in her chest",
+    "blood boiled",
+    "pulse quickened",
+    # Ocular / facial clichés
+    "eyes widened in horror",
+    "eyes narrowed",
+    "rolled her eyes",
+    "rolled his eyes",
+    "locked eyes",
+    "eyes met across the room",
+    # Time / cosmic clichés
+    "time stood still",
+    "time seemed to slow",
+    "the world fell away",
+    "everything went black",
+    "an eternity passed",
+    # Breath / voice clichés
+    "breath caught in her throat",
+    "breath caught in his throat",
+    "lump in his throat",
+    "lump in her throat",
+    "barely above a whisper",
+    # Weather / atmosphere
+    "it was a dark and stormy night",
+    "a chill ran down his spine",
+    "a chill ran down her spine",
+    "hair stood on end",
+    "hair on the back of his neck stood",
+    "hair on the back of her neck stood",
+    # Misc narrative
+    "little did he know",
+    "little did she know",
+    "only time would tell",
+    "sight for sore eyes",
+    "needle in a haystack",
+    "calm before the storm",
+)
+
+
+def _compile_cliche_patterns() -> tuple[tuple[str, re.Pattern[str]], ...]:
+    return tuple(
+        (phrase, re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE))
+        for phrase in CLICHE_PHRASES
+    )
+
+
+_CLICHE_PATTERNS = _compile_cliche_patterns()
+
+
+def _scan_cliches(book_path: Path) -> list[Finding]:
+    """Flag hits from the curated cliché banlist.
+
+    One Finding per unique cliché with all occurrences. Severity is always
+    high — a cliché is a cliché even if used once.
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    findings: list[Finding] = []
+    for phrase, pattern in _CLICHE_PATTERNS:
+        occurrences: list[Occurrence] = []
+        for chapter_slug, raw_text in drafts:
+            cleaned = _strip_markdown(raw_text)
+            for line_no, line in enumerate(cleaned.splitlines(), start=1):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                for m in pattern.finditer(stripped):
+                    occurrences.append(
+                        Occurrence(
+                            chapter=chapter_slug,
+                            line=line_no,
+                            snippet=_make_snippet(stripped, m.group(0).lower()),
+                        )
+                    )
+        if occurrences:
+            findings.append(
+                Finding(
+                    phrase=phrase,
+                    category="cliche",
+                    severity="high",
+                    count=len(occurrences),
+                    occurrences=sorted(occurrences, key=lambda o: (o.chapter, o.line)),
+                )
+            )
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Question-as-statement — dialogue punctuation anomaly
+# ---------------------------------------------------------------------------
+
+# Interrogative openers. First token of the dialogue. Covers wh-questions and
+# yes/no aux-verb questions.
+_QUESTION_OPENERS = frozenset(
+    {
+        # wh-questions
+        "who", "what", "where", "when", "why", "how", "which", "whose",
+        # aux-verb yes/no questions
+        "do", "does", "did", "is", "are", "was", "were", "am",
+        "can", "could", "will", "would", "shall", "should", "may", "might", "must",
+        "have", "has", "had",
+        # Shortened forms occasionally used ("n't" prefixed onto aux is
+        # tough to catch without a tokenizer; skip for now)
+    }
+)
+
+# Matches text inside straight or curly double-quoted spans. Non-greedy;
+# must have at least 2 chars of content.
+_DIALOGUE_RE = re.compile(
+    r'(?:"([^"\n]{2,}?)"|\u201C([^\u201C\u201D\n]{2,}?)\u201D)'
+)
+
+
+def _strip_dialogue(line: str) -> str:
+    """Remove dialogue (quoted text) from a line, leaving narration only.
+
+    Used by filter-word and adverb-density scans so we only count narrator
+    tics, not character speech.
+    """
+    # Replace each quoted span with a space so surrounding tokens don't merge.
+    return _DIALOGUE_RE.sub(" ", line)
+
+
+def _scan_question_as_statement(book_path: Path) -> list[Finding]:
+    """Flag dialogue that starts with a question word but ends with a period.
+
+    McCarthy-style flat delivery is legitimate once in a while, but becomes
+    monotonous when it's the default. The detector reports every hit so the
+    author can judge which ones to convert to question marks and which ones
+    to keep as flat demands (recommendation: pair a kept one with a
+    narrative beat like "It was a demand, not a question.").
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    occurrences: list[Occurrence] = []
+    for chapter_slug, raw_text in drafts:
+        cleaned = _strip_markdown(raw_text)
+        for line_no, line in enumerate(cleaned.splitlines(), start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            for m in _DIALOGUE_RE.finditer(stripped):
+                dialogue = (m.group(1) or m.group(2) or "").strip()
+                if len(dialogue) < 2:
+                    continue
+                # Must end with a period. Exclude `?`, `!`, `…`, trailing
+                # em-dash (interrupted) and `--` (ASCII interrupted).
+                last = dialogue[-1]
+                if last != ".":
+                    continue
+                # Ellipsis like "What..." — trailing dots are not a single
+                # period, skip.
+                if dialogue.endswith("..") or dialogue.endswith("\u2026"):
+                    continue
+                # Must START with an interrogative token.
+                first_tokens = _tokenise(dialogue)
+                if not first_tokens:
+                    continue
+                first = first_tokens[0]
+                # Contractions ("don't", "can't", "isn't") collapse to
+                # "don", "can", "isn" after tokenisation — we check the
+                # leading alpha run and treat those as their auxiliary.
+                if first in _QUESTION_OPENERS or first in {
+                    "don", "doesn", "didn", "isn", "aren", "wasn",
+                    "weren", "can", "couldn", "won", "wouldn", "shouldn",
+                    "hasn", "haven", "hadn",
+                }:
+                    snippet = _make_snippet(stripped, m.group(0).lower())
+                    occurrences.append(
+                        Occurrence(
+                            chapter=chapter_slug,
+                            line=line_no,
+                            snippet=snippet,
+                        )
+                    )
+
+    if not occurrences:
+        return []
+
+    # Single aggregated finding: high severity if 5+ hits, medium otherwise.
+    severity = "high" if len(occurrences) >= 5 else "medium"
+    return [
+        Finding(
+            phrase=f'Dialogue Q-word ending with "." instead of "?"',
+            category="question_as_statement",
+            severity=severity,
+            count=len(occurrences),
+            occurrences=sorted(occurrences, key=lambda o: (o.chapter, o.line))[:40],
+        )
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Scanning
 # ---------------------------------------------------------------------------
 
@@ -582,12 +992,24 @@ def scan_repetitions(
     # Merge in per-book CLAUDE.md rule violations. These are high-severity
     # by definition and ignore the n-gram frequency thresholds above.
     findings.extend(_scan_book_rules(book_path))
+    # Merge the craft-level checks (filter words, adverb density, clichés,
+    # question-as-statement punctuation).
+    findings.extend(_scan_filter_words(book_path))
+    findings.extend(_scan_adverb_density(book_path))
+    findings.extend(_scan_cliches(book_path))
+    findings.extend(_scan_question_as_statement(book_path))
 
-    # Sort: book_rule_violation first, then severity desc, count desc, phrase asc.
+    # Sort order priority: book_rule_violation first (user-authored rules
+    # override everything), then clichés (always bad), then the rest by
+    # severity. Within same bucket: severity desc, count desc, phrase asc.
+    category_rank = {
+        "book_rule_violation": 0,
+        "cliche": 1,
+    }
     severity_rank = {"high": 0, "medium": 1}
     findings.sort(
         key=lambda f: (
-            0 if f.category == "book_rule_violation" else 1,
+            category_rank.get(f.category, 2),
             severity_rank[f.severity],
             -f.count,
             f.phrase,
@@ -628,6 +1050,10 @@ def _finding_to_dict(f: Finding) -> dict[str, Any]:
 
 CATEGORY_LABELS = {
     "book_rule_violation": "Book Rule Violations",
+    "cliche": "Clichés",
+    "question_as_statement": "Dialogue Punctuation (Q-word + period)",
+    "filter_word": "POV Filter Words",
+    "adverb_density": "Adverb Density (per Chapter)",
     "simile": "Similes & Metaphors",
     "blocking_tic": "Blocking Tics",
     "character_tell": "Character Tells",
@@ -638,6 +1064,10 @@ CATEGORY_LABELS = {
 
 CATEGORY_ORDER = [
     "book_rule_violation",
+    "cliche",
+    "question_as_statement",
+    "filter_word",
+    "adverb_density",
     "simile",
     "character_tell",
     "blocking_tic",
@@ -715,6 +1145,43 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             f"Rewrite per the user-authored guidance above — all {count} "
             f"occurrence{'s' if count != 1 else ''} should be revised unless "
             f"the rule explicitly allows an exception."
+        )
+    if cat == "cliche":
+        return (
+            f"_Recommendation:_ \"{finding['phrase']}\" is a worn-out fiction "
+            f"cliché. Replace every occurrence with imagery specific to this "
+            f"scene's POV, stakes, and sensory palette. If you must keep one, "
+            f"make it ironic or subvert it."
+        )
+    if cat == "question_as_statement":
+        return (
+            "_Recommendation:_ A single flat-delivery question reads as a "
+            "stylistic choice (think McCarthy). At this density it reads as "
+            "a missing keystroke. Two fixes: **(A)** convert to a real "
+            "question mark — most dialogue wants this. **(B)** keep the "
+            "period and pair it with a narrative beat that tells the reader "
+            "the delivery is deliberate, e.g.:\n\n"
+            "> \"Who?\"\n"
+            "> It was a demand, not a question.\n\n"
+            "Pick (A) as the default. Reserve (B) for moments where the "
+            "flatness is load-bearing."
+        )
+    if cat == "filter_word":
+        return (
+            "_Recommendation:_ Filter words mediate sensation through the POV "
+            "character's head — \"she felt the cold\" instead of \"the cold "
+            "bit through her coat\". In close-third, they weaken immersion. "
+            "Rewrite most hits by dropping the filter verb and letting the "
+            "sensation act directly on the scene. Some are load-bearing "
+            "(internal realisation, dream logic); keep those."
+        )
+    if cat == "adverb_density":
+        return (
+            "_Recommendation:_ Heavy `-ly` adverb use usually signals weak "
+            "verb choice: \"walked slowly\" → \"trudged\", \"said quietly\" → "
+            "\"murmured\". Not every adverb is wrong — but when density is "
+            "this high, at least half are propping up verbs that could stand "
+            "on their own. Strip them and see what survives."
         )
     if cat == "simile":
         return (

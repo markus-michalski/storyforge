@@ -231,7 +231,7 @@ Generated: {date}
 |-------|-----------|
 | `chapter-writer` | Rewrites triggered by actionable items (Phase 6) |
 | `chapter-reviewer` | Post-rewrite quality gate |
-| `repetition-checker` | If prose feedback mentions repetitive patterns |
+| `manuscript-checker` | If prose feedback mentions repetitive patterns, clichés, or punctuation issues |
 | `continuity-checker` | If feedback mentions timeline/spatial errors |
 | `voice-checker` | If rewritten chapters need AI-tell verification |
 

@@ -24,7 +24,7 @@ argument-hint: "<book-slug> <chapter-slug>"
 - Read `{project}/plot/tone.md` if it exists — check tonal rules, warning signs, and litmus test for this chapter's arc position
 - Read the `## Chapter Timeline` section from this chapter's `README.md` — verify all time references in the prose match the logged times
 - Read the `## Chapter Timeline` from the PREVIOUS chapter's `README.md` — verify cross-chapter time references (e.g. "an hour ago" across chapter boundaries)
-- Optional: If `{project}/research/repetition-report.md` exists, read it and check whether any of THIS chapter's distinctive 5-7 word phrases already appear in earlier chapters (lightweight cross-chapter repetition check). Flag any matches in the Continuity Report section.
+- Optional: If `{project}/research/manuscript-report.md` exists, read it and check whether any of THIS chapter's distinctive 5-7 word phrases already appear in earlier chapters (lightweight cross-chapter repetition check). Flag any matches in the Continuity Report section.
 - **Per-book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. Mandatory. Check the draft against every **Rule** (deduct points if violated) and verify that **Callbacks** are either honored, intentionally deferred, or not applicable to this chapter. Flag missed callbacks in the Continuity Report section.
 
 ## Review Checklist — 28 Points (20 core + 5 tonal + 3 timeline)
