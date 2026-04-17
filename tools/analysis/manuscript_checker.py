@@ -892,7 +892,7 @@ def _scan_question_as_statement(book_path: Path) -> list[Finding]:
     severity = "high" if len(occurrences) >= 5 else "medium"
     return [
         Finding(
-            phrase=f'Dialogue Q-word ending with "." instead of "?"',
+            phrase='Dialogue Q-word ending with "." instead of "?"',
             category="question_as_statement",
             severity=severity,
             count=len(occurrences),

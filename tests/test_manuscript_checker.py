@@ -522,7 +522,7 @@ class TestScanQuestionAsStatement:
         assert _scan_question_as_statement(book) == []
 
     def test_severity_high_when_many_hits(self, tmp_path: Path) -> None:
-        lines = [f'"Who did this."' for _ in range(6)]
+        lines = ['"Who did this."' for _ in range(6)]
         chapters = {"01-open": "# Ch 1\n\n" + "\n".join(lines) + "\n"}
         book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
         findings = _scan_question_as_statement(book)
