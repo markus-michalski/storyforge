@@ -255,22 +255,66 @@ def is_chapter_drafted(status: str) -> bool:
     return status.strip().lower() != "outline"
 
 
+# Chapter-status ranks for tier derivation. Canonical progression:
+# Outline (0) → Draft (1) → Revision (2) → Polished (3) → Final (4).
+# Common synonyms map to their semantic rank without changing the
+# displayed string (the parser preserves the literal user value).
+_CHAPTER_RANK: dict[str, int] = {
+    "outline": 0,
+    "draft": 1,
+    "drafting": 1,
+    "revision": 2,
+    "review": 2,     # user-friendly alias: "Erstentwurf fertig, wartet auf Revision"
+    "reviewed": 2,
+    "polished": 3,
+    "polishing": 3,
+    "final": 4,
+    "done": 4,
+}
+
+
+def _chapter_rank(status: str) -> int:
+    """Map a chapter status to a rank for tier derivation.
+
+    Unknown statuses rank as Draft (1): they're clearly past Outline but
+    we can't safely assume they've reached Revision without a known alias.
+    """
+    if not status:
+        return 0
+    return _CHAPTER_RANK.get(status.strip().lower(), 1)
+
+
 def derive_book_status(current: str, chapters: dict[str, Any]) -> str:
     """Derive the effective book status from chapter state.
 
-    Only escalates forward — never moves the book backward. The minimum
-    rule: if any chapter is past Outline, the book is at least "Drafting".
-    Higher tiers (Revision, Editing, …) remain skill-driven because they
-    require qualitative judgment beyond chapter-state aggregation.
+    Only escalates forward — never moves the book backward. Rules (Issue #21):
+
+    * ``Drafting`` — any chapter past Outline
+    * ``Revision`` — every chapter at Revision rank or higher (incl. ``review``)
+    * ``Proofread`` — every chapter Final
+
+    Higher tiers (``Editing``, ``Export Ready``, ``Published``) remain
+    explicit: they require qualitative judgment beyond chapter aggregation.
+    ``Editing`` in particular is intentionally skipped — its distinction
+    from Revision is too fuzzy to auto-derive predictably.
     """
     current = current or "Idea"
     if not chapters:
         return current
 
-    any_drafted = any(is_chapter_drafted(c.get("status", "")) for c in chapters.values())
-    if not any_drafted:
+    ranks = [_chapter_rank(c.get("status", "")) for c in chapters.values()]
+    min_rank = min(ranks)
+    max_rank = max(ranks)
+
+    if min_rank >= 4:           # all Final
+        derived = "Proofread"
+    elif min_rank >= 2:         # all Revision-rank or higher (review, Polished, Final)
+        derived = "Revision"
+    elif max_rank >= 1:         # any non-Outline
+        derived = "Drafting"
+    else:                       # all Outline
         return current
 
-    if _book_status_rank(current) < _book_status_rank("Drafting"):
-        return "Drafting"
+    if _book_status_rank(current) < _book_status_rank(derived):
+        return derived
     return current
