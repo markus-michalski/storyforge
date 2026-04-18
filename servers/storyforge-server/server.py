@@ -198,16 +198,28 @@ def update_session(
 
 @mcp.tool()
 def rebuild_state() -> str:
-    """Force rebuild of the state cache from filesystem."""
+    """Force rebuild of the state cache from filesystem.
+
+    Also runs the Issue #25 auto-sync: any book whose derived status
+    (from chapter aggregates) is a forward move from its on-disk README
+    frontmatter gets its README updated in place. Floor rule — never
+    downgrades a user-set higher tier. Sync events are returned in the
+    ``synced`` list so the user can see what changed.
+    """
     state = rebuild(preserve_session=True)
     _cache.invalidate()
     books_count = len(state.get("books", {}))
     authors_count = len(state.get("authors", {}))
+    synced = state.get("sync_log", [])
+    msg = f"Rebuilt state: {books_count} books, {authors_count} authors"
+    if synced:
+        msg += f"; synced {len(synced)} book status(es) to disk"
     return json.dumps({
         "success": True,
         "books": books_count,
         "authors": authors_count,
-        "message": f"Rebuilt state: {books_count} books, {authors_count} authors",
+        "synced": synced,
+        "message": msg,
     })
 
 

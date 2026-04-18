@@ -14,6 +14,7 @@ from typing import Any
 
 from tools.shared.config import CACHE_DIR, CONFIG_PATH, STATE_PATH, load_config
 from tools.state.parsers import (
+    _book_status_rank,
     count_words_in_file,
     derive_book_status,
     parse_author_profile,
@@ -104,6 +105,8 @@ def build_state() -> dict[str, Any]:
     content_root = Path(config["paths"]["content_root"])
     authors_root = Path(config["paths"]["authors_root"])
 
+    sync_log: list[dict[str, str]] = []
+
     state: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "plugin_version": PLUGIN_VERSION,
@@ -113,6 +116,7 @@ def build_state() -> dict[str, Any]:
         "authors": {},
         "series": {},
         "ideas": [],
+        "sync_log": sync_log,
         "session": {
             "last_book": "",
             "last_chapter": "",
@@ -124,7 +128,7 @@ def build_state() -> dict[str, Any]:
     # Scan books
     projects_dir = content_root / "projects"
     if projects_dir.exists():
-        state["books"] = _scan_books(projects_dir)
+        state["books"] = _scan_books(projects_dir, sync_log)
 
     # Scan authors
     if authors_root.exists():
@@ -165,8 +169,16 @@ def rebuild(preserve_session: bool = True) -> dict[str, Any]:
 # --- Scanners ---
 
 
-def _scan_books(projects_dir: Path) -> dict[str, Any]:
-    """Scan all book project directories."""
+def _scan_books(
+    projects_dir: Path, sync_log: list[dict[str, str]] | None = None
+) -> dict[str, Any]:
+    """Scan all book project directories.
+
+    When ``sync_log`` is provided (Issue #25), each book's README frontmatter
+    is updated in place if the derived status is a forward move from the
+    disk status. Forward-sync events are appended to the list. Pass
+    ``None`` to skip disk writes (read-only scan).
+    """
     books = {}
 
     for book_dir in sorted(projects_dir.iterdir()):
@@ -191,10 +203,23 @@ def _scan_books(projects_dir: Path) -> dict[str, Any]:
             book["total_words"] = 0
 
         # Issue #19: derive effective status from chapter aggregates so the
-        # book doesn't stay stuck at "Idea" after drafting begins. Preserve
-        # the disk value separately for transparency / future migration.
-        book["status_disk"] = book["status"]
-        book["status"] = derive_book_status(book["status"], book["chapters_data"])
+        # book doesn't stay stuck at "Idea" after drafting begins.
+        disk_status = book["status"]
+        derived_status = derive_book_status(disk_status, book["chapters_data"])
+
+        # Issue #25: write the derived status back to README frontmatter
+        # when it's a forward move (floor rule — never downgrade a user-set
+        # higher tier like "Export Ready" or "Published").
+        if sync_log is not None:
+            sync_event = _sync_book_status_to_disk(book_dir, disk_status, derived_status)
+            if sync_event is not None:
+                sync_log.append(sync_event)
+                book["status_disk"] = derived_status  # disk now matches derived
+            else:
+                book["status_disk"] = disk_status
+        else:
+            book["status_disk"] = disk_status
+        book["status"] = derived_status
 
         # Scan characters
         chars_dir = book_dir / "characters"
@@ -208,6 +233,45 @@ def _scan_books(projects_dir: Path) -> dict[str, Any]:
         books[slug] = book
 
     return books
+
+
+def _sync_book_status_to_disk(
+    project_dir: Path, disk_status: str, derived_status: str
+) -> dict[str, str] | None:
+    """Write derived book status back to README frontmatter (Issue #25).
+
+    Only writes when ``derived_status`` is a strictly forward move from
+    ``disk_status`` (floor rule — never downgrades a user-set higher tier).
+    Returns a sync event dict on write, ``None`` otherwise.
+
+    Edge case: a README with no frontmatter block at all gets a minimal
+    block prepended. Existing frontmatter fields and body content are
+    preserved verbatim.
+    """
+    import yaml as _yaml
+
+    if _book_status_rank(derived_status) <= _book_status_rank(disk_status):
+        return None
+
+    readme = project_dir / "README.md"
+    text = readme.read_text(encoding="utf-8")
+    meta, body = parse_frontmatter(text)
+
+    if not meta:
+        # parse_frontmatter returned (empty, original_text) — no block found.
+        # Prepend a minimal frontmatter while keeping the original content.
+        new_text = f"---\nstatus: {derived_status}\n---\n\n{body}"
+    else:
+        meta["status"] = derived_status
+        fm = _yaml.safe_dump(meta, sort_keys=False, allow_unicode=True)
+        new_text = f"---\n{fm}---\n{body}"
+
+    readme.write_text(new_text, encoding="utf-8")
+    return {
+        "book": project_dir.name,
+        "from": disk_status or "Idea",
+        "to": derived_status,
+    }
 
 
 def _scan_chapters(chapters_dir: Path) -> dict[str, Any]:

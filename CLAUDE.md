@@ -119,7 +119,9 @@ World Built → Drafting → Revision → Editing → Proofread → Export Ready
 | `Revision` | every chapter at Revision rank or higher (incl. alias `review`) |
 | `Proofread` | every chapter `Final` |
 
-`Editing`, `Export Ready`, and `Published` remain **explicit** — they require qualitative judgment beyond chapter-state aggregation. The raw README frontmatter value is preserved as `book.status_disk` for transparency; auto-derivation never writes back to disk.
+`Editing`, `Export Ready`, and `Published` remain **explicit** — they require qualitative judgment beyond chapter-state aggregation.
+
+**Auto-sync to disk** (Issue #25): `rebuild_state()` writes the derived status back to README frontmatter when it's a **forward move** from the on-disk value. Floor rule — a user-set higher tier (`Export Ready`, `Published`) is never silently downgraded by chapter aggregates. Sync events are returned in the `synced` field of the rebuild response. Books without any frontmatter block get a minimal one created. `book.status_disk` remains as a debug signal (after auto-sync it always matches `book.status`).
 
 Chapter-status aliases for ranking (display string is preserved):
 
