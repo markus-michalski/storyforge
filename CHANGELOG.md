@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.6.0] - 2026-04-18
+
+### Added
+- add start_chapter_draft MCP tool; flip chapter status early
+- auto-derive Revision and Proofread book tiers from chapter state
+
+### Fixed
+- derive book status from chapter state; tolerate non-canonical drafted statuses
+
 ## [1.5.1] - 2026-04-18
 
 ### Fixed
@@ -106,3 +115,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.4.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.4.1
 [1.5.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.5.0
 [1.5.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.5.1
+[1.6.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.6.0
