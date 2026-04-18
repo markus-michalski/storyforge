@@ -23,7 +23,7 @@ from mcp.server.fastmcp import FastMCP
 from tools.shared.config import load_config, get_content_root, get_genres_dir, get_reference_dir
 from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_author_path, find_chapters, resolve_series_path, resolve_world_dir
 from tools.state.indexer import StateCache, rebuild
-from tools.state.parsers import parse_frontmatter, count_words_in_file
+from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
 from tools.claudemd.manager import (
     append_callback as _append_callback_impl,
@@ -101,19 +101,24 @@ def get_book_progress(slug: str) -> str:
 
     chapters = book.get("chapters_data", {})
     total = len(chapters)
+    # Issue #19: tolerate non-canonical chapter statuses ("review", etc.) —
+    # anything past "Outline" counts as drafted. Final stays strict.
     final = sum(1 for c in chapters.values() if c.get("status") == "Final")
-    drafted = sum(1 for c in chapters.values() if c.get("status") in ("Draft", "Revision", "Polished", "Final"))
+    drafted = sum(1 for c in chapters.values() if is_chapter_drafted(c.get("status", "")))
     total_words = book.get("total_words", 0)
     target = book.get("target_word_count", 0)
 
     return json.dumps({
         "slug": slug,
         "title": book.get("title", slug),
+        # Indexer already derived this from chapter state (Issue #19).
         "status": book.get("status", "Idea"),
+        "status_disk": book.get("status_disk", book.get("status", "Idea")),
         "chapters_total": total,
         "chapters_drafted": drafted,
         "chapters_final": final,
-        "completion_percent": round(final / total * 100) if total else 0,
+        # Issue #19: completion tracks forward progress (drafted), not sign-off (final).
+        "completion_percent": round(drafted / total * 100) if total else 0,
         "total_words": total_words,
         "target_words": target,
         "word_progress_percent": round(total_words / target * 100) if target else 0,

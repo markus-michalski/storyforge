@@ -213,3 +213,64 @@ def _normalize_character_status(raw: str) -> str:
     if not raw:
         return "Concept"
     return _CHARACTER_STATUS_MAP.get(raw.strip().lower(), raw.strip())
+
+
+# Issue #19: derive book-level status from chapter aggregates so books don't
+# stay stuck at "Idea" after the user starts drafting.
+
+# Ordered book-status progression (lowest → highest). Statuses missing from
+# this list rank as 0 so unknown custom statuses pass through untouched.
+_BOOK_STATUS_RANK = [
+    "Idea",
+    "Concept",
+    "Research",
+    "Plot Outlined",
+    "Characters Created",
+    "World Built",
+    "Drafting",
+    "Revision",
+    "Editing",
+    "Proofread",
+    "Export Ready",
+    "Published",
+]
+
+
+def _book_status_rank(status: str) -> int:
+    try:
+        return _BOOK_STATUS_RANK.index(status)
+    except ValueError:
+        return 0
+
+
+def is_chapter_drafted(status: str) -> bool:
+    """Return True if a chapter status indicates *any* progress past outline.
+
+    Tolerant of case and unknown values: anything other than ``"outline"``
+    (case-insensitive) counts as drafted. This lets non-canonical statuses
+    like ``"review"`` from a user's chapter.yaml be recognized correctly.
+    """
+    if not status:
+        return False
+    return status.strip().lower() != "outline"
+
+
+def derive_book_status(current: str, chapters: dict[str, Any]) -> str:
+    """Derive the effective book status from chapter state.
+
+    Only escalates forward — never moves the book backward. The minimum
+    rule: if any chapter is past Outline, the book is at least "Drafting".
+    Higher tiers (Revision, Editing, …) remain skill-driven because they
+    require qualitative judgment beyond chapter-state aggregation.
+    """
+    current = current or "Idea"
+    if not chapters:
+        return current
+
+    any_drafted = any(is_chapter_drafted(c.get("status", "")) for c in chapters.values())
+    if not any_drafted:
+        return current
+
+    if _book_status_rank(current) < _book_status_rank("Drafting"):
+        return "Drafting"
+    return current
