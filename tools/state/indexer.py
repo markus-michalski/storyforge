@@ -15,6 +15,7 @@ from typing import Any
 from tools.shared.config import CACHE_DIR, CONFIG_PATH, STATE_PATH, load_config
 from tools.state.parsers import (
     count_words_in_file,
+    derive_book_status,
     parse_author_profile,
     parse_book_readme,
     parse_chapter_readme,
@@ -175,6 +176,12 @@ def _scan_books(projects_dir: Path) -> dict[str, Any]:
             book["chapters_data"] = {}
             book["chapter_count"] = 0
             book["total_words"] = 0
+
+        # Issue #19: derive effective status from chapter aggregates so the
+        # book doesn't stay stuck at "Idea" after drafting begins. Preserve
+        # the disk value separately for transparency / future migration.
+        book["status_disk"] = book["status"]
+        book["status"] = derive_book_status(book["status"], book["chapters_data"])
 
         # Scan characters
         chars_dir = book_dir / "characters"
