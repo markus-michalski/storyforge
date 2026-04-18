@@ -28,6 +28,27 @@ def resolve_chapter_path(
     return resolve_project_path(config, book_slug) / "chapters" / chapter_slug
 
 
+# Issue #17: book scaffolds occasionally use alternate names for the
+# world-building directory. The MCP must recognize them so skill prerequisites
+# (e.g. loading `world/setting.md` for the Travel Matrix) keep working without
+# forcing users to rename their existing layout.
+WORLD_DIR_CANDIDATES: tuple[str, ...] = ("world", "worldbuilding", "world-building")
+
+
+def resolve_world_dir(project_dir: Path) -> Path | None:
+    """Return the existing world-building directory under ``project_dir``.
+
+    Tries the canonical ``world/`` first, then known aliases. Returns ``None``
+    when none exists, leaving the caller to decide whether to use the
+    canonical default for new content.
+    """
+    for name in WORLD_DIR_CANDIDATES:
+        candidate = project_dir / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def resolve_character_path(
     config: dict[str, Any], book_slug: str, character_slug: str
 ) -> Path:

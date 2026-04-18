@@ -21,7 +21,7 @@ if plugin_root not in sys.path:
 from mcp.server.fastmcp import FastMCP
 
 from tools.shared.config import load_config, get_content_root, get_genres_dir, get_reference_dir
-from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_author_path, find_chapters, resolve_series_path
+from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_author_path, find_chapters, resolve_series_path, resolve_world_dir
 from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
@@ -550,6 +550,19 @@ word_count_target: 3000
     (ch_dir / "README.md").write_text(readme, encoding="utf-8")
     (ch_dir / "draft.md").write_text(f"# Chapter {number}: {title}\n\n", encoding="utf-8")
 
+    # Issue #16: write chapter.yaml as the canonical metadata source so the
+    # parser's preferred lookup target stays consistent with what we created.
+    chapter_yaml = (
+        f'title: "{title}"\n'
+        f"number: {number}\n"
+        f'slug: "{slug}"\n'
+        f'status: "Outline"\n'
+        f'pov_character: "{pov_character}"\n'
+        f'summary: "{summary}"\n'
+        f"word_count_target: 3000\n"
+    )
+    (ch_dir / "chapter.yaml").write_text(chapter_yaml, encoding="utf-8")
+
     _cache.invalidate()
     return json.dumps({
         "success": True,
@@ -664,12 +677,22 @@ def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str
         book_slug: Book project slug
         component: Component type (chapters, characters, plot, world, cover, export, research)
         sub_path: Optional sub-path within the component
+
+    Note: ``world`` resolves to the first existing of ``world/``,
+    ``worldbuilding/``, or ``world-building/`` (Issue #17). When no world dir
+    exists, the canonical ``world/`` path is returned with ``exists: false``.
     """
     config = load_config()
-    base = resolve_project_path(config, book_slug)
+    project = resolve_project_path(config, book_slug)
 
-    if component:
-        base = base / component
+    if component == "world":
+        world_dir = resolve_world_dir(project)
+        base = world_dir if world_dir is not None else project / "world"
+    elif component:
+        base = project / component
+    else:
+        base = project
+
     if sub_path:
         base = base / sub_path
 
@@ -1012,13 +1035,18 @@ def validate_book_structure(book_slug: str) -> str:
 
     checks = []
 
+    # Issue #17: accept aliases (worldbuilding/, world-building/) for the
+    # world directory so non-canonical scaffolds still validate.
+    world_dir = resolve_world_dir(project_dir) or (project_dir / "world")
+    world_setting = world_dir / "setting.md"
+
     # Required files
     for name, path in [
         ("README.md", project_dir / "README.md"),
         ("synopsis.md", project_dir / "synopsis.md"),
         ("plot/outline.md", project_dir / "plot" / "outline.md"),
         ("characters/INDEX.md", project_dir / "characters" / "INDEX.md"),
-        ("world/setting.md", project_dir / "world" / "setting.md"),
+        (f"{world_dir.name}/setting.md", world_setting),
     ]:
         checks.append({"check": name, "status": "PASS" if path.exists() else "FAIL"})
 
