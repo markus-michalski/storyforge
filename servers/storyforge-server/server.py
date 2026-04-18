@@ -23,7 +23,7 @@ from mcp.server.fastmcp import FastMCP
 from tools.shared.config import load_config, get_content_root, get_genres_dir, get_reference_dir
 from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_author_path, find_chapters, resolve_series_path, resolve_world_dir
 from tools.state.indexer import StateCache, rebuild
-from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted
+from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted, parse_chapter_readme
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
 from tools.claudemd.manager import (
     append_callback as _append_callback_impl,
@@ -652,6 +652,99 @@ description: "{description}"
         "slug": slug,
         "path": str(char_path),
         "message": f"Character '{name}' created",
+    })
+
+
+@mcp.tool()
+def start_chapter_draft(book_slug: str, chapter_slug: str) -> str:
+    """Mark a chapter as actively being drafted.
+
+    Flips chapter status ``Outline → Draft`` (writes to ``chapter.yaml`` if
+    present, otherwise to README frontmatter). Only moves forward — a
+    chapter already at Draft, Revision/review, Polished, or Final is left
+    untouched.
+
+    The chapter-writer skill should call this BEFORE writing the first
+    scene so ``get_book_progress`` and the book-tier derivation reflect
+    active work immediately, not just after Step 7 when the chapter is
+    complete. Later transitions (Draft → Review/Final) still go through
+    ``update_field``.
+
+    Args:
+        book_slug: Book project slug
+        chapter_slug: Chapter directory name (e.g. "01-invisible")
+
+    Returns JSON with before/after status and whether an update occurred.
+    """
+    import yaml as _yaml
+
+    config = load_config()
+    ch_dir = resolve_chapter_path(config, book_slug, chapter_slug)
+
+    if not ch_dir.exists():
+        return json.dumps({
+            "error": f"Chapter '{chapter_slug}' not found in book '{book_slug}'"
+        })
+
+    # Respect the Issue #16 convention: chapter.yaml is the preferred source
+    # of truth. parse_chapter_readme already merges yaml + README frontmatter.
+    chapter_meta = parse_chapter_readme(ch_dir / "README.md")
+    current_status = chapter_meta.get("status") or "Outline"
+
+    # No-op if the chapter has already moved past Outline — we never regress.
+    if is_chapter_drafted(current_status):
+        return json.dumps({
+            "success": True,
+            "book_slug": book_slug,
+            "chapter_slug": chapter_slug,
+            "chapter_status_before": current_status,
+            "chapter_status_after": current_status,
+            "chapter_updated": False,
+            "message": f"Chapter already at '{current_status}' — no change.",
+        })
+
+    # Flip Outline → Draft. Prefer chapter.yaml; migrate from README
+    # frontmatter to chapter.yaml on first touch (canonical source of
+    # truth per #16).
+    chapter_yaml = ch_dir / "chapter.yaml"
+    migrated = False
+
+    if chapter_yaml.exists():
+        try:
+            loaded = _yaml.safe_load(chapter_yaml.read_text(encoding="utf-8"))
+            meta = loaded if isinstance(loaded, dict) else {}
+        except _yaml.YAMLError:
+            meta = {}
+        meta["status"] = "Draft"
+        chapter_yaml.write_text(
+            _yaml.safe_dump(meta, sort_keys=False, allow_unicode=True),
+            encoding="utf-8",
+        )
+    else:
+        # No chapter.yaml — migrate metadata out of README frontmatter
+        # into a fresh chapter.yaml, then strip the frontmatter from
+        # README so we don't carry two stale sources forward.
+        readme = ch_dir / "README.md"
+        text = readme.read_text(encoding="utf-8")
+        fm_meta, body = parse_frontmatter(text)
+        fm_meta["status"] = "Draft"
+        chapter_yaml.write_text(
+            _yaml.safe_dump(fm_meta, sort_keys=False, allow_unicode=True),
+            encoding="utf-8",
+        )
+        # Remove the frontmatter block; keep the body intact.
+        readme.write_text(body.lstrip("\n") if body else "", encoding="utf-8")
+        migrated = True
+
+    _cache.invalidate()
+    return json.dumps({
+        "success": True,
+        "book_slug": book_slug,
+        "chapter_slug": chapter_slug,
+        "chapter_status_before": current_status,
+        "chapter_status_after": "Draft",
+        "chapter_updated": True,
+        "migrated_to_chapter_yaml": migrated,
     })
 
 

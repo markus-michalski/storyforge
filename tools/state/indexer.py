@@ -45,10 +45,23 @@ class StateCache:
             return self._state or {}
 
     def invalidate(self) -> None:
-        """Force a rebuild on next access."""
+        """Force a full rebuild on next access.
+
+        Clears the in-memory state AND removes the on-disk cache file.
+        Without deleting the file, ``_load_or_rebuild`` would reload the
+        stale snapshot and silently serve pre-mutation data — the exact
+        opposite of what callers expect after writing to disk.
+        """
         with self._lock:
             self._state = None
             self._state_mtime = 0.0
+            try:
+                STATE_PATH.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                # Don't let a permissions / filesystem quirk block the cache clear.
+                pass
 
     def _is_stale(self) -> bool:
         """Check if cached state is stale."""
