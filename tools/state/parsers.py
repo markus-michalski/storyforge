@@ -53,16 +53,38 @@ def parse_book_readme(path: Path) -> dict[str, Any]:
 
 
 def parse_chapter_readme(path: Path) -> dict[str, Any]:
-    """Parse a chapter README.md into structured data."""
+    """Parse chapter metadata for the chapter at ``path.parent``.
+
+    Resolution order (Issue #16): a sibling ``chapter.yaml`` is the preferred
+    source of truth. If absent or empty, fall back to the README's YAML
+    frontmatter. This lets books scaffolded with a separate metadata file work
+    transparently alongside the README-frontmatter convention.
+    """
     text = path.read_text(encoding="utf-8")
-    meta, body = parse_frontmatter(text)
+    readme_meta, _body = parse_frontmatter(text)
+
+    chapter_yaml = path.parent / "chapter.yaml"
+    yaml_meta: dict[str, Any] = {}
+    if chapter_yaml.exists():
+        try:
+            loaded = yaml.safe_load(chapter_yaml.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                yaml_meta = loaded
+        except yaml.YAMLError:
+            yaml_meta = {}
+
+    # chapter.yaml wins; README frontmatter only fills missing keys
+    meta = {**readme_meta, **yaml_meta}
+
+    # Common alternate field names found in older/manual scaffolds
+    pov = meta.get("pov_character") or meta.get("pov", "")
 
     return {
         "slug": path.parent.name,
         "title": meta.get("title", path.parent.name),
         "number": meta.get("number", _extract_number(path.parent.name)),
         "status": _normalize_chapter_status(meta.get("status", "Outline")),
-        "pov_character": meta.get("pov_character", ""),
+        "pov_character": pov,
         "summary": meta.get("summary", ""),
         "word_count_target": meta.get("word_count_target", 0),
     }
