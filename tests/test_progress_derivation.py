@@ -139,6 +139,95 @@ class TestDeriveBookStatus:
         chapters = {"01": {"status": "Outline"}}
         assert derive_book_status("Custom Status", chapters) == "Custom Status"
 
+    # ------------------------------------------------------------------
+    # Issue #21: higher tiers (Revision, Proofread) auto-derived
+    # ------------------------------------------------------------------
+
+    def test_all_review_escalates_to_revision(self):
+        # User's workflow: chapter.yaml uses lowercase "review" for
+        # completed first drafts. Should map to Revision rank.
+        chapters = {
+            "01": {"status": "review"},
+            "02": {"status": "review"},
+            "03": {"status": "review"},
+        }
+        assert derive_book_status("Idea", chapters) == "Revision"
+
+    def test_all_revision_canonical_escalates_to_revision(self):
+        chapters = {
+            "01": {"status": "Revision"},
+            "02": {"status": "Revision"},
+        }
+        assert derive_book_status("Drafting", chapters) == "Revision"
+
+    def test_mixed_revision_polished_final_stays_revision(self):
+        # Every chapter >= Revision rank; lowest tier wins.
+        chapters = {
+            "01": {"status": "Revision"},
+            "02": {"status": "Polished"},
+            "03": {"status": "Final"},
+        }
+        assert derive_book_status("Drafting", chapters) == "Revision"
+
+    def test_one_outline_blocks_revision_tier(self):
+        # Any lingering Outline keeps the book at Drafting.
+        chapters = {
+            "01": {"status": "review"},
+            "02": {"status": "review"},
+            "03": {"status": "Outline"},
+        }
+        assert derive_book_status("Idea", chapters) == "Drafting"
+
+    def test_one_draft_blocks_revision_tier(self):
+        # Draft (rank 1) is below Revision — blocks the tier.
+        chapters = {
+            "01": {"status": "Revision"},
+            "02": {"status": "Draft"},
+        }
+        assert derive_book_status("Idea", chapters) == "Drafting"
+
+    def test_all_polished_escalates_to_revision(self):
+        # Polished is above Revision rank but we don't auto-derive Editing
+        # (too fuzzy a distinction). Stays at Revision tier.
+        chapters = {
+            "01": {"status": "Polished"},
+            "02": {"status": "Polished"},
+        }
+        assert derive_book_status("Idea", chapters) == "Revision"
+
+    def test_all_final_escalates_to_proofread(self):
+        chapters = {
+            "01": {"status": "Final"},
+            "02": {"status": "Final"},
+        }
+        assert derive_book_status("Idea", chapters) == "Proofread"
+
+    def test_one_non_final_blocks_proofread_tier(self):
+        chapters = {
+            "01": {"status": "Final"},
+            "02": {"status": "Polished"},
+        }
+        assert derive_book_status("Idea", chapters) == "Revision"
+
+    def test_published_never_regresses(self):
+        # Even all-Outline chapters can't pull a Published book backward.
+        chapters = {"01": {"status": "Outline"}, "02": {"status": "Outline"}}
+        assert derive_book_status("Published", chapters) == "Published"
+
+    def test_export_ready_not_regressed_by_final_chapters(self):
+        # Export Ready is explicit; all-Final shouldn't pull it back to Proofread.
+        chapters = {"01": {"status": "Final"}, "02": {"status": "Final"}}
+        assert derive_book_status("Export Ready", chapters) == "Export Ready"
+
+    def test_unknown_chapter_status_ranks_as_draft(self):
+        # Custom statuses (not in alias table) count as drafted but don't
+        # escalate to Revision — safe default.
+        chapters = {
+            "01": {"status": "weird-custom-status"},
+            "02": {"status": "weird-custom-status"},
+        }
+        assert derive_book_status("Idea", chapters) == "Drafting"
+
 
 # ---------------------------------------------------------------------------
 # get_book_progress: drafted count + completion_percent + derived status
@@ -239,8 +328,11 @@ class TestIndexerDerivedStatus:
     def test_list_books_reflects_derived_status(
         self, server_module, content_root: Path
     ):
+        # One drafted chapter + one still Outline → Drafting tier
+        # (blocks Revision because not all chapters are at Revision rank).
         project = _write_book(content_root, "indexed-book", status="Idea")
         _write_chapter(project, "01-c", status="review", words=2000)
+        _write_chapter(project, "02-c", status="Outline")
 
         result = json.loads(server_module.list_books())
         book = next(b for b in result["books"] if b["slug"] == "indexed-book")
@@ -248,3 +340,16 @@ class TestIndexerDerivedStatus:
         assert book["status"] == "Drafting", (
             "Bug #19: list_books must reflect derived status from chapter state"
         )
+
+    def test_list_books_reflects_revision_tier(
+        self, server_module, content_root: Path
+    ):
+        # Issue #21: all chapters at review-rank → book auto-escalates to Revision.
+        project = _write_book(content_root, "all-reviewed", status="Idea")
+        _write_chapter(project, "01-c", status="review", words=2000)
+        _write_chapter(project, "02-c", status="review", words=2000)
+
+        result = json.loads(server_module.list_books())
+        book = next(b for b in result["books"] if b["slug"] == "all-reviewed")
+
+        assert book["status"] == "Revision"

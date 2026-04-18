@@ -111,6 +111,25 @@ Idea → Concept → Research → Plot Outlined → Characters Created →
 World Built → Drafting → Revision → Editing → Proofread → Export Ready → Published
 ```
 
+**Auto-derivation from chapter state** (Issue #21): the indexer derives an effective book status from chapter aggregates. It only ever escalates forward — never moves backward. Rules:
+
+| Book tier | Trigger |
+|-----------|---------|
+| `Drafting` | any chapter past `Outline` |
+| `Revision` | every chapter at Revision rank or higher (incl. alias `review`) |
+| `Proofread` | every chapter `Final` |
+
+`Editing`, `Export Ready`, and `Published` remain **explicit** — they require qualitative judgment beyond chapter-state aggregation. The raw README frontmatter value is preserved as `book.status_disk` for transparency; auto-derivation never writes back to disk.
+
+Chapter-status aliases for ranking (display string is preserved):
+
+| Alias | Canonical rank |
+|-------|----------------|
+| `review`, `reviewed` | Revision |
+| `drafting` | Draft |
+| `polishing` | Polished |
+| `done` | Final |
+
 ### Chapter
 ```
 Outline → Draft → Revision → Polished → Final
