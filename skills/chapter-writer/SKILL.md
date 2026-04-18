@@ -58,6 +58,15 @@ Ask the user how they want to write this chapter (use AskUserQuestion):
 
 If the user has already chosen a mode in this session (e.g. during a previous chapter), remember their choice and skip the question — but still mention which mode is active.
 
+### Step 2b: Mark Chapter as In-Progress
+Before writing a single word of prose, call MCP `start_chapter_draft(book_slug, chapter_slug)`. This flips the chapter's on-disk status from `Outline → Draft` (only forward — chapters already at `Draft`, `Review`, `Polished`, or `Final` are left alone).
+
+Why this matters:
+- `get_book_progress` and the #21 book-tier derivation reflect active work immediately, not only after Step 7 closes the chapter. Without this, dashboards and next-step recommendations lie during active writing.
+- For legacy chapters that still keep metadata in `README.md` frontmatter, the tool migrates it into `chapter.yaml` on first touch (canonical source per #16) and strips the frontmatter from README. No data loss.
+
+The tool is safe to call redundantly (idempotent) — subsequent calls on a Draft chapter are a no-op.
+
 ---
 
 ### Mode A: Scene-by-Scene Writing (Recommended)
@@ -155,8 +164,11 @@ Reference `chapter-construction.md` on endings:
 ### Step 7: Save and Update (both modes)
 1. Write draft to `{project}/chapters/{chapter}/draft.md` (in scene-by-scene mode, the full draft is already assembled)
 2. Count words — report to user
-3. Update chapter status to "Draft" (or "Review"/"Final" if user specified) via MCP `update_field()`
-4. If this is the first chapter being drafted, update book status to "Drafting"
+3. Update chapter status via MCP `update_field()` on `chapter.yaml`:
+   - User says it's good → `"Review"` or `"Final"` (ask which)
+   - User wants another pass → leave at `"Draft"` (no call needed)
+   - Note: the `Outline → Draft` flip already happened in Step 2b; this step only handles later transitions.
+4. Book-level status — no explicit update needed. The #21 indexer derives the effective book status from chapter aggregates on every read, so the book's tier advances automatically (`Drafting` once any chapter is past Outline, `Revision` once all chapters are at Revision-rank, `Proofread` once all are Final). If the user wants the README frontmatter to reflect this on disk, they can run `update_field()` on the book README explicitly.
 5. **Update timeline** — Add all days/events from this chapter to `{project}/plot/timeline.md`. One row per story-day. This is MANDATORY.
 6. **Update Travel Matrix** — If new routes were introduced in this chapter, add them to the Travel Matrix in `{project}/world/setting.md`.
 7. **Update Canon Log** — Add any new facts established in this chapter to `{project}/plot/canon-log.md`. If this is a **revision** of an existing chapter, mark changed facts as `CHANGED` with the old version in Notes, and add all downstream chapters to the Revision Impact Tracker.
