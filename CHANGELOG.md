@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.5.1] - 2026-04-18
+
+### Fixed
+- tolerate scaffold-convention variants for chapter & world dirs
+
 ## [1.5.0] - 2026-04-17
 
 ### Added
@@ -100,3 +105,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.4.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.4.0
 [1.4.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.4.1
 [1.5.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.5.0
+[1.5.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.5.1
