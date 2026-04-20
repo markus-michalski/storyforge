@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.7.1] - 2026-04-20
+
+### Fixed
+- harden chapter-writer review loop against system-reminder truncation (#27)
+
 ## [1.7.0] - 2026-04-18
 
 ### Added
@@ -122,3 +127,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.5.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.5.1
 [1.6.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.6.0
 [1.7.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.7.0
+[1.7.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.7.1
