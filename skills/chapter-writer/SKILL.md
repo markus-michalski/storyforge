@@ -92,7 +92,17 @@ After writing the scene:
 3. **WAIT for user feedback.** Corrections come back as inline `Markus:` blocks inside `draft.md` — read them from the updated file and apply per the User Feedback Handling rules.
 
 #### Step A3: User Review Loop
-The user reads the scene in their editor and may add `` ```textile Markus: ... ``` `` comment blocks inline in `draft.md`. Re-read the file after the user signals feedback, extract the `Markus:` blocks, and handle each correction per the User Feedback Handling rules (verify, check context, assess impact, push back if wrong).
+The user reads the scene in their editor and may add `` ```textile Markus: ... ``` `` comment blocks inline in `draft.md`.
+
+**CRITICAL — Read-First Rule (GH#27):**
+When the user signals that feedback is ready (any of: "kommentiert", "habe kommentiert", "gelesen", "Feedback da", "lies mal", "schau dir an", or any mention of `Markus:` in chat), you MUST call the `Read` tool on the full `draft.md` file BEFORE processing anything. **Never rely on the file-change `system-reminder` diff** — Claude Code truncates diffs for long files (observed cutoffs at 40, 140, 200, 267+ lines), which causes comments near the end of the file to be silently invisible.
+
+Workflow:
+1. User signals review is ready.
+2. Call `Read` on `{project}/chapters/{chapter}/draft.md` — full file, no offset/limit unless the file exceeds 2000 lines.
+3. Scan the fully-loaded content for ALL `` ```textile Markus: ``` `` blocks. Count them aloud to the user: "Ich sehe N Kommentare."
+4. Process each block per User Feedback Handling (verify, check context, assess impact, push back if wrong).
+5. If the count you report does not match what the user expected, re-read the file before proceeding — never guess.
 
 Once the user approves the scene (explicitly or by asking to continue):
 1. Remove any applied `Markus:` comment blocks from `draft.md` — the scene prose stays, the review annotations go.
@@ -203,6 +213,7 @@ Suggest: `/storyforge:chapter-reviewer` for detailed review.
 - In full-chapter mode: Write in ONE PASS, then offer revision. Don't second-guess mid-flow.
 - In scene-by-scene mode: Write ONLY the current scene. STOP and WAIT for user feedback. NEVER proceed to the next scene without explicit approval. Each scene applies ALL craft rules (author voice, anti-AI, sensory details) — short scenes are not an excuse for lower quality.
 - In scene-by-scene mode: Scene text goes **into `draft.md`**, not into chat. The user's inline-review workflow (`` ```textile Markus: ... ``` `` blocks inside the draft) breaks if prose sits in chat. Report only metadata in chat: scene number, word count, one-line summary.
+- **Never trust the file-change system-reminder diff for user review (GH#27).** When the user signals that `Markus:` blocks are ready (keywords: "kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an", or any `Markus:` mention), ALWAYS call the `Read` tool on the full `draft.md` file first. The system-reminder truncates diffs for long files, which has caused comments at the end of the file to be silently dropped. After reading, explicitly count the `Markus:` blocks you see and report the count to the user — if it mismatches their expectation, re-read before proceeding.
 - **One Claude Code session per chapter.** Do not span a chapter across sessions. The chapter-writer's cold-start prerequisite load (author profile, tone doc, canon log, previous chapter, book CLAUDE.md) is designed for a fresh session; scene-by-scene review cycles burn context fast. If auto-compaction fires mid-chapter it can silently drop earlier review decisions. All persistent state is on disk — finish the chapter, close the session, open a new one for the next chapter.
 - **Never power through mid-chapter compaction pressure.** If context pressure starts to mount during a scene-by-scene chapter, STOP and tell the user. A scene written after partial context loss degrades silently — previous review decisions, tonal cues, and canon facts may have been compressed away. Better to end the session and resume fresh than to ship a degraded scene.
 - Target word count from the chapter README. Respect genre conventions.
