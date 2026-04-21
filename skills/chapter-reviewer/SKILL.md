@@ -14,7 +14,7 @@ argument-hint: "<book-slug> <chapter-slug>"
 ## Prerequisites
 - Load author profile via MCP `get_author()`
 - Load author vocabulary from `~/.storyforge/authors/{slug}/vocabulary.md`
-- Load craft references: `dos-and-donts`, `anti-ai-patterns`, `chapter-construction`, `dialog-craft`, `show-dont-tell`
+- Load craft references: `dos-and-donts`, `anti-ai-patterns`, `chapter-construction`, `dialog-craft`, `show-dont-tell`, `simile-discipline`
 - Read the chapter draft: `{project}/chapters/{chapter}/draft.md`
 - Read the chapter outline: `{project}/chapters/{chapter}/README.md`
 - Read previous chapter draft for continuity
@@ -27,7 +27,7 @@ argument-hint: "<book-slug> <chapter-slug>"
 - Optional: If `{project}/research/manuscript-report.md` exists, read it and check whether any of THIS chapter's distinctive 5-7 word phrases already appear in earlier chapters (lightweight cross-chapter repetition check). Flag any matches in the Continuity Report section.
 - **Per-book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. Mandatory. Check the draft against every **Rule** (deduct points if violated) and verify that **Callbacks** are either honored, intentionally deferred, or not applicable to this chapter. Flag missed callbacks in the Continuity Report section.
 
-## Review Checklist — 28 Points (20 core + 5 tonal + 3 timeline)
+## Review Checklist — 28 Points + 1 sub-point (20 core + 1 sub-point + 5 tonal + 3 timeline)
 
 ### Structure (5 points)
 1. **Opening hook** — Does the first paragraph grab? Would you keep reading?
@@ -36,12 +36,14 @@ argument-hint: "<book-slug> <chapter-slug>"
 4. **Ending** — Does it compel the reader to turn the page?
 5. **Pacing** — Does the chapter breathe? Action/reflection balance?
 
-### Craft (5 points)
+### Craft (5 points + 1 sub-point)
 6. **Show don't tell** — Are emotions shown through action/body, not named?
 7. **Sensory details** — Are multiple senses engaged (not just visual)?
 8. **Specific details** — Concrete nouns and precise verbs, not generic descriptions?
 9. **Dialog quality** — Subtext present? Characters sound different? Minimal tags?
 10. **Conflict** — Is there tension in every scene? No filler?
+
+**10b. Simile discipline (craft sub-point)** — Apply the two-question test from `simile-discipline.md` to every `like`, `as if`, `as [adj] as`, `the way [X]`, `moved/felt/sounded like`, and `the kind of [noun] that [clause]` construction. For each: does the vehicle literally resemble the tenor? Does it do work a concrete beat couldn't? Flag illogical or decorative similes, stacked similes (2+ per paragraph without each doing distinct work), and dead similes (*pale as a ghost*, *quiet as a mouse*, etc.). Respect author-voice bias: if the profile documents a simile-heavy register with grounded, character-specific comparisons, apply the test with that register in mind — the check targets *quality*, not *quantity*.
 
 ### Voice (5 points)
 11. **Author consistency** — Does this sound like the defined author profile?
@@ -120,6 +122,14 @@ argument-hint: "<book-slug> <chapter-slug>"
 - Flagged words: [list]
 - Sentence length variance: [high/medium/low]
 - Generic descriptions found: [count]
+
+### Simile Report
+- Total simile markers found: [count]
+- Illogical / decorative (cut or revise): [list with quote + location]
+- Stacked (2+ per paragraph without distinct work): [list]
+- Dead similes: [list]
+- Passing similes: [count — optionally cite the strongest]
+- Author-voice register applied: [sparse / simile-heavy / as documented in profile]
 
 ### Verdict
 [PASS / NEEDS REVISION / MAJOR REVISION]

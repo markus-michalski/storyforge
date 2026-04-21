@@ -27,6 +27,7 @@ Before writing a SINGLE word, load ALL of these:
    - `pacing-guide` (scene vs. summary, rhythm)
    - `anti-ai-patterns` (what to avoid at ALL costs)
    - `prose-style` (word choice, rhythm, devices)
+   - `simile-discipline` (the two-question test for every comparison — mandatory for the pre-save scan in Step 6c)
 8. **Character files** — For each character appearing in this chapter, call MCP `get_character(book_slug, character_slug)`. Use the slugified name (e.g. "Jane Doe" → "jane-doe"). If the tool returns `{"error": ...}`, note it and proceed — don't fall back to direct file reads.
 9. **World files** — Read `{project}/world/setting.md` (includes the Travel Matrix). Mandatory if the chapter involves any travel or location references.
 10. **Story timeline** — Read `{project}/plot/timeline.md`. Mandatory for ALL chapters. This is the canonical day/date reference.
@@ -85,6 +86,8 @@ Target ~900 words per scene (can vary — some scenes need 600, others 1200). Th
 
 #### Step A2: Write One Scene
 For the current scene, apply ALL craft rules (Steps 3-6 from Mode B below). Write ONLY this scene — do not continue into the next scene.
+
+**Before appending, run the Step 6c Simile Discipline Scan on the scene text.** No scene goes into `draft.md` before the scan.
 
 After writing the scene:
 1. **Append the scene text directly to `{project}/chapters/{chapter}/draft.md`.** Do NOT paste the scene into chat. The user reviews in their editor and annotates with inline `` ```textile Markus: ... ``` `` comment blocks — that workflow only works if the prose is in the file. If `draft.md` does not exist yet, create it with a chapter heading (`# Chapter N: Title`) above the first scene. Separate scenes with a blank line; do not add scene headings unless the chapter outline specifies them.
@@ -171,6 +174,50 @@ Reference `chapter-construction.md` on endings:
 
 ---
 
+### Step 6c: Simile Discipline Scan (MANDATORY, both modes, pre-save)
+
+**This scan runs BEFORE any prose is appended to `draft.md` or saved.** In scene-by-scene mode (Mode A), run it per scene before Step A2's append. In full-chapter mode (Mode B), run it on the complete chapter text before Step 7.
+
+Reference: `simile-discipline.md`. The scan enforces its two-question test.
+
+**How to run the scan:**
+
+1. **Grep the scene/chapter text for simile markers.** Walk the prose and flag every instance of:
+   - `like [noun]` / `like [clause]`
+   - `as [adj] as [noun]`
+   - `as if [clause]` / `as though [clause]`
+   - `the way [subject] [verb]`
+   - `moved like`, `felt like`, `sounded like`, `looked like`, `seemed like`
+   - `resembled`, `reminded [him/her] of`
+   - `gave the impression of`, `had the air of`
+   - `the kind of [noun] that [clause]` — this construction is a frequent failure mode and must be inspected even without an explicit simile marker.
+
+2. **For each hit, answer both questions honestly:**
+   - **Literal resemblance?** Does the vehicle actually, concretely resemble the tenor? Can the reader picture the comparison?
+   - **Real work?** Does the simile clarify sensation, reveal character frame-of-reference, land a tonal beat, or compress description? Or is it decoration?
+
+3. **Apply the author-voice bias.**
+   - Check the author profile and vocabulary for simile-style notes.
+   - If the author's voice is documented as simile-heavy with grounded, character-specific comparisons (e.g. Ethan Cole's everyday-life similes), apply the test with that register as context. Many similes can pass.
+   - If the profile is silent or documents a sparse style, apply the test strictly. Default to cut-when-in-doubt.
+
+4. **Scan for stack density.** Any paragraph containing two or more simile markers is flagged. Either each one is doing distinct, necessary work, or all but the strongest are cut.
+
+5. **Scan for dead similes.** Reject the familiar ones on sight: *pale as a ghost*, *quiet as a mouse*, *quick as lightning*, *cold as ice*, *sharp as a knife*, *like a deer in headlights*, *like a kid in a candy store*. Replace or cut.
+
+6. **Revise failed similes** in order of preference:
+   - Cut entirely, replace with a concrete beat.
+   - Swap the vehicle for one that actually resembles the tenor.
+   - Keep only if, after rework, it genuinely does work.
+
+7. **Honor book-CLAUDE.md simile bans** — the per-book CLAUDE.md is already in context from Prerequisite 15. Cross-check any rule banning specific comparison patterns (e.g. "no comparisons involving things the floor shouldn't do") and cut matching similes even if the discipline check would otherwise keep them. Book rules override author-voice leniency.
+
+**Do not report the scan results in chat unless findings were significant.** For clean scenes, silence is fine. If you cut or revised similes, optionally note "Simile-Scan: N cut, M revised" in the scene metadata line alongside word count — this is a brief audit trail, not a review dump.
+
+**Do not skip the scan to save time.** The pattern recurs chapter after chapter in real projects precisely because it's easy to leave decorative similes in place. The scan is the enforcement point that the general rules in `prose-style.md` and `anti-ai-patterns.md` don't have.
+
+---
+
 ### Step 7: Save and Update (both modes)
 1. Write draft to `{project}/chapters/{chapter}/draft.md` (in scene-by-scene mode, the full draft is already assembled)
 2. Count words — report to user
@@ -191,6 +238,7 @@ Before presenting to user (in full-chapter mode) or after all scenes assembled (
 - Is there conflict in every scene?
 - Does the POV character's emotional state change?
 - Would a reader know which character is speaking without dialog tags?
+- **Simile discipline** — Confirm the Step 6c scan ran on every scene/section. No decorative or illogical comparisons survived. No stacked similes. No dead similes. `the kind of X that Y` constructions inspected.
 - **Litmus test** — If `plot/tone.md` exists, answer EVERY question from the Litmus Test section. If more than 1 answer is "no", flag it to the user and suggest specific revisions before proceeding.
 - **Time consistency** — Verify that every time reference in the chapter (explicit or relative) is consistent with the Chapter Timeline you created in Step 7.
 
@@ -202,6 +250,7 @@ Suggest: `/storyforge:chapter-reviewer` for detailed review.
 - Every scene needs conflict. No exceptions.
 - Dialog must have subtext. Characters don't say what they mean.
 - The banned word list is non-negotiable. Zero AI-tells.
+- **Simile Discipline (Step 6c) is non-negotiable.** Every scene and every full chapter must survive the two-question test before it enters `draft.md`. Decorative, illogical, stacked, or dead similes do not ship. The author-voice bias means the check targets *quality*, not *quantity* — a simile-heavy author voice is fine as long as each simile does real work. Refer to `simile-discipline.md` for the full heuristic.
 - Continuity is GLOBAL, not just local: always check `plot/timeline.md` and `world/setting.md` Travel Matrix, not just the previous chapter.
 - Never invent a travel time or distance that isn't in the Travel Matrix. Add it first, then write.
 - Never write a day-of-week or date that contradicts `plot/timeline.md`. Update timeline first if needed.
