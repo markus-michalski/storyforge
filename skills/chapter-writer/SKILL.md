@@ -27,7 +27,7 @@ Before writing a SINGLE word, load ALL of these:
    - `pacing-guide` (scene vs. summary, rhythm)
    - `anti-ai-patterns` (what to avoid at ALL costs)
    - `prose-style` (word choice, rhythm, devices)
-8. **Character files** — Read all characters appearing in this chapter.
+8. **Character files** — For each character appearing in this chapter, call MCP `get_character(book_slug, character_slug)`. Use the slugified name (e.g. "Jane Doe" → "jane-doe"). If the tool returns `{"error": ...}`, note it and proceed — don't fall back to direct file reads.
 9. **World files** — Read `{project}/world/setting.md` (includes the Travel Matrix). Mandatory if the chapter involves any travel or location references.
 10. **Story timeline** — Read `{project}/plot/timeline.md`. Mandatory for ALL chapters. This is the canonical day/date reference.
 11. **Canon log** — Read `{project}/plot/canon-log.md`. Mandatory for ALL chapters. This tracks established facts and revision changes. Pay special attention to facts marked `CHANGED` — never reference the old version.

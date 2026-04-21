@@ -21,7 +21,7 @@ if plugin_root not in sys.path:
 from mcp.server.fastmcp import FastMCP
 
 from tools.shared.config import load_config, get_content_root, get_genres_dir, get_reference_dir
-from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_author_path, find_chapters, resolve_series_path, resolve_world_dir
+from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_character_path, resolve_author_path, find_chapters, resolve_series_path, resolve_world_dir
 from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted, parse_chapter_readme
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
@@ -1367,6 +1367,32 @@ def get_book_claudemd(book_slug: str) -> str:
     except FileNotFoundError as exc:
         return json.dumps({"error": str(exc)})
     return json.dumps({"content": content})
+
+
+@mcp.tool()
+def get_character(book_slug: str, character_slug: str) -> str:
+    """Read the full character file for a book.
+
+    Args:
+        book_slug: Book slug (exact match)
+        character_slug: Character slug without extension
+    """
+    config = load_config()
+    project_path = resolve_project_path(config, book_slug)
+    if not project_path.exists():
+        return json.dumps({"error": f"Book '{book_slug}' not found"})
+
+    # Primary layout: characters/{slug}.md
+    primary = resolve_character_path(config, book_slug, character_slug)
+    if primary.exists():
+        return json.dumps({"content": primary.read_text(encoding="utf-8")})
+
+    # Legacy layout: characters/{slug}/README.md
+    legacy = project_path / "characters" / character_slug / "README.md"
+    if legacy.exists():
+        return json.dumps({"content": legacy.read_text(encoding="utf-8")})
+
+    return json.dumps({"error": f"Character '{character_slug}' not found in book '{book_slug}'"})
 
 
 @mcp.tool()
