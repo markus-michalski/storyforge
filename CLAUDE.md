@@ -165,7 +165,8 @@ Books can combine 1-3 genres.
 `{plugin_root}/reference/genre/` contains genre-specific craft guides.
 
 Skills MUST load relevant craft references before generating creative content:
-- `chapter-writer` → loads: chapter-construction, dialog-craft, show-dont-tell, pacing-guide, anti-ai-patterns + genre craft
+- `chapter-writer` → loads: chapter-construction, dialog-craft, show-dont-tell, pacing-guide, anti-ai-patterns, prose-style, simile-discipline + genre craft
+- `chapter-reviewer` → loads: dos-and-donts, anti-ai-patterns, chapter-construction, dialog-craft, show-dont-tell, simile-discipline
 - `plot-architect` → loads: story-structure, plot-craft, tension-and-suspense
 - `character-creator` → loads: character-creation, character-arcs
 - `world-builder` → loads: world-building

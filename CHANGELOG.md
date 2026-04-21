@@ -8,10 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- `reference/craft/simile-discipline.md` — new craft reference codifying the two-question test for similes (literal resemblance? real work?), failure modes, author-voice bias, and revision moves (closes #31)
+- `chapter-writer` Step 6c: mandatory pre-save Simile Discipline Scan in both scene-by-scene and full-chapter modes, with per-marker inspection (`like`, `as if`, `as [adj] as`, `the way X`, `the kind of X that Y`, etc.), stack-density check, dead-simile rejection, and book-CLAUDE.md override check
+- `chapter-reviewer`: new review point 10b "Simile discipline" under Craft, plus a dedicated Simile Report block in the output format
+- `manuscript-checker`: simile-discipline reference note clarifying that the existing `simile` category is cross-chapter repetition while per-simile quality lives in the craft doc; interactive-fix rules now apply the two-question test to each `simile` finding
 
 ### Changed
-- Nothing yet
+- `chapter-writer` mandatory loads (Prerequisites item 7): `simile-discipline` added to the craft-reference list
+- `chapter-reviewer` mandatory loads: `simile-discipline` added to the craft-reference list
+- Root `CLAUDE.md` skill-load map: chapter-writer and chapter-reviewer entries updated to list simile-discipline (chapter-writer now also correctly lists prose-style)
 
 ### Deprecated
 - Nothing yet

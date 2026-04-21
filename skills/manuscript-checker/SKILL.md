@@ -32,6 +32,17 @@ violations of rules the author wrote into the book's CLAUDE.md.
   `voice-checker` (AI-tell gate) or `continuity-checker` (timeline/location).
   This one catches a different problem: prose drift across chapters.
 
+**Note on simile coverage.** The `simile` category in this checker is
+*cross-chapter n-gram repetition* — the same simile phrase appearing in
+multiple chapters. Per-simile *quality* (is this comparison illogical?
+decorative?) is covered by `reference/craft/simile-discipline.md` and
+enforced at write-time by `chapter-writer` (Step 6c) and at review-time by
+`chapter-reviewer`. When walking the `simile` findings in interactive fix
+mode (section 5), apply the two-question test from `simile-discipline.md`
+to each hit before deciding whether to keep or rewrite — a repeated simile
+that also fails the discipline check is a clear cut; a repeated simile that
+does real work in each location may be an intentional motif.
+
 ## Detection categories
 
 | Category | What it catches | Severity logic |
@@ -192,6 +203,12 @@ Keeps the canon log honest about what was changed during revision.
   and `blocking_tic`: default to "pick one to keep". For `structural` and
   `signature_phrase`: be more cautious — these may be intentional voice
   markers.
+- For `simile` findings specifically: apply the two-question test from
+  `reference/craft/simile-discipline.md` to each occurrence. If a repeated
+  simile also fails the discipline check (illogical, decorative, dead, or
+  stacked), cut all instances — don't just keep the "best" one. If every
+  instance does real work, the finding may be a deliberate motif worth
+  keeping — ask the user.
 - **Clichés are high severity even at a count of 1.** A cliché doesn't
   become less clichéd by being rare.
 - **Filter words are not always bad.** Internal realisations, dream logic,
