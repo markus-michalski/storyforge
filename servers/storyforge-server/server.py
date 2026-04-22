@@ -762,18 +762,33 @@ def start_chapter_draft(book_slug: str, chapter_slug: str) -> str:
 
 @mcp.tool()
 def update_field(file_path: str, field: str, value: str) -> str:
-    """Update a frontmatter field in any markdown file."""
+    """Update a field in a markdown frontmatter block or a plain YAML file.
+
+    For ``.yaml``/``.yml`` files (e.g. ``chapter.yaml``) the file is treated
+    as pure YAML — no frontmatter delimiters are written. For all other files
+    the standard ``---`` frontmatter format is used.
+    """
     path = Path(file_path)
     if not path.exists():
         return json.dumps({"error": f"File not found: {file_path}"})
 
-    text = path.read_text(encoding="utf-8")
-    meta, body = parse_frontmatter(text)
-    meta[field] = value
-
     import yaml
-    new_text = "---\n" + yaml.dump(meta, default_flow_style=False, allow_unicode=True) + "---\n" + body
-    path.write_text(new_text, encoding="utf-8")
+
+    if path.suffix in (".yaml", ".yml"):
+        # Pure YAML file — chapter.yaml and similar; never use frontmatter markers.
+        try:
+            loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+            meta = loaded if isinstance(loaded, dict) else {}
+        except yaml.YAMLError:
+            meta = {}
+        meta[field] = value
+        path.write_text(yaml.safe_dump(meta, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    else:
+        text = path.read_text(encoding="utf-8")
+        meta, body = parse_frontmatter(text)
+        meta[field] = value
+        new_text = "---\n" + yaml.dump(meta, default_flow_style=False, allow_unicode=True) + "---\n" + body
+        path.write_text(new_text, encoding="utf-8")
 
     _cache.invalidate()
     return json.dumps({"success": True, "file": file_path, "field": field, "value": value})
