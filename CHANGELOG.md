@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.9.1] - 2026-04-22
+
+### Fixed
+- handle .yaml files as pure YAML, not markdown frontmatter (#33)
+
 ## [1.9.0] - 2026-04-21
 
 ### Added
@@ -140,3 +145,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.7.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.7.1
 [1.8.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.8.0
 [1.9.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.9.0
+[1.9.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.9.1

@@ -7,7 +7,7 @@
     {
       "name": "storyforge",
       "description": "AI-powered book writing pipeline: brainstorm, concept, plot, characters, chapters, export. Author profiles for authentic voice. Genre-mixing. EPUB/PDF/MOBI export via Pandoc.",
-      "version": "1.9.0",
+      "version": "1.9.1",
       "source": "./"
     }
   ]
