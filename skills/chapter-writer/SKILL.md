@@ -39,6 +39,7 @@ Before writing a SINGLE word, load ALL of these:
     - **Rules**: Apply to this chapter's prose (e.g. "avoid passive voice").
     - **Workflow**: Follow the stated process (e.g. "scene-by-scene").
     - **Callbacks**: Weave in the listed characters, objects, or plot threads where natural. Do not force them, but look for an organic moment.
+16. **Review handle** — MCP `get_review_handle_config()`. Returns the configured name for inline review comments (e.g. `"Markus"` or `"Author"`). Store as `{review_handle}` and use throughout this session wherever review comment blocks are referenced.
 
 ## Writing Process
 
@@ -90,25 +91,25 @@ For the current scene, apply ALL craft rules (Steps 3-6 from Mode B below). Writ
 **Before appending, run the Step 6c Simile Discipline Scan on the scene text.** No scene goes into `draft.md` before the scan.
 
 After writing the scene:
-1. **Append the scene text directly to `{project}/chapters/{chapter}/draft.md`.** Do NOT paste the scene into chat. The user reviews in their editor and annotates with inline `` ```textile Markus: ... ``` `` comment blocks — that workflow only works if the prose is in the file. If `draft.md` does not exist yet, create it with a chapter heading (`# Chapter N: Title`) above the first scene. Separate scenes with a blank line; do not add scene headings unless the chapter outline specifies them.
+1. **Append the scene text directly to `{project}/chapters/{chapter}/draft.md`.** Do NOT paste the scene into chat. The user reviews in their editor and annotates with inline `` ```textile {review_handle}: ... ``` `` comment blocks — that workflow only works if the prose is in the file. If `draft.md` does not exist yet, create it with a chapter heading (`# Chapter N: Title`) above the first scene. Separate scenes with a blank line; do not add scene headings unless the chapter outline specifies them.
 2. In chat, report only: scene number, final word count, and a one-line summary of what the scene covers. Do NOT repeat the scene prose in chat.
-3. **WAIT for user feedback.** Corrections come back as inline `Markus:` blocks inside `draft.md` — read them from the updated file and apply per the User Feedback Handling rules.
+3. **WAIT for user feedback.** Corrections come back as inline `{review_handle}:` blocks inside `draft.md` — read them from the updated file and apply per the User Feedback Handling rules.
 
 #### Step A3: User Review Loop
-The user reads the scene in their editor and may add `` ```textile Markus: ... ``` `` comment blocks inline in `draft.md`.
+The user reads the scene in their editor and may add `` ```textile {review_handle}: ... ``` `` comment blocks inline in `draft.md`.
 
 **CRITICAL — Read-First Rule (GH#27):**
-When the user signals that feedback is ready (any of: "kommentiert", "habe kommentiert", "gelesen", "Feedback da", "lies mal", "schau dir an", or any mention of `Markus:` in chat), you MUST call the `Read` tool on the full `draft.md` file BEFORE processing anything. **Never rely on the file-change `system-reminder` diff** — Claude Code truncates diffs for long files (observed cutoffs at 40, 140, 200, 267+ lines), which causes comments near the end of the file to be silently invisible.
+When the user signals that feedback is ready (any of: "kommentiert", "habe kommentiert", "gelesen", "Feedback da", "lies mal", "schau dir an", or any mention of `{review_handle}:` in chat), you MUST call the `Read` tool on the full `draft.md` file BEFORE processing anything. **Never rely on the file-change `system-reminder` diff** — Claude Code truncates diffs for long files (observed cutoffs at 40, 140, 200, 267+ lines), which causes comments near the end of the file to be silently invisible.
 
 Workflow:
 1. User signals review is ready.
 2. Call `Read` on `{project}/chapters/{chapter}/draft.md` — full file, no offset/limit unless the file exceeds 2000 lines.
-3. Scan the fully-loaded content for ALL `` ```textile Markus: ``` `` blocks. Count them aloud to the user: "Ich sehe N Kommentare."
+3. Scan the fully-loaded content for ALL `` ```textile {review_handle}: ``` `` blocks. Count them aloud to the user: "Ich sehe N Kommentare."
 4. Process each block per User Feedback Handling (verify, check context, assess impact, push back if wrong).
 5. If the count you report does not match what the user expected, re-read the file before proceeding — never guess.
 
 Once the user approves the scene (explicitly or by asking to continue):
-1. Remove any applied `Markus:` comment blocks from `draft.md` — the scene prose stays, the review annotations go.
+1. Remove any applied `{review_handle}:` comment blocks from `draft.md` — the scene prose stays, the review annotations go.
 2. Move to the next scene (Step A2).
 
 #### Step A4: Chapter Completion
@@ -273,8 +274,8 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 - The Chapter Timeline in README.md is MANDATORY for every chapter. No exceptions. Future chapters depend on it.
 - In full-chapter mode: Write in ONE PASS, then offer revision. Don't second-guess mid-flow.
 - In scene-by-scene mode: Write ONLY the current scene. STOP and WAIT for user feedback. NEVER proceed to the next scene without explicit approval. Each scene applies ALL craft rules (author voice, anti-AI, sensory details) — short scenes are not an excuse for lower quality.
-- In scene-by-scene mode: Scene text goes **into `draft.md`**, not into chat. The user's inline-review workflow (`` ```textile Markus: ... ``` `` blocks inside the draft) breaks if prose sits in chat. Report only metadata in chat: scene number, word count, one-line summary.
-- **Never trust the file-change system-reminder diff for user review (GH#27).** When the user signals that `Markus:` blocks are ready (keywords: "kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an", or any `Markus:` mention), ALWAYS call the `Read` tool on the full `draft.md` file first. The system-reminder truncates diffs for long files, which has caused comments at the end of the file to be silently dropped. After reading, explicitly count the `Markus:` blocks you see and report the count to the user — if it mismatches their expectation, re-read before proceeding.
+- In scene-by-scene mode: Scene text goes **into `draft.md`**, not into chat. The user's inline-review workflow (`` ```textile {review_handle}: ... ``` `` blocks inside the draft) breaks if prose sits in chat. Report only metadata in chat: scene number, word count, one-line summary.
+- **Never trust the file-change system-reminder diff for user review (GH#27).** When the user signals that `{review_handle}:` blocks are ready (keywords: "kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an", or any `{review_handle}:` mention), ALWAYS call the `Read` tool on the full `draft.md` file first. The system-reminder truncates diffs for long files, which has caused comments at the end of the file to be silently dropped. After reading, explicitly count the `{review_handle}:` blocks you see and report the count to the user — if it mismatches their expectation, re-read before proceeding.
 - **One Claude Code session per chapter.** Do not span a chapter across sessions. The chapter-writer's cold-start prerequisite load (author profile, tone doc, canon log, previous chapter, book CLAUDE.md) is designed for a fresh session; scene-by-scene review cycles burn context fast. If auto-compaction fires mid-chapter it can silently drop earlier review decisions. All persistent state is on disk — finish the chapter, close the session, open a new one for the next chapter.
 - **Never power through mid-chapter compaction pressure.** If context pressure starts to mount during a scene-by-scene chapter, STOP and tell the user. A scene written after partial context loss degrades silently — previous review decisions, tonal cues, and canon facts may have been compressed away. Better to end the session and resume fresh than to ship a degraded scene.
 - Target word count from the chapter README. Respect genre conventions.

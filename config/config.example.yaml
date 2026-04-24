@@ -10,6 +10,7 @@ paths:
 defaults:
   language: "en"          # Primary writing language
   book_type: "novel"      # short-story, novelette, novella, novel, epic
+  review_handle: "Author" # Name used for inline review comments in draft.md (e.g. "Author: this line feels off")
 
 # Export settings
 export:

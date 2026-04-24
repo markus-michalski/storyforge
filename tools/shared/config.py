@@ -49,6 +49,7 @@ def _default_config() -> dict[str, Any]:
         "defaults": {
             "language": "en",
             "book_type": "novel",
+            "review_handle": "Author",
         },
         "export": {
             "pandoc_path": "pandoc",
@@ -74,6 +75,11 @@ def _deep_merge(base: dict, override: dict) -> None:
             _deep_merge(base[key], val)
         else:
             base[key] = val
+
+
+def get_review_handle(config: dict[str, Any]) -> str:
+    """Return the configured review comment handle (without colon)."""
+    return config.get("defaults", {}).get("review_handle", "Author")
 
 
 def get_content_root(config: dict[str, Any]) -> Path:

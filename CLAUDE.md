@@ -212,7 +212,7 @@ Skills MUST load relevant craft references before generating creative content:
 16. ALWAYS update the `## Chapter Timeline` section in the chapter's README.md after writing — intra-day time tracking prevents temporal inconsistencies
 17. ALWAYS load the book's `CLAUDE.md` via MCP `get_book_claudemd()` before writing or reviewing a chapter — it contains persisted workflow rules and callbacks that survive session compaction
 18. Prefix grammar for persistence: messages starting with `Regel:`, `Workflow:`, or `Callback:` are extracted by the PreCompact hook and written to the book's CLAUDE.md. Unprefixed messages are never persisted automatically.
-19. **NEVER trust the file-change `system-reminder` diff in iterative review workflows** (GH#27). When the user signals that review comments (`Markus:` blocks or equivalent) are ready, always call the `Read` tool on the full file first. Claude Code truncates long-file diffs in the system-reminder, which has caused end-of-file comments to be silently dropped. After reading, count the comments you see and report the count — if it mismatches expectation, re-read before processing.
+19. **NEVER trust the file-change `system-reminder` diff in iterative review workflows** (GH#27). When the user signals that review comments (`{review_handle}:` blocks) are ready, always call the `Read` tool on the full file first. Claude Code truncates long-file diffs in the system-reminder, which has caused end-of-file comments to be silently dropped. After reading, count the comments you see and report the count — if it mismatches expectation, re-read before processing.
 
 ## Code Style
 

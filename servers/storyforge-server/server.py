@@ -20,7 +20,7 @@ if plugin_root not in sys.path:
 
 from mcp.server.fastmcp import FastMCP
 
-from tools.shared.config import load_config, get_content_root, get_genres_dir, get_reference_dir
+from tools.shared.config import load_config, get_content_root, get_genres_dir, get_reference_dir, get_review_handle
 from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_character_path, resolve_author_path, find_chapters, resolve_series_path, resolve_world_dir
 from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted, parse_chapter_readme
@@ -205,6 +205,19 @@ def update_session(
     _cache.invalidate()
 
     return json.dumps({"success": True, "session": session})
+
+
+@mcp.tool()
+def get_review_handle_config() -> str:
+    """Return the configured review comment handle from config.
+
+    Used by chapter-writer to replace the hardcoded author name in
+    inline review comment blocks (e.g. 'Author: this feels off').
+    Configurable via defaults.review_handle in ~/.storyforge/config.yaml.
+    """
+    config = load_config()
+    handle = get_review_handle(config)
+    return json.dumps({"review_handle": handle})
 
 
 @mcp.tool()

@@ -38,6 +38,7 @@ user-invocable: true
 | Authors directory | `paths.authors_root` | Any valid path |
 | Default language | `defaults.language` | en, de, es, fr, etc. |
 | Default book type | `defaults.book_type` | short-story, novelette, novella, novel, epic |
+| Review comment handle | `defaults.review_handle` | Your name/identifier for inline draft.md annotations |
 | Export format | `export.default_format` | epub, pdf, mobi |
 | PDF engine | `export.pdf_engine` | xelatex, pdflatex, wkhtmltopdf |
 | Cover platform | `cover.platform` | midjourney, dall-e |
