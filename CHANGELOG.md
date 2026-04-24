@@ -25,6 +25,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.11.0] - 2026-04-24
+
+### Added
+- make inline review comment handle configurable
+
+### Changed
+- Change GitHub badge to latest tag by date
+- Fix GitHub release badge link in README
+- Fix badge link to point to tags instead of releases
+- replace static version with GitHub release badge, drop 'new in' section
+- update README to v1.10.0 — 33 skills, writing modes, new features
+- replace snowflake theory intro with reference pointer
+- extract triage report template to templates/
+- extract platform reference to reference/promo/platforms.md
+- remove algorithmic internals from skill
+
 ## [1.10.0] - 2026-04-24
 
 ### Added
@@ -156,3 +172,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.9.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.9.0
 [1.9.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.9.1
 [1.10.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.10.0
+[1.11.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.11.0
