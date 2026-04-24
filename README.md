@@ -1,6 +1,6 @@
 # StoryForge
 
-[![GitHub release](https://img.shields.io/github/v/release/markus-michalski/storyforge)](https://github.com/markus-michalski/storyforge/tags)
+![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/markus-michalski/storyforge)
 
 AI-powered book writing plugin for Claude Code. From brainstorming to published EPUB/PDF/MOBI.
 
