@@ -20,7 +20,36 @@ argument-hint: "<book-slug> [platform]"
 
 ## Workflow
 
-### Step 1: Campaign Strategy
+### Step 1: Write the Blurb
+
+The book blurb is the single most important marketing text — it must exist before any platform content is written. Do this first, always.
+
+**Load:**
+- `{project}/synopsis.md` — Short Synopsis section is the raw material
+- Genre README(s) — tone guidance for the blurb voice
+
+**Walk through the 5-element structure:**
+
+1. **Hook** — Opening line that captures the core premise. One sentence, written to grab a skimming reader.
+2. **Character Introduction** — Protagonist name + one defining characteristic. Enough to care, nothing more.
+3. **Conflict & Stakes** — What's at stake and what happens if they fail. The "or else" that creates urgency.
+4. **Tone Alignment** — Verify the blurb voice matches genre expectations:
+   - Thriller: tension, urgency, menace
+   - Romance: warmth, anticipation, emotional pull
+   - Horror: dread, wrongness, the unknown
+   - Fantasy: wonder, scale, stakes
+   - Literary Fiction: interiority, ambiguity, weight
+5. **Comp Titles** (optional) — "_X_ meets _Y_" format. Only include if the comparison is strong and both titles are recognizable.
+
+**Target:** 150–200 words. Rigorously edited. No spoilers. No ending revealed.
+
+**Output:** Save to `{project}/export/blurb.md` using `templates/blurb.md` as scaffold.
+
+**Gate:** Ask the user to approve the blurb before proceeding. If rejected, revise until approved.
+
+---
+
+### Step 2: Campaign Strategy
 Ask the user:
 - **Phase:** Pre-launch (teasers), Launch (announcement), Post-launch (sustained)
 - **Platforms:** Which ones? (or all)
@@ -35,7 +64,7 @@ Ask the user:
   - Series announcement
   - Giveaway posts
 
-### Step 2: Generate Platform-Specific Content
+### Step 3: Generate Platform-Specific Content
 
 Create `{project}/promo/` directory with per-platform files.
 
@@ -232,7 +261,7 @@ Body: [Deleted scene or character backstory + review request]
 
 ---
 
-### Step 3: Quote Cards
+### Step 4: Quote Cards
 Extract 5-10 compelling quotes from the book for visual content:
 - **Criteria:** Punchy, evocative, standalone (no context needed)
 - **Length:** 1-3 sentences max
@@ -241,7 +270,7 @@ Extract 5-10 compelling quotes from the book for visual content:
 
 Write to `{project}/promo/quotes.md`.
 
-### Step 4: Hashtag Strategy
+### Step 5: Hashtag Strategy
 Research and compile genre-specific hashtags:
 - **Broad:** #bookstagram, #booktok, #readersofinstagram, #bookish
 - **Genre:** #horrorbooks, #fantasyreads, #romancebooks, etc.
@@ -251,7 +280,7 @@ Research and compile genre-specific hashtags:
 
 Write to `{project}/promo/hashtags.md`.
 
-### Step 5: Content Calendar
+### Step 6: Content Calendar
 Suggest a posting schedule:
 
 | Day | Platform | Content Type |
