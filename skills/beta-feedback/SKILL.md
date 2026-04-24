@@ -181,49 +181,7 @@ Resolution status format — append to each `## FB-NNN` section:
 
 ### Triage Report: `{project}/research/beta-feedback-triage.md`
 
-```markdown
-# Beta Feedback Triage — {Book Title}
-Generated: {date}
-
-## Summary
-- Total feedback items: X
-- Valid + actionable: X
-- Valid + cosmetic: X
-- Disagree: X
-- Positive: X
-- Chapters affected: X unique
-
----
-
-## Triage
-
-### FB-001: Pacing drags in Ch 18-19
-**Category:** pacing
-**Verdict:** valid + actionable
-**Evidence:** Tone.md specifies "accelerating tension" for Act 3 chapters. Ch 18 spends 1,200 words on palace architecture description — inconsistent with the prescribed mode. Two readers independently flagged skimming.
-**Proposed fix:** Compress hallway description, move world-building to dialog.
-**Cascade:** Ch 19 opening references hallway details.
-
----
-
-### FB-002: Kael's motivation unclear after Ch 21
-**Category:** character, plot
-**Verdict:** valid + actionable
-**Evidence:** arcs.md shows Kael's protective instinct escalates in Act 3, but Ch 21 jumps to the prohibition without a visible trigger scene. The setup exists in Ch 20 (subtext) but the payoff is too abrupt for readers unfamiliar with the arc plan.
-**Proposed fix:** Add trigger moment in Ch 21 before the prohibition.
-
----
-
-### FB-003: Kevin scene was perfect
-**Category:** positive
-**Verdict:** positive
-**Notes:** Multiple readers highlighted Ch 10 as a favorite. The Kevin/philosophy-shelf scene resonates. No action needed.
-
----
-
-## Revision Plan
-[Phase 5 output, if generated]
-```
+Generate using `templates/beta-feedback-triage.md` as scaffold.
 
 ## Integration with Existing Skills
 
