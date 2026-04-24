@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.10.0] - 2026-04-24
+
+### Added
+- add author_writing_mode for outliner/plantser/discovery workflows (#45)
+- add /storyforge:unblock skill for writer's block (#44)
+- add dedicated blurb-writing step to promo-writer workflow (#43)
+- add Snowflake Method as planning workflow in plot-architect (#42)
+- expand character template and creator skill with 18 new fields (#41)
+
 ## [1.9.1] - 2026-04-22
 
 ### Fixed
@@ -146,3 +155,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.8.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.8.0
 [1.9.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.9.0
 [1.9.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.9.1
+[1.10.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.10.0
