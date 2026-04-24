@@ -246,6 +246,16 @@ Before presenting to user (in full-chapter mode) or after all scenes assembled (
 
 Suggest: `/storyforge:chapter-reviewer` for detailed review.
 
+### Step 9: Stop While Ahead (both modes)
+After the chapter is saved and the user signals satisfaction, end the session on momentum.
+
+**Closing reminder to the user:**
+> "Tipp für die nächste Session: Stopp jetzt, solange der Schwung da ist. Fang das nächste Kapitel NICHT an — hör mittendrin auf, wenn du weißt wie es weitergeht. So hast du beim nächsten Mal sofort einen Einstiegspunkt und kommst schneller in den Flow."
+
+This is not optional advice — it's a craft technique (Jerry Jenkins, Stephen King). Writers who stop mid-momentum have a warm entry into the next session. Writers who stop at a "logical ending point" face a blank page next time.
+
+If the user is blocked or struggling: redirect to `/storyforge:unblock` instead of pushing through.
+
 ## Rules
 - The author profile is LAW. Every stylistic choice flows from it.
 - SHOW, don't tell. Always. Unless telling serves pacing.
