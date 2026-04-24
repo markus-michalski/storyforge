@@ -20,8 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Project license from MIT to PolyForm Noncommercial 1.0.0 (`.claude-plugin/plugin.json` now references LICENSE file)
+- README reduced from 183 to 59 lines: landing-page scope, detailed content delegated to external documentation at faq.markus-michalski.net/en/plugins/storyforge
 - README License section — full PolyForm NC terms, scope, contact path for commercial use
-- README extended with Documentation and Contributing sections
 
 ### Security
 - Governance hardening: CODEOWNERS gate, SECURITY policy, CLA requirement for contributions
