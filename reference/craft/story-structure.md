@@ -245,6 +245,123 @@ The Snowflake Method can feel overly mechanical for pantsers (writers who write 
 
 ---
 
+## Dan Harmon's Story Circle
+
+Dan Harmon, creator of *Community* and *Rick and Morty*, developed the Story Circle as a character-centered adaptation of Campbell's monomyth. Where the Hero's Journey maps external adventure, the Story Circle maps internal transformation. The character's inner journey is the structure.
+
+### The Eight Steps
+
+**1. A character is in a zone of comfort**
+The protagonist exists in their ordinary world—familiar, safe, known. This is not paradise; it may be stagnation. But it's *theirs*. We understand exactly what they stand to lose before they risk it.
+
+**2. But they want something**
+An unfulfilled need or desire drives them forward. This is often unconscious—what the character *thinks* they want versus what they actually need. The want sets the story in motion.
+
+**3. They enter an unfamiliar situation**
+The protagonist leaves their comfort zone—physically, socially, psychologically. They cross a threshold into territory where the old rules don't apply. The unfamiliar situation is a test designed to reveal who they really are.
+
+**4. They adapt to it**
+The protagonist learns to operate in the new world. They acquire skills, allies, and understanding. They grow more confident—sometimes dangerously so. This is the "fun and games" phase where the premise delivers on its promise.
+
+**5. They get what they wanted**
+The surface desire is achieved. The protagonist accomplishes the goal they set out for. This is often a false victory—they get what they wanted, but it doesn't satisfy them.
+
+**6. But they pay a heavy price for it**
+Success costs something profound. A relationship is broken. An illusion is shattered. Something is lost that cannot be recovered. This is the All Is Lost moment—the price of getting the want rather than the need.
+
+**7. Then they return to their familiar situation**
+The protagonist returns to their ordinary world—or what's left of it. But the return is changed by everything that happened. The familiar is now strange because *they* are strange.
+
+**8. Having changed**
+The protagonist is fundamentally different. The internal transformation is complete. They now operate from a truth they didn't have at the start. The change should be *demonstrated* in behavior, not stated in dialogue.
+
+### The Key Insight: Want vs. Need
+
+The Story Circle's power comes from the gap between Step 2 (what the character wants) and Step 8 (what the story reveals they needed). If Steps 2 and 8 align perfectly, there is no arc. If they're in tension—if getting the want in Step 5 costs them something that forces them toward the need—the circle produces genuine transformation.
+
+*Example: Rick and Morty, "Pilot"*
+Rick (Step 1) exists in the comfort of his genius and cynicism. He wants to expose Morty to adventure (Step 2). They enter the adventure world (Step 3), adapt (Step 4), and succeed at the mission (Step 5). But Rick is forced to admit he needs Morty's presence more than he'll say (Step 6). He returns to domestic life (Step 7) slightly more vulnerable than before (Step 8).
+
+### When to Use Dan Harmon's Story Circle
+
+**Best for:**
+- Character-driven stories where internal transformation is the core
+- Episodic narratives (each episode can be its own circle)
+- Stories with comedic tone and sharp character voice
+- Writers who find three-act structure too focused on external plot
+
+**Avoid when:**
+- Your story is primarily plot-driven with minimal character transformation
+- You're writing ensemble narratives where no single character leads (though circles can nest)
+- Your protagonist is a flat arc character who doesn't fundamentally change
+
+### Story Circle vs. Hero's Journey
+
+The Hero's Journey maps the *adventure*. The Story Circle maps the *person*. Both derive from Campbell, but the Story Circle compresses external events to foreground inner change. In the Hero's Journey, stages like "Tests, Allies, and Enemies" can expand into vast plot territory. In the Story Circle, that territory compresses into Steps 3–4 because the point is transformation, not adventure.
+
+---
+
+## Seven-Point Story Structure
+
+The Seven-Point Story Structure—popularized by author Dan Wells—works backward from the ending. You define where characters end up (resolution), then build the structure that gets them there. It's particularly strong for writers who know their ending but struggle with the middle.
+
+### The Seven Points
+
+**1. Hook**
+Where the character *starts*—the opposite of the resolution. If the resolution is "protagonist learns to trust others," the hook shows the protagonist who cannot trust anyone. The greater the contrast between hook and resolution, the more satisfying the arc.
+
+The hook should also grip the reader immediately: a compelling situation, an intriguing character, an unusual circumstance that makes readers ask "what happens next?"
+
+**2. Plot Point 1**
+The character is *called into* the story world. Something happens that forces or enables them to engage with the central conflict. They commit—willingly or not—to the journey. This is the point of no return that ends the setup phase.
+
+**3. Pinch Point 1**
+The antagonistic force reveals its power. This is a direct application of pressure on the protagonist—a demonstration of what they're up against. The protagonist may succeed or fail, but the antagonist's strength is now undeniable. Stakes are raised.
+
+**4. Midpoint**
+The protagonist shifts from *reactive* to *proactive*. Before the midpoint, things happen to them. After the midpoint, they make things happen. This shift is driven by new information, a revelation, or a moment of decision. The protagonist now understands the stakes in full and commits to action.
+
+**5. Pinch Point 2**
+The antagonistic force applies maximum pressure. The protagonist's plan is failing or has failed. Everything that could go wrong does. This is the All Is Lost moment—the darkest point before the final act. It forces the protagonist to dig deeper than they thought possible.
+
+**6. Plot Point 2**
+The protagonist finds the key to winning. Not victory itself, but the insight, tool, ally, or decision that makes victory possible. This often involves the protagonist finally doing the difficult thing they've been avoiding—facing their fear, accepting help, confronting the truth about themselves.
+
+**7. Resolution**
+The protagonist uses what they found in Plot Point 2 to resolve the central conflict. The story's central question is answered. The contrast with the Hook demonstrates how far they've come.
+
+### Design from Both Ends
+
+The Seven-Point method's defining technique: write your hook and resolution first, then build the structure between them.
+
+*Process:*
+1. Define your resolution (where does the character end up, emotionally and externally?)
+2. Define your hook (where do they start—the opposite of the resolution)
+3. Place your midpoint (what shifts the character from reactive to proactive?)
+4. Fill in Plot Points 1 and 2 (what leads into the midpoint? what follows it?)
+5. Add Pinch Points 1 and 2 (where does the antagonist demonstrate power?)
+
+This backward design prevents the common problem of a strong beginning and end with a sagging, directionless middle.
+
+### When to Use Seven-Point Structure
+
+**Best for:**
+- Writers who know their ending and need help building toward it
+- Stories with a strong antagonist whose power must be clearly established
+- Fantasy, thriller, and adventure stories with clear external conflict
+- Writers who struggle with the second act
+
+**Avoid when:**
+- You're a discovery writer (this method requires knowing the destination)
+- Your story is more mood and atmosphere than plot-driven
+- Your structure is deliberately non-linear
+
+### Seven-Point vs. Three-Act
+
+The three-act structure organizes by emotional phase (setup, confrontation, resolution). The seven-point organizes by narrative function. They overlap significantly—Plot Point 1 corresponds to the end of Act 1, Midpoint to the three-act midpoint, Plot Point 2 to the end of Act 2. The difference is design orientation: three-act builds forward, seven-point builds from both ends simultaneously.
+
+---
+
 ## Kishotenketsu (East Asian Story Structure)
 
 Kishōtenketsu (起承転結) originates in classical Chinese poetry and structures many East Asian narratives. It differs fundamentally from Western conflict-driven structures by organizing around development, contrast, and unexpected turns rather than escalating tension.
@@ -318,12 +435,16 @@ Different genres and story types benefit from different structures. This table p
 |-------|---|---|---|
 | Literary Fiction | Kishotenketsu or Custom | Emphasizes character psychology, mood, and subtle transformation. Benefits from non-linear emotional arcs. | Three-Act (loose), Hero's Journey (modified) |
 | Romance | Three-Act or Save the Cat | Requires clear beat structure for meet-cute, conflict, and resolution. Save the Cat's B Story excels for relationship threads. | Hero's Journey (adapted for relationship focus) |
-| Thriller/Mystery | Fichtean Curve or Three-Act | Requires sustained tension and escalating crises. Fichtean is ideal for high-octane pacing. | Save the Cat (for commercial structure) |
-| Fantasy Epic | Hero's Journey or Five-Act | Epic scope demands the mythic resonance of the Hero's Journey. Multiple acts accommodate complex worlds. | Save the Cat (for pacing commercial fantasy) |
+| Thriller/Mystery | Fichtean Curve or Three-Act | Requires sustained tension and escalating crises. Fichtean is ideal for high-octane pacing. | Seven-Point (for writers who know their ending) |
+| Fantasy Epic | Hero's Journey or Five-Act | Epic scope demands the mythic resonance of the Hero's Journey. Multiple acts accommodate complex worlds. | Seven-Point (for writers designing from the ending) |
 | Science Fiction | Three-Act or Fichtean | Depends on subtype: hard sci-fi often uses three-act for clarity. Space opera uses Hero's Journey. | Snowflake Method (for world-building integration) |
 | Historical Fiction | Five-Act or Snowflake | Complex timelines and multiple perspectives benefit from granular structure. Snowflake excels at historical detail integration. | Three-Act (modified) |
-| Literary Short Fiction | Kishotenketsu or Custom | Short format demands efficiency and resonance over plot mechanics. | Three-Act (highly compressed) |
+| Literary Short Fiction | Kishotenketsu or Custom | Short format demands efficiency and resonance over plot mechanics. | Story Circle (for tight character transformation) |
 | Young Adult | Save the Cat or Three-Act | YA benefits from clear beats and emotional arcs. Save the Cat's theme work is particularly valuable. | Hero's Journey (for coming-of-age) |
+| Comedy / Sitcom / Episodic | Dan Harmon's Story Circle | Foregrounds character transformation over external plot. Each episode or chapter can complete its own circle. | Three-Act (compressed) |
+| Tragedy / Corruption Arc | Five-Act (Freytag's Pyramid) | Designed explicitly for downward arcs, disillusionment, and fatal flaws that destroy the protagonist. | Three-Act (negative arc variant) |
+| Character Study | Dan Harmon's Story Circle | When internal change *is* the story, the Story Circle keeps the transformation central at every stage. | Kishotenketsu |
+| Author knows the ending | Seven-Point Structure | Design from both ends: define resolution first, then build hook, midpoints, and pinch points backward to connect them. | Three-Act |
 
 ---
 

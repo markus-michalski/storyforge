@@ -141,6 +141,35 @@ Example: *The Fellowship of the Ring* does not begin with Frodo's childhood. It 
 
 *In medias res* fails when used as a cheap hook. If you begin with an action scene that has no emotional weight and no connection to the actual story, readers will feel tricked.
 
+#### The 13-Point First Chapter Checklist
+
+Chapter 1 carries responsibilities no other chapter has. Use this checklist to verify your first chapter does its full job before moving on.
+
+**Set the Stage**
+
+1. **Orient the reader** — Time period and location are established early. The reader knows *when* and *where* without an info dump.
+2. **Set the tone** — Words, events, dialogue, and setting convey the story's mood. The reader knows what emotional register they're entering.
+3. **Establish the genre** — The reader can identify whether this is fantasy, thriller, romance, literary fiction, etc. The genre contract is signed.
+
+**Spotlight the Protagonist**
+
+4. **Introduce the protagonist in their element** — Show them doing what defines them best. Not sitting. Not waking up. Doing the thing that is most *them*.
+5. **Give the protagonist something to want** — Even before the story's main conflict, the protagonist has a desire or longing. Something they're pursuing, hoping for, or missing.
+6. **Reveal the normal world** — Show everyday life before the disruption. Readers need to understand the baseline to feel the disruption.
+7. **Illustrate the problem with the protagonist's life** — Something is broken or unsatisfying before the main plot begins. Show what's wrong or missing in their world.
+8. **Hint at the theme** — Subtly introduce the deeper questions the story will explore. The theme isn't stated; it's seeded.
+9. **Present the protagonist's internal conflict** — The fear-versus-desire tension that will drive the character through the book is present. What do they want? What are they afraid of?
+
+**Give Readers a Reason to Stay**
+
+10. **Killer first sentence** — The opening line sparks curiosity. It makes the reader ask a question they need answered.
+11. **Spark curiosity** — Unanswered questions, a mysterious object, an intriguing exchange of dialogue. The reader is leaning forward.
+12. **Establish dread** — Foreshadow coming challenges or disasters. The reader senses something is coming even if they can't name it.
+13. **Knock over the first domino** — The initial event that sets the protagonist's journey in motion is present by chapter's end. The first chapter doesn't just introduce—it *begins*.
+
+**How to use this checklist:**
+A Chapter 1 that passes all 13 points is ready. A chapter that fails 1–2 minor points (e.g., 8 or 12) may still work. A chapter that fails items 4, 5, 9, 10, or 13 needs revision before proceeding—those are the load-bearing requirements.
+
 ### 4. What to Avoid in Openings
 
 **Weather Descriptions**

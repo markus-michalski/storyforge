@@ -132,6 +132,8 @@ Write the first paragraph with extreme care. Reference `openings-and-endings.md`
 - Create a micro-question that pulls the reader forward
 - Match the author's established voice from the FIRST sentence
 
+**If this is Chapter 1:** Before writing, review the 13-Point First Chapter Checklist from `openings-and-endings.md`. Plan how this chapter will satisfy all 13 points — especially the load-bearing ones (4, 5, 9, 10, 13). After writing, run `/storyforge:chapter-reviewer` which will automatically apply the first-chapter check.
+
 #### Step 4: Write Scene by Scene
 Follow the Scene-Sequel structure from `chapter-construction.md`:
 

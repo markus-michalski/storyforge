@@ -15,6 +15,7 @@ argument-hint: "<book-slug> <chapter-slug>"
 - Load author profile via MCP `get_author()`
 - Load author vocabulary from `~/.storyforge/authors/{slug}/vocabulary.md`
 - Load craft references: `dos-and-donts`, `anti-ai-patterns`, `chapter-construction`, `dialog-craft`, `show-dont-tell`, `simile-discipline`
+- **Detect if this is Chapter 1:** Check chapter slug (starts with `01-` or `001-`) or frontmatter chapter number (`chapter: 1`). If Chapter 1: also load `openings-and-endings` craft reference.
 - Read the chapter draft: `{project}/chapters/{chapter}/draft.md`
 - Read the chapter outline: `{project}/chapters/{chapter}/README.md`
 - Read previous chapter draft for continuity
@@ -26,6 +27,33 @@ argument-hint: "<book-slug> <chapter-slug>"
 - Read the `## Chapter Timeline` from the PREVIOUS chapter's `README.md` — verify cross-chapter time references (e.g. "an hour ago" across chapter boundaries)
 - Optional: If `{project}/research/manuscript-report.md` exists, read it and check whether any of THIS chapter's distinctive 5-7 word phrases already appear in earlier chapters (lightweight cross-chapter repetition check). Flag any matches in the Continuity Report section.
 - **Per-book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. Mandatory. Check the draft against every **Rule** (deduct points if violated) and verify that **Callbacks** are either honored, intentionally deferred, or not applicable to this chapter. Flag missed callbacks in the Continuity Report section.
+
+## First Chapter Checklist — 13 Points (ONLY for Chapter 1)
+
+If this is Chapter 1, run this checklist BEFORE the standard review. Rate each point: PASS / WARN / FAIL.
+
+**Set the Stage**
+1. **Orient the reader** — Time period and location established early without info dump.
+2. **Set the tone** — Words, events, dialogue, and setting convey the story's mood.
+3. **Establish the genre** — Reader knows what type of story they're entering.
+
+**Spotlight the Protagonist**
+4. **Protagonist in their element** — Shown doing what defines them best (not sitting, not waking up).
+5. **Protagonist wants something** — A concrete desire or longing exists before the main plot hits.
+6. **Normal world revealed** — Everyday life before disruption is visible.
+7. **Problem illustrated** — Something is broken or unsatisfying in the protagonist's world.
+8. **Theme seeded** — A subtle hint at the story's deeper questions exists.
+9. **Internal conflict established** — Fear-versus-desire tension is present.
+
+**Give Readers a Reason to Stay**
+10. **Killer first sentence** — Opening line sparks curiosity and makes the reader ask a question.
+11. **Curiosity sparked** — Unanswered questions, mysterious objects, or intriguing dialogue keep reader leaning forward.
+12. **Dread established** — Coming challenges are foreshadowed; the reader senses something is coming.
+13. **First domino knocked** — The initial event that sets the journey in motion occurs by chapter's end.
+
+**Load-bearing items** (FAIL here = chapter needs revision before moving on): 4, 5, 9, 10, 13.
+
+---
 
 ## Review Checklist — 28 Points + 1 sub-point (20 core + 1 sub-point + 5 tonal + 3 timeline)
 
@@ -82,6 +110,27 @@ argument-hint: "<book-slug> <chapter-slug>"
 
 ```markdown
 ## Chapter Review: {Chapter Title}
+
+### First Chapter Report (only if Chapter 1)
+| # | Requirement | Result | Notes |
+|---|---|---|---|
+| 1 | Orient the reader | PASS/WARN/FAIL | |
+| 2 | Set the tone | PASS/WARN/FAIL | |
+| 3 | Establish genre | PASS/WARN/FAIL | |
+| 4 | Protagonist in element ⚠️ | PASS/WARN/FAIL | |
+| 5 | Protagonist wants something ⚠️ | PASS/WARN/FAIL | |
+| 6 | Normal world revealed | PASS/WARN/FAIL | |
+| 7 | Problem illustrated | PASS/WARN/FAIL | |
+| 8 | Theme seeded | PASS/WARN/FAIL | |
+| 9 | Internal conflict ⚠️ | PASS/WARN/FAIL | |
+| 10 | Killer first sentence ⚠️ | PASS/WARN/FAIL | |
+| 11 | Curiosity sparked | PASS/WARN/FAIL | |
+| 12 | Dread established | PASS/WARN/FAIL | |
+| 13 | First domino knocked ⚠️ | PASS/WARN/FAIL | |
+
+⚠️ = load-bearing, FAIL requires revision before proceeding.
+
+---
 
 ### Score: [X]/25 (core) + [X]/5 (tonal, if tone.md exists) + [X]/3 (timeline)
 
