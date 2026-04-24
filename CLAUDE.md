@@ -190,7 +190,7 @@ Skills MUST load relevant craft references before generating creative content:
 - `character-creator` → loads: character-creation, character-arcs
 - `world-builder` → loads: world-building
 - `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts
-- `promo-writer` → loads: genre README(s) for blurb tone guidance
+- `promo-writer` → loads: genre README(s) for blurb tone guidance, `reference/promo/platforms.md` for platform characteristics
 
 ## Important Rules
 
