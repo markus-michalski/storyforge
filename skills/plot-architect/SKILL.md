@@ -33,9 +33,18 @@ Based on genre and story type, recommend a structure. Use AskUserQuestion:
 - **3-Act** — Most versatile. Best for: thriller, romance, mystery, contemporary.
 - **Hero's Journey** — Quest narratives. Best for: fantasy, sci-fi, adventure.
 - **Save the Cat** — Detailed beats. Best for: commercial fiction, thriller, romance.
-- **5-Act** — Tragic or complex narratives. Best for: literary, drama, historical.
+- **5-Act / Freytag's Pyramid** — Tragic or complex narratives. Best for: literary, drama, historical, corruption/downfall arcs.
 - **Fichtean Curve** — Start in action. Best for: thriller, horror.
+- **Dan Harmon's Story Circle** — Character transformation first. Best for: character-driven, episodic, comedic stories. 8 steps: comfort → want → unfamiliar → adapt → get want → pay price → return → changed.
+- **Seven-Point Structure** — Design from both ends (know your ending first). Best for: fantasy, thriller, adventure. Hook → Plot Point 1 → Pinch 1 → Midpoint → Pinch 2 → Plot Point 2 → Resolution.
 - **Kishotenketsu** — No central conflict. Best for: literary, slice-of-life.
+
+**Recommendation logic:**
+- Protagonist doesn't fundamentally change → Flat arc → consider **Hero's Journey** or **Seven-Point**
+- Protagonist corrupts or falls → **5-Act / Freytag's Pyramid**
+- Story is episodic or comedy-driven → **Dan Harmon's Story Circle**
+- Author knows the ending but not the middle → **Seven-Point Structure**
+- Pantser / Plantser writing mode → lean toward **3-Act** (minimal) or **Dan Harmon's Story Circle** (8 clear checkpoints)
 
 ### Step 3: Map Plot Beats
 For the chosen structure, work through each beat WITH the user:

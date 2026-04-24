@@ -12,7 +12,7 @@ from pathlib import Path
 import yaml
 
 REQUIRED_FRONTMATTER = ["name", "role", "status"]
-REQUIRED_SECTIONS = ["Want vs. Need", "Fatal Flaw"]
+REQUIRED_SECTIONS = ["Want vs. Need", "Fatal Flaw", "The Ghost", "Motivation Chain"]
 
 
 def validate_character(file_path: str) -> list[str]:
