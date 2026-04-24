@@ -1,8 +1,8 @@
 # StoryForge
 
-AI-powered book writing plugin for Claude Code. From brainstorming to published EPUB/PDF/MOBI.
+[![GitHub release](https://img.shields.io/github/v/release/markus-michalski/storyforge)](https://github.com/markus-michalski/storyforge/releases/latest)
 
-**Current version: 1.10.0**
+AI-powered book writing plugin for Claude Code. From brainstorming to published EPUB/PDF/MOBI.
 
 ## What It Does
 
@@ -115,16 +115,14 @@ storyforge/
 
 ## Skill Highlights
 
-### New in v1.10.0
-- **`/storyforge:unblock`** — Diagnose writer's block (fear / perfectionism / procrastination / distraction) and deliver targeted exercises to get writing again
-- **`/storyforge:plot-architect`** — Now includes Snowflake Method: 10-step iterative planning workflow building premise → sentence summary → page synopsis → character sheets → full scene list
-
 ### Writing
 - **`/storyforge:chapter-writer`** — Loads author profile, book data, outline, previous chapter, 8 craft references, character/world files, timeline, canon log, tonal document, and per-book CLAUDE.md before writing a single word. Scene-by-scene mode recommended with inline review handles. Includes mandatory simile discipline scan per scene.
+- **`/storyforge:plot-architect`** — Supports 8 structure methods including Snowflake Method: 10-step iterative workflow building premise → sentence summary → page synopsis → character sheets → full scene list.
 - **`/storyforge:rolling-planner`** — Scene-by-scene planning for discovery writers and plantsers. Goal / Conflict / Consequence recipe for each scene.
 - **`/storyforge:continuity-checker`** — Validates all chapters against timeline and Travel Matrix. Reconstructs both if missing. Flags all temporal and spatial conflicts.
 - **`/storyforge:manuscript-checker`** — Full-manuscript gate before revision. Detects: book-rule violations, cross-chapter repetition (similes, blocking tics, structural patterns), clichés, dialogue punctuation anomalies, POV filter-word density, adverb density. Interactive fix mode.
 - **`/storyforge:beta-feedback`** — Triage ARC/beta-reader feedback: categorize (plot / character / pacing / prose / continuity / genre-expectation), cross-reference against canon and arc plans, deliver verdicts, produce revision plan.
+- **`/storyforge:unblock`** — Diagnose writer's block (fear / perfectionism / procrastination / distraction) and deliver targeted exercises to get writing again.
 
 ### Production
 - **`/storyforge:promo-writer`** — Full campaign: back-cover blurb → campaign strategy → platform-specific content → quote cards → hashtag strategy + calendar. Targets: Facebook, Instagram, Twitter/X, TikTok, Bluesky, Newsletter.
