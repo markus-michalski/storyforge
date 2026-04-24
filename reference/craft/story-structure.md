@@ -205,43 +205,109 @@ The beat sheet can feel constraining for experimental or literary fiction where 
 
 ## The Snowflake Method (Randy Ingermanson)
 
-The Snowflake Method is an iterative outlining approach inspired by fractal mathematics. It grows a story from simple to complex, parallel-processing plot and character development. It's particularly valuable for writers who struggle with plot holes and abandoned drafts.
+The Snowflake Method is an iterative, fractal approach to story planning. Ingermanson's core insight: a story grows like a snowflake — from a simple seed to complex structure through repeated passes, each adding detail. Plot and characters develop **in parallel**, not sequentially. It's particularly valuable for writers who struggle with plot holes and abandoned first drafts.
+
+### Core Philosophy
+
+The defining difference from linear outlining: **iteration is built in**. After Step 3 you return to revise Steps 1–2. After Step 7 you revise Steps 3–6. This backward movement is not a failure signal — it's the method working correctly. Characters discovered in later steps demand story changes. Embrace that.
 
 ### The Ten Steps
 
-**Step 1: One-Sentence Summary**
-Distill your entire story into a single sentence that captures the core conflict and resolution. Example: "A man discovers a murder in his small town and must choose between exposing the truth or protecting the guilty."
+**Step 1: One-Sentence Summary (≤15 words)**
+Distill the entire story into a single sentence that captures the core conflict and what's at stake. This is your north star — every later decision is tested against it. Spend an hour here; it's worth it.
 
-This sentence is your north star. It defines scope and essential conflict.
+*Example:* "A disgraced knight must recover a stolen relic before war consumes the kingdom."
+
+*Avoid:* Vague premises ("a man learns about himself"), genre labels ("an epic fantasy"), or loglines without stakes.
 
 **Step 2: One-Paragraph Summary**
-Expand the sentence into a full paragraph. If using three-act structure, use four sentences: one for Act 1 (setup and inciting incident), one for Act 2a (protagonist's efforts, first crisis), one for Act 2b (second crisis or midpoint reversal), one for Act 3 (climax and resolution).
+Expand into one paragraph — four sentences structured on three-act logic:
+1. Setup + inciting incident (Act 1)
+2. First major escalation, protagonist's early efforts, first crisis (Act 2a)
+3. Second crisis, midpoint reversal, darkest moment (Act 2b)
+4. Climax and resolution (Act 3)
 
-**Step 3: Plot Expansion (Page per Act)**
-Write one page per act, detailing major plot points, turning moments, and character arcs. Don't over-detail; identify the skeleton.
+This paragraph is the skeleton of every later document. A weak paragraph here creates cascading problems.
 
-**Step 4: Character Summaries**
-Write a one-page summary for each major character: background, goals, conflicts, growth arc, and role in the story. Include motivation and stakes.
+**Step 3: Character Summaries (One Page per Major Character)**
+Write a one-page summary for each major character:
+- Name, role, and one-sentence arc
+- Motivation (what they consciously want)
+- Goal (the concrete objective for this story)
+- Conflict (what blocks them — internal and external)
+- Epiphany (what they discover or learn by the end)
+- Backstory sentence (one line only at this stage)
 
-**Step 5: Scene List**
-List every scene in the novel as a single-sentence summary. Include POV character, setting, and what changes in each scene. Typical novels have 40-100 scenes.
+**Key step:** After Step 3, go back and revise Steps 1 and 2. Characters almost always demand story changes. This revision is mandatory — not optional polish.
 
-**Step 6: Detailed Scene Outline**
-Expand the scene list: write a paragraph or two per scene detailing what happens, which characters interact, and what the emotional arc is.
+**Step 4: Plot Skeleton (One Page)**
+Expand the paragraph from Step 2 into one full page (roughly five paragraphs). Each paragraph covers a major story movement: one or more disasters/reversals the protagonist faces, plus how each ends. Include the story's final ending. Still high-level — this is the skeleton, not the scene-by-scene breakdown.
 
-**Steps 7-10: Iterative Refinement**
-Some versions add additional passes: character dialogue, scene-by-scene conflict mapping, and final consistency check. The idea is to spiral through the story multiple times, adding detail each pass.
+**Step 5: Character Synopses from Each POV**
+For each major character, write a one-page synopsis of the *entire story as they experience it*. What do they see? What do they know versus not know? How do they change? This step reliably surfaces plot holes and motivational gaps invisible in plot-first planning.
 
-### Strengths
+Revise Step 4 after Step 5 if gaps emerge.
 
-- Identifies plot holes before writing the first draft
-- Balances plot development with character development
-- Provides a detailed roadmap that prevents "abandoned first draft syndrome"
-- Allows for intuitive discovery while maintaining structural integrity
+**Step 6: Four-Page Plot Synopsis**
+Expand Step 4 into a four-page detailed synopsis. Roughly one paragraph per scene-cluster or story beat. Name every major turning point, reversal, and character arc moment. After this step, you should know every major thing that happens in your story.
 
-### Limitations
+This is also when subplot architecture becomes explicit: how subplots weave in, contrast the main plot, and resolve.
 
-The Snowflake Method can feel overly mechanical for pantsers (writers who write by intuition). It also requires significant upfront work before writing begins, which doesn't suit all creative processes.
+**Step 7: Comprehensive Character Charts**
+Expand the Step 3 summaries into full character profiles: complete backstory relevant to the story, physical description and mannerisms, detailed relationship map, dialogue voice notes, and arc beat-by-beat. Depth here prevents flat characters and inconsistent behavior during the draft.
+
+**After Step 7, revise Steps 3–6.** Characters developed in depth frequently demand structural changes. Do the revision pass — it prevents more expensive rewrites mid-draft.
+
+**Step 8: Scene List Spreadsheet**
+List every scene in the novel. For each scene:
+- Sequential scene number
+- Chapter assignment (can be approximate)
+- POV character
+- One-sentence summary (what happens + what changes)
+- Estimated word count
+- Status (Planned / Written / Revised / Final)
+
+A typical novel has 40–100 scenes. This scene list becomes the primary driver for the writing phase — chapter-writer loads it before drafting any chapter.
+
+*Format:*
+```
+| # | Chapter | POV     | Scene Summary                                  | Est. Words | Status  |
+|---|---------|---------|------------------------------------------------|------------|---------|
+| 1 | Ch. 01  | Elena   | Opens at the market; first signs of the anomaly| 1200       | Planned |
+| 2 | Ch. 01  | Elena   | Confrontation with the merchant reveals theft  | 900        | Planned |
+```
+
+**Step 9: Narrative Scene Descriptions (Optional)**
+For scenes presenting specific writing challenges — complex backstory delivery, difficult POV management, multi-character confrontation — write a paragraph-level narrative description before drafting. Skip this step for straightforward scenes. Most writers use it selectively for 10–20% of scenes.
+
+**Step 10: First Draft**
+Write the book. The scene list from Step 8 is the primary reference, not the synopsis or outline. Update scene status via `update_scene()` as you write. Revise the scene list as understanding of the story deepens — it's a living document.
+
+### When to Use the Snowflake Method
+
+**Best for:**
+- Writers who have abandoned drafts due to plot holes or running out of story
+- Stories with large casts where character-plot alignment is complex
+- Historical fiction, epic fantasy, or any genre requiring detailed world integration
+- Writers who want structure but resist rigid, linear outlines
+
+**Avoid when:**
+- You're a pure pantser who finds outlines kill creative energy — the method requires significant pre-work
+- Your story is short (novella or less) — the ten-step overhead may exceed the draft itself
+- You've already started drafting and the story is working — don't back-plan unnecessarily
+
+### Strengths and Limitations
+
+**Strengths:**
+- Identifies plot holes before writing a single scene
+- Forces character-plot alignment that linear outlines miss
+- Provides a detailed roadmap that prevents abandoned-draft syndrome
+- The scene list (Step 8) becomes a project management tool throughout the draft
+
+**Limitations:**
+- Requires significant upfront investment before any prose is written
+- Can feel mechanical if followed too rigidly — the steps are guides, not laws
+- Pure discovery writers may find it kills intuitive momentum
 
 ---
 

@@ -38,6 +38,7 @@ Based on genre and story type, recommend a structure. Use AskUserQuestion:
 - **Dan Harmon's Story Circle** — Character transformation first. Best for: character-driven, episodic, comedic stories. 8 steps: comfort → want → unfamiliar → adapt → get want → pay price → return → changed.
 - **Seven-Point Structure** — Design from both ends (know your ending first). Best for: fantasy, thriller, adventure. Hook → Plot Point 1 → Pinch 1 → Midpoint → Pinch 2 → Plot Point 2 → Resolution.
 - **Kishotenketsu** — No central conflict. Best for: literary, slice-of-life.
+- **Snowflake Method** — Iterative/fractal planning. Build story in 10 growing circles, plot and characters in parallel. Best for: writers who want structure but prefer iteration over linear planning; those prone to abandoned first drafts. → If selected, follow the **Snowflake Workflow** below instead of Steps 3–8.
 
 **Recommendation logic:**
 - Protagonist doesn't fundamentally change → Flat arc → consider **Hero's Journey** or **Seven-Point**
@@ -45,6 +46,7 @@ Based on genre and story type, recommend a structure. Use AskUserQuestion:
 - Story is episodic or comedy-driven → **Dan Harmon's Story Circle**
 - Author knows the ending but not the middle → **Seven-Point Structure**
 - Pantser / Plantser writing mode → lean toward **3-Act** (minimal) or **Dan Harmon's Story Circle** (8 clear checkpoints)
+- Writer struggles with plot holes or abandons drafts → **Snowflake Method**
 
 ### Step 3: Map Plot Beats
 For the chosen structure, work through each beat WITH the user:
@@ -129,6 +131,123 @@ Create `{project}/plot/tone.md` from template `plot-tone.md`. This step is MANDA
 5. Write the completed document to `{project}/plot/tone.md`.
 
 This document guards against tonal drift during long-form writing. Without it, books tend to collapse into generic "literary" mode after ~15 chapters.
+
+---
+
+## Snowflake Workflow
+
+*Use this section instead of Steps 3–8 when the user selects the Snowflake Method.*
+
+The Snowflake Method (Randy Ingermanson) is iterative and fractal: you make 10 passes over the story, each adding detail. Plot and characters evolve **in parallel** — after Step 3 you return to revise Steps 1–2; after Step 7 you revise Steps 3–6. Going back is **expected and correct**, not a sign something went wrong.
+
+### Snowflake Step 1: One-Sentence Summary
+If `book-conceptualizer` has run, confirm or refine the existing premise. Otherwise write it now:
+- Maximum 15 words
+- Must name: protagonist, what they must do/achieve, and the stakes
+- Example: "A disgraced knight must recover a stolen relic before war consumes the kingdom."
+
+Write or update via MCP `update_field(book_slug, "premise", ...)`.
+
+### Snowflake Step 2: One-Paragraph Summary
+Expand into one paragraph with four sentences:
+1. Setup + inciting incident (Act 1)
+2. First major escalation / protagonist's early efforts (Act 2a)
+3. Crisis / midpoint reversal (Act 2b)
+4. Climax + resolution (Act 3)
+
+Write to `{project}/plot/outline.md` (opening section).
+
+### Snowflake Step 3: Character Summaries (Parallel to Plot)
+For each major character write a one-page summary:
+- Name, role, one-sentence arc
+- Motivation (what they consciously want)
+- Goal (concrete objective for this story)
+- Conflict (what blocks them)
+- Epiphany (what they learn/realize by the end)
+- Backstory sentence (one line only at this stage)
+
+**Key philosophy:** Characters and plot develop together. After completing Step 3, **go back and revise Steps 1–2** to reflect what the characters demand.
+
+Trigger `character-creator` in parallel mode for deep character work if needed.
+Store summaries via MCP `update_field()` in each character's file.
+
+### Snowflake Step 4: Plot Skeleton (One-Page Expansion)
+Expand the paragraph from Step 2 into one full page:
+- ~5 paragraphs (one per major movement)
+- Each paragraph: 1–3 disasters or reversals the protagonist faces, plus the final resolution
+- Still high-level — identify skeleton, not every scene
+
+Write to `{project}/plot/acts.md`.
+
+### Snowflake Step 5: Character Synopses from Each POV
+For each major character, write a 1-page synopsis of the *entire story* from their point of view:
+- What do they experience? What do they know vs. not know?
+- How do they change across the story?
+- This often reveals plot holes and missing motivations
+
+This step frequently forces revision of Step 4. Do it.
+
+### Snowflake Step 6: Four-Page Plot Synopsis
+Expand Step 4 into a 4-page detailed synopsis:
+- Roughly one paragraph per scene-cluster / story beat
+- Name every major turning point, conflict, and reversal
+- Include character arc moments aligned to plot beats
+
+Write to `{project}/plot/outline.md` (replace/expand earlier version).
+
+### Snowflake Step 7: Deep Character Charts
+Expand character summaries from Step 3 into comprehensive profiles:
+- Full backstory relevant to the story
+- Physical description, quirks, voice/speech patterns
+- Relationship map to other characters
+- Detailed arc beat-by-beat
+
+**After Step 7, revise Steps 3–6** to bring plot and characters into full alignment.
+
+Trigger `character-creator` for detailed character work. Update via MCP.
+
+### Snowflake Step 8: Scene List Spreadsheet
+This is the highest-value artifact of the Snowflake Method. Create `{project}/plot/scenes.md` via MCP `create_scene_list()`:
+
+```
+| # | Chapter | POV | Scene Summary | Est. Words | Status |
+|---|---------|-----|---------------|------------|--------|
+| 1 | Ch. 01  | Elena | Opens at the market; first signs of the anomaly | 1200 | Planned |
+```
+
+For each scene include:
+- Sequential scene number
+- Chapter assignment (can be approximate at this stage)
+- POV character
+- One-sentence scene summary (what happens + what changes)
+- Estimated word count
+- Status (Planned / Written / Revised / Final)
+
+The scene list drives `chapter-writer`: load it before writing any chapter.
+Scenes can be updated later via MCP `update_scene()`.
+
+### Snowflake Step 9: Narrative Scene Descriptions (Optional)
+For scenes where the writing presents specific challenges (complex backstory delivery, difficult POV, multi-character confrontation), write a paragraph-level narrative description before drafting.
+
+This is optional — skip if the scene is straightforward.
+
+### Snowflake Step 10: First Draft
+Proceed to `chapter-writer`. The scene list from Step 8 is the primary reference.
+Load scenes via MCP before writing each chapter — not the general outline.
+
+### Snowflake Iteration Protocol
+Revision between steps is **built into the method**, not a failure signal:
+- After Step 3 → revise Steps 1–2
+- After Step 5 → revise Steps 4 if plot holes emerge
+- After Step 7 → revise Steps 3–6 to align character depth with plot
+- MCP `update_field()` supports updating synopsis/outline documents without version loss
+- The scene list from Step 8 is a living document — update via `update_scene()` as the draft evolves
+
+After completing Step 8, update book status to "Plot Outlined" via MCP `update_field()`.
+Then proceed to Steps 9–10 (optional scene descriptions + first draft).
+Also create the tonal document (original Step 9 of the standard workflow) at this point.
+
+---
 
 ## Rules
 - Structure serves story — never force a story into a structure that doesn't fit
