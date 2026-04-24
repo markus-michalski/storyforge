@@ -75,7 +75,8 @@ class TestValidateCharacter:
         char_file = chars_dir / "alex.md"
         char_file.write_text(
             '---\nname: "Alex"\nrole: "protagonist"\nstatus: "Concept"\n---\n\n'
-            "# Alex\n\n## Want vs. Need\n\nContent.\n\n## Fatal Flaw\n\nContent.\n",
+            "# Alex\n\n## Want vs. Need\n\nContent.\n\n## Fatal Flaw\n\nContent.\n\n"
+            "## The Ghost\n\nContent.\n\n## Motivation Chain\n\nContent.\n",
             encoding="utf-8",
         )
 
