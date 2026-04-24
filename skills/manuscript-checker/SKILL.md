@@ -222,23 +222,7 @@ Keeps the canon log honest about what was changed during revision.
   stylistic choice (e.g. "flat declarative questions are part of the voice"),
   exclude it from rewrite recommendations.
 
-## Algorithmic notes (for transparency)
-
-The underlying detector lives at `tools/analysis/manuscript_checker.py`.
-
-### Repetition (n-grams)
-
-- N-gram lengths: 4..7 tokens.
-- Per-length thresholds: 4-grams need 5+ hits, 5-grams need 3+, 6/7-grams
-  need 2+. Without this filter, common English fragments dominate the report.
-- Stop-word-only n-grams are dropped.
-- Longer accepted phrases suppress contained shorter phrases (within ±1
-  occurrence count) to avoid duplicate near-identical findings.
-- Categories are heuristic — based on body-part vocabulary, blocking-verb
-  vocabulary, simile cues (`like`, `as if`, `as though`), structural cues
-  (`the kind of`, `for X years`), and sensory tokens.
-
-### Book-rule pattern extraction
+## Book-rule pattern extraction
 
 For `book_rule_violation` findings, the scanner extracts patterns from each
 bullet under `## Rules` in the book's CLAUDE.md:
@@ -255,37 +239,6 @@ bullet under `## Rules` in the book's CLAUDE.md:
 - Italics (`*foo*`) are **ignored** — they're for narrative examples.
 - Rules without any extractable pattern produce no findings. Rephrase with
   backticks or quotes to make them machine-readable.
-
-### Filter words
-
-Per-chapter regex scan over narration only (dialogue is stripped first, since
-filter words inside quotes are character speech, not narrator tics).
-Thresholds: ≥3/1k words = medium, ≥6/1k = high. Chapters under 200 words
-are skipped.
-
-### Adverb density
-
-Per-chapter regex scan for `-ly` adverbs, again over narration only. A small
-exclusion list filters non-adverb `-ly` words (family, only, ugly, lovely,
-friendly, etc.). Thresholds: ≥8/1k = medium, ≥14/1k = high.
-
-### Clichés
-
-Static curated banlist (~35 entries). Literal case-insensitive substring
-match with word boundaries. The list is deliberately short — only
-unambiguous offenders, no borderline imagery.
-
-### Question-as-statement
-
-Extracts quoted dialogue (straight + curly quotes), checks if the first
-tokenised word is an interrogative opener (who/what/where/when/why/how/
-which/whose + aux verbs) and the dialogue ends with `.` (not `?`, `!`,
-`…`, `..`). Contractions ("don't", "can't", "isn't") are handled via their
-tokenised form ("don", "can", "isn"). One aggregated finding per book;
-severity high if ≥5 total hits.
-
-Pure stdlib — no NLP dependencies — so the scan runs in seconds even on
-100k-word manuscripts.
 
 ## Error handling
 
