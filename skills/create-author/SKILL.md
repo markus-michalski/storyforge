@@ -32,6 +32,10 @@ Guide the user through voice choices (use AskUserQuestion):
 5. **Vocabulary level:** simple, moderate, advanced, archaic
 6. **Dialog style:** naturalistic, stylized, minimal, heavy
 7. **Pacing:** slow-burn, tension-driven, breakneck, literary
+8. **Writing process (author_writing_mode):** How does this author approach planning?
+   - **Outliner** — Plans everything before writing (beats, chapter outlines, full plot map)
+   - **Plantser (Hybrid)** — Knows the key story beats, discovers the rest scene by scene
+   - **Discovery Writer (Pantser)** — Finds the story as they write; no outline before drafting
 
 ### Phase 3: Deeper Character
 Ask open-ended questions:
@@ -40,7 +44,7 @@ Ask open-ended questions:
 - "What's this author's signature move?" (e.g., unreliable narrators, gut-punch endings, dry wit in dark moments)
 
 ### Phase 4: Create Profile
-1. Use MCP `create_author()` with collected data
+1. Use MCP `create_author()` with collected data, then immediately call MCP `update_author(slug, "author_writing_mode", value)` to persist the writing mode
 2. Load the generated `profile.md` and `vocabulary.md`
 3. Review the banned words list (AI tells) — ask if user wants to add/remove any
 4. Show the complete profile to the user

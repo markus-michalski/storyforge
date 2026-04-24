@@ -14,6 +14,7 @@ pacing: "tension-driven"
 themes: []
 influences: []
 avoid: ["purple-prose", "info-dumps", "deus-ex-machina"]
+author_writing_mode: "outliner"  # outliner | plantser | discovery
 ---
 
 # {{name}}

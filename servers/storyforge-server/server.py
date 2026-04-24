@@ -83,11 +83,22 @@ def find_book(query: str) -> str:
 
 @mcp.tool()
 def get_book_full(slug: str) -> str:
-    """Get complete book data including all chapters and characters."""
+    """Get complete book data including all chapters and characters.
+
+    Returns effective_author_writing_mode: book-level override takes precedence
+    over the author profile value; falls back to "outliner" if neither is set.
+    """
     state = _cache.get()
     book = state.get("books", {}).get(slug)
     if not book:
         return json.dumps({"error": f"Book '{slug}' not found"})
+
+    author_slug = book.get("author", "")
+    author = state.get("authors", {}).get(author_slug, {})
+    book_override = book.get("author_writing_mode", "")
+    effective = book_override or author.get("author_writing_mode", "outliner")
+    book = {**book, "effective_author_writing_mode": effective}
+
     return json.dumps(book)
 
 

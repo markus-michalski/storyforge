@@ -51,6 +51,7 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 | "Klappentext" / "Blurb" / "Back cover" / "Back-cover copy" | `/storyforge:promo-writer` (starts at blurb step) |
 | "Neues Genre" / "Genre-Mix" | `/storyforge:genre-creator` |
 | "I'm stuck" / "Ich komme nicht weiter" / "blockiert" / "kann nicht schreiben" / "keine Motivation" / "Schreibblockade" / "keine Lust" | `/storyforge:unblock` |
+| "Rolling planner" / "Next scene" / "Was kommt als nächstes?" / "Nächste Szene planen" / "Discovery writer" | `/storyforge:rolling-planner` |
 | `Regel:` / `Workflow:` / `Callback:` prefix, "merke dir" | `/storyforge:register-callback` |
 | "Hilfe" / "Help" | `/storyforge:help` |
 | "Setup" / "Einrichten" | `/storyforge:setup` |
@@ -66,14 +67,30 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 5. Revision → Export → Translation (optional)
 ```
 
-### Standard Workflow
-1. `/storyforge:create-author` — Define writing style
+### Standard Workflow (Outliner)
+1. `/storyforge:create-author` — Define writing style (incl. `author_writing_mode`)
 2. `/storyforge:study-author` — (Optional) Analyze PDFs for style extraction
-3. `/storyforge:new-book` — Create project scaffold
+3. `/storyforge:new-book` — Create project scaffold + resolve writing mode
 4. `/storyforge:book-conceptualizer` — Develop concept in 5 phases
 5. `/storyforge:plot-architect` — Structure plot with acts, beats, arcs + tonal document
 6. `/storyforge:character-creator` — Build characters with depth
 7. `/storyforge:world-builder` — Setting, rules, history
+
+### Discovery Writer Workflow (Pantser)
+1. `/storyforge:create-author` — Define writing style (`author_writing_mode: discovery`)
+2. `/storyforge:new-book` — Create project scaffold (skips `plot-architect` suggestion)
+3. `/storyforge:book-conceptualizer` — Concept only (premise + protagonist + core tension)
+4. `/storyforge:character-creator` — Core characters (no arc planning required)
+5. `/storyforge:rolling-planner` — Before each writing session: scene recipe (Goal / Conflict / Consequence)
+6. (repeat 5 → chapter-writer for each chapter)
+
+### Plantser Workflow (Hybrid)
+1. `/storyforge:create-author` — Define writing style (`author_writing_mode: plantser`)
+2. `/storyforge:new-book` — Create project scaffold
+3. `/storyforge:book-conceptualizer` — Concept in 5 phases
+4. `/storyforge:plot-architect` — Minimal Viable Outline only (6 key beats, no full chapter plan)
+5. `/storyforge:character-creator` — Core characters
+6. `/storyforge:rolling-planner` — Scene-by-scene planning buffer (3-5 scenes ahead)
 8. `/storyforge:chapter-writer` — Write chapters in author's voice (loads timeline + travel matrix + tonal document + chapter timeline)
 9. `/storyforge:continuity-checker` — (Optional, after several chapters) Validate timeline and location consistency
 9. `/storyforge:chapter-reviewer` — Review each chapter

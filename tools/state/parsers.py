@@ -47,6 +47,7 @@ def parse_book_readme(path: Path) -> dict[str, Any]:
         "series": meta.get("series", ""),
         "series_number": meta.get("series_number", 0),
         "description": meta.get("description", ""),
+        "author_writing_mode": meta.get("author_writing_mode", ""),
         "created": str(meta.get("created", "")),
         "updated": str(meta.get("updated", "")),
     }
@@ -125,6 +126,7 @@ def parse_author_profile(path: Path) -> dict[str, Any]:
         "themes": meta.get("themes", []),
         "influences": meta.get("influences", []),
         "avoid": meta.get("avoid", []),
+        "author_writing_mode": meta.get("author_writing_mode", "outliner"),
         "created": str(meta.get("created", "")),
         "updated": str(meta.get("updated", "")),
     }
