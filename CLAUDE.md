@@ -50,6 +50,7 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 | "Promo" / "Social Media" / "Marketing" / "bewerben" | `/storyforge:promo-writer` |
 | "Klappentext" / "Blurb" / "Back cover" / "Back-cover copy" | `/storyforge:promo-writer` (starts at blurb step) |
 | "Neues Genre" / "Genre-Mix" | `/storyforge:genre-creator` |
+| "I'm stuck" / "Ich komme nicht weiter" / "blockiert" / "kann nicht schreiben" / "keine Motivation" / "Schreibblockade" / "keine Lust" | `/storyforge:unblock` |
 | `Regel:` / `Workflow:` / `Callback:` prefix, "merke dir" | `/storyforge:register-callback` |
 | "Hilfe" / "Help" | `/storyforge:help` |
 | "Setup" / "Einrichten" | `/storyforge:setup` |
