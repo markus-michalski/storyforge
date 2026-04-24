@@ -4,6 +4,8 @@
 
 AI-powered book writing plugin for Claude Code. From brainstorming to published EPUB/PDF/MOBI.
 
+Full documentation: [faq.markus-michalski.net/en/plugins/storyforge](https://faq.markus-michalski.net/en/plugins/storyforge)
+
 ## What It Does
 
 StoryForge guides you through the entire fiction writing process in your authentic author voice — not generic AI output:
@@ -182,6 +184,23 @@ World Built → Drafting → Revision → Editing → Proofread → Export Ready
 
 **Idea status**: `raw → explored → developed → ready → promoted` (or `shelved`)
 
+## Documentation
+
+Full user documentation lives at [faq.markus-michalski.net/en/plugins/storyforge](https://faq.markus-michalski.net/en/plugins/storyforge) — skills, workflows, troubleshooting, and examples.
+
+## Contributing
+
+Contributions are welcome within a **Benevolent Dictator For Life (BDFL)** governance model. Pull requests require signing the [Contributor License Agreement](CLA.md) (automated via [cla-assistant.io](https://cla-assistant.io/)). Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
+
+Bugs and feature ideas: use the [issue templates](https://github.com/markus-michalski/storyforge/issues/new/choose). Security issues: [Private Vulnerability Reporting](https://github.com/markus-michalski/storyforge/security/advisories/new).
+
 ## License
 
-MIT
+StoryForge is licensed under the **[PolyForm Noncommercial License 1.0.0](LICENSE)**.
+
+- **Allowed**: personal use, research, education, non-commercial projects, modification, redistribution
+- **Not allowed**: commercial use, selling as a product or service, monetized derivatives
+
+PolyForm Noncommercial is a source-available license — it is **not** OSI-approved Open Source. Summary: [polyformproject.org/licenses/noncommercial/1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/).
+
+If you need commercial use rights, contact the maintainer.

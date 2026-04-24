@@ -8,22 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- LICENSE file (PolyForm Noncommercial 1.0.0)
+- CONTRIBUTING.md with BDFL governance model and CLA workflow
+- CLA.md (Apache ICLA v2.2 adapted for PolyForm NC)
+- `.github/CODEOWNERS` — all paths require maintainer review
+- `.github/SECURITY.md` — vulnerability reporting policy
+- `.github/dependabot.yml` — weekly pip + GitHub Actions updates
+- `.github/pull_request_template.md`
+- `.github/ISSUE_TEMPLATE/` — bug report, feature request, config
+- Documentation link to faq.markus-michalski.net in README
 
 ### Changed
-- Nothing yet
-
-### Deprecated
-- Nothing yet
-
-### Removed
-- Nothing yet
-
-### Fixed
-- Nothing yet
+- Project license from MIT to PolyForm Noncommercial 1.0.0 (`.claude-plugin/plugin.json` now references LICENSE file)
+- README License section — full PolyForm NC terms, scope, contact path for commercial use
+- README extended with Documentation and Contributing sections
 
 ### Security
-- Nothing yet
+- Governance hardening: CODEOWNERS gate, SECURITY policy, CLA requirement for contributions
 
 ## [1.11.0] - 2026-04-24
 

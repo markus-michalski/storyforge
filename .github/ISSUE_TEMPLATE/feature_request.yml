@@ -1,0 +1,114 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. This helps make the plugin better for everyone.
+
+        Remember: storyforge is released under the **PolyForm Noncommercial License 1.0.0**. Proposals must be compatible with non-commercial use cases.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: What type of enhancement is this?
+      options:
+        - New Skill (slash command)
+        - Skill Enhancement
+        - New MCP Tool
+        - MCP Tool Enhancement
+        - New Template
+        - Template Enhancement
+        - Workflow Improvement (phases, status, checkpoints)
+        - Author Profile / Voice System
+        - Genre System
+        - Craft or Genre Reference Docs
+        - Export / Translation / Promo
+        - Hook Behavior
+        - Configuration / Setup
+    validations:
+      required: true
+
+  - type: dropdown
+    id: skill
+    attributes:
+      label: Which skill? (if enhancing existing)
+      description: If this enhances a specific skill, which one?
+      options:
+        - /storyforge:new-book
+        - /storyforge:brainstorm
+        - /storyforge:chapter-writer
+        - /storyforge:chapter-reviewer
+        - /storyforge:plot-architect
+        - /storyforge:character-creator
+        - /storyforge:world-builder
+        - /storyforge:rolling-planner
+        - /storyforge:manuscript-checker
+        - /storyforge:continuity-checker
+        - /storyforge:beta-feedback
+        - /storyforge:voice-checker
+        - /storyforge:create-author
+        - /storyforge:study-author
+        - /storyforge:researcher
+        - /storyforge:sensitivity-reader
+        - /storyforge:export-engineer
+        - /storyforge:promo-writer
+        - /storyforge:translator
+        - /storyforge:cover-artist
+        - /storyforge:series-planner
+        - /storyforge:genre-creator
+        - /storyforge:unblock
+        - /storyforge:register-callback
+        - N/A — this is for a new skill
+    validations:
+      required: false
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What problem does this solve? Why do you need it?
+      placeholder: |
+        When writing in discovery mode, I want to track "breadcrumbs" — foreshadowing hints I've dropped — so I don't forget to pay them off later.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would this work?
+      placeholder: |
+        Add a foreshadowing log to plot/ that chapter-writer updates after each scene. A new MCP tool `list_open_foreshadows` surfaces unresolved hints during rolling-planner.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Tried other approaches? Why don't they work?
+      placeholder: Manually tracking in canon-log.md gets buried; timeline.md is day-based, not thread-based.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Are you willing to help implement this?
+      options:
+        - label: I'd be willing to submit a PR for this feature (requires signing the CLA)
+        - label: I can help test if someone else implements it
+        - label: I can provide more detailed requirements if needed
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Examples, mockups, related issues, or anything else
+    validations:
+      required: false

@@ -1,0 +1,23 @@
+# Code Owners for storyforge
+#
+# These owners will be automatically requested for review when someone
+# opens a pull request that modifies files matching the patterns below.
+
+# Default: everything requires maintainer review
+* @markus-michalski
+
+# Workflow files execute code in CI/CD and must be carefully reviewed
+.github/workflows/* @markus-michalski
+
+# Plugin manifest files (version changes trigger releases)
+.claude-plugin/plugin.json @markus-michalski
+
+# License and governance documents — changes affect legal standing
+LICENSE @markus-michalski
+CLA.md @markus-michalski
+CONTRIBUTING.md @markus-michalski
+.github/SECURITY.md @markus-michalski
+.github/CODEOWNERS @markus-michalski
+
+# Core documentation that defines workflow behavior
+CLAUDE.md @markus-michalski

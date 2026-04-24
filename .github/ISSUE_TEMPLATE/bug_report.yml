@@ -1,0 +1,155 @@
+name: Bug Report
+description: Report something that isn't working correctly
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue. Fill out the sections below so this can be reproduced and fixed.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: What part of the plugin is affected?
+      options:
+        - Skill (slash command)
+        - MCP Server / MCP Tool
+        - Template (book / chapter / character / world)
+        - Hook (PreCompact, validation)
+        - Python Tool (state, analysis, author, export)
+        - Author Profile System
+        - Genre System
+        - Reference Documentation (craft / genre)
+        - CLAUDE.md Instructions
+        - Configuration / Setup
+    validations:
+      required: true
+
+  - type: dropdown
+    id: skill
+    attributes:
+      label: Which skill? (if applicable)
+      description: If this involves a specific skill, which one?
+      options:
+        - /storyforge:new-book
+        - /storyforge:brainstorm
+        - /storyforge:ideas
+        - /storyforge:resume
+        - /storyforge:next-step
+        - /storyforge:book-dashboard
+        - /storyforge:book-conceptualizer
+        - /storyforge:plot-architect
+        - /storyforge:character-creator
+        - /storyforge:world-builder
+        - /storyforge:rolling-planner
+        - /storyforge:chapter-writer
+        - /storyforge:chapter-reviewer
+        - /storyforge:continuity-checker
+        - /storyforge:manuscript-checker
+        - /storyforge:beta-feedback
+        - /storyforge:voice-checker
+        - /storyforge:create-author
+        - /storyforge:study-author
+        - /storyforge:researcher
+        - /storyforge:sensitivity-reader
+        - /storyforge:export-engineer
+        - /storyforge:promo-writer
+        - /storyforge:translator
+        - /storyforge:cover-artist
+        - /storyforge:series-planner
+        - /storyforge:genre-creator
+        - /storyforge:register-callback
+        - /storyforge:unblock
+        - /storyforge:help
+        - /storyforge:setup
+        - /storyforge:configure
+        - /storyforge:session-start
+        - Other (specify in description)
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear description of the issue
+      placeholder: Claude ignored the canon-log and generated a chapter contradicting an established fact...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+      placeholder: Claude should have loaded canon-log.md before writing and flagged any contradictions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can this be reproduced?
+      placeholder: |
+        1. Create a new book with /storyforge:new-book
+        2. Add a character with a defined eye color to canon-log.md
+        3. Ask Claude to write a chapter referencing that character
+        4. Observe canon violation
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue type
+      description: What kind of problem is this?
+      options:
+        - Claude ignored instructions in CLAUDE.md
+        - Skill instructions are unclear or wrong
+        - Template is missing fields or structured incorrectly
+        - MCP tool crashes or returns wrong data
+        - Python tool script crashes or produces wrong output
+        - Hook misbehaves (PreCompact, validation)
+        - Documentation is incorrect or outdated
+        - Author-profile or voice-check inaccurate
+        - Configuration doesn't load or resolve paths
+    validations:
+      required: true
+
+  - type: input
+    id: claude-model
+    attributes:
+      label: Claude model
+      description: Which Claude model were you using?
+      placeholder: claude-opus-4-7
+    validations:
+      required: false
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: Version from `.claude-plugin/plugin.json` or `git rev-parse --short HEAD`
+      placeholder: 1.11.0 or abc1234
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or conversation excerpts
+      description: Paste any error messages or relevant Claude conversation
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any other context, screenshots, or files that might help
+    validations:
+      required: false
