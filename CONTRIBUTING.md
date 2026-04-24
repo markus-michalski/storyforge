@@ -10,7 +10,7 @@ StoryForge follows a **Benevolent Dictator For Life (BDFL)** model. [Markus Mich
 
 **Important — read this before opening a PR:**
 
-1. This project is licensed under the **[PolyForm Noncommercial License 1.0.0](LICENSE)**. It is source-available but **not** OSI Open Source. Commercial use is prohibited.
+1. This project is licensed under the **[PolyForm Noncommercial License 1.0.0](LICENSE.md)**. It is source-available but **not** OSI Open Source. Commercial use is prohibited.
 2. All contributors must sign the **[Contributor License Agreement (CLA)](CLA.md)** before their PR can be merged. The [cla-assistant.io](https://cla-assistant.io/) bot will comment on your PR with a one-click signing link.
 
 Why a CLA? The CLA grants the maintainer the rights needed to keep the project viable (relicensing flexibility, legal protection). Without it, your contribution cannot be accepted.
@@ -165,7 +165,7 @@ The PR template will guide you through the checklist. The CLA bot will comment w
 - Commented-out code blocks without justification
 - Unrelated refactoring bundled with a feature change
 - Documentation for features that haven't shipped yet
-- Changes to `LICENSE`, `CLA.md`, or `.github/CODEOWNERS` (maintainer-only)
+- Changes to `LICENSE.md`, `CLA.md`, or `.github/CODEOWNERS` (maintainer-only)
 
 ## Questions
 

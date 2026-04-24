@@ -1,6 +1,7 @@
 # StoryForge
 
 ![GitHub Tag](https://img.shields.io/github/v/tag/markus-michalski/storyforge?sort=semver&style=for-the-badge&logo=mdbook)
+![License: PolyForm NC 1.0.0](https://img.shields.io/badge/license-PolyForm%20NC%201.0.0-red.svg?style=for-the-badge)
 
 AI-powered book writing plugin for Claude Code. Author profiles, genre mixing, 33 specialized skills, anti-AI voice checker — from brainstorm to published EPUB/PDF/MOBI.
 
@@ -56,4 +57,4 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. Bug reports and fea
 
 ## License
 
-[PolyForm Noncommercial License 1.0.0](LICENSE) — source-available, personal and non-commercial use only. Not OSI Open Source. Commercial use requires explicit permission; contact the maintainer.
+[PolyForm Noncommercial License 1.0.0](LICENSE.md) — source-available, personal and non-commercial use only. Not OSI Open Source. Commercial use requires explicit permission; contact the maintainer.

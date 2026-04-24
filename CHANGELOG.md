@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- LICENSE file (PolyForm Noncommercial 1.0.0)
+- LICENSE.md file (PolyForm Noncommercial 1.0.0, renders as Markdown on GitHub)
+- License badge in README (Shields.io custom badge)
 - CONTRIBUTING.md with BDFL governance model and CLA workflow
 - CLA.md (Apache ICLA v2.2 adapted for PolyForm NC)
 - `.github/CODEOWNERS` — all paths require maintainer review
@@ -19,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation link to faq.markus-michalski.net in README
 
 ### Changed
-- Project license from MIT to PolyForm Noncommercial 1.0.0 (`.claude-plugin/plugin.json` now references LICENSE file)
+- Project license from MIT to PolyForm Noncommercial 1.0.0 (`.claude-plugin/plugin.json` now references LICENSE.md)
 - README reduced from 183 to 59 lines: landing-page scope, detailed content delegated to external documentation at faq.markus-michalski.net/en/plugins/storyforge
 - README License section — full PolyForm NC terms, scope, contact path for commercial use
 

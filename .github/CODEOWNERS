@@ -13,7 +13,7 @@
 .claude-plugin/plugin.json @markus-michalski
 
 # License and governance documents — changes affect legal standing
-LICENSE @markus-michalski
+LICENSE.md @markus-michalski
 CLA.md @markus-michalski
 CONTRIBUTING.md @markus-michalski
 .github/SECURITY.md @markus-michalski
