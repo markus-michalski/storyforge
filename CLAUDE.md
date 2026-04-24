@@ -48,6 +48,7 @@ Use MCP tools for ALL state operations. Never parse project files directly in sk
 | "Übersetzen" / "Translate" | `/storyforge:translator` |
 | "Cover" / "Buchcover" | `/storyforge:cover-artist` |
 | "Promo" / "Social Media" / "Marketing" / "bewerben" | `/storyforge:promo-writer` |
+| "Klappentext" / "Blurb" / "Back cover" / "Back-cover copy" | `/storyforge:promo-writer` (starts at blurb step) |
 | "Neues Genre" / "Genre-Mix" | `/storyforge:genre-creator` |
 | `Regel:` / `Workflow:` / `Callback:` prefix, "merke dir" | `/storyforge:register-callback` |
 | "Hilfe" / "Help" | `/storyforge:help` |
@@ -171,6 +172,7 @@ Skills MUST load relevant craft references before generating creative content:
 - `character-creator` → loads: character-creation, character-arcs
 - `world-builder` → loads: world-building
 - `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts
+- `promo-writer` → loads: genre README(s) for blurb tone guidance
 
 ## Important Rules
 
