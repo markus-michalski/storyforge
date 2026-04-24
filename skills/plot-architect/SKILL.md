@@ -23,6 +23,17 @@ argument-hint: "<book-slug>"
 
 ## Workflow
 
+### Step 0: Check Writing Mode
+Load the book via MCP `get_book_full(slug)` and read `effective_author_writing_mode`.
+
+- **`discovery`** — Stop here. Discovery writers skip `plot-architect` entirely.
+  Tell the user: *"Your writing mode is Discovery — you don't need a full outline. Use `/storyforge:rolling-planner` before each writing session instead."*
+  Do not proceed unless the user explicitly overrides this.
+
+- **`plantser`** — Proceed, but flag at Step 2 that the goal is a **Minimal Viable Outline only** (6 sentences), not a full beat sheet. Skip Steps 4–6 unless the user asks for them. Suggest Snowflake or 3-Act (minimal) as the default structure.
+
+- **`outliner`** — Proceed with the full workflow below.
+
 ### Step 1: Read Existing Work
 - Read `{project}/README.md` for premise, themes, concept
 - Read `{project}/plot/outline.md` for any existing outline

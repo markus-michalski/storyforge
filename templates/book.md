@@ -10,6 +10,7 @@ target_word_count: {{target_word_count}}
 series: ""
 series_number: 0
 description: ""
+author_writing_mode: ""  # override author default: outliner | plantser | discovery (empty = inherit)
 created: "{{date}}"
 updated: "{{date}}"
 ---

@@ -33,20 +33,38 @@ argument-hint: "[title]"
      - Novel: 80,000
      - Epic: 120,000
 
-2. **Create project** — Use MCP `create_book_structure()` with collected info
+2. **Resolve writing mode** — Load the author profile via MCP `get_author(slug)`:
 
-3. **Create CLAUDE.md** — Use MCP `init_book_claudemd(book_slug, book_title, pov, tense, genre, writing_mode)` to scaffold the per-book context file. Ask the user for `writing_mode` if not obvious: `scene-by-scene` (default), `chapter`, or `book`. Per-chapter progress is NOT stored here — it lives in `update_session()`.
+   **a) Lazy migration** — If `author_writing_mode` is missing or empty in the returned data:
+   - Ask once: *"How do you approach writing? — Outliner (plan everything) / Plantser (key beats + discovery) / Discovery Writer (no outline)"*
+   - Write back via MCP `update_author(slug, "author_writing_mode", value)`
+   - This is a one-time migration; it never asks again once set.
 
-4. **Update session** — Use MCP `update_session()` with the new book as active
+   **b) Per-book override** — Show the author's default and ask:
+   *"Your default writing style is [mode]. Same for this book, or override?"*
+   - If override: store in book README frontmatter via MCP `update_field(book_readme_path, "author_writing_mode", value)`
+   - If same: leave book `author_writing_mode` empty (inherits from author)
 
-5. **Load genre README(s)** — Use MCP `get_genre()` for each selected genre. Show key conventions to the user.
+   **c) Route based on effective mode:**
+   - `outliner` → suggest `/storyforge:plot-architect` for full outline
+   - `plantser` → suggest `/storyforge:plot-architect` (user will choose minimal outline or Snowflake there)
+   - `discovery` → suggest `/storyforge:rolling-planner` instead of `plot-architect`
 
-6. **Suggest next steps** — Based on the genre and book type:
-   - "Start with `/storyforge:book-conceptualizer` to develop your concept"
-   - "Or jump to `/storyforge:plot-architect` if you already know the story"
-   - "Need characters first? Try `/storyforge:character-creator`"
+3. **Create project** — Use MCP `create_book_structure()` with collected info
+
+4. **Create CLAUDE.md** — Use MCP `init_book_claudemd(book_slug, book_title, pov, tense, genre, writing_mode)` to scaffold the per-book context file. Ask the user for `writing_mode` if not obvious: `scene-by-scene` (default), `chapter`, or `book`. Note: this `writing_mode` controls how Claude composes chapters — it is different from `author_writing_mode` which controls the planning workflow.
+
+5. **Update session** — Use MCP `update_session()` with the new book as active
+
+6. **Load genre README(s)** — Use MCP `get_genre()` for each selected genre. Show key conventions to the user.
+
+7. **Suggest next steps** — Based on effective `author_writing_mode`:
+   - **Outliner:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` for the full outline"
+   - **Plantser:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` (choose minimal outline or Snowflake)"
+   - **Discovery:** "Start with `/storyforge:book-conceptualizer` (concept only, no plot) → then `/storyforge:rolling-planner` before each writing session"
 
 ## Rules
 - ALWAYS create the author profile BEFORE the book if none exists
 - NEVER skip genre selection — it drives the entire writing process
 - If the user provides a title as argument, use it directly
+- Lazy migration in step 2a is idempotent — only ask if `author_writing_mode` is truly missing/empty
