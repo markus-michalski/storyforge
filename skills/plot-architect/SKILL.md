@@ -149,7 +149,7 @@ This document guards against tonal drift during long-form writing. Without it, b
 
 *Use this section instead of Steps 3–8 when the user selects the Snowflake Method.*
 
-The Snowflake Method (Randy Ingermanson) is iterative and fractal: you make 10 passes over the story, each adding detail. Plot and characters evolve **in parallel** — after Step 3 you return to revise Steps 1–2; after Step 7 you revise Steps 3–6. Going back is **expected and correct**, not a sign something went wrong.
+*Theory and step descriptions in `reference/craft/story-structure.md` (loaded as prerequisite). This section covers StoryForge-specific execution: file paths, MCP tools, and skill integrations.*
 
 ### Snowflake Step 1: One-Sentence Summary
 If `book-conceptualizer` has run, confirm or refine the existing premise. Otherwise write it now:
