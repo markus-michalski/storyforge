@@ -4,7 +4,7 @@ description: |
   Create social media promotional content for books across all platforms.
   Use when: (1) User says "Promo", "Social Media", "Marketing", "bewerben",
   (2) Book is near completion or published, (3) User wants teasers, announcements, or campaigns.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> [platform]"
 ---
@@ -46,7 +46,7 @@ The book blurb is the single most important marketing text — it must exist bef
 
 **Output:** Save to `{project}/export/blurb.md` using `templates/blurb.md` as scaffold.
 
-**Gate:** Ask the user to approve the blurb before proceeding. If rejected, revise until approved.
+**Gate (HARD):** Blurb approval is a hard gate. Step 2 (Campaign Strategy) requires explicit user sign-off on the blurb. Wait for explicit approval — implicit "looks fine" does not count. If rejected, revise and re-present until the user types approval.
 
 ---
 
@@ -116,11 +116,11 @@ Suggest a posting schedule:
 Write to `{project}/promo/calendar.md`.
 
 ## Rules
-- NEVER spoil the ending or major twists
-- Promo voice should feel AUTHENTIC, not salesy — especially on TikTok/BookTok
-- Each platform gets NATIVE content — don't cross-post identical text
+- Keep endings and major twists out of all promo. Spoilers kill conversion.
+- Promo voice should feel AUTHENTIC, not salesy — especially on TikTok/BookTok.
+- Each platform gets NATIVE content — write per-platform, not cross-post.
 - Emotional hooks > plot summaries. Readers buy FEELINGS, not summaries.
-- Every post needs a clear CTA (call to action) — but make it natural
-- Quote cards must be genuinely compelling lines, not random passages
-- Hashtags: research current trending ones, don't guess
-- For series: emphasize "start here" — make entry point clear
+- Every post needs a clear CTA (call to action) — keep it natural, not pushy.
+- Quote cards must be genuinely compelling lines, not random passages.
+- Hashtags: research current trending ones — guessed hashtags read as inauthentic.
+- For series: emphasize "start here" — make the entry point unambiguous.

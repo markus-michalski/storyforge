@@ -4,7 +4,7 @@ description: |
   Research topics for story authenticity via web search.
   Use when: (1) User says "Recherche", "research", "find out about",
   (2) Story requires factual accuracy (historical periods, locations, professions, etc.).
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<topic> [book-slug]"
 ---
