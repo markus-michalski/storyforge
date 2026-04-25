@@ -53,7 +53,7 @@ Ask open-ended questions:
 Ask: "Do you have PDFs or text files from authors whose style you want to channel? → `/storyforge:study-author`"
 
 ## Rules
-- EVERY profile must have the "avoid" list pre-populated with AI-tell words from anti-ai-patterns.md
-- Tone descriptors should be SPECIFIC, not generic
-- Influences should be REAL authors the user has actually read
-- The profile is a living document — it evolves as the author writes
+- **MANDATORY:** Every profile must have the "avoid" list pre-populated with AI-tell words from `anti-ai-patterns.md`. **Why:** AI-tell words are the most frequent authenticity-killers — without a per-author banlist, the chapter-writer falls back to generic AI register and the author profile becomes decorative.
+- Tone descriptors should be SPECIFIC, not generic ("sardonic with rural cadence" beats "edgy").
+- Influences should be REAL authors the user has actually read.
+- The profile is a living document — it evolves as the author writes.

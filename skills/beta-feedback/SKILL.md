@@ -82,6 +82,8 @@ Format rules:
 3. Validate: file must contain at least one `## FB-` section. If empty or malformed, report error and stop.
 4. Report to user: "Loaded X feedback items affecting Y unique chapters."
 
+**Wait for user acknowledgement before proceeding to Phase 2 (Categorize).** The user may want to add or remove items from the file first.
+
 ### Phase 2: Categorize
 
 Tag each item with one or more categories based on its content:
@@ -103,6 +105,8 @@ FB-001: Pacing drags in Ch 18-19 → pacing
 FB-002: Kael's motivation unclear → character, plot
 FB-003: Kevin scene was perfect → positive
 ```
+
+**Wait for user confirmation of the category mapping before proceeding to Phase 3.** Miscategorization at this stage cascades into wrong cross-references in Phase 3.
 
 ### Phase 3: Cross-reference
 
@@ -161,7 +165,7 @@ Output format:
 
 ### Phase 6: Execute (optional, user-triggered)
 
-**Only proceed when the user explicitly approves.** Never auto-execute.
+**Wait for explicit user approval before executing any revision.** This phase rewrites prose — auto-execution corrupts drafts.
 
 For each approved revision task:
 - **Prose/pacing fixes:** Use `/storyforge:chapter-writer` in rewrite mode for the affected scene
@@ -195,10 +199,10 @@ Generate using `templates/beta-feedback-triage.md` as scaffold.
 
 ## Rules
 - Apply Rule #14 rigorously: beta readers are LESS reliable than the author. Verify every claim before accepting.
-- NEVER auto-execute revisions. Always present the triage and wait for user approval.
+- Always present the triage and wait for user approval before executing any revision. Auto-execution is forbidden.
 - Quote specific passages from the draft when providing evidence for verdicts.
 - Quote specific entries from canon-log, arcs, tone, or callbacks when disagreeing with feedback.
-- Positive feedback is worth logging — it tells the author what's working and should NOT be changed during revision.
+- Positive feedback is worth logging — it tells the author what's working. Treat it as protected from revision changes.
 - If multiple feedback items conflict with each other, surface the conflict explicitly and let the author decide.
-- The author already pre-filtered the feedback. Respect that curation — don't second-guess which items are in the file. Only push back on the verdict (valid vs. disagree), not on inclusion.
+- The author already pre-filtered the feedback. Respect that curation — only push back on the verdict (valid vs. disagree), not on inclusion.
 - Track cascade effects rigorously. A change in one chapter that breaks another is worse than the original problem.

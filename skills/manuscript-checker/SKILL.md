@@ -104,11 +104,10 @@ finding.
 
 ### 4. Present a focused summary
 
-Don't dump the whole report into chat. Instead:
+**Chat summary target: max ~300 Wörter.** The full report is on disk — chat is the headline, not the whole story.
 
 1. State chapters scanned + total findings + high-severity count by category.
-2. Show the top 5 highest-severity findings across *all* categories (book
-   rules first, then clichés, then the rest).
+2. Show the top 5 highest-severity findings across *all* categories (book rules first, then clichés, then the rest).
 3. Tell the user the report path so they can open it.
 4. Offer the next step (see section 5).
 
@@ -191,11 +190,8 @@ Keeps the canon log honest about what was changed during revision.
 
 ## Rules
 
-- Never auto-fix without user confirmation. The detector finds candidates;
-  the human picks the keepers.
-- **Book-rule violations are the user's own rules.** Treat them as
-  authoritative. If the user's prose violates a rule they wrote, that's the
-  most important fix — more important than any generic craft finding.
+- Always wait for user confirmation before applying fixes. The detector finds candidates; the human picks the keepers.
+- **Book-rule violations are the user's own rules.** Treat them as authoritative. If the user's prose violates a rule they wrote, that's the most important fix — more important than any generic craft finding.
 - A repeated phrase isn't always a bug. Some are deliberate motifs
   ("for a hundred and fifty years" might be a thematic refrain). When in
   doubt, ask.

@@ -11,10 +11,10 @@ argument-hint: "<book-slug> [chapter-slug]"
 
 # Sensitivity Reader
 
-## Prerequisites
-- Load `lgbtq-craft` reference if LGBTQ+ characters present
-- Read relevant chapter drafts or full book
-- Load character files for representation context
+## Prerequisites — MANDATORY LOADS
+- **`lgbtq-craft` reference** via MCP `get_craft_reference()` if LGBTQ+ characters are present. **Why:** Identity-representation evaluation framework — distinguishes authentic representation from token/trope patterns. Without it, the LGBTQ+ section of the report is generic.
+- **Relevant chapter drafts or full book.** **Why:** Sensitivity findings must be grounded in specific passages with line references — abstract concerns are not actionable.
+- **Character files** via MCP. **Why:** Representation context — knowing whether a character is positioned as protagonist/love-interest/sidekick/antagonist changes how tropes register (e.g. "Bury Your Gays" only triggers on actual queer characters with on-page death).
 
 ## Check Categories
 
@@ -46,10 +46,13 @@ argument-hint: "<book-slug> [chapter-slug]"
 - Are toxic dynamics romanticized or examined?
 
 ## Output
+
+**Report target: max ~800 Wörter total. 3-5 Bullets pro Kategorie als Cap.** If a category has zero findings, state it in one line and move on. Severity stratification is the signal.
+
 Report findings as: CONCERN (discuss) / FLAG (reconsider) / ISSUE (revise).
-Always suggest alternatives, not just problems.
+Always pair every finding with a concrete alternative — "this is problematic" without an alternative is not actionable.
 
 ## Rules
 - This is advisory, not censorship. The author makes the final call.
-- Sensitivity ≠ sanitizing. Dark themes are valid if handled with care.
-- Flag genuine concerns, don't overcorrect.
+- Sensitivity ≠ sanitizing. Dark themes are valid when handled with care.
+- Flag genuine concerns; calibrate severity rather than overcorrecting on every edge case.

@@ -11,10 +11,16 @@ argument-hint: "<book-slug> <chapter-slug>"
 
 # Chapter Reviewer
 
-## Prerequisites
-- Load author profile via MCP `get_author()`
-- Load author vocabulary from `~/.storyforge/authors/{slug}/vocabulary.md`
-- Load craft references: `dos-and-donts`, `anti-ai-patterns`, `chapter-construction`, `dialog-craft`, `show-dont-tell`, `simile-discipline`
+## Prerequisites — MANDATORY LOADS
+- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline — without it, "voice match" is gut-feel.
+- **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Banned-word scan and preferred-word presence check both run against this list.
+- **Craft references** via MCP `get_craft_reference()`:
+  - `dos-and-donts` — **Why:** The general craft baseline for the Craft section (5 points).
+  - `anti-ai-patterns` — **Why:** AI-tell catalog for the Anti-AI section (5 points) — vocabulary, uniformity, generic descriptions.
+  - `chapter-construction` — **Why:** Hook/scene-sequel/ending criteria for the Structure section (5 points).
+  - `dialog-craft` — **Why:** Subtext, voice differentiation, tag discipline — for points 9 and 15.
+  - `show-dont-tell` — **Why:** Show/tell balance check for points 6 and 24.
+  - `simile-discipline` — **Why:** The two-question test sub-point 10b runs.
 - **Detect if this is Chapter 1:** Check chapter slug (starts with `01-` or `001-`) or frontmatter chapter number (`chapter: 1`). If Chapter 1: also load `openings-and-endings` craft reference.
 - Read the chapter draft: `{project}/chapters/{chapter}/draft.md`
 - Read the chapter outline: `{project}/chapters/{chapter}/README.md`
@@ -108,6 +114,8 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 
 ## Output Format
 
+**Report target: 800-1200 Wörter total.** Critical findings first, then Recommended, Minor only if a pattern emerges (3+ instances). Skip empty sections — if there are zero AI-tells, the AI-Tell Report is one line ("Flagged words: none. Variance high. Generic descriptions: 0."), not a full table.
+
 ```markdown
 ## Chapter Review: {Chapter Title}
 
@@ -189,8 +197,8 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 
 ## Rules
 - Be BRUTALLY honest. The user asked for honesty in their global instructions.
-- Praise what's genuinely good — don't just list problems.
+- Pair every critical finding with a specific strength — the report is signal, not just complaint.
 - Quote specific lines when flagging issues.
 - Suggest concrete rewrites, not just "make this better."
-- The AI-tell check is the most important section. Zero tolerance.
+- The AI-tell check runs as a hard gate — if banned words appear, flag the chapter as NEEDS REVISION regardless of other scores.
 - When the user flags an issue: VERIFY before accepting. Re-read the passage, check context from earlier chapters, and push back if the user misunderstood (especially English nuances). The user explicitly wants to be challenged, not blindly agreed with.

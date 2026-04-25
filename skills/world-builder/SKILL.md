@@ -11,11 +11,15 @@ argument-hint: "<book-slug>"
 
 # World Builder
 
-## Prerequisites
-- Load book data via MCP `get_book_full()`
-- Load craft reference `world-building` via MCP `get_craft_reference()`
-- Load genre README(s) — world-building depth varies by genre
-- Read existing world files: `{project}/world/`
+## Iceberg Principle (Core Operating Mode)
+
+**Show ~10% of the world in-story. Keep the other 90% in `{project}/world/` for consistency checks.** The world files are the author's reference, not the reader's experience. Avoid info-dumps in prose — exposition disguised as world-building is the most common AI-tell in fantasy/sci-fi drafts. Every world fact you generate here either pays off in conflict, character, or atmosphere — or it stays below the surface as continuity ballast.
+
+## Prerequisites — MANDATORY LOADS
+- **Book data** via MCP `get_book_full()`. **Why:** Genre, premise, characters — world-building must serve the story, not exist in parallel to it.
+- **`world-building` craft reference** via MCP `get_craft_reference()`. **Why:** Sanderson's Laws, iceberg principle, conflict-driven culture — the framework Steps 3-5 apply.
+- **Genre README(s)**. **Why:** Fantasy needs full world rules, contemporary needs almost none — depth scales with genre.
+- Read existing world files: `{project}/world/`.
 
 ## When World-Building Matters
 - **Essential:** Fantasy, Sci-Fi, Supernatural, Historical, Dark Fantasy
@@ -73,8 +77,10 @@ For `{project}/world/setting.md`:
 For `{project}/world/history.md`:
 - Key events that shaped the current world
 - Wars, revolutions, discoveries, disasters
-- ONLY what's relevant to the story — resist the urge to write an encyclopedia
+- Include only what's relevant to the story. Encyclopedia mode produces dead world-building.
 - How the past explains present tensions
+
+Target: ~500-1000 Wörter total für die History-Sektion, als Richtwert. Wenn die Story eine 5000-jährige Imperien-Geschichte braucht, darf es mehr werden — aber dann mit klarer Verbindung zu Plot-Konflikten.
 
 ### Step 6: Glossary
 For `{project}/world/glossary.md`:
@@ -93,8 +99,8 @@ Create a consistency checklist in `{project}/world/rules.md`:
 Update book status to "World Built" via MCP `update_field()`.
 
 ## Rules
-- ICEBERG PRINCIPLE: Know 100%, show 10%. The reader discovers; the author doesn't lecture.
-- World-building through STORY, not through exposition chapters
-- Every rule you create is a promise — you must keep it
+- ICEBERG PRINCIPLE: Know 100%, show ~10% in-story. The reader discovers through scene; the author keeps the rest as reference.
+- World-building lands through STORY — character action, dialogue, sensory detail. Exposition chapters break the spell.
+- Every rule you create is a promise — keep it. Magic systems that bend mid-book signal authorial cheating.
 - Consistency > realism. A consistent fantasy world feels more real than an inconsistent realistic one.
-- If you can't explain how a cultural element creates conflict, cut it
+- If you can't explain how a cultural element creates conflict, cut it from the story (keep it in setting.md only if it's load-bearing for continuity).

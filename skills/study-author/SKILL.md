@@ -56,6 +56,13 @@ Analyze the text for these concrete patterns:
 - Adverb frequency
 - Filter word frequency ("she saw", "he felt")
 
+### Phase 2.5: Pre-Phase-3 Gate
+
+Before writing analysis to disk, ask: **"Has this author profile already had an initial profile generated via `/storyforge:create-author`? (Yes/No)"**
+
+- **If No:** Stop here. Direct the user to `/storyforge:create-author` first. Style-extraction is meant to *refine* an existing profile, not to bootstrap one — bootstrapping from a single studied work risks copying that author's signature too closely. Wait for explicit confirmation that the base profile exists before continuing.
+- **If Yes:** Proceed to Phase 3.
+
 ### Phase 3: Write Analysis
 Save analysis as `~/.storyforge/authors/{slug}/studied-works/analysis-{title}.md`
 
@@ -98,7 +105,6 @@ Update the author's `profile.md` and `vocabulary.md` based on findings:
 Show the user a summary of what was learned and what changed in the profile.
 
 ## Rules
-- NEVER copy verbatim text from studied works into the profile
-- Extract PATTERNS, not content
-- Multiple studied works refine the profile further — don't overwrite, merge
-- Flag any conflicts between studied works (e.g., one book uses first person, another uses third)
+- Extract PATTERNS only — verbatim text from studied works belongs nowhere in the profile. Verbatim copy is plagiarism risk and AI-tell.
+- Multiple studied works refine the profile further — merge, don't overwrite. Each studied work is evidence; the profile is the synthesis.
+- Flag any conflicts between studied works (e.g., one book uses first person, another uses third) — surface to the user before merging.

@@ -29,6 +29,9 @@ Before translating any chapter, build a glossary:
 Ask the user for preferences on names/terms.
 
 ### Step 3: Chapter-by-Chapter Translation
+
+**Sequencing gate: Translate one chapter, update the glossary, then wait for user review before starting the next chapter.** Batch-translation produces glossary drift and silent voice errors that compound — by the time the user reads chapter 5, chapters 1-4 have already accumulated mistranslated terms.
+
 For each chapter:
 1. Read the original draft
 2. Translate maintaining:
@@ -39,6 +42,7 @@ For each chapter:
    - Sensory details (find equivalent sensory language in target culture)
 3. Save to `{project}/translations/{lang}/chapters/{chapter-slug}.md`
 4. Update glossary with any new terms encountered
+5. **Wait for user review of this chapter and any glossary updates before starting the next chapter.**
 
 ### Step 4: Review
 After all chapters:
@@ -47,8 +51,8 @@ After all chapters:
 - Offer to export translated version via `/storyforge:export-engineer`
 
 ## Rules
-- Translation is NOT word-for-word — it's VOICE-for-voice
-- Maintain the author's rhythm and style in the target language
-- Cultural adaptation > literal accuracy
-- The glossary is the single source of truth for term consistency
-- Translate chapter by chapter, not the entire book at once (quality control)
+- Translation is voice-for-voice, not word-for-word.
+- Maintain the author's rhythm and style in the target language.
+- Cultural adaptation > literal accuracy.
+- The glossary is the single source of truth for term consistency.
+- Translate chapter by chapter, with user review between chapters. Batch translation skips quality control and accumulates glossary drift.
