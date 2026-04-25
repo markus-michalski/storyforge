@@ -4,7 +4,7 @@ description: |
   Build settings, magic systems, societies, and history for the story world.
   Use when: (1) User says "Welt", "world", "Setting", "Magic System",
   (2) For fantasy, sci-fi, supernatural, or historical genres.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug>"
 ---

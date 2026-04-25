@@ -4,7 +4,7 @@ description: |
   Process curated beta-reader feedback — triage, cross-reference, revision plan.
   Use when: (1) User says "beta feedback", "ARC feedback", "reader feedback", "Beta-Feedback verarbeiten",
   (2) Book is in eBook/revision stage with beta-reader responses collected.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> [--file path/to/feedback.md]"
 ---

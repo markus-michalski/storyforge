@@ -4,7 +4,7 @@ description: |
   Diagnose and resolve writer's block with targeted, book-context-aware interventions.
   Use when: User says "I'm stuck", "Ich komme nicht weiter", "blocked", "can't write",
   "keine Motivation", "keine Lust", "Schreibblockade", or similar signals of creative resistance.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 ---
 

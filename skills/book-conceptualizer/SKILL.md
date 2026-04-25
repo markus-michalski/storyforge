@@ -4,7 +4,7 @@ description: |
   Develop a book concept through 5 phases: premise, theme, conflict, structure, pitch.
   Use when: (1) User says "Konzept", "develop concept", "Buchkonzept",
   (2) After brainstorming, to deepen an idea into a workable concept.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug>"
 ---

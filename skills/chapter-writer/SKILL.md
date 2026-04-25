@@ -4,7 +4,7 @@ description: |
   Write a chapter in the author's voice, guided by craft knowledge and genre conventions.
   THE core creative skill. Use when: (1) User says "Kapitel schreiben", "write chapter",
   (2) Book is in Drafting status with chapters outlined.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> <chapter-number>"
 ---

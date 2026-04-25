@@ -3,7 +3,7 @@ name: cover-artist
 description: |
   Generate cover art prompts for DALL-E or Midjourney based on genre and story.
   Use when: (1) User says "Cover", "Buchcover", (2) Book needs a cover.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug>"
 ---

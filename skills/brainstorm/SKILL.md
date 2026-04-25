@@ -4,7 +4,7 @@ description: |
   Brainstorm book ideas interactively. Develop premises, explore genres, ask "what if?" questions.
   Use when: (1) User says "Idee", "brainstorm", "was könnte ich schreiben",
   (2) User wants to explore story concepts before committing.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 ---
 

@@ -4,7 +4,7 @@ description: |
   Create social media promotional content for books across all platforms.
   Use when: (1) User says "Promo", "Social Media", "Marketing", "bewerben",
   (2) Book is near completion or published, (3) User wants teasers, announcements, or campaigns.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> [platform]"
 ---

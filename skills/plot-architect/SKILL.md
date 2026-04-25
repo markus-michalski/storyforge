@@ -4,7 +4,7 @@ description: |
   Structure the plot with acts, beats, turning points, and character arcs.
   Use when: (1) User says "Plot", "Handlung", "Struktur", "outline",
   (2) After concept is developed, before character creation.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug>"
 ---

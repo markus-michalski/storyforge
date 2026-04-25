@@ -4,7 +4,7 @@ description: |
   Review and critique a chapter for craft quality, voice consistency, and AI-tells.
   Use when: (1) User says "Kapitel reviewen", "review chapter",
   (2) After chapter-writer completes a draft.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> <chapter-slug>"
 ---

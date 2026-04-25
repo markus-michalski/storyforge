@@ -3,7 +3,7 @@ name: translator
 description: |
   Translate a book chapter by chapter into another language.
   Use when: (1) User says "Übersetzen", "translate", (2) Book is complete or near-complete.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> <target-language>"
 ---

@@ -4,7 +4,7 @@ description: |
   Create a new author profile with writing style, voice, and preferences.
   Use when: (1) User says "Autor anlegen", "create author", "Autorenprofil",
   (2) Before starting a first book project.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<author-name>"
 ---

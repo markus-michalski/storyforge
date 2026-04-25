@@ -4,7 +4,7 @@ description: |
   Check if written text sounds AI-generated. Compare against author profile for authenticity.
   Use when: (1) User says "voice check", "klingt das nach AI?",
   (2) After drafting, as a final authenticity gate.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> [chapter-slug]"
 ---

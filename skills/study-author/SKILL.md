@@ -4,7 +4,7 @@ description: |
   Analyze PDFs or text files to extract writing style and update an author profile.
   Use when: (1) User says "Buch studieren", "study this PDF", "Stil analysieren",
   (2) User wants to feed reference material to an author profile.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<file-path> [author-slug]"
 ---

@@ -11,7 +11,7 @@ description: |
   check", "Wiederholungen prüfen", "prose tics", "Buch prüfen",
   (2) Book status transitions from Drafting to Revision, (3) Full-manuscript
   revision pass, (4) User wants a craft-level health check before export.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> [--interactive]"
 ---

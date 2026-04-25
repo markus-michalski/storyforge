@@ -4,7 +4,7 @@ description: |
   Develop deep, three-dimensional characters with arcs, voice, and motivation.
   Use when: (1) User says "Charakter", "character", "Figur",
   (2) After plot is outlined, to populate the story.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> [character-name]"
 ---
