@@ -4,22 +4,22 @@ description: |
   Structure the plot with acts, beats, turning points, and character arcs.
   Use when: (1) User says "Plot", "Handlung", "Struktur", "outline",
   (2) After concept is developed, before character creation.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug>"
 ---
 
 # Plot Architect
 
-## Prerequisites
-- Load book data via MCP `get_book_full()`
-- Load author profile via MCP `get_author()` if assigned
-- Load genre README(s) via MCP `get_genre()`
-- Load craft references via MCP `get_craft_reference()`:
-  - `story-structure` (structures and when to use them)
-  - `plot-craft` (beats, foreshadowing, cause-effect)
-  - `tension-and-suspense` (stakes, cliffhangers, pacing)
-  - `conflict-types` (escalation, moral dilemmas)
+## Prerequisites — MANDATORY LOADS
+- **Book data** via MCP `get_book_full()`. **Why:** Existing premise, theme, characters, writing-mode — Step 0 branches on `effective_author_writing_mode` and Step 1 builds on existing concept output.
+- **Author profile** via MCP `get_author()` if assigned. **Why:** The author profile may carry structural preferences (e.g. "always uses 5-act tragic arcs") that bias the recommendation in Step 2.
+- **Genre README(s)** via MCP `get_genre()`. **Why:** Genre dictates expected structures (romance = 3-Act + HEA, thriller = Fichtean) and beat conventions.
+- **Craft references** via MCP `get_craft_reference()`:
+  - `story-structure` — **Why:** The structure catalog Step 2 picks from — without it, recommendations default to generic 3-Act.
+  - `plot-craft` — **Why:** Beats, foreshadowing, cause-effect logic — Step 3 (beat mapping) and Step 5 (foreshadowing map) are built on this.
+  - `tension-and-suspense` — **Why:** Stakes, cliffhangers, pacing — what makes the chapter-by-chapter plan in Step 7 actually keep readers turning pages.
+  - `conflict-types` — **Why:** Escalation patterns and moral dilemma structures — Step 4 subplot architecture depends on knowing how conflicts compound.
 
 ## Workflow
 
@@ -40,7 +40,9 @@ Load the book via MCP `get_book_full(slug)` and read `effective_author_writing_m
 - Read `{project}/characters/` if characters exist already
 
 ### Step 2: Choose Structure
-Based on genre and story type, recommend a structure. Use AskUserQuestion:
+Based on genre and story type, recommend a structure. Use AskUserQuestion.
+
+**Wait for the user's structure choice before proceeding to Step 3.** Each downstream step builds on the chosen structure — guessing here cascades.
 - **3-Act** — Most versatile. Best for: thriller, romance, mystery, contemporary.
 - **Hero's Journey** — Quest narratives. Best for: fantasy, sci-fi, adventure.
 - **Save the Cat** — Detailed beats. Best for: commercial fiction, thriller, romance.
@@ -70,6 +72,8 @@ For the chosen structure, work through each beat WITH the user:
 - Approximate chapter position
 
 Write to `{project}/plot/acts.md`.
+
+**Wait for user approval of the beat map before proceeding to Step 4.** Subplot architecture (Step 4) and foreshadowing (Step 5) depend on locked main-plot beats.
 
 ### Step 4: Subplot Architecture
 For each subplot:
@@ -261,8 +265,8 @@ Also create the tonal document (original Step 9 of the standard workflow) at thi
 ---
 
 ## Rules
-- Structure serves story — never force a story into a structure that doesn't fit
-- Every beat must have emotional PURPOSE, not just plot function
-- The "Therefore/But" test: every event must cause the next, not "and then"
-- Midpoint is NOT halfway through the events — it's the REVERSAL that changes everything
-- Foreshadowing map is mandatory — no deus ex machina allowed
+- Structure serves story — pick the structure that fits, not the structure on the bestseller list.
+- Every beat must have emotional PURPOSE, not just plot function.
+- The "Therefore/But" test: every event must cause the next. "And then" sequencing means the plot is just a list.
+- Midpoint is NOT halfway through the events — it's the REVERSAL that changes everything.
+- Foreshadowing map is mandatory — every climax payoff needs a prior plant. Deus ex machina is a craft failure.

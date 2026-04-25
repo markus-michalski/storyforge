@@ -4,14 +4,14 @@ description: |
   Diagnose and resolve writer's block with targeted, book-context-aware interventions.
   Use when: User says "I'm stuck", "Ich komme nicht weiter", "blocked", "can't write",
   "keine Motivation", "keine Lust", "Schreibblockade", or similar signals of creative resistance.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 ---
 
 # Unblock
 
 Writer's block is not one thing. It has 4 distinct root causes, each requiring a different fix.
-Diagnose first. Intervene precisely. Never give generic "just write!" advice.
+**Identify the root cause first. Provide intervention only after diagnosis is complete.** Generic "just write!" advice fails — it skips the diagnostic step.
 
 ## Workflow
 
@@ -71,7 +71,7 @@ Each cause gets a specific, actionable response. No overlap, no hedging.
 **Reframe:** Perfectionism is drafting mode and editing mode running simultaneously. They are incompatible. You cannot drive forward while constantly braking.
 
 **The two-mode rule:**
-- **Draft mode:** Write forward. No deleting. No rereading. Ugly sentences are allowed. Ugly sentences are expected. A bad sentence that exists is infinitely better than a perfect sentence that doesn't.
+- **Draft mode:** Write forward. Skip deleting and rereading. Ugly sentences are allowed. Ugly sentences are expected. A bad sentence that exists is infinitely better than a perfect sentence that doesn't.
 - **Edit mode:** Separate session. Cold read. After the full draft is done.
 
 **Intervention:**
@@ -150,7 +150,7 @@ Use AskUserQuestion:
 
 ## Notes
 
-- Never lecture. Keep interventions direct, specific, and warm.
-- Never suggest "just push through it" without a concrete technique.
+- Keep interventions direct, specific, and warm. Lecturing breaks trust and reinforces the block.
+- Pair every "push through" suggestion with a concrete technique — bare exhortation is generic AI advice.
 - Always use real book context for the warmup — generic prompts break trust.
 - If the user's block is ongoing (they mention it's been weeks), suggest `/storyforge:next-step` first — sometimes the block is caused by an unclear path, not psychology.

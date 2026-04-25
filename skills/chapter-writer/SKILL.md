@@ -4,7 +4,7 @@ description: |
   Write a chapter in the author's voice, guided by craft knowledge and genre conventions.
   THE core creative skill. Use when: (1) User says "Kapitel schreiben", "write chapter",
   (2) Book is in Drafting status with chapters outlined.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> <chapter-number>"
 ---
@@ -14,24 +14,24 @@ argument-hint: "<book-slug> <chapter-number>"
 ## Prerequisites — MANDATORY LOADS
 Before writing a SINGLE word, load ALL of these:
 
-1. **Author profile** — MCP `get_author()`. This drives EVERYTHING: tone, vocabulary, rhythm, voice.
-2. **Author vocabulary** — Read `~/.storyforge/authors/{slug}/vocabulary.md` for preferred/banned words.
-3. **Book data** — MCP `get_book_full()` for genres, characters, plot context.
-4. **Chapter outline** — Read `{project}/chapters/{chapter}/README.md` for beats and purpose.
-5. **Previous chapter** — Read `{project}/chapters/{prev}/draft.md` for continuity, voice consistency.
-6. **Genre README(s)** — MCP `get_genre()` for each genre. Respect conventions.
+1. **Author profile** — MCP `get_author()`. **Why:** Drives EVERYTHING — tone, vocabulary, rhythm, voice. Without it, prose defaults to generic AI register.
+2. **Author vocabulary** — Read `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Preferred/banned words list — the enforcement layer for voice authenticity at the word level.
+3. **Book data** — MCP `get_book_full()`. **Why:** Genres, characters, plot context — the chapter must fit this frame.
+4. **Chapter outline** — Read `{project}/chapters/{chapter}/README.md`. **Why:** Beats and purpose define what this chapter must deliver.
+5. **Previous chapter** — Read `{project}/chapters/{prev}/draft.md`. **Why:** Continuity (last sentence → next opening), voice consistency drift check.
+6. **Genre README(s)** — MCP `get_genre()` for each genre. **Why:** Genre conventions — readers expect specific patterns; violating them needs to be a deliberate choice, not an accident.
 7. **Craft references** — MCP `get_craft_reference()`:
-   - `chapter-construction` (hooks, scene-sequel, endings)
-   - `dialog-craft` (subtext, beats, voice)
-   - `show-dont-tell` (techniques, five senses)
-   - `pacing-guide` (scene vs. summary, rhythm)
-   - `anti-ai-patterns` (what to avoid at ALL costs)
-   - `prose-style` (word choice, rhythm, devices)
-   - `simile-discipline` (the two-question test for every comparison — mandatory for the pre-save scan in Step 6c)
-8. **Character files** — For each character appearing in this chapter, call MCP `get_character(book_slug, character_slug)`. Use the slugified name (e.g. "Jane Doe" → "jane-doe"). If the tool returns `{"error": ...}`, note it and proceed — don't fall back to direct file reads.
-9. **World files** — Read `{project}/world/setting.md` (includes the Travel Matrix). Mandatory if the chapter involves any travel or location references.
-10. **Story timeline** — Read `{project}/plot/timeline.md`. Mandatory for ALL chapters. This is the canonical day/date reference.
-11. **Canon log** — Read `{project}/plot/canon-log.md`. Mandatory for ALL chapters. This tracks established facts and revision changes. Pay special attention to facts marked `CHANGED` — never reference the old version.
+   - `chapter-construction` — **Why:** Hooks, scene-sequel, endings — the structural skeleton of every chapter.
+   - `dialog-craft` — **Why:** Subtext, beats, voice differentiation — the most common AI-tell is dialogue that sounds like everyone is the same person.
+   - `show-dont-tell` — **Why:** Techniques and five senses — telling collapses prose into report-mode.
+   - `pacing-guide` — **Why:** Scene vs. summary, rhythm — wrong pacing is what makes drafts feel flat.
+   - `anti-ai-patterns` — **Why:** The negative-space catalog — what to NOT do at ALL costs.
+   - `prose-style` — **Why:** Word choice, rhythm, devices — sentence-level craft.
+   - `simile-discipline` — **Why:** The two-question test for every comparison — mandatory for the pre-save scan in Step 6c.
+8. **Character files** — For each character appearing in this chapter, call MCP `get_character(book_slug, character_slug)`. **Why:** Voice differentiation, motivation accuracy, physical/emotional consistency. Use the slugified name (e.g. "Jane Doe" → "jane-doe"). If the tool returns `{"error": ...}`, note it and proceed — direct file reads are not the fallback.
+9. **World files** — Read `{project}/world/setting.md` (includes the Travel Matrix). **Why:** Travel times, distances, location facts — invented travel times break continuity. Mandatory if the chapter involves any travel or location references.
+10. **Story timeline** — Read `{project}/plot/timeline.md`. **Why:** The canonical day/date reference — every relative time reference ("an hour ago") is checked against this. Mandatory for ALL chapters.
+11. **Canon log** — Read `{project}/plot/canon-log.md`. **Why:** Tracks established facts and revision changes. Mandatory for ALL chapters. Pay special attention to facts marked `CHANGED` — reference only the new version.
 12. **Series canon** — If part of a series, read `{series}/world/canon.md`.
 13. **Tonal document** — Read `{project}/plot/tone.md` if it exists. This defines book-specific tonal rules, warning signs, and the litmus test for this chapter's position in the tonal arc. Older books may not have this file — proceed without it, but recommend creating one.
 14. **Previous chapter timeline** — Read the `## Chapter Timeline` section from `{project}/chapters/{prev}/README.md`. This tells you what time of day the previous chapter ended, which determines when this chapter starts. Critical for time references like "an hour ago" or "that morning."
@@ -54,8 +54,8 @@ Read the chapter README.md outline:
 ### Step 2: Choose Writing Mode
 Ask the user how they want to write this chapter (use AskUserQuestion):
 
-- **Scene-by-scene (Recommended)** — Write one scene at a time (~900 words). User reviews and corrects each scene before the next one is written. After all scenes are complete, user reads the full chapter for a final pass. This is slower per-chapter but produces higher quality with fewer full rewrites.
-- **Full chapter** — Write the entire chapter in one pass. Traditional approach.
+- **Scene-by-scene (Recommended)** — Write one scene at a time (~900 Wörter als Soft-Target, je nach Szenen-Bedarf — manche brauchen 600, andere 1200). User reviews and corrects each scene before the next one is written. After all scenes are complete, user reads the full chapter for a final pass. This is slower per-chapter but produces higher quality with fewer full rewrites.
+- **Full chapter** — Write the entire chapter in one pass. Target: 2500-4000 Wörter je nach Genre/Outline, als Richtwert — die Outline-Word-Count im README ist der primäre Anker. Traditional approach.
 - **Batch all chapters** — Write all remaining chapter drafts sequentially. Only for rough first drafts when speed matters more than quality.
 
 If the user has already chosen a mode in this session (e.g. during a previous chapter), remember their choice and skip the question — but still mention which mode is active.
@@ -128,7 +128,7 @@ After ALL scenes are approved and appended to draft.md:
 
 #### Step 3: Opening Hook
 Write the first paragraph with extreme care. Reference `openings-and-endings.md`:
-- Start with action, voice, or tension — NEVER with weather or waking up
+- Open with action, voice, or tension. Weather or waking-up openings start in neutral and force the reader to wait for stakes.
 - Ground the reader: who, where, when (subtly)
 - Create a micro-question that pulls the reader forward
 - Match the author's established voice from the FIRST sentence
@@ -152,7 +152,7 @@ Follow the Scene-Sequel structure from `chapter-construction.md`:
 For EVERY paragraph, check against the author profile:
 - **Tone:** Does this match the author's tone descriptors?
 - **Sentence rhythm:** Vary length per the author's style. Short. Then a longer, winding sentence that builds and breathes. Then short again.
-- **Vocabulary:** Use words from the preferred list. NEVER use words from the banned list.
+- **Vocabulary:** Use only words from the preferred list. The banned list is a hard gate — any banned word triggers a rewrite of that sentence.
 - **Dialog:** Each character sounds different. Use subtext. Minimal tags ("said" or action beats).
 - **Sensory details:** All five senses, not just visual. Smell is the most evocative.
 - **Specificity:** "A 1987 Oldsmobile with a cracked windshield" not "an old car."
@@ -273,7 +273,7 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 - Never write a relative time reference ("an hour ago", "ten minutes later") without checking it against the Chapter Timeline. If the math doesn't work, adjust the prose, not the timeline.
 - The Chapter Timeline in README.md is MANDATORY for every chapter. No exceptions. Future chapters depend on it.
 - In full-chapter mode: Write in ONE PASS, then offer revision. Don't second-guess mid-flow.
-- In scene-by-scene mode: Write ONLY the current scene. STOP and WAIT for user feedback. NEVER proceed to the next scene without explicit approval. Each scene applies ALL craft rules (author voice, anti-AI, sensory details) — short scenes are not an excuse for lower quality.
+- In scene-by-scene mode: Write ONLY the current scene. STOP and WAIT for user feedback. **Wait for explicit user approval before writing the next scene** — silence or implicit-OK does not count. Each scene applies ALL craft rules (author voice, anti-AI, sensory details) — short scenes are not an excuse for lower quality.
 - In scene-by-scene mode: Scene text goes **into `draft.md`**, not into chat. The user's inline-review workflow (`` ```textile {review_handle}: ... ``` `` blocks inside the draft) breaks if prose sits in chat. Report only metadata in chat: scene number, word count, one-line summary.
 - **Never trust the file-change system-reminder diff for user review (GH#27).** When the user signals that `{review_handle}:` blocks are ready (keywords: "kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an", or any `{review_handle}:` mention), ALWAYS call the `Read` tool on the full `draft.md` file first. The system-reminder truncates diffs for long files, which has caused comments at the end of the file to be silently dropped. After reading, explicitly count the `{review_handle}:` blocks you see and report the count to the user — if it mismatches their expectation, re-read before proceeding.
 - **One Claude Code session per chapter.** Do not span a chapter across sessions. The chapter-writer's cold-start prerequisite load (author profile, tone doc, canon log, previous chapter, book CLAUDE.md) is designed for a fresh session; scene-by-scene review cycles burn context fast. If auto-compaction fires mid-chapter it can silently drop earlier review decisions. All persistent state is on disk — finish the chapter, close the session, open a new one for the next chapter.
@@ -282,7 +282,7 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 
 ## User Feedback Handling — CRITICAL
 
-**NEVER blindly accept user corrections.** The user may:
+**Always verify user corrections before applying them.** The user may:
 - Misunderstand a passage (especially nuanced English prose)
 - Miss context from an earlier chapter that explains the current text
 - Be wrong about a fact (e.g., thinking a character said X when they said Y)

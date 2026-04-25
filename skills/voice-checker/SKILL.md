@@ -4,19 +4,21 @@ description: |
   Check if written text sounds AI-generated. Compare against author profile for authenticity.
   Use when: (1) User says "voice check", "klingt das nach AI?",
   (2) After drafting, as a final authenticity gate.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> [chapter-slug]"
 ---
 
 # Voice Checker — Anti-AI Authenticity Gate
 
-## Prerequisites
-- Load `anti-ai-patterns` reference via MCP `get_craft_reference()`
-- Load `prose-style` and `dos-and-donts` references
-- Load author profile via MCP `get_author()`
-- Load author vocabulary from `~/.storyforge/authors/{slug}/vocabulary.md`
-- Read the text to check (chapter draft or entire book)
+## Prerequisites — MANDATORY LOADS
+
+- **`anti-ai-patterns` reference** via MCP `get_craft_reference()`. **Why:** The flag-list — provides the catalog of AI-tells (vocabulary, structures, emotional patterns) the scan grades against. Without it, "AI-like" is a vibe, not a metric.
+- **`prose-style` reference** via MCP. **Why:** Defines what good sentence-level craft looks like — the positive counterpart to the anti-pattern list, used for scoring specificity and rhythm.
+- **`dos-and-donts` reference** via MCP. **Why:** The craft-rule baseline — many "AI-tells" are also general bad-craft tells; this reference distinguishes "AI-bad" from "fiction-bad."
+- **Author profile** via MCP `get_author()`. **Why:** "AI-like" is relative to the author's documented voice — a sparse-prose author and a maximalist author cannot be graded by the same baseline.
+- **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Preferred/banned word list — the per-author enforcement layer that overrides the generic AI-tell list when in conflict.
+- Read the text to check (chapter draft or entire book).
 
 ## Analysis — 7 Dimensions
 
@@ -86,24 +88,24 @@ Compare against the defined author profile:
 | Author Match | X/100 | [Strong / Partial / Weak] |
 
 ### Flagged Words
-[List with line numbers]
+[List with line numbers — max ~150 words, group by category if many]
 
 ### Most AI-Like Passages
-[Quote 3-5 passages that read most "AI" with explanations]
+[Quote 3-5 passages that read most "AI" with explanations — max ~150 words per passage incl. explanation]
 
 ### Most Human-Like Passages
-[Quote 3-5 passages that feel most authentic]
+[Quote 3-5 passages that feel most authentic — max ~100 words per passage]
 
 ### Recommendations
-[Specific rewrites for the worst offenders]
+[Specific rewrites for the worst offenders — max 5 entries, before/after pairs]
 
 ### Verdict
 [AUTHENTIC / NEEDS WORK / REWRITE RECOMMENDED]
 ```
 
 ## Rules
-- This is the FINAL quality gate before a chapter is marked "Polished"
-- A score below 70 means revision is needed
-- Below 50 means significant rewriting
-- The vocabulary scan is non-negotiable — zero AI-tell words in final text
-- Be specific with line numbers and quotes — don't just say "it sounds AI"
+- Run this as the gate before marking a chapter "Polished" — voice-check is the last thing between draft and shipped prose.
+- A score below 70 means revision is needed.
+- Below 50 means significant rewriting.
+- Run the vocabulary scan as a hard gate before proceeding. If AI-tell words are found, STOP and request a rewrite of the affected sentences before re-scoring.
+- Be specific with line numbers and quotes — generic "it sounds AI" is not actionable; quote the offending text.

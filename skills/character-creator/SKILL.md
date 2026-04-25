@@ -4,21 +4,21 @@ description: |
   Develop deep, three-dimensional characters with arcs, voice, and motivation.
   Use when: (1) User says "Charakter", "character", "Figur",
   (2) After plot is outlined, to populate the story.
-model: claude-opus-4-6
+model: claude-opus-4-7
 user-invocable: true
 argument-hint: "<book-slug> [character-name]"
 ---
 
 # Character Creator
 
-## Prerequisites
-- Load book data via MCP `get_book_full()`
-- Load craft references via MCP `get_craft_reference()`:
-  - `character-creation` (GMC, archetypes, wants vs. needs, flaws, motivation chains)
-  - `character-arcs` (positive, negative, flat arcs)
-  - `dialog-craft` (character voice differentiation)
-- Load genre README(s) for genre-specific character expectations
-- Read `{project}/plot/outline.md` and `{project}/plot/arcs.md` for story context
+## Prerequisites — MANDATORY LOADS
+- **Book data** via MCP `get_book_full()`. **Why:** Existing characters, plot, theme — the new character must fit the ensemble and serve the theme.
+- **Craft references** via MCP `get_craft_reference()`:
+  - `character-creation` — **Why:** GMC, archetypes, wants vs. needs, flaws, motivation chains — the depth-test framework Step 5 enforces.
+  - `character-arcs` — **Why:** Positive/negative/flat arc patterns — Step 12 maps the character to one of them.
+  - `dialog-craft` — **Why:** Voice differentiation — Step 11's "cover the name" test depends on the principles in this reference.
+- **Genre README(s)** for genre-specific character expectations. **Why:** Romance protagonists ≠ horror protagonists ≠ literary protagonists — genre dictates expected archetypes and arc patterns.
+- Read `{project}/plot/outline.md` and `{project}/plot/arcs.md` for story context.
 
 ## Workflow
 
@@ -55,7 +55,9 @@ Surface motivations are rarely the true ones. Work with the user to find all thr
 - **Deeper:** Why that actually matters (the emotional engine — ask "why does that matter to them?")
 - **Deepest:** The core wound-driven need (ask "why?" again — this is what the story is really about for this character)
 
-*Don't accept "she wants to prove herself" as the deepest layer. Keep digging: prove herself to whom? Why does that matter? What would happen if she didn't? The deepest layer is usually about survival, love, worth, or meaning.*
+**Always ask "why?" twice.** Surface motivations alone fail the depth test. The third layer connects to survival, love, worth, or meaning — if you stop at layer two, the character reads as a thin archetype. Push the user past "she wants to prove herself": prove herself to whom? Why does that matter? What would happen if she didn't?
+
+**Wait for user confirmation that the deepest layer is the right one before moving to Step 6.** Step 6 (The Ghost) builds directly on this — a wrong layer-three answer cascades.
 
 ### Step 6: The Ghost — The Wound That Made Them
 This is the most important backstory step. Ask the user:
@@ -142,11 +144,11 @@ Update `{project}/characters/INDEX.md` with the new character.
 After all major characters are created, update book status to "Characters Created".
 
 ## Rules
-- NEVER create a "perfect" character — flaws drive stories
-- Antagonists must believe they're RIGHT — no mustache-twirling villains
-- Every character needs their own voice — do the "cover the name" test
-- Backstory informs behavior but is NOT exposition — it lives below the surface
-- Physical appearance should be SPECIFIC ("a scar running through his left eyebrow"), not generic ("tall, dark, handsome")
-- If you can describe the character in one word, they're not deep enough
-- The Ghost must connect to the Lie, which must connect to the Flaw — if the chain breaks, the character psychology is not coherent
-- Contradictions are not inconsistencies — they are the mark of a real human being
+- Build characters with flaws — flaws drive stories. A "perfect" character has no engine.
+- Antagonists must believe they're RIGHT — no mustache-twirling villains.
+- Every character needs their own voice — run the "cover the name" test on Step 11 sample dialogue.
+- Backstory informs behavior. Keep it below the surface — exposition kills mystery.
+- Physical appearance should be SPECIFIC ("a scar running through his left eyebrow"), not generic ("tall, dark, handsome").
+- If you can describe the character in one word, dig further — the character is not deep enough yet.
+- The Ghost must connect to the Lie, which must connect to the Flaw — if the chain breaks, the character psychology is not coherent.
+- Contradictions are not inconsistencies — they are the mark of a real human being.
