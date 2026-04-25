@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Changed
+- Apply Claude Opus 4.7 Positive-Voice hardening to plugin CLAUDE.md Rules (#52) — rewrite 6 NEVER/Never-patterns in workflow-critical rules to active-voice with rationale. Descriptive `never`-statements (system behavior, not LLM-instructions) are unchanged.
 - Migrate 20 skills from `claude-opus-4-6` to `claude-opus-4-7` (#50)
 - Harden 16 skills for Claude 4.7 behavior shifts: explicit length targets as soft guidelines, Negative→Positive voice rewrites for Top-3 critical patterns per skill, `Why:` justifications for MANDATORY Loads to prevent tool-use optimization, explicit Wait gates between wizard phases (book-conceptualizer, character-creator, beta-feedback, plot-architect, series-planner)
   - Critical (6): chapter-writer, voice-checker, book-conceptualizer, character-creator, unblock, beta-feedback

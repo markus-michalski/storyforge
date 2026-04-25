@@ -17,7 +17,7 @@ StoryForge is a Claude Code plugin for writing fiction: from brainstorming throu
 
 Server name: `storyforge-mcp`
 
-Use MCP tools for ALL state operations. Never parse project files directly in skills.
+Use MCP tools for ALL state operations. Direct file parsing in skills bypasses caching and validation — go through MCP.
 
 ## Skill Routing
 
@@ -194,25 +194,25 @@ Skills MUST load relevant craft references before generating creative content:
 
 ## Important Rules
 
-1. ALWAYS use MCP tools for state operations — never parse files directly
+1. ALWAYS use MCP tools for state operations — direct file parsing bypasses caching and validation
 2. ALWAYS load the author profile before writing ANY prose
 3. ALWAYS load relevant craft references before creative skills
 4. ALWAYS load genre README(s) before genre-specific work
-5. NEVER generate prose that sounds like AI — check anti-ai-patterns.md
+5. ALWAYS generate prose in the author's voice — check anti-ai-patterns.md before writing. Generic vocabulary, smooth-but-flat rhythm, and AI-tells destroy authenticity.
 6. ALL prose must be written in the author's voice (tone, vocabulary, rhythm)
 7. Writing language is ENGLISH by default (configurable per book)
 8. Code comments in English, user-facing output follows CLAUDE.md global settings
 9. ALWAYS load `plot/timeline.md` before writing any chapter — temporal consistency is mandatory
 10. ALWAYS load `world/setting.md` (Travel Matrix) before any scene involving travel or location
 11. ALWAYS update `plot/timeline.md` after writing a chapter — one row per story-day
-12. ALWAYS load `plot/canon-log.md` before writing any chapter — never contradict established facts
+12. ALWAYS load `plot/canon-log.md` before writing any chapter — preserve established facts. Contradictions break canon and reader trust.
 13. ALWAYS update `plot/canon-log.md` after writing or revising a chapter — track new and changed facts
-14. NEVER blindly accept user corrections — verify the claim, check context, assess impact, and push back if the user is wrong or misunderstood. The user's English comprehension may miss nuances in prose. Quote the relevant text and explain.
+14. ALWAYS verify user corrections before applying — quote the relevant text, check context, assess impact, and push back when the user is wrong or has misunderstood. The user's English comprehension may miss prose nuances; blind acceptance corrupts drafts.
 15. ALWAYS load `plot/tone.md` before writing any chapter (if it exists) — tonal consistency is mandatory
 16. ALWAYS update the `## Chapter Timeline` section in the chapter's README.md after writing — intra-day time tracking prevents temporal inconsistencies
 17. ALWAYS load the book's `CLAUDE.md` via MCP `get_book_claudemd()` before writing or reviewing a chapter — it contains persisted workflow rules and callbacks that survive session compaction
 18. Prefix grammar for persistence: messages starting with `Regel:`, `Workflow:`, or `Callback:` are extracted by the PreCompact hook and written to the book's CLAUDE.md. Unprefixed messages are never persisted automatically.
-19. **NEVER trust the file-change `system-reminder` diff in iterative review workflows** (GH#27). When the user signals that review comments (`{review_handle}:` blocks) are ready, always call the `Read` tool on the full file first. Claude Code truncates long-file diffs in the system-reminder, which has caused end-of-file comments to be silently dropped. After reading, count the comments you see and report the count — if it mismatches expectation, re-read before processing.
+19. **ALWAYS `Read` the full file when processing review comments** (GH#27). When the user signals that review comments (`{review_handle}:` blocks) are ready, call the `Read` tool on the full file first. The file-change `system-reminder` diff is truncated for long files — end-of-file comments get silently dropped. After reading, count the comments you see and report the count; re-read if the count mismatches expectation.
 
 ## Code Style
 
