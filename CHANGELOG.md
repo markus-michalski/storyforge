@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Changed
-- Nothing yet
+- Apply Claude Opus 4.7 Positive-Voice hardening to plugin CLAUDE.md Rules (#52) — rewrite 6 NEVER/Never-patterns in workflow-critical rules to active-voice with rationale. Descriptive `never`-statements (system behavior, not LLM-instructions) are unchanged.
 
 ### Deprecated
 - Nothing yet
