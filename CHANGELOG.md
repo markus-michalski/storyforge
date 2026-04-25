@@ -8,24 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- LICENSE.md file (PolyForm Noncommercial 1.0.0, renders as Markdown on GitHub)
-- License badge in README (Shields.io custom badge)
-- CONTRIBUTING.md with BDFL governance model and CLA workflow
-- CLA.md (Apache ICLA v2.2 adapted for PolyForm NC)
-- `.github/CODEOWNERS` — all paths require maintainer review
-- `.github/SECURITY.md` — vulnerability reporting policy
-- `.github/dependabot.yml` — weekly pip + GitHub Actions updates
-- `.github/pull_request_template.md`
-- `.github/ISSUE_TEMPLATE/` — bug report, feature request, config
-- Documentation link to faq.markus-michalski.net in README
+- Nothing yet
 
 ### Changed
-- Project license from MIT to PolyForm Noncommercial 1.0.0 (`.claude-plugin/plugin.json` now references LICENSE.md)
-- README reduced from 183 to 59 lines: landing-page scope, detailed content delegated to external documentation at faq.markus-michalski.net/en/plugins/storyforge
-- README License section — full PolyForm NC terms, scope, contact path for commercial use
+- Nothing yet
+
+### Deprecated
+- Nothing yet
+
+### Removed
+- Nothing yet
+
+### Fixed
+- Nothing yet
 
 ### Security
-- Governance hardening: CODEOWNERS gate, SECURITY policy, CLA requirement for contributions
+- Nothing yet
+
+## [1.12.0] - 2026-04-25
+
+### Changed
+- bump the pip-all group with 4 updates (#48)
+- bump the actions-all group with 2 updates (#47)
+- governance hardening — PolyForm NC license + CLA + templates (#46)
+- Update GitHub tag badge in README.md
 
 ## [1.11.0] - 2026-04-24
 
@@ -175,3 +181,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.9.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.9.1
 [1.10.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.10.0
 [1.11.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.11.0
+[1.12.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.12.0
