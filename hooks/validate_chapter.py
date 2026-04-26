@@ -14,6 +14,7 @@ other file events are passed through silently.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import sys
@@ -199,13 +200,44 @@ def _extract_block_patterns_from_rule(
     return patterns
 
 
-def _book_banned_patterns(book_root: Path) -> list[tuple[str, re.Pattern[str]]]:
-    """Return ``(label, compiled_regex)`` patterns from the book's CLAUDE.md.
+# Matches "max N per chapter", "maximum N per chapter", "max N-M per chapter"
+# (range — upper bound is taken), "limit to N per chapter". Numeric value
+# applies per chapter; a per-scene limit is then derived by scaling against
+# the chapter's word-count target (see ``_scan_book_banlist``).
+_CHAPTER_LIMIT_RE = re.compile(
+    r"\b(?:max(?:imum)?|limit\s+to)\s+(?:of\s+)?"
+    r"(?P<low>\d+)(?:\s*[-–]\s*(?P<high>\d+))?"
+    r"\s+per\s+(?:chapter|kapitel)\b",
+    re.IGNORECASE,
+)
 
-    Reuses ``_read_book_rules`` from ``tools.analysis.manuscript_checker``
-    for the section-extraction logic, but applies the strict
-    backtick-only pattern extractor defined above. Failure to import the
-    rule reader degrades gracefully: the hook still runs the AI-tell scan.
+
+def _extract_chapter_limit(rule: str) -> int:
+    """Parse ``max N per chapter`` / ``max N-M per chapter`` from a rule body.
+
+    Returns the integer limit (upper bound for ranges), or ``0`` when the
+    rule does not declare a per-chapter cap. ``0`` means "block on first
+    hit" — the existing default behavior.
+    """
+    match = _CHAPTER_LIMIT_RE.search(rule)
+    if not match:
+        return 0
+    upper = match.group("high") or match.group("low")
+    try:
+        return int(upper)
+    except ValueError:
+        return 0
+
+
+def _book_banned_patterns(
+    book_root: Path,
+) -> list[tuple[str, re.Pattern[str], int]]:
+    """Return ``(label, compiled_regex, chapter_limit)`` patterns.
+
+    ``chapter_limit`` is ``0`` when the source rule has no
+    ``max N per chapter`` declaration (block on first hit). When > 0 the
+    scanner applies a scaled per-scene limit instead (see
+    ``_scan_book_banlist``).
     """
     try:
         from tools.analysis.manuscript_checker import _read_book_rules
@@ -213,16 +245,78 @@ def _book_banned_patterns(book_root: Path) -> list[tuple[str, re.Pattern[str]]]:
         return []
 
     rules = _read_book_rules(book_root)
-    patterns: list[tuple[str, re.Pattern[str]]] = []
+    patterns: list[tuple[str, re.Pattern[str], int]] = []
     seen: set[str] = set()
     for rule in rules:
+        limit = _extract_chapter_limit(rule)
         for label, compiled in _extract_block_patterns_from_rule(rule):
             key = compiled.pattern.lower()
             if key in seen:
                 continue
             seen.add(key)
-            patterns.append((label, compiled))
+            patterns.append((label, compiled, limit))
     return patterns
+
+
+# ---------------------------------------------------------------------------
+# Chapter target word-count (for per-scene limit scaling)
+# ---------------------------------------------------------------------------
+
+# Matches a "Target Words" cell in the chapter README's overview table.
+# Examples it accepts: "| Target Words | ~3,200 |", "| Target Words | 2500 |"
+_TARGET_WORDS_RE = re.compile(
+    r"\|\s*Target\s+Words?\s*\|\s*~?\s*"
+    r"(?P<value>\d{1,3}(?:[,\.]\d{3})*|\d+)\s*\|",
+    re.IGNORECASE,
+)
+
+# Used when no chapter README or no parseable target is available. Picked to
+# match the typical scene-by-scene chapter size users have been writing.
+DEFAULT_CHAPTER_TARGET_WORDS = 3000
+
+
+def _chapter_target_words(draft_path: Path) -> int:
+    """Return the chapter's target word count.
+
+    Looks at ``README.md`` next to the draft, parses the
+    "Target Words" overview cell, and returns the integer. Falls back to
+    ``DEFAULT_CHAPTER_TARGET_WORDS`` if the README is missing or has no
+    parseable target.
+    """
+    readme = draft_path.parent / "README.md"
+    if not readme.is_file():
+        return DEFAULT_CHAPTER_TARGET_WORDS
+    try:
+        text = readme.read_text(encoding="utf-8")
+    except OSError:
+        return DEFAULT_CHAPTER_TARGET_WORDS
+    match = _TARGET_WORDS_RE.search(text)
+    if not match:
+        return DEFAULT_CHAPTER_TARGET_WORDS
+    raw = match.group("value").replace(",", "").replace(".", "")
+    try:
+        target = int(raw)
+    except ValueError:
+        return DEFAULT_CHAPTER_TARGET_WORDS
+    return target if target > 0 else DEFAULT_CHAPTER_TARGET_WORDS
+
+
+def _scaled_scene_limit(
+    chapter_limit: int, current_words: int, target_words: int
+) -> int:
+    """Compute per-scene limit from a per-chapter cap, prorated by progress.
+
+    A 900-word draft toward a 3200-word chapter target is "about a third
+    of the way through", so the scene budget is one third of the chapter
+    cap (rounded up, floored at 1, never exceeding the chapter cap — going
+    over the word target should not unlock more banned-phrase budget).
+    """
+    if chapter_limit <= 0:
+        return 0
+    if target_words <= 0:
+        return chapter_limit
+    ratio = current_words / target_words
+    return max(1, min(chapter_limit, math.ceil(chapter_limit * ratio)))
 
 
 # ---------------------------------------------------------------------------
@@ -392,22 +486,75 @@ def _scan_sentence_variance(text: str) -> list[Finding]:
     ]
 
 
-def _scan_book_banlist(text: str, book_root: Path) -> list[Finding]:
-    """Scan prose against the book's CLAUDE.md banned-phrase patterns."""
+def _format_occurrences(
+    text: str, matches: list[re.Match[str]], cap: int = 5
+) -> str:
+    """Format up to ``cap`` match locations as a compact list for stderr."""
+    parts: list[str] = []
+    for match in matches[:cap]:
+        line = _line_for_offset(text, match.start())
+        start = max(0, match.start() - 25)
+        end = min(len(text), match.end() + 25)
+        snippet = text[start:end].replace("\n", " ").strip()
+        parts.append(f"line {line}: …{snippet}…")
+    if len(matches) > cap:
+        parts.append(f"…and {len(matches) - cap} more")
+    return "; ".join(parts)
+
+
+def _scan_book_banlist(
+    text: str, book_root: Path, draft_path: Path
+) -> list[Finding]:
+    """Scan prose against the book's CLAUDE.md banned-phrase patterns.
+
+    Patterns without a per-chapter limit (the default) block on the first
+    hit. Patterns whose source rule declares ``max N per chapter`` get a
+    scaled per-scene budget instead — a 900-word draft toward a 3200-word
+    chapter target gets ``ceil(N * 900/3200)`` allowed hits, floored at 1.
+    Only counts above the budget produce a finding.
+    """
     findings: list[Finding] = []
-    for label, compiled in _book_banned_patterns(book_root):
-        match = compiled.search(text)
-        if not match:
+    target_words = _chapter_target_words(draft_path)
+    current_words = max(len(text.split()), 1)
+
+    for label, compiled, chapter_limit in _book_banned_patterns(book_root):
+        matches = list(compiled.finditer(text))
+        if not matches:
             continue
-        line_num = _line_for_offset(text, match.start())
-        findings.append(
-            Finding(
-                severity=SEVERITY_BLOCK,
-                category="book_rule_violation",
-                message=f"Banned phrase from book CLAUDE.md: '{label}'",
-                line=line_num,
+
+        if chapter_limit > 0:
+            scene_limit = _scaled_scene_limit(
+                chapter_limit, current_words, target_words
             )
-        )
+            if len(matches) <= scene_limit:
+                continue
+            line_num = _line_for_offset(text, matches[0].start())
+            occurrences = _format_occurrences(text, matches)
+            findings.append(
+                Finding(
+                    severity=SEVERITY_BLOCK,
+                    category="book_rule_violation",
+                    message=(
+                        f"phrase '{label}' appears {len(matches)} times "
+                        f"(scaled scene limit: {scene_limit}; chapter cap: "
+                        f"{chapter_limit}; current draft: {current_words}w "
+                        f"of {target_words}w target). Cut at least "
+                        f"{len(matches) - scene_limit}. {occurrences}"
+                    ),
+                    line=line_num,
+                )
+            )
+        else:
+            match = matches[0]
+            line_num = _line_for_offset(text, match.start())
+            findings.append(
+                Finding(
+                    severity=SEVERITY_BLOCK,
+                    category="book_rule_violation",
+                    message=f"Banned phrase from book CLAUDE.md: '{label}'",
+                    line=line_num,
+                )
+            )
     return findings
 
 
@@ -432,7 +579,7 @@ def validate_chapter(file_path: str) -> list[Finding]:
     findings: list[Finding] = []
     book_root = _find_book_root(path)
     if book_root is not None:
-        findings.extend(_scan_book_banlist(text, book_root))
+        findings.extend(_scan_book_banlist(text, book_root, path))
     findings.extend(_scan_meta_narrative(text))
     findings.extend(_scan_ai_tells(text))
     findings.extend(_scan_sentence_variance(text))

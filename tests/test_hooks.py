@@ -33,6 +33,25 @@ def _write_draft(book: Path, body: str, chapter: str = "01-intro") -> Path:
     return draft
 
 
+def _write_chapter_readme(
+    book: Path,
+    target_words: int | str,
+    chapter: str = "01-intro",
+) -> Path:
+    """Write a chapter README with a Target Words cell. Accepts int (3200)
+    or string ("~3,200") to test parser tolerance."""
+    readme = book / "chapters" / chapter / "README.md"
+    body = (
+        f"# Chapter\n\n"
+        f"## Overview\n"
+        f"| Field | Value |\n"
+        f"|-------|-------|\n"
+        f"| Target Words | {target_words} |\n"
+    )
+    readme.write_text(body, encoding="utf-8")
+    return readme
+
+
 # ---------------------------------------------------------------------------
 # validate_chapter() — pure-function behavior
 # ---------------------------------------------------------------------------
@@ -360,6 +379,264 @@ class TestValidateChapter:
         findings = vc.validate_chapter(str(draft))
         blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
         assert blocking == []
+
+
+# ---------------------------------------------------------------------------
+# Per-chapter limit parsing
+# ---------------------------------------------------------------------------
+
+
+class TestExtractChapterLimit:
+    def test_no_limit_returns_zero(self):
+        assert vc._extract_chapter_limit("Avoid `clocked` as a verb") == 0
+
+    def test_max_n_per_chapter(self):
+        rule = "Limit `kind of X that Y` — max 3 per chapter."
+        assert vc._extract_chapter_limit(rule) == 3
+
+    def test_max_n_per_chapter_german(self):
+        rule = "Limit `kind of X that Y` — max 3 per kapitel."
+        assert vc._extract_chapter_limit(rule) == 3
+
+    def test_max_range_takes_upper_bound(self):
+        rule = (
+            "Limit the `specific kind of X that Y` construction — "
+            "max 2-3 per chapter."
+        )
+        assert vc._extract_chapter_limit(rule) == 3
+
+    def test_maximum_word(self):
+        rule = "Use `felt like` sparingly — maximum 2 per chapter."
+        assert vc._extract_chapter_limit(rule) == 2
+
+    def test_limit_to_n_per_chapter(self):
+        rule = "Limit to 4 per chapter for the construction `the way`."
+        assert vc._extract_chapter_limit(rule) == 4
+
+    def test_per_book_limit_is_not_per_chapter(self):
+        rule = "Max one use of `opened his mouth. Closed it.` per book."
+        assert vc._extract_chapter_limit(rule) == 0
+
+    def test_max_of_n_per_chapter(self):
+        rule = "Avoid `pulsed` — max of 2 per chapter."
+        assert vc._extract_chapter_limit(rule) == 2
+
+
+# ---------------------------------------------------------------------------
+# Chapter target-words loader
+# ---------------------------------------------------------------------------
+
+
+class TestChapterTargetWords:
+    def test_default_when_no_readme(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(book, "# Chapter 1\n")
+        assert vc._chapter_target_words(draft) == vc.DEFAULT_CHAPTER_TARGET_WORDS
+
+    def test_default_when_readme_has_no_target(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(book, "# Chapter 1\n")
+        readme = book / "chapters" / "01-intro" / "README.md"
+        readme.write_text("# Chapter 1\n\nNo overview.\n", encoding="utf-8")
+        assert vc._chapter_target_words(draft) == vc.DEFAULT_CHAPTER_TARGET_WORDS
+
+    def test_parses_simple_integer(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(book, "# Chapter 1\n")
+        _write_chapter_readme(book, 2500)
+        assert vc._chapter_target_words(draft) == 2500
+
+    def test_parses_tilde_and_comma(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(book, "# Chapter 1\n")
+        _write_chapter_readme(book, "~3,200")
+        assert vc._chapter_target_words(draft) == 3200
+
+    def test_parses_dot_thousand_separator(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(book, "# Chapter 1\n")
+        _write_chapter_readme(book, "3.200")
+        assert vc._chapter_target_words(draft) == 3200
+
+    def test_zero_falls_back_to_default(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(book, "# Chapter 1\n")
+        _write_chapter_readme(book, 0)
+        assert vc._chapter_target_words(draft) == vc.DEFAULT_CHAPTER_TARGET_WORDS
+
+
+# ---------------------------------------------------------------------------
+# Scaled per-scene limit math
+# ---------------------------------------------------------------------------
+
+
+class TestScaledSceneLimit:
+    def test_zero_chapter_limit_returns_zero(self):
+        assert vc._scaled_scene_limit(0, 900, 3200) == 0
+
+    def test_900_of_3200_with_chapter_3_floors_at_one(self):
+        # 3 * 900/3200 = 0.84 → ceil → 1
+        assert vc._scaled_scene_limit(3, 900, 3200) == 1
+
+    def test_1800_of_3200_with_chapter_3_returns_two(self):
+        # 3 * 1800/3200 = 1.69 → ceil → 2
+        assert vc._scaled_scene_limit(3, 1800, 3200) == 2
+
+    def test_full_chapter_returns_full_limit(self):
+        assert vc._scaled_scene_limit(3, 3200, 3200) == 3
+
+    def test_over_target_caps_at_chapter_limit(self):
+        # Going over the word target does not unlock more banned-phrase
+        # budget. The chapter cap is a hard ceiling.
+        assert vc._scaled_scene_limit(3, 4000, 3200) == 3
+        assert vc._scaled_scene_limit(3, 6400, 3200) == 3
+
+    def test_zero_target_returns_chapter_limit(self):
+        assert vc._scaled_scene_limit(3, 900, 0) == 3
+
+
+# ---------------------------------------------------------------------------
+# Per-scene counter integration
+# ---------------------------------------------------------------------------
+
+
+class TestPerSceneCounter:
+    """End-to-end tests: rule with limit + draft with hits → block when
+    the scaled scene budget is exceeded, allow otherwise."""
+
+    def _book_with_limit_rule(self, tmp_path: Path) -> Path:
+        # Backtick contains regex metacharacters (\w), so it compiles as a
+        # regex — matches "kind of corridor that", "kind of silence that",
+        # etc.
+        return _make_book(
+            tmp_path,
+            claudemd_body=(
+                "# Book\n\n"
+                "## Rules\n"
+                "- Limit the `kind of \\w+ that` construction — "
+                "max 3 per chapter.\n"
+            ),
+        )
+
+    def test_no_limit_pattern_still_blocks_on_first_hit(self, tmp_path):
+        """Backwards compat: rules without 'max N per chapter' keep
+        block-on-first-hit behavior."""
+        book = _make_book(
+            tmp_path,
+            claudemd_body=(
+                "# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"
+            ),
+        )
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "Theo clocked the room. The bag slid off the bench. "
+                "He counted three breaths. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
+        assert any(f.category == "book_rule_violation" for f in blocking)
+
+    def test_one_hit_in_short_scene_passes(self, tmp_path):
+        """900 words toward 3200 target, max 3 per chapter → scaled to 1.
+        One hit is allowed."""
+        book = self._book_with_limit_rule(tmp_path)
+        _write_chapter_readme(book, 3200)
+        # Build ~900-word draft with exactly 1 banned hit.
+        body = "# Chapter 1\n\n"
+        body += "She walked the kind of corridor that smelled like rain. "
+        body += "The door was open. She walked inside. " * 175
+        draft = _write_draft(book, body)
+        findings = vc.validate_chapter(str(draft))
+        violations = [
+            f for f in findings if f.category == "book_rule_violation"
+        ]
+        assert violations == []
+
+    def test_five_hits_in_short_scene_blocks(self, tmp_path):
+        """Beta-feedback case: 5 hits in 900-word scene must block."""
+        book = self._book_with_limit_rule(tmp_path)
+        _write_chapter_readme(book, 3200)
+        body = "# Chapter 1\n\n"
+        body += (
+            "She walked the kind of corridor that smelled like rain. "
+            "He noticed the kind of silence that follows a slam. "
+            "The lamp threw the kind of yellow that makes you tired. "
+            "The book smelled the kind of musty that only old paper has. "
+            "She turned the kind of slow that means thinking. "
+        )
+        # Pad to reach roughly 900 words.
+        body += "The room was warm. The kettle had cooled. " * 175
+        draft = _write_draft(book, body)
+        findings = vc.validate_chapter(str(draft))
+        violations = [
+            f for f in findings if f.category == "book_rule_violation"
+        ]
+        assert len(violations) >= 1
+        msg = violations[0].message
+        assert "5 times" in msg or "appears 5" in msg
+        assert "Cut at least" in msg
+
+    def test_three_hits_at_full_chapter_passes(self, tmp_path):
+        """At full chapter target (3200 words), the per-chapter cap of 3
+        applies directly. Three hits is the limit, not a violation."""
+        book = self._book_with_limit_rule(tmp_path)
+        _write_chapter_readme(book, 3200)
+        body = "# Chapter 1\n\n"
+        body += (
+            "She walked the kind of corridor that smelled like rain. "
+            "He noticed the kind of silence that follows a slam. "
+            "The lamp threw the kind of yellow that makes you tired. "
+        )
+        # Fill to ~3200 words.
+        body += "The room was warm. The kettle had cooled. " * 600
+        draft = _write_draft(book, body)
+        findings = vc.validate_chapter(str(draft))
+        violations = [
+            f for f in findings if f.category == "book_rule_violation"
+        ]
+        assert violations == []
+
+    def test_four_hits_at_full_chapter_blocks(self, tmp_path):
+        book = self._book_with_limit_rule(tmp_path)
+        _write_chapter_readme(book, 3200)
+        body = "# Chapter 1\n\n"
+        body += (
+            "She walked the kind of corridor that smelled like rain. "
+            "He noticed the kind of silence that follows a slam. "
+            "The lamp threw the kind of yellow that makes you tired. "
+            "The book smelled the kind of musty that old paper has. "
+        )
+        body += "The room was warm. The kettle had cooled. " * 600
+        draft = _write_draft(book, body)
+        findings = vc.validate_chapter(str(draft))
+        violations = [
+            f for f in findings if f.category == "book_rule_violation"
+        ]
+        assert len(violations) >= 1
+
+    def test_message_includes_occurrence_lines(self, tmp_path):
+        """Block message should list line numbers + snippets so the user
+        sees exactly which hits to cut."""
+        book = self._book_with_limit_rule(tmp_path)
+        _write_chapter_readme(book, 3200)
+        body = "# Chapter 1\n\n"
+        body += "She walked the kind of corridor that smelled like rain.\n\n"
+        body += "He noticed the kind of silence that follows a slam.\n\n"
+        body += "The lamp threw the kind of yellow that makes you tired.\n\n"
+        body += "The book smelled the kind of musty that old paper has.\n\n"
+        body += "The room was warm. The kettle had cooled. " * 175
+        draft = _write_draft(book, body)
+        findings = vc.validate_chapter(str(draft))
+        violations = [
+            f for f in findings if f.category == "book_rule_violation"
+        ]
+        assert violations, "expected at least one violation"
+        msg = violations[0].message
+        assert "line 3" in msg
+        assert "line 5" in msg or "line 7" in msg
 
 
 # ---------------------------------------------------------------------------
