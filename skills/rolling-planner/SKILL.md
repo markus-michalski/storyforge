@@ -62,6 +62,11 @@ expansion:
 
 This is optional. Skip for straightforward scenes.
 
+### Step 4b: Tactical Sanity Check (combat/travel scenes only)
+If the scene recipe involves combat OR group movement through dangerous space (keywords like `walk`, `hike`, `drive`, `attack`, `mission`, `enter the building`, `approach` with multiple characters), call MCP `verify_tactical_setup(book_slug, scene_outline_text, characters_present)` before saving the recipe. Resolve every warn-severity warning by adjusting the scene plan — do not defer to the chapter-writer to fix walking-order or formation problems in prose. Capture the answers to the returned `questions_for_writer` (who scouts, who covers the protected character, fallback formation) directly in the recipe so the chapter-writer has them when drafting.
+
+Skip this step for kitchen-table dialogue, internal monologue, or any scene without group movement.
+
 ### Step 5: Save to Chapter README
 Write the scene recipe (and optional outline) to the next chapter's README via
 MCP `update_field(chapter_readme_path, "scene_recipe", value)`.

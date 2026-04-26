@@ -25,6 +25,9 @@ from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_pa
 from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted, parse_chapter_readme
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
+from tools.analysis.tactical_checker import (
+    verify_tactical_setup as _verify_tactical_setup_impl,
+)
 from tools.state.chapter_timeline_parser import (
     get_recent_chapter_timelines as _get_recent_chapter_timelines_impl,
 )
@@ -238,6 +241,54 @@ def get_recent_chapter_timelines(book_slug: str, n: int = 3) -> str:
 
     grids = _get_recent_chapter_timelines_impl(book_root, n=n)
     return json.dumps({"chapters": [g.to_dict() for g in grids]})
+
+
+@mcp.tool()
+def verify_tactical_setup(
+    book_slug: str,
+    scene_outline_text: str,
+    characters_present: list[str],
+) -> str:
+    """Pre-write sanity check for combat/travel scenes (#75).
+
+    Cross-references each character's optional ``tactical`` frontmatter
+    block (`protector_role`, `protected_role`, `combat_skill`,
+    `movement_lead`, `movement_rear`) with the scene outline and
+    surfaces walking-order or formation problems.
+
+    Use this from `chapter-writer` and `rolling-planner` BEFORE writing
+    a scene that involves group movement through dangerous space or
+    combat. The tool produces a JSON brief: ``passes`` (false when
+    any warn-severity rule fires), ``warnings`` (severity + message),
+    ``questions_for_writer`` (always at least 3 — universal pre-write
+    questions, specialized per protected/vulnerable character), and
+    ``detected_positions`` (map of character to ``lead`` / ``rear`` /
+    ``middle`` / ``unknown``).
+
+    Args:
+        book_slug: book identifier.
+        scene_outline_text: free-text outline or first-pass paragraph
+            describing the scene's group movement.
+        characters_present: character slugs (matching the
+            ``characters/{slug}.md`` filename without the suffix) that
+            participate in the scene.
+
+    Returns JSON with ``passes``, ``warnings``, ``questions_for_writer``,
+    ``detected_positions``.
+    """
+    book_root = resolve_project_path(load_config(), book_slug)
+    if not book_root.is_dir():
+        return json.dumps({
+            "error": f"Book directory missing on disk: {book_root}"
+        })
+
+    return json.dumps(
+        _verify_tactical_setup_impl(
+            book_root,
+            scene_outline_text=scene_outline_text,
+            characters_present=characters_present,
+        )
+    )
 
 
 @mcp.tool()
