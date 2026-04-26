@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.13.1] - 2026-04-26
+
+### Changed
+- add reference/research/ to ignore list for working documents
+
+### Fixed
+- sharpen brainstorm trigger to fiction-only and namespace MCP calls
+
 ## [1.13.0] - 2026-04-25
 
 ### Changed
@@ -189,3 +197,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.11.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.11.0
 [1.12.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.12.0
 [1.13.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.13.0
+[1.13.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.13.1
