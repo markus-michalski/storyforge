@@ -25,6 +25,9 @@ from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_pa
 from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted, parse_chapter_readme
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
+from tools.state.chapter_timeline_parser import (
+    get_recent_chapter_timelines as _get_recent_chapter_timelines_impl,
+)
 from tools.timeline_anchor import get_story_anchor
 from tools.claudemd.manager import (
     append_callback as _append_callback_impl,
@@ -201,6 +204,40 @@ def get_current_story_anchor(book_slug: str, chapter_slug: str = "") -> str:
 
     anchor = get_story_anchor(book_root, chapter_slug)
     return json.dumps(anchor.to_dict())
+
+
+@mcp.tool()
+def get_recent_chapter_timelines(book_slug: str, n: int = 3) -> str:
+    """Load the last N chapters' intra-day timeline grids as structured JSON.
+
+    Returns the most recent ``n`` chapters that have reached review
+    status or later (drafts and outlines are filtered out), in
+    chronological order. Each grid carries the chapter's number, slug,
+    title, status, story-time start/end anchor, and the list of scenes
+    with their clock times.
+
+    Use this from `chapter-writer` (Prerequisite 14) to anchor against
+    three real intra-day grids instead of remembering times across
+    chapters — the cross-chapter cascade-drift fix from beta-feedback
+    on Blood & Binary chapter 22 (#77).
+
+    Args:
+        book_slug: book identifier.
+        n: number of recent eligible chapters to return (default 3).
+            Returns fewer when the book has fewer eligible chapters.
+
+    Returns JSON with ``chapters`` list, each entry containing
+    ``number``, ``slug``, ``title``, ``status``, ``start``, ``end``,
+    and ``scenes``.
+    """
+    book_root = resolve_project_path(load_config(), book_slug)
+    if not book_root.is_dir():
+        return json.dumps({
+            "error": f"Book directory missing on disk: {book_root}"
+        })
+
+    grids = _get_recent_chapter_timelines_impl(book_root, n=n)
+    return json.dumps({"chapters": [g.to_dict() for g in grids]})
 
 
 @mcp.tool()
