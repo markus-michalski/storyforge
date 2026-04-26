@@ -88,6 +88,41 @@ def _insert_before_marker(content: str, marker_end: str, new_line: str) -> str:
     return content.replace(marker_end, replacement, 1)
 
 
+# Match a ban-cue followed by an optional 0-2-word qualifier and a
+# double-quoted phrase. Tuned to recognize the simple shapes that Claude or
+# the user typically produces ("Avoid X", "Do not use X", "Limit the X")
+# without grabbing every quoted string on the line. Quotes that come later
+# in the bullet (typically examples or replacements) are deliberately left
+# untouched.
+_BAN_CUE_QUOTE_RE = re.compile(
+    r"\b(?P<cue>banned|avoid|never|do(?:\s+not|n[’']?t)\s+use|"
+    r"never\s+use|limit|stop\s+using)"
+    r"(?P<between>(?:[\s:]+[\w-]+){0,2}[\s:]+)"
+    r'"(?P<phrase>[^"\n]{2,})"',
+    re.IGNORECASE,
+)
+
+
+def _normalize_banned_phrase(text: str) -> str:
+    """Convert the *first* ban-cued double-quoted phrase to backticks.
+
+    Rules with ban-cue + quoted phrase ("Avoid \"clocked\" as a verb") get
+    rewritten to backtick form ("Avoid ``clocked`` as a verb") so the
+    PostToolUse hook (which only honors backticks for hard-block
+    patterns) can enforce them. Conservative by design — only the first
+    matching phrase per text is converted; later quoted strings (typically
+    examples or replacements) stay double-quoted.
+    """
+    match = _BAN_CUE_QUOTE_RE.search(text)
+    if not match:
+        return text
+    cue = match.group("cue")
+    between = match.group("between")
+    phrase = match.group("phrase")
+    replacement = f"{cue}{between}`{phrase}`"
+    return text[: match.start()] + replacement + text[match.end():]
+
+
 def _append_entry(
     config: dict[str, Any],
     book_slug: str,
@@ -98,6 +133,9 @@ def _append_entry(
     text = text.strip()
     if not text:
         raise ValueError("Entry text must not be empty")
+
+    if kind == "rule":
+        text = _normalize_banned_phrase(text)
 
     path = resolve_claudemd_path(config, book_slug)
     if not path.exists():

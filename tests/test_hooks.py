@@ -142,6 +142,79 @@ class TestValidateChapter:
         blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
         assert blocking == []
 
+    def test_double_quoted_phrases_do_not_trigger_block(self, tmp_path):
+        """Hook only honors backtick patterns. Double-quoted phrases in
+        rules are advisory text only — typically positive examples or
+        replacement suggestions — and must not produce hard-block
+        findings (see #87)."""
+        book = _make_book(
+            tmp_path,
+            claudemd_body=(
+                "# Book\n\n"
+                "## Rules\n"
+                "- Avoid \"clocked\" as a verb. Replace with "
+                "\"noticed\" or \"registered\".\n"
+            ),
+        )
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "Theo clocked the room and let his shoulders drop. "
+                "The bag slid off the bench. He counted three breaths "
+                "before he turned to face the door. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
+        # Quoted phrases are not block patterns — only backticks are.
+        assert blocking == []
+
+    def test_backtick_regex_pattern_with_alternation(self, tmp_path):
+        """Backticks containing regex metacharacters compile as regex."""
+        book = _make_book(
+            tmp_path,
+            claudemd_body=(
+                "# Book\n\n"
+                "## Rules\n"
+                "- Avoid `the (specific|particular|certain) [a-z]+ that` "
+                "as filler.\n"
+            ),
+        )
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "She noticed the specific quietude that follows a slammed "
+                "door. The room held its breath. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
+        assert len(blocking) >= 1
+
+    def test_backtick_regex_does_not_match_unrelated_text(self, tmp_path):
+        book = _make_book(
+            tmp_path,
+            claudemd_body=(
+                "# Book\n\n"
+                "## Rules\n"
+                "- Avoid `the (specific|particular|certain) [a-z]+ that` "
+                "as filler.\n"
+            ),
+        )
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "The door slammed. She held her breath, counted to four, "
+                "then exhaled into the fabric of her sleeve. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
+        assert blocking == []
+
 
 # ---------------------------------------------------------------------------
 # Mode resolution (strict vs warn)

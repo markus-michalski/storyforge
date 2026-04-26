@@ -210,6 +210,94 @@ class TestAppendRule:
             append_rule(book_config, "my-book", "something")
 
 
+class TestAppendRuleNormalization:
+    """Verify that rules persisted via ``append_rule`` get their primary
+    ban-cued double-quoted phrase converted to backtick form, so the
+    PostToolUse hook (which only blocks on backtick patterns) can pick
+    them up automatically.
+    """
+
+    def test_avoid_quoted_phrase_becomes_backticks(self, book_config):
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(book_config, "my-book", 'Avoid "clocked" as a verb')
+        content = get_claudemd(book_config, "my-book")
+        assert "Avoid `clocked` as a verb" in content
+        assert 'Avoid "clocked"' not in content
+
+    def test_do_not_use_quoted_phrase(self, book_config):
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(
+            book_config, "my-book", 'Do not use "began to" as a verb opener'
+        )
+        content = get_claudemd(book_config, "my-book")
+        assert "Do not use `began to`" in content
+
+    def test_dont_use_smart_apostrophe(self, book_config):
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(book_config, "my-book", 'Don’t use "really" too often')
+        content = get_claudemd(book_config, "my-book")
+        assert "`really`" in content
+
+    def test_limit_with_qualifier(self, book_config):
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(
+            book_config,
+            "my-book",
+            'Limit the "specific kind of X that Y" construction',
+        )
+        content = get_claudemd(book_config, "my-book")
+        assert "Limit the `specific kind of X that Y` construction" in content
+
+    def test_only_first_quoted_phrase_converted(self, book_config):
+        """Replacement examples that come *after* the banned phrase stay
+        in double quotes — they're advice, not patterns to block."""
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(
+            book_config,
+            "my-book",
+            'Avoid "clocked" — replace with "noticed" or "registered"',
+        )
+        content = get_claudemd(book_config, "my-book")
+        assert "Avoid `clocked`" in content
+        # The replacement examples remain quoted (they're not block patterns).
+        assert '"noticed"' in content
+        assert '"registered"' in content
+
+    def test_no_ban_cue_leaves_quotes_intact(self, book_config):
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(
+            book_config, "my-book", 'Use "felt like" sparingly in dialog'
+        )
+        content = get_claudemd(book_config, "my-book")
+        assert '"felt like"' in content
+        assert "`felt like`" not in content
+
+    def test_already_backticked_unchanged(self, book_config):
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(book_config, "my-book", "Avoid `clocked` as a verb")
+        content = get_claudemd(book_config, "my-book")
+        assert "Avoid `clocked` as a verb" in content
+        assert "``clocked``" not in content  # no double-wrapping
+
+    def test_workflow_not_normalized(self, book_config):
+        """Normalization only applies to rules, not workflows."""
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_workflow(
+            book_config, "my-book", 'Avoid "branching" in commit names'
+        )
+        content = get_claudemd(book_config, "my-book")
+        assert '"branching"' in content
+        assert "`branching`" not in content
+
+    def test_callback_not_normalized(self, book_config):
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_callback(
+            book_config, "my-book", 'Avoid "Gary" as a name in next book'
+        )
+        content = get_claudemd(book_config, "my-book")
+        assert '"Gary"' in content
+
+
 class TestAppendWorkflow:
     def test_appends_to_workflow_section(self, book_config):
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")
