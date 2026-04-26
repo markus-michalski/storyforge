@@ -647,6 +647,110 @@ class TestTimeAnchorScanner:
         assert rc == 0
 
 
+class TestPovBoundaryHookIntegration:
+    """Wire-up test for the POV-boundary scan in validate_chapter (#76)."""
+
+    def _setup(
+        self, tmp_path: Path, *, pov_name: str, pov_knowledge: dict[str, list[str]],
+    ) -> Path:
+        book = _make_book(tmp_path)
+        chapter_dir = book / "chapters" / "01-intro"
+        # chapter README must carry the POV character.
+        readme_body = (
+            "---\n"
+            f'title: "Intro"\n'
+            "number: 1\n"
+            'status: "draft"\n'
+            f'pov_character: "{pov_name}"\n'
+            "---\n"
+            "# Chapter 1\n"
+        )
+        (chapter_dir / "README.md").write_text(readme_body, encoding="utf-8")
+        # Character file with knowledge profile.
+        chars = book / "characters"
+        chars.mkdir(parents=True, exist_ok=True)
+        from tools.shared.paths import slugify
+        slug = slugify(pov_name)
+        knowledge_lines = ""
+        for tier, terms in pov_knowledge.items():
+            knowledge_lines += f"  {tier}: {terms}\n"
+        char_body = (
+            "---\n"
+            f'name: "{pov_name}"\n'
+            "knowledge:\n"
+            f"{knowledge_lines}"
+            "---\n"
+            f"# {pov_name}\n"
+        )
+        (chars / f"{slug}.md").write_text(char_body, encoding="utf-8")
+        return book
+
+    def test_flags_forensics_term_in_lay_pov(self, tmp_path):
+        book = self._setup(
+            tmp_path,
+            pov_name="Theo Wilkons",
+            pov_knowledge={
+                "expert": ["it"], "competent": [], "layperson": [],
+                "none": ["forensics"],
+            },
+        )
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "Theo crouched. The blood smells when it has been on the "
+                "ground for a while in cold air. He swallowed. " * 6
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        pov = [f for f in findings if f.category == "pov_boundary"]
+        assert pov, "expected at least one POV-boundary finding"
+        assert all(f.severity == vc.SEVERITY_WARN for f in pov)
+        assert any("blood smells when" in f.message for f in pov)
+
+    def test_does_not_flag_when_pov_is_expert(self, tmp_path):
+        book = self._setup(
+            tmp_path,
+            pov_name="Kael",
+            pov_knowledge={
+                "expert": ["forensics"], "competent": [], "layperson": [],
+                "none": [],
+            },
+        )
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "Kael crouched. The blood smells when it has been on the "
+                "ground for a while in cold air. He nodded. " * 6
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        pov = [f for f in findings if f.category == "pov_boundary"]
+        assert pov == []
+
+    def test_dialog_does_not_flag(self, tmp_path):
+        book = self._setup(
+            tmp_path,
+            pov_name="Theo Wilkons",
+            pov_knowledge={
+                "expert": ["it"], "competent": [], "layperson": [],
+                "none": ["forensics"],
+            },
+        )
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                'Kael crouched. "Blood smells when it has been on the '
+                'ground for a while in cold air," he said. Theo watched. ' * 6
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        pov = [f for f in findings if f.category == "pov_boundary"]
+        assert pov == []
+
+
 class TestGlobalAITellsLoading:
     """The hook now reads its AI-tells from
     ``reference/craft/anti-ai-patterns.md`` via the loader, not from a
