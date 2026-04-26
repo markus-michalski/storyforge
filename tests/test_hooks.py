@@ -10,6 +10,7 @@ from pathlib import Path
 
 from hooks import validate_chapter as vc
 from hooks.validate_character import validate_character
+from tools import banlist_loader
 
 
 # ---------------------------------------------------------------------------
@@ -25,6 +26,21 @@ def _make_book(tmp_path: Path, claudemd_body: str | None = None) -> Path:
     if claudemd_body is not None:
         (book / "CLAUDE.md").write_text(claudemd_body, encoding="utf-8")
     return book
+
+
+def _install_author_vocab(
+    tmp_path: Path, author_slug: str, banned_words: list[str]
+) -> Path:
+    """Place a fake ~/.storyforge/authors/{slug}/vocabulary.md and patch
+    the loader to read from this temp home for the duration of the test."""
+    home = tmp_path / "_storyforge_home"
+    vocab_dir = home / "authors" / author_slug
+    vocab_dir.mkdir(parents=True)
+    body = "## Banned Words\n\n### Absolutely Forbidden\n"
+    for w in banned_words:
+        body += f"- {w}\n"
+    (vocab_dir / "vocabulary.md").write_text(body, encoding="utf-8")
+    return home
 
 
 def _write_draft(book: Path, body: str, chapter: str = "01-intro") -> Path:
@@ -379,6 +395,178 @@ class TestValidateChapter:
         findings = vc.validate_chapter(str(draft))
         blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
         assert blocking == []
+
+
+# ---------------------------------------------------------------------------
+# Author vocabulary banlist (block-severity)
+# ---------------------------------------------------------------------------
+
+
+class TestAuthorVocabBanlist:
+    """Verify that words listed in ~/.storyforge/authors/{slug}/vocabulary.md
+    block writes when found in prose."""
+
+    def _patch_storyforge_home(self, monkeypatch, fake_home: Path) -> None:
+        """Patch Path.home() so the loader reads from fake_home."""
+        monkeypatch.setattr(
+            banlist_loader,
+            "_author_vocab_path",
+            lambda slug, storyforge_home=None: (
+                fake_home / "authors" / slug / "vocabulary.md"
+            ),
+        )
+
+    def test_author_vocab_word_blocks_write(self, tmp_path, monkeypatch):
+        book = _make_book(
+            tmp_path,
+            claudemd_body=(
+                "# Book\n\n## Book Facts\n\n- **Author:** Alice Author\n"
+            ),
+        )
+        home = _install_author_vocab(
+            tmp_path, "alice-author", ["delve", "tapestry"]
+        )
+        self._patch_storyforge_home(monkeypatch, home)
+
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "She delved into the tapestry of memory. The room was warm. "
+                "She had not slept. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        author_blocks = [
+            f for f in findings if f.category == "author_vocab_violation"
+        ]
+        assert len(author_blocks) >= 2
+        assert all(f.severity == vc.SEVERITY_BLOCK for f in author_blocks)
+        labels = " ".join(f.message for f in author_blocks)
+        assert "delve" in labels.lower() or "tapestry" in labels.lower()
+
+    def test_author_vocab_clean_prose_passes(self, tmp_path, monkeypatch):
+        book = _make_book(
+            tmp_path,
+            claudemd_body=(
+                "# Book\n\n## Book Facts\n\n- **Author:** Alice Author\n"
+            ),
+        )
+        home = _install_author_vocab(tmp_path, "alice-author", ["delve"])
+        self._patch_storyforge_home(monkeypatch, home)
+
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "She investigated the box. The room was warm. The kettle "
+                "had cooled. She had not slept. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        author_blocks = [
+            f for f in findings if f.category == "author_vocab_violation"
+        ]
+        assert author_blocks == []
+
+    def test_no_author_in_book_skips_check(self, tmp_path, monkeypatch):
+        book = _make_book(
+            tmp_path,
+            claudemd_body="# Book\n\n## Book Facts\n\n- **Genre:** test\n",
+        )
+        # Even with vocab installed for "alice-author", the book does not
+        # name an author → skip.
+        home = _install_author_vocab(tmp_path, "alice-author", ["delve"])
+        self._patch_storyforge_home(monkeypatch, home)
+
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "She delved into the tapestry. " * 30
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        author_blocks = [
+            f for f in findings if f.category == "author_vocab_violation"
+        ]
+        assert author_blocks == []
+
+    def test_author_without_vocab_file_does_not_error(
+        self, tmp_path, monkeypatch
+    ):
+        book = _make_book(
+            tmp_path,
+            claudemd_body=(
+                "# Book\n\n## Book Facts\n\n- **Author:** Bob Bookwright\n"
+            ),
+        )
+        # No vocab.md installed for bob-bookwright. Loader should return [].
+        home = tmp_path / "_storyforge_home"
+        (home / "authors" / "bob-bookwright").mkdir(parents=True)
+        self._patch_storyforge_home(monkeypatch, home)
+
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n" + ("She delved into the tapestry. " * 30),
+        )
+        findings = vc.validate_chapter(str(draft))
+        author_blocks = [
+            f for f in findings if f.category == "author_vocab_violation"
+        ]
+        assert author_blocks == []
+
+    def test_block_message_attributes_source(self, tmp_path, monkeypatch):
+        book = _make_book(
+            tmp_path,
+            claudemd_body=(
+                "# Book\n\n## Book Facts\n\n- **Author:** Alice Author\n"
+            ),
+        )
+        home = _install_author_vocab(tmp_path, "alice-author", ["delve"])
+        self._patch_storyforge_home(monkeypatch, home)
+
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n" + ("She delved into the box. " * 30),
+        )
+        findings = vc.validate_chapter(str(draft))
+        author_blocks = [
+            f for f in findings if f.category == "author_vocab_violation"
+        ]
+        assert author_blocks
+        assert "author voice" in author_blocks[0].message.lower()
+        assert "author-vocab" in author_blocks[0].message.lower()
+        assert "absolutely forbidden" in author_blocks[0].message.lower()
+
+
+# ---------------------------------------------------------------------------
+# Global AI-tells loaded from anti-ai-patterns.md
+# ---------------------------------------------------------------------------
+
+
+class TestGlobalAITellsLoading:
+    """The hook now reads its AI-tells from
+    ``reference/craft/anti-ai-patterns.md`` via the loader, not from a
+    hardcoded list. Verify the wiring still produces warnings on the
+    previously-hardcoded set."""
+
+    def test_delve_still_produces_warn(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "She delved into the tapestry of vibrant memory. The room "
+                "was warm. The kettle had cooled. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        ai_tells = [f for f in findings if f.category == "ai_tell"]
+        assert ai_tells
+        assert all(f.severity == vc.SEVERITY_WARN for f in ai_tells)
+        labels = " ".join(f.message.lower() for f in ai_tells)
+        assert "delve" in labels
 
 
 # ---------------------------------------------------------------------------

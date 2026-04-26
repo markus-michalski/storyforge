@@ -45,18 +45,15 @@ DEFAULT_MODE = "strict"
 # Tools whose output should be inspected. Anything else is ignored.
 WATCHED_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
 
-# AI-tell words that mark generic LLM prose. Currently warn-only — promotion
-# to block-severity is handled per-book via the CLAUDE.md banlist (see #74).
-AI_TELL_WORDS: tuple[str, ...] = (
+# Fallback AI-tell list — used only when ``reference/craft/anti-ai-patterns.md``
+# cannot be parsed. The loader in ``tools.banlist_loader`` is the canonical
+# source. Severity stays warn for both paths to preserve #70's behavior.
+_AI_TELL_FALLBACK: tuple[str, ...] = (
     "delve", "tapestry", "nuanced", "vibrant", "embark", "resonate",
     "pivotal", "multifaceted", "realm", "testament", "intricate",
     "myriad", "unprecedented", "foster", "beacon", "juxtaposition",
     "paradigm", "synergy", "interplay", "ever-evolving", "navigate",
-    "uncover", "aforementioned", "groundbreaking", "spearhead",
-    "leverage", "underpin", "underscore", "overarching", "holistic",
-    "robust", "streamline", "cutting-edge", "utilize", "facilitate",
-    "endeavor", "comprehensive", "furthermore", "moreover",
-    "bustling", "piercing", "riveting", "captivating", "mesmerizing",
+    "uncover",
 )
 
 
@@ -440,9 +437,43 @@ def _line_for_offset(text: str, offset: int) -> int:
 
 
 def _scan_ai_tells(text: str) -> list[Finding]:
+    """Warn-severity scan against the curated global AI-tell vocabulary.
+
+    Source: ``reference/craft/anti-ai-patterns.md`` via
+    ``tools.banlist_loader.load_global_ai_tells``. Falls back to the
+    local ``_AI_TELL_FALLBACK`` list if the loader cannot read the file.
+    """
     findings: list[Finding] = []
+    try:
+        from tools.banlist_loader import load_global_ai_tells
+
+        patterns = load_global_ai_tells(PLUGIN_ROOT)
+    except Exception:
+        patterns = []
+
+    if patterns:
+        for banned in patterns:
+            matches = list(banned.pattern.finditer(text))
+            if not matches:
+                continue
+            line_num = _line_for_offset(text, matches[0].start())
+            suffix = "s" if len(matches) > 1 else ""
+            findings.append(
+                Finding(
+                    severity=SEVERITY_WARN,
+                    category="ai_tell",
+                    message=(
+                        f"AI-tell '{banned.label}' found "
+                        f"({len(matches)} occurrence{suffix})"
+                    ),
+                    line=line_num,
+                )
+            )
+        return findings
+
+    # Fallback path — loader failed or file missing.
     text_lower = text.lower()
-    for word in AI_TELL_WORDS:
+    for word in _AI_TELL_FALLBACK:
         pattern = rf"\b{re.escape(word)}\b"
         matches = list(re.finditer(pattern, text_lower))
         if not matches:
@@ -455,6 +486,47 @@ def _scan_ai_tells(text: str) -> list[Finding]:
                 category="ai_tell",
                 message=(
                     f"AI-tell word '{word}' found ({len(matches)} occurrence{suffix})"
+                ),
+                line=line_num,
+            )
+        )
+    return findings
+
+
+def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
+    """Block-severity scan against the active book's author vocabulary.md.
+
+    Resolves the author from the book's CLAUDE.md ``Book Facts`` section,
+    loads ``~/.storyforge/authors/{slug}/vocabulary.md`` via the
+    banlist loader, and emits one ``BLOCK`` finding per matched phrase.
+    Author-vocab bans express the user's voice intent and are
+    non-negotiable.
+    """
+    try:
+        from tools.banlist_loader import author_slug_from_book, load_author_vocab
+    except Exception:
+        return []
+
+    slug = author_slug_from_book(book_root)
+    if not slug:
+        return []
+    patterns = load_author_vocab(slug)
+    if not patterns:
+        return []
+
+    findings: list[Finding] = []
+    for banned in patterns:
+        match = banned.pattern.search(text)
+        if not match:
+            continue
+        line_num = _line_for_offset(text, match.start())
+        findings.append(
+            Finding(
+                severity=SEVERITY_BLOCK,
+                category="author_vocab_violation",
+                message=(
+                    f"Banned by author voice ({banned.source}): "
+                    f"'{banned.label}'"
                 ),
                 line=line_num,
             )
@@ -580,6 +652,7 @@ def validate_chapter(file_path: str) -> list[Finding]:
     book_root = _find_book_root(path)
     if book_root is not None:
         findings.extend(_scan_book_banlist(text, book_root, path))
+        findings.extend(_scan_author_banlist(text, book_root))
     findings.extend(_scan_meta_narrative(text))
     findings.extend(_scan_ai_tells(text))
     findings.extend(_scan_sentence_variance(text))
