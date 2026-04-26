@@ -19,6 +19,16 @@ description: ""
 #   movement_rear: false        # tends to bring up the rear
 #   vulnerable_to: []           # e.g. [daylight, silver]
 #   carries: []                 # e.g. [knife, backup_blade]
+# Optional knowledge profile — used by the POV-boundary checker (#76)
+# to flag prose that attributes domain expertise to a POV character
+# who could not plausibly know it. Domain keys reference vocabulary
+# files in `reference/craft/knowledge-domains/`; free-form domains
+# (e.g. learned_from_kael) are treated as `competent`.
+# knowledge:
+#   expert: []                  # e.g. [it, programming, networking]
+#   competent: []               # e.g. [photography, brewing_coffee]
+#   layperson: []               # e.g. [psychology, history]
+#   none: []                    # e.g. [forensics, ballistics, medicine, tactical_combat]
 ---
 
 # {{name}}

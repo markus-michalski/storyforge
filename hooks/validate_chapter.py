@@ -576,6 +576,67 @@ def _scan_time_anchor(text: str, draft_path: Path) -> list[Finding]:
     return findings
 
 
+def _scan_pov_boundary(
+    text: str, draft_path: Path, book_root: Path,
+) -> list[Finding]:
+    """POV-boundary scan (#76).
+
+    Resolves the POV character from the chapter's metadata, loads
+    their ``knowledge:`` profile, and surfaces narration phrases that
+    overshoot what they could plausibly know. Severity stays warn —
+    POV calls are nuanced and false positives are likely. Books opt
+    into block by extending this hook in their own fork.
+    """
+    findings: list[Finding] = []
+    try:
+        from tools.analysis.pov_boundary_checker import (
+            load_domain_vocabularies,
+            parse_character_knowledge,
+            scan_pov_boundary,
+        )
+        from tools.shared.paths import slugify
+        from tools.state.parsers import parse_chapter_readme
+    except Exception:
+        return findings
+
+    chapter_dir = draft_path.parent
+    chapter_readme = chapter_dir / "README.md"
+    if not chapter_readme.is_file():
+        return findings
+    try:
+        meta = parse_chapter_readme(chapter_readme)
+    except Exception:
+        return findings
+    pov_name = (meta.get("pov_character") or "").strip()
+    if not pov_name:
+        return findings
+
+    pov_slug = slugify(pov_name)
+    char_file = book_root / "characters" / f"{pov_slug}.md"
+    pov_knowledge = parse_character_knowledge(char_file)
+    if pov_knowledge is None or not pov_knowledge.has_knowledge_data:
+        return findings
+
+    domain_dir = PLUGIN_ROOT / "reference" / "craft" / "knowledge-domains"
+    domain_vocab = load_domain_vocabularies(domain_dir)
+    if not domain_vocab:
+        return findings
+
+    for hit in scan_pov_boundary(text, pov_knowledge, domain_vocab):
+        findings.append(Finding(
+            severity=SEVERITY_WARN,
+            category="pov_boundary",
+            message=(
+                f"POV BOUNDARY: '{hit.phrase}' (domain: {hit.domain}, "
+                f"{pov_knowledge.name} knowledge: {hit.knowledge_level}). "
+                "Move into dialog by an expert, reframe as lay observation, "
+                "or cut."
+            ),
+            line=hit.line,
+        ))
+    return findings
+
+
 def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
     """Block-severity scan against the active book's author vocabulary.md.
 
@@ -736,6 +797,7 @@ def validate_chapter(file_path: str) -> list[Finding]:
     if book_root is not None:
         findings.extend(_scan_book_banlist(text, book_root, path))
         findings.extend(_scan_author_banlist(text, book_root))
+        findings.extend(_scan_pov_boundary(text, path, book_root))
     findings.extend(_scan_time_anchor(text, path))
     findings.extend(_scan_meta_narrative(text))
     findings.extend(_scan_ai_tells(text))

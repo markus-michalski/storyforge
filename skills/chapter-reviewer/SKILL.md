@@ -86,12 +86,13 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 14. **Sentence rhythm** — Varied length? Matches author's style?
 15. **Dialog voice** — Each character distinguishable without tags?
 
-### Continuity (5 points)
+### Continuity (5 points + 1 sub-point)
 16. **Canon consistency** — Does the chapter contradict any fact in the Canon Log? Pay special attention to `CHANGED` facts.
 17. **Timeline accuracy** — Do day/date references match `plot/timeline.md`?
 18. **Travel consistency** — Do distances/travel times match the Travel Matrix?
 19. **Stale references** — Is this chapter flagged as `[STALE]` in the Revision Impact Tracker? If so, list all outdated references.
 20. **Character facts** — Do character descriptions/behaviors match established facts? (e.g., does a vampire eat or not?)
+20a. **POV knowledge boundary** — Does the narration attribute domain knowledge (forensics, tactical combat, ballistics, medicine, automotive repair, ...) to the POV character that their `knowledge:` profile says they don't have? The `validate_chapter` hook surfaces these as `[WARN] pov_boundary` lines — review every one. Three remediation options: (a) move into dialog by a character who would know, (b) reframe as the POV character's lay observation, (c) cut. Skip when the POV character has no `knowledge:` block (graceful degrade).
 
 ### Tonal Consistency (5 points) — only if `plot/tone.md` exists
 21. **Dominant mode** — Does the chapter match the dominant mode defined in the Tonal Arc table for this chapter's position?
