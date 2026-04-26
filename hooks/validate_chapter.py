@@ -155,20 +155,60 @@ def _resolve_mode(file_path: Path) -> str:
 # Banned-phrase scan (book CLAUDE.md ## Rules)
 # ---------------------------------------------------------------------------
 
+# Hook-local extractor: ONLY backtick-wrapped strings count as hard-block
+# patterns. The post-draft ``manuscript-checker`` uses a looser parser that
+# also picks up ban-cued double-quoted phrases — that's tolerable for soft
+# warnings but produces too many false positives when used as a write block.
+# Backticks are the markdown convention for "this is a pattern reference",
+# so requiring them keeps the user/skill in explicit territory.
+
+_BACKTICK_PATTERN_RE = re.compile(r"`([^`\n]+)`")
+_REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
+
+
+def _extract_block_patterns_from_rule(
+    rule: str,
+) -> list[tuple[str, re.Pattern[str]]]:
+    """Extract hard-block patterns from a single rule body.
+
+    Only backtick-wrapped strings are returned. Whitespace inside the
+    backticks is preserved so the user can encode word-boundary intent
+    (e.g. `` ` thing ` ``). If the inner string contains regex
+    metacharacters it is compiled as a regex; otherwise as a literal
+    substring. Malformed regexes are skipped silently.
+    """
+    patterns: list[tuple[str, re.Pattern[str]]] = []
+    seen: set[str] = set()
+    for match in _BACKTICK_PATTERN_RE.finditer(rule):
+        raw = match.group(1)
+        inner = raw.strip()
+        if len(inner) < 2:
+            continue
+        key = raw.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            if any(c in _REGEX_HINT_CHARS for c in inner):
+                compiled = re.compile(raw, re.IGNORECASE)
+            else:
+                compiled = re.compile(re.escape(raw), re.IGNORECASE)
+        except re.error:
+            continue
+        patterns.append((inner, compiled))
+    return patterns
+
 
 def _book_banned_patterns(book_root: Path) -> list[tuple[str, re.Pattern[str]]]:
     """Return ``(label, compiled_regex)`` patterns from the book's CLAUDE.md.
 
-    Reuses the rule-parsing logic from ``tools.analysis.manuscript_checker``
-    so the hook and the post-draft scanner agree on what counts as a
-    bannable pattern. Failure to import the helper degrades gracefully:
-    the hook still runs the AI-tell scan.
+    Reuses ``_read_book_rules`` from ``tools.analysis.manuscript_checker``
+    for the section-extraction logic, but applies the strict
+    backtick-only pattern extractor defined above. Failure to import the
+    rule reader degrades gracefully: the hook still runs the AI-tell scan.
     """
     try:
-        from tools.analysis.manuscript_checker import (
-            _extract_patterns_from_rule,
-            _read_book_rules,
-        )
+        from tools.analysis.manuscript_checker import _read_book_rules
     except Exception:
         return []
 
@@ -176,7 +216,7 @@ def _book_banned_patterns(book_root: Path) -> list[tuple[str, re.Pattern[str]]]:
     patterns: list[tuple[str, re.Pattern[str]]] = []
     seen: set[str] = set()
     for rule in rules:
-        for label, compiled in _extract_patterns_from_rule(rule):
+        for label, compiled in _extract_block_patterns_from_rule(rule):
             key = compiled.pattern.lower()
             if key in seen:
                 continue
