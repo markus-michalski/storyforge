@@ -31,6 +31,9 @@ from tools.analysis.tactical_checker import (
 from tools.state.chapter_timeline_parser import (
     get_recent_chapter_timelines as _get_recent_chapter_timelines_impl,
 )
+from tools.state.chapter_writing_brief import (
+    build_chapter_writing_brief as _build_chapter_writing_brief_impl,
+)
 from tools.timeline_anchor import get_story_anchor
 from tools.claudemd.manager import (
     append_callback as _append_callback_impl,
@@ -289,6 +292,71 @@ def verify_tactical_setup(
             characters_present=characters_present,
         )
     )
+
+
+@mcp.tool()
+def get_chapter_writing_brief(book_slug: str, chapter_slug: str) -> str:
+    """Architectural keystone for chapter-writer (#78).
+
+    Replaces the 16 prose prereq-loads in `chapter-writer` with a
+    single structured JSON brief. Gathers data from every Sprint 1/2
+    sub-tool (story anchor, recent chapter timelines, banlist, tactical
+    setup, POV knowledge boundary) plus the older book-context sources
+    (book CLAUDE.md rules + callbacks, tone litmus questions, character
+    profiles) into one deterministic payload.
+
+    Each sub-component is wrapped in try/except so a single failure
+    records itself in the ``errors`` list and the brief still ships
+    with partial data.
+
+    Use this from `chapter-writer` as the FIRST tool call in the
+    prerequisite phase. Honor every populated field while writing.
+    Empty fields and entries in ``errors`` mean "data not available
+    for this chapter" — degrade gracefully, do not invent.
+
+    Args:
+        book_slug: book identifier.
+        chapter_slug: chapter identifier (e.g. "22-the-night-before").
+
+    Returns JSON with:
+        - chapter (metadata + outline path)
+        - pov_character (name)
+        - story_anchor (current + previous + relative-phrase mapping)
+        - recent_chapter_timelines (last 3 review-or-later grids)
+        - recent_chapter_endings (last paragraph of each)
+        - characters_present (POV + scanned roster, full profiles +
+          knowledge + tactical when set)
+        - rules_to_honor (book CLAUDE.md ## Rules with severity)
+        - callbacks_in_register (book CLAUDE.md ## Callback Register)
+        - banned_phrases (deduplicated book + author + global banlist)
+        - recent_simile_count_per_chapter
+        - tone_litmus_questions (from plot/tone.md if present)
+        - tactical_constraints (only when outline triggers combat/travel)
+        - review_handle (configured inline-review name)
+        - errors (component → error map for graceful degrade)
+    """
+    book_root = resolve_project_path(load_config(), book_slug)
+    if not book_root.is_dir():
+        return json.dumps({
+            "error": f"Book directory missing on disk: {book_root}"
+        })
+
+    plugin_root = Path(
+        os.environ.get(
+            "CLAUDE_PLUGIN_ROOT",
+            str(Path(__file__).resolve().parent.parent.parent),
+        )
+    )
+    config = load_config()
+    review_handle = get_review_handle(config) or "Markus"
+
+    return json.dumps(_build_chapter_writing_brief_impl(
+        book_root=book_root,
+        book_slug=book_slug,
+        chapter_slug=chapter_slug,
+        plugin_root=plugin_root,
+        review_handle=review_handle,
+    ))
 
 
 @mcp.tool()
