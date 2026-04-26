@@ -22,6 +22,7 @@ Systematically scan all chapter drafts for inconsistencies in:
 - Read `{project}/plot/timeline.md` — canonical timeline
 - Read `{project}/plot/canon-log.md` — established facts and revision tracking
 - Read `{project}/world/setting.md` — Travel Matrix and location data
+- Load recent chapter timeline grids via MCP `get_recent_chapter_timelines(book_slug, n=99)` — structured intra-day grids for every review-or-later chapter; use these as the source of truth for chapter Start/End anchors and scene-level clock times instead of re-parsing each `README.md`.
 - Read ALL chapter drafts: `{project}/chapters/*/draft.md`
 - Read ALL character files: `{project}/characters/*.md`
 
