@@ -1,17 +1,52 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: Validate chapter files after Write/Edit operations.
+"""PostToolUse hook: validate chapter ``draft.md`` after Write/Edit/MultiEdit.
 
-Checks that chapter drafts don't contain AI-tell vocabulary and have proper structure.
-Runs automatically after any file write/edit that matches chapter file patterns.
+Reads the Claude Code hook JSON payload from stdin, locates the affected
+file, and runs StoryForge's prose-quality checks. Findings carry a
+severity (``block`` or ``warn``); when any ``block`` finding is produced
+in ``strict`` mode the hook exits with code 2, which Claude Code surfaces
+as a tool-call rejection and feeds back into the model.
+
+The hook only reacts to writes against ``**/chapters/*/draft.md``. All
+other file events are passed through silently.
 """
 
+from __future__ import annotations
+
+import json
 import os
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-# AI-tell words that must NEVER appear in fiction prose
-AI_TELL_WORDS = [
+PLUGIN_ROOT = Path(
+    os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent))
+)
+
+# Make tools package importable when the hook runs standalone (and from
+# pytest, where conftest.py also extends sys.path).
+if str(PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_ROOT))
+
+
+# ---------------------------------------------------------------------------
+# Severity vocabulary
+# ---------------------------------------------------------------------------
+
+SEVERITY_BLOCK = "block"
+SEVERITY_WARN = "warn"
+
+VALID_MODES = ("strict", "warn")
+DEFAULT_MODE = "strict"
+
+# Tools whose output should be inspected. Anything else is ignored.
+WATCHED_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
+
+# AI-tell words that mark generic LLM prose. Currently warn-only — promotion
+# to block-severity is handled per-book via the CLAUDE.md banlist (see #74).
+AI_TELL_WORDS: tuple[str, ...] = (
     "delve", "tapestry", "nuanced", "vibrant", "embark", "resonate",
     "pivotal", "multifaceted", "realm", "testament", "intricate",
     "myriad", "unprecedented", "foster", "beacon", "juxtaposition",
@@ -21,84 +56,316 @@ AI_TELL_WORDS = [
     "robust", "streamline", "cutting-edge", "utilize", "facilitate",
     "endeavor", "comprehensive", "furthermore", "moreover",
     "bustling", "piercing", "riveting", "captivating", "mesmerizing",
-]
+)
 
 
-def validate_chapter(file_path: str) -> list[str]:
-    """Validate a chapter draft file and return list of issues."""
+@dataclass(frozen=True)
+class Finding:
+    severity: str
+    category: str
+    message: str
+    line: int | None = None
+
+
+# ---------------------------------------------------------------------------
+# Hook payload parsing
+# ---------------------------------------------------------------------------
+
+
+def _read_payload() -> dict[str, Any] | None:
+    """Read the hook JSON payload from stdin. Returns None if stdin is empty
+    or not valid JSON (legacy invocation path)."""
+    if sys.stdin.isatty():
+        return None
+    raw = sys.stdin.read().strip()
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _extract_file_path(payload: dict[str, Any]) -> str | None:
+    """Find the file path in the hook payload. Tries tool_input first, then
+    tool_response — schema differs between Write/Edit/MultiEdit."""
+    tool_input = payload.get("tool_input") or {}
+    if isinstance(tool_input, dict):
+        fp = tool_input.get("file_path")
+        if isinstance(fp, str) and fp:
+            return fp
+    tool_response = payload.get("tool_response") or {}
+    if isinstance(tool_response, dict):
+        for key in ("filePath", "file_path"):
+            fp = tool_response.get(key)
+            if isinstance(fp, str) and fp:
+                return fp
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Mode resolution (strict vs warn)
+# ---------------------------------------------------------------------------
+
+
+def _find_book_root(file_path: Path) -> Path | None:
+    """Walk up from a chapter draft.md to find the book root (the directory
+    that contains both ``chapters/`` and ``README.md``)."""
+    for parent in file_path.parents:
+        if (parent / "chapters").is_dir() and (parent / "README.md").is_file():
+            return parent
+    return None
+
+
+_FRONTMATTER_RE = re.compile(r"^---\s*\n(?P<body>.*?)\n---\s*\n", re.DOTALL)
+_LINTER_MODE_RE = re.compile(
+    r"^\s*linter_mode\s*:\s*[\"']?(?P<value>strict|warn)[\"']?\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _resolve_mode(file_path: Path) -> str:
+    """Resolve linter mode for the given draft path.
+
+    Default is ``strict``. Books opt into ``warn`` by setting
+    ``linter_mode: warn`` in their CLAUDE.md frontmatter.
+    """
+    book_root = _find_book_root(file_path)
+    if book_root is None:
+        return DEFAULT_MODE
+    claudemd = book_root / "CLAUDE.md"
+    if not claudemd.is_file():
+        return DEFAULT_MODE
+    try:
+        text = claudemd.read_text(encoding="utf-8")
+    except OSError:
+        return DEFAULT_MODE
+    fm = _FRONTMATTER_RE.match(text)
+    if not fm:
+        return DEFAULT_MODE
+    m = _LINTER_MODE_RE.search(fm.group("body"))
+    if not m:
+        return DEFAULT_MODE
+    value = m.group("value").lower()
+    return value if value in VALID_MODES else DEFAULT_MODE
+
+
+# ---------------------------------------------------------------------------
+# Banned-phrase scan (book CLAUDE.md ## Rules)
+# ---------------------------------------------------------------------------
+
+
+def _book_banned_patterns(book_root: Path) -> list[tuple[str, re.Pattern[str]]]:
+    """Return ``(label, compiled_regex)`` patterns from the book's CLAUDE.md.
+
+    Reuses the rule-parsing logic from ``tools.analysis.manuscript_checker``
+    so the hook and the post-draft scanner agree on what counts as a
+    bannable pattern. Failure to import the helper degrades gracefully:
+    the hook still runs the AI-tell scan.
+    """
+    try:
+        from tools.analysis.manuscript_checker import (
+            _extract_patterns_from_rule,
+            _read_book_rules,
+        )
+    except Exception:
+        return []
+
+    rules = _read_book_rules(book_root)
+    patterns: list[tuple[str, re.Pattern[str]]] = []
+    seen: set[str] = set()
+    for rule in rules:
+        for label, compiled in _extract_patterns_from_rule(rule):
+            key = compiled.pattern.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            patterns.append((label, compiled))
+    return patterns
+
+
+def _line_for_offset(text: str, offset: int) -> int:
+    return text[:offset].count("\n") + 1
+
+
+# ---------------------------------------------------------------------------
+# Validators
+# ---------------------------------------------------------------------------
+
+
+def _scan_ai_tells(text: str) -> list[Finding]:
+    findings: list[Finding] = []
+    text_lower = text.lower()
+    for word in AI_TELL_WORDS:
+        pattern = rf"\b{re.escape(word)}\b"
+        matches = list(re.finditer(pattern, text_lower))
+        if not matches:
+            continue
+        line_num = _line_for_offset(text, matches[0].start())
+        suffix = "s" if len(matches) > 1 else ""
+        findings.append(
+            Finding(
+                severity=SEVERITY_WARN,
+                category="ai_tell",
+                message=(
+                    f"AI-tell word '{word}' found ({len(matches)} occurrence{suffix})"
+                ),
+                line=line_num,
+            )
+        )
+    return findings
+
+
+def _scan_sentence_variance(text: str) -> list[Finding]:
+    prose = re.sub(r"^---\s*\n.*?\n---\s*\n", "", text, flags=re.DOTALL)
+    prose = re.sub(r"^#+\s+.*$", "", prose, flags=re.MULTILINE)
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+", prose.strip()) if s.split()]
+    if len(sentences) <= 10:
+        return []
+    lengths = [len(s.split()) for s in sentences]
+    mean = sum(lengths) / len(lengths)
+    variance = sum((n - mean) ** 2 for n in lengths) / len(lengths)
+    std_dev = variance**0.5
+    if std_dev >= 4:
+        return []
+    return [
+        Finding(
+            severity=SEVERITY_WARN,
+            category="variance",
+            message=(
+                f"Low sentence length variance (std_dev={std_dev:.1f}) — "
+                "text may sound AI-generated. Vary sentence lengths more."
+            ),
+        )
+    ]
+
+
+def _scan_book_banlist(text: str, book_root: Path) -> list[Finding]:
+    """Scan prose against the book's CLAUDE.md banned-phrase patterns."""
+    findings: list[Finding] = []
+    for label, compiled in _book_banned_patterns(book_root):
+        match = compiled.search(text)
+        if not match:
+            continue
+        line_num = _line_for_offset(text, match.start())
+        findings.append(
+            Finding(
+                severity=SEVERITY_BLOCK,
+                category="book_rule_violation",
+                message=f"Banned phrase from book CLAUDE.md: '{label}'",
+                line=line_num,
+            )
+        )
+    return findings
+
+
+def validate_chapter(file_path: str) -> list[Finding]:
+    """Validate a chapter draft and return findings.
+
+    Returns an empty list when the file is not a chapter draft, is too
+    short to evaluate, or does not exist.
+    """
     path = Path(file_path)
-    issues: list[str] = []
-
     if not path.exists():
         return []
-
-    # Only validate draft.md files in chapters/ directories
     if "/chapters/" not in str(path):
         return []
-
-    # Only check draft.md files (not README.md outlines)
     if path.name != "draft.md":
         return []
 
     text = path.read_text(encoding="utf-8")
-
-    # Skip near-empty drafts (just a header)
     if len(text.split()) < 50:
         return []
 
-    # Scan for AI-tell words
-    text_lower = text.lower()
-    for word in AI_TELL_WORDS:
-        pattern = rf'\b{re.escape(word)}\b'
-        matches = list(re.finditer(pattern, text_lower))
-        if matches:
-            # Find line number for first occurrence
-            line_num = text[:matches[0].start()].count('\n') + 1
-            issues.append(
-                f"WARN: AI-tell word '{word}' found in {path.name} "
-                f"(line {line_num}, {len(matches)} occurrence{'s' if len(matches) > 1 else ''})"
+    findings: list[Finding] = []
+    book_root = _find_book_root(path)
+    if book_root is not None:
+        findings.extend(_scan_book_banlist(text, book_root))
+    findings.extend(_scan_ai_tells(text))
+    findings.extend(_scan_sentence_variance(text))
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Output formatting
+# ---------------------------------------------------------------------------
+
+
+def _format_finding(finding: Finding, path: Path) -> str:
+    location = f" line {finding.line}" if finding.line else ""
+    return f"[{finding.severity.upper()}] {path.name}{location}: {finding.message}"
+
+
+def _emit_block_report(
+    path: Path,
+    blocking: list[Finding],
+    warnings: list[Finding],
+    stream: Any,
+) -> None:
+    print("StoryForge linter blocked this write:", file=stream)
+    for finding in blocking:
+        print(f"  {_format_finding(finding, path)}", file=stream)
+    if warnings:
+        suffix = "s" if len(warnings) != 1 else ""
+        print(
+            f"Plus {len(warnings)} non-blocking warning{suffix}:",
+            file=stream,
+        )
+        for finding in warnings[:5]:
+            print(f"  {_format_finding(finding, path)}", file=stream)
+    print(
+        "Fix the blocking issues and try again. "
+        "Set `linter_mode: warn` in the book's CLAUDE.md frontmatter to override.",
+        file=stream,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
+def main() -> int:
+    """Hook entry point. Returns 0 (continue), or 2 (block + feed stderr to model)."""
+    payload = _read_payload()
+
+    file_path: str = ""
+    if payload is not None:
+        tool_name = payload.get("tool_name")
+        if isinstance(tool_name, str) and tool_name not in WATCHED_TOOLS:
+            return 0
+        file_path = _extract_file_path(payload) or ""
+    else:
+        # Legacy fallback: positional argv (used by older invocations / tests).
+        if len(sys.argv) > 1:
+            file_path = sys.argv[1]
+        else:
+            file_path = os.environ.get("CLAUDE_FILE_PATH", "") or os.environ.get(
+                "CLAUDE_TOOL_ARG_FILE_PATH", ""
             )
 
-    # Check sentence length variance (AI detection metric)
-    # Remove markdown headers and frontmatter
-    prose = re.sub(r"^---\s*\n.*?\n---\s*\n", "", text, flags=re.DOTALL)
-    prose = re.sub(r"^#+\s+.*$", "", prose, flags=re.MULTILINE)
-    sentences = re.split(r'(?<=[.!?])\s+', prose.strip())
-    sentences = [s for s in sentences if len(s.split()) > 0]
-
-    if len(sentences) > 10:
-        lengths = [len(s.split()) for s in sentences]
-        mean = sum(lengths) / len(lengths)
-        variance = sum((n - mean) ** 2 for n in lengths) / len(lengths)
-        std_dev = variance ** 0.5
-
-        if std_dev < 4:
-            issues.append(
-                f"WARN: Low sentence length variance (std_dev={std_dev:.1f}) — "
-                f"text may sound AI-generated. Vary sentence lengths more."
-            )
-
-    return issues
-
-
-def main() -> None:
-    """Entry point for PostToolUse hook."""
-    # Get the file that was just written/edited
-    file_path = os.environ.get("CLAUDE_TOOL_ARG_FILE_PATH", "")
     if not file_path:
-        # Try new_string path for Edit tool
-        file_path = os.environ.get("CLAUDE_FILE_PATH", "")
-    if not file_path:
-        sys.exit(0)
+        return 0
 
-    issues = validate_chapter(file_path)
+    findings = validate_chapter(file_path)
+    if not findings:
+        return 0
 
-    if issues:
-        # Output issues as hook feedback
-        print("\n".join(issues))
-        # Don't block — these are warnings, not errors
-        sys.exit(0)
+    path = Path(file_path)
+    mode = _resolve_mode(path)
+    blocking = [f for f in findings if f.severity == SEVERITY_BLOCK]
+    warnings = [f for f in findings if f.severity == SEVERITY_WARN]
+
+    if blocking and mode == "strict":
+        _emit_block_report(path, blocking, warnings, sys.stderr)
+        return 2
+
+    # Warn mode, or no blocking findings: emit non-blocking diagnostics on stdout.
+    for finding in findings[:10]:
+        print(_format_finding(finding, path))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
