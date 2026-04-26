@@ -193,6 +193,152 @@ class TestValidateChapter:
         blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
         assert len(blocking) >= 1
 
+    def test_blocks_meta_narrative_callback_phrase(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 22\n\n"
+            + (
+                "He stepped into the corridor. The Ch 15 callback was, "
+                "technically, funny. The wallpaper smelled like rain. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        meta = [f for f in findings if f.category == "meta_narrative"]
+        # Both "Ch 15" and "callback" should fire.
+        assert len(meta) >= 2
+        assert all(f.severity == vc.SEVERITY_BLOCK for f in meta)
+
+    def test_blocks_foreshadow_in_prose(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 4\n\n"
+            + (
+                "The lamp on the table foreshadowed the long night ahead. "
+                "She watched it without thinking. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        meta = [f for f in findings if f.category == "meta_narrative"]
+        assert any("foreshadow" in f.message.lower() for f in meta)
+
+    def test_blocks_calls_back_to(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 6\n\n"
+            + (
+                "The smell of pine calls back to the cabin scene in chapter "
+                "three. He felt his shoulders drop. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        meta = [f for f in findings if f.category == "meta_narrative"]
+        assert any("calls back to" in f.message.lower() for f in meta)
+
+    def test_blocks_parallels_her_earlier(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 7\n\n"
+            + (
+                "Her hand on the door parallels her earlier reluctance, "
+                "the one she had carried into the cottage. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        meta = [f for f in findings if f.category == "meta_narrative"]
+        assert any("parallels" in f.message.lower() for f in meta)
+
+    def test_html_comment_is_ignored(self, tmp_path):
+        """Outline scaffolding inside HTML comments may use structural
+        language without triggering the hook."""
+        book = _make_book(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 5\n\n"
+            "<!-- Ch 4 callback: the cabin pine smell. Foreshadow the trail. -->\n\n"
+            + (
+                "He stepped into the corridor. The wallpaper smelled like "
+                "rain on cedar. She had not slept. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        meta = [f for f in findings if f.category == "meta_narrative"]
+        assert meta == []
+
+    def test_html_comment_does_not_shield_following_prose(self, tmp_path):
+        """Multi-line HTML comment should end before later prose, so a
+        meta-narrative phrase after the comment still fires."""
+        book = _make_book(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 8\n\n"
+            "<!--\n"
+            "Ch 6 callback: the deferred-beer deal.\n"
+            "-->\n\n"
+            + (
+                "The Ch 6 callback was funny in retrospect. He turned "
+                "the page. The book smelled like dust. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        meta = [f for f in findings if f.category == "meta_narrative"]
+        assert any("Ch 6" in f.message for f in meta)
+        # And callback also fires.
+        assert any("callback" in f.message.lower() for f in meta)
+
+    def test_clean_prose_no_meta_narrative(self, tmp_path):
+        book = _make_book(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 9\n\n"
+            + (
+                "She turned the corner and the smell of bread reached her "
+                "before the lamplight did. The kitchen door was open. "
+                "Her brother had been baking again. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        meta = [f for f in findings if f.category == "meta_narrative"]
+        assert meta == []
+
+    def test_word_boundaries_avoid_false_positives(self, tmp_path):
+        """'called' must not match 'calls back to', 'channel' must not
+        match 'Ch \\d+', etc."""
+        book = _make_book(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 10\n\n"
+            + (
+                "She called him back later. The channel was rough. "
+                "He paralleled her stride down the dock without thinking. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        meta = [f for f in findings if f.category == "meta_narrative"]
+        assert meta == []
+
+    def test_block_via_main_for_meta_narrative(self, tmp_path, monkeypatch, capsys):
+        book = _make_book(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 22\n\n"
+            + (
+                "She crossed the room. The Ch 15 callback was, technically, "
+                "funny. The wallpaper smelled like rain. " * 5
+            ),
+        )
+        payload = {
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(draft)},
+        }
+        rc = _run_hook(payload, monkeypatch, capsys)
+        assert rc == 2
+        err = capsys.readouterr().err
+        assert "meta-narrative" in err.lower() or "callback" in err.lower()
+
     def test_backtick_regex_does_not_match_unrelated_text(self, tmp_path):
         book = _make_book(
             tmp_path,

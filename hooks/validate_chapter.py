@@ -225,6 +225,117 @@ def _book_banned_patterns(book_root: Path) -> list[tuple[str, re.Pattern[str]]]:
     return patterns
 
 
+# ---------------------------------------------------------------------------
+# Meta-narrative scan (script-reviewer language leaking into prose)
+# ---------------------------------------------------------------------------
+
+# Phrases that name the manuscript's *structure* instead of doing the work.
+# Belong in review notes, not in the prose. Each entry is
+# ``(compiled_pattern, short_label, fix_suggestion)``. Patterns are
+# applied to prose outside HTML comments only — outline scaffolding inside
+# ``<!-- ... -->`` blocks is fair game for structural language.
+#
+# Deliberately conservative: tokens like ``beat``, ``set piece``, and bare
+# ``parallels`` are excluded because they have too many legitimate uses
+# in prose (a heart beat, a music beat, parallels of latitude). They need
+# narration-vs-dialog awareness that this hook does not have.
+META_NARRATIVE_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(r"\bCh\.?\s*\d+\b"),
+        "chapter reference",
+        "name the event or character instead of pointing to the chapter number",
+    ),
+    (
+        re.compile(r"\bcallbacks?\b", re.IGNORECASE),
+        "callback",
+        "let the recurrence land without naming it as a callback",
+    ),
+    (
+        re.compile(r"\bas\s+established\b", re.IGNORECASE),
+        "as established",
+        "trust the reader to remember without flagging it",
+    ),
+    (
+        re.compile(r"\becho(?:es|ed)?\s+the\s+earlier\b", re.IGNORECASE),
+        "echoes the earlier",
+        "let the parallel work without narrating that it echoes",
+    ),
+    (
+        re.compile(r"\bforeshadow(?:ing|ed|s)?\b", re.IGNORECASE),
+        "foreshadow",
+        "show the seed; do not name what it foreshadows",
+    ),
+    (
+        re.compile(r"\bcalls?\s+back\s+to\b", re.IGNORECASE),
+        "calls back to",
+        "the callback should land on its own, not be announced",
+    ),
+    (
+        re.compile(
+            r"\b(?:parallels?|mirrors?)\s+(?:the|his|her|their)\s+(?:earlier|previous)\b",
+            re.IGNORECASE,
+        ),
+        "parallels/mirrors the earlier",
+        "let the parallel work without narration",
+    ),
+)
+
+
+def _comment_spans(text: str) -> list[tuple[int, int]]:
+    """Return ``(start, end)`` offsets of every ``<!-- ... -->`` block.
+
+    HTML comments may span multiple lines and are excluded from the
+    meta-narrative scan because they typically hold outline scaffolding
+    where structural language is expected.
+    """
+    spans: list[tuple[int, int]] = []
+    for match in re.finditer(r"<!--.*?-->", text, flags=re.DOTALL):
+        spans.append((match.start(), match.end()))
+    return spans
+
+
+def _offset_in_spans(offset: int, spans: list[tuple[int, int]]) -> bool:
+    for start, end in spans:
+        if start <= offset < end:
+            return True
+        if start > offset:
+            break
+    return False
+
+
+def _scan_meta_narrative(text: str) -> list[Finding]:
+    """Block script-reviewer language that has leaked into the prose.
+
+    Each match emits a ``block``-severity finding with line number and a
+    short fix suggestion. Matches inside HTML comments are ignored.
+    """
+    findings: list[Finding] = []
+    spans = _comment_spans(text)
+    seen_offsets: set[int] = set()
+    for pattern, label, suggestion in META_NARRATIVE_PATTERNS:
+        for match in pattern.finditer(text):
+            offset = match.start()
+            if _offset_in_spans(offset, spans):
+                continue
+            if offset in seen_offsets:
+                continue
+            seen_offsets.add(offset)
+            line_num = _line_for_offset(text, offset)
+            snippet = match.group(0)
+            findings.append(
+                Finding(
+                    severity=SEVERITY_BLOCK,
+                    category="meta_narrative",
+                    message=(
+                        f"meta-narrative phrase '{snippet}' ({label}) — "
+                        f"{suggestion}"
+                    ),
+                    line=line_num,
+                )
+            )
+    return findings
+
+
 def _line_for_offset(text: str, offset: int) -> int:
     return text[:offset].count("\n") + 1
 
@@ -322,6 +433,7 @@ def validate_chapter(file_path: str) -> list[Finding]:
     book_root = _find_book_root(path)
     if book_root is not None:
         findings.extend(_scan_book_banlist(text, book_root))
+    findings.extend(_scan_meta_narrative(text))
     findings.extend(_scan_ai_tells(text))
     findings.extend(_scan_sentence_variance(text))
     return findings
