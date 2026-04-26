@@ -12,34 +12,25 @@ argument-hint: "<book-slug> <chapter-number>"
 # Chapter Writer
 
 ## Prerequisites — MANDATORY LOADS
-Before writing a SINGLE word, load ALL of these:
 
-1. **Author profile** — MCP `get_author()`. **Why:** Drives EVERYTHING — tone, vocabulary, rhythm, voice. Without it, prose defaults to generic AI register.
-2. **Author vocabulary** — Read `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Preferred/banned words list — the enforcement layer for voice authenticity at the word level.
-3. **Book data** — MCP `get_book_full()`. **Why:** Genres, characters, plot context — the chapter must fit this frame.
-4. **Chapter outline** — Read `{project}/chapters/{chapter}/README.md`. **Why:** Beats and purpose define what this chapter must deliver.
-5. **Previous chapter** — Read `{project}/chapters/{prev}/draft.md`. **Why:** Continuity (last sentence → next opening), voice consistency drift check.
-6. **Genre README(s)** — MCP `get_genre()` for each genre. **Why:** Genre conventions — readers expect specific patterns; violating them needs to be a deliberate choice, not an accident.
-7. **Craft references** — MCP `get_craft_reference()`:
+Before writing a single word:
+
+1. **Chapter writing brief** — MCP `get_chapter_writing_brief(book_slug, chapter_slug)`. **Why:** One structured payload that bundles 12 separate context sources — story_anchor, recent_chapter_timelines, recent_chapter_endings, characters_present (with knowledge + tactical profiles), rules_to_honor (book CLAUDE.md ## Rules with severity), callbacks_in_register, banned_phrases (book + author + global), recent_simile_count_per_chapter, tone_litmus_questions, tactical_constraints, review_handle, plus the chapter metadata. Honor every populated field while writing. Empty fields and entries in `errors` mean "not available for this chapter" — degrade gracefully, do not invent. Store the returned `review_handle` as `{review_handle}`.
+2. **Author profile** — MCP `get_author()`. **Why:** Drives tone, vocabulary, rhythm, voice. Without it prose defaults to generic AI register. Not in the brief because it lives outside the book scope.
+3. **Book data** — MCP `get_book_full()`. **Why:** Genres, plot context, the frame the chapter must fit.
+4. **Genre README(s)** — MCP `get_genre()` for each genre. **Why:** Reader-expected conventions; violations need to be deliberate.
+5. **Craft references** — MCP `get_craft_reference()`:
    - `chapter-construction` — **Why:** Hooks, scene-sequel, endings — the structural skeleton of every chapter.
-   - `dialog-craft` — **Why:** Subtext, beats, voice differentiation — the most common AI-tell is dialogue that sounds like everyone is the same person.
+   - `dialog-craft` — **Why:** Subtext, beats, voice differentiation — the most common AI-tell is dialog where everyone sounds the same.
    - `show-dont-tell` — **Why:** Techniques and five senses — telling collapses prose into report-mode.
    - `pacing-guide` — **Why:** Scene vs. summary, rhythm — wrong pacing is what makes drafts feel flat.
-   - `anti-ai-patterns` — **Why:** The negative-space catalog — what to NOT do at ALL costs.
+   - `anti-ai-patterns` — **Why:** The negative-space catalog — what to NOT do at all costs.
    - `prose-style` — **Why:** Word choice, rhythm, devices — sentence-level craft.
    - `simile-discipline` — **Why:** The two-question test for every comparison — mandatory for the pre-save scan in Step 6c.
-8. **Character files** — For each character appearing in this chapter, call MCP `get_character(book_slug, character_slug)`. **Why:** Voice differentiation, motivation accuracy, physical/emotional consistency. Use the slugified name (e.g. "Jane Doe" → "jane-doe"). If the tool returns `{"error": ...}`, note it and proceed — direct file reads are not the fallback.
-9. **World files** — Read `{project}/world/setting.md` (includes the Travel Matrix). **Why:** Travel times, distances, location facts — invented travel times break continuity. Mandatory if the chapter involves any travel or location references.
-10. **Story timeline** — Read `{project}/plot/timeline.md`. **Why:** The canonical day/date reference — every relative time reference ("an hour ago") is checked against this. Mandatory for ALL chapters.
-11. **Canon log** — Read `{project}/plot/canon-log.md`. **Why:** Tracks established facts and revision changes. Mandatory for ALL chapters. Pay special attention to facts marked `CHANGED` — reference only the new version.
-12. **Series canon** — If part of a series, read `{series}/world/canon.md`.
-13. **Tonal document** — Read `{project}/plot/tone.md` if it exists. This defines book-specific tonal rules, warning signs, and the litmus test for this chapter's position in the tonal arc. Older books may not have this file — proceed without it, but recommend creating one.
-14. **Recent chapter timelines** — MCP `get_recent_chapter_timelines(book_slug, n=3)`. Returns the last 3 review-or-later chapters as structured JSON: each carries `start`/`end` story-time anchors and the intra-day `scenes` grid (name + clock times). This is your hard anchor against cross-chapter cascade-drift — anchor every relative time reference (`an hour ago`, `that morning`, `yesterday`) against these grids, not against memory. The tool returns fewer than 3 if the book has fewer eligible chapters; in that case rely on what's there. Drafts and outlines are filtered out so you only see locked-in time grids.
-15. **Per-book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. Mandatory. Contains workflow rules, book-scoped rules, and callback register. Honor every entry:
-    - **Rules**: Apply to this chapter's prose (e.g. "avoid passive voice").
-    - **Workflow**: Follow the stated process (e.g. "scene-by-scene").
-    - **Callbacks**: Weave in the listed characters, objects, or plot threads where natural. Do not force them, but look for an organic moment.
-16. **Review handle** — MCP `get_review_handle_config()`. Returns the configured name for inline review comments (e.g. `"Markus"` or `"Author"`). Store as `{review_handle}` and use throughout this session wherever review comment blocks are referenced.
+6. **World files** — Read `{project}/world/setting.md`. **Why:** Travel Matrix and location facts — invented travel times break continuity. Mandatory when the chapter involves travel or specific places.
+7. **Story timeline** — Read `{project}/plot/timeline.md`. **Why:** Canonical day/date calendar — the brief's `recent_chapter_timelines` covers intra-day grids; `timeline.md` covers the macro arc.
+8. **Canon log** — Read `{project}/plot/canon-log.md`. **Why:** Established facts, including `CHANGED` revisions. Contradicting canon breaks reader trust.
+9. **Series canon** — If part of a series, read `{series}/world/canon.md`. **Why:** Series-level facts and constraints carry across books.
 
 ## Writing Process
 
@@ -61,180 +52,77 @@ Ask the user how they want to write this chapter (use AskUserQuestion):
 If the user has already chosen a mode in this session (e.g. during a previous chapter), remember their choice and skip the question — but still mention which mode is active.
 
 ### Step 2b: Mark Chapter as In-Progress
-Before writing a single word of prose, call MCP `start_chapter_draft(book_slug, chapter_slug)`. This flips the chapter's on-disk status from `Outline → Draft` (only forward — chapters already at `Draft`, `Review`, `Polished`, or `Final` are left alone).
-
-Why this matters:
-- `get_book_progress` and the #21 book-tier derivation reflect active work immediately, not only after Step 7 closes the chapter. Without this, dashboards and next-step recommendations lie during active writing.
-- For legacy chapters that still keep metadata in `README.md` frontmatter, the tool migrates it into `chapter.yaml` on first touch (canonical source per #16) and strips the frontmatter from README. No data loss.
-
-The tool is safe to call redundantly (idempotent) — subsequent calls on a Draft chapter are a no-op.
+Call MCP `start_chapter_draft(book_slug, chapter_slug)` before any prose. **Why:** Flips status `Outline → Draft` so dashboards and `get_book_progress` reflect active work immediately, not only when Step 7 closes the chapter. Idempotent — only forward, safe to call redundantly. Also migrates legacy README frontmatter into `chapter.yaml` on first touch (canonical source per #16) without data loss.
 
 ---
 
 ### Mode A: Scene-by-Scene Writing (Recommended)
 
 #### Step A1: Scene Plan
-Before writing, break the chapter outline into individual scenes based on the Scene Beats in the chapter README.md. Present the plan to the user:
-
-```
-Scene 1: [Brief description] (~XXX words)
-Scene 2: [Brief description] (~XXX words)
-Scene 3: [Brief description] (~XXX words)
-...
-```
-
-Target ~900 words per scene (can vary — some scenes need 600, others 1200). The total should approximate the chapter's target word count.
+Break the chapter outline into scenes based on the Scene Beats in `README.md`. Present the plan: `Scene N: [description] (~XXX words)`. Target ~900 words/scene (vary 600-1200 as needed); total should approximate the chapter's target.
 
 #### Step A2: Write One Scene
-For the current scene, apply ALL craft rules (Steps 3-6 from Mode B below). Write ONLY this scene — do not continue into the next scene.
+Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene.
 
-**Before writing, if this scene involves combat OR group movement through dangerous space (keywords like `walk`, `hike`, `drive`, `attack`, `mission`, `enter the building`, `approach`, multi-character formation), call MCP `verify_tactical_setup(book_slug, scene_outline_text, characters_present)`.** Resolve every warn-severity warning before drafting — do not paper over walking-order or formation problems in prose. Use the returned `questions_for_writer` as a 30-second sanity-check checklist (who scouts, who covers the protected character, fallback formation if attacked).
+**Pre-write tactical check:** if the scene involves combat OR group movement (`walk`, `hike`, `drive`, `attack`, `mission`, `enter the building`, `approach`, multi-character formation), the brief's `tactical_constraints` may already be populated. If not — or if the scene's specific outline differs — call MCP `verify_tactical_setup(book_slug, scene_outline_text, characters_present)` and resolve every warn-severity warning before drafting.
 
-**Before appending, run the Step 6c Simile Discipline Scan on the scene text.** No scene goes into `draft.md` before the scan.
+**Pre-append:** run the Step 6c Simile Discipline Scan. No scene enters `draft.md` before the scan.
 
-After writing the scene:
-1. **Append the scene text directly to `{project}/chapters/{chapter}/draft.md`.** Do NOT paste the scene into chat. The user reviews in their editor and annotates with inline `` ```textile {review_handle}: ... ``` `` comment blocks — that workflow only works if the prose is in the file. If `draft.md` does not exist yet, create it with a chapter heading (`# Chapter N: Title`) above the first scene. Separate scenes with a blank line; do not add scene headings unless the chapter outline specifies them.
-2. In chat, report only: scene number, final word count, and a one-line summary of what the scene covers. Do NOT repeat the scene prose in chat.
-3. **WAIT for user feedback.** Corrections come back as inline `{review_handle}:` blocks inside `draft.md` — read them from the updated file and apply per the User Feedback Handling rules.
+After writing:
+1. **Append directly to `{project}/chapters/{chapter}/draft.md`** — never paste prose into chat. If `draft.md` doesn't exist, create it with `# Chapter N: Title` above the first scene. Separate scenes with a blank line.
+2. Report in chat ONLY: scene number, word count, one-line summary.
+3. **WAIT for user feedback** as `{review_handle}:` blocks inside `draft.md`.
 
 #### Step A3: User Review Loop
-The user reads the scene in their editor and may add `` ```textile {review_handle}: ... ``` `` comment blocks inline in `draft.md`.
-
-**CRITICAL — Read-First Rule (GH#27):**
-When the user signals that feedback is ready (any of: "kommentiert", "habe kommentiert", "gelesen", "Feedback da", "lies mal", "schau dir an", or any mention of `{review_handle}:` in chat), you MUST call the `Read` tool on the full `draft.md` file BEFORE processing anything. **Never rely on the file-change `system-reminder` diff** — Claude Code truncates diffs for long files (observed cutoffs at 40, 140, 200, 267+ lines), which causes comments near the end of the file to be silently invisible.
-
-Workflow:
-1. User signals review is ready.
-2. Call `Read` on `{project}/chapters/{chapter}/draft.md` — full file, no offset/limit unless the file exceeds 2000 lines.
-3. Scan the fully-loaded content for ALL `` ```textile {review_handle}: ``` `` blocks. Count them aloud to the user: "Ich sehe N Kommentare."
-4. Process each block per User Feedback Handling (verify, check context, assess impact, push back if wrong).
-5. If the count you report does not match what the user expected, re-read the file before proceeding — never guess.
-
-Once the user approves the scene (explicitly or by asking to continue):
-1. Remove any applied `{review_handle}:` comment blocks from `draft.md` — the scene prose stays, the review annotations go.
-2. Move to the next scene (Step A2).
+When the user signals feedback ready ("kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an", or any `{review_handle}:` mention), MUST call `Read` on the full `draft.md` first (GH#27 — file-change diffs truncate for long files). Count the `{review_handle}:` blocks aloud: "Ich sehe N Kommentare." Process each per User Feedback Handling. When the user approves: remove applied review blocks, move to next scene.
 
 #### Step A4: Chapter Completion
-After ALL scenes are approved and appended to draft.md:
-1. Notify the user: "Alle Szenen stehen. Bitte lies das komplette Kapitel und sag mir ob noch etwas geändert werden soll."
-2. **WAIT for the user's final read.**
-3. If corrections needed: apply them (with the usual verification).
-4. When the user is satisfied: proceed to Step 7 (Save and Update).
-5. Chapter status depends on user's verdict:
-   - User says it's good → status "Review" or "Final" (ask which)
-   - User wants another pass → stay in "Draft"
+All scenes approved → tell user: "Alle Szenen stehen. Bitte lies das komplette Kapitel." Wait for final read. Apply any remaining corrections. Then proceed to Step 7 with status `Review` or `Final` per user verdict.
 
 ---
 
 ### Mode B: Full Chapter Writing
 
 #### Step 3: Opening Hook
-Write the first paragraph with extreme care. Reference `openings-and-endings.md`:
-- Open with action, voice, or tension. Weather or waking-up openings start in neutral and force the reader to wait for stakes.
-- Ground the reader: who, where, when (subtly)
-- Create a micro-question that pulls the reader forward
-- Match the author's established voice from the FIRST sentence
+Open with action/voice/tension (not weather or waking-up). Ground the reader subtly. Create a micro-question. Match the author's voice from the FIRST sentence. See `openings-and-endings.md`. If Chapter 1: review and plan the 13-Point First Chapter Checklist from `openings-and-endings.md`.
 
-**If this is Chapter 1:** Before writing, review the 13-Point First Chapter Checklist from `openings-and-endings.md`. Plan how this chapter will satisfy all 13 points — especially the load-bearing ones (4, 5, 9, 10, 13). After writing, run `/storyforge:chapter-reviewer` which will automatically apply the first-chapter check.
-
-#### Step 4: Write Scene by Scene
-Follow the Scene-Sequel structure from `chapter-construction.md`:
-
-**Scene:**
-- Goal: What does the POV character want in this scene?
-- Conflict: What opposes them?
-- Disaster/Outcome: How does it go wrong (or unexpectedly right)?
-
-**Sequel:**
-- Reaction: How does the character respond emotionally?
-- Dilemma: What choices do they face?
-- Decision: What do they decide to do next?
+#### Step 4: Scene-Sequel Structure
+Per `chapter-construction.md`. **Scene:** Goal → Conflict → Disaster/Outcome. **Sequel:** Reaction → Dilemma → Decision.
 
 #### Step 5: Apply Author Voice
-For EVERY paragraph, check against the author profile:
-- **Tone:** Does this match the author's tone descriptors?
-- **Sentence rhythm:** Vary length per the author's style. Short. Then a longer, winding sentence that builds and breathes. Then short again.
-- **Vocabulary:** Use only words from the preferred list. The banned list is a hard gate — any banned word triggers a rewrite of that sentence.
-- **Dialog:** Each character sounds different. Use subtext. Minimal tags ("said" or action beats).
-- **Sensory details:** All five senses, not just visual. Smell is the most evocative.
-- **Specificity:** "A 1987 Oldsmobile with a cracked windshield" not "an old car."
+For EVERY paragraph: tone (matches descriptors), sentence rhythm (varied per style), vocabulary (preferred list only — banned hits trigger rewrite), dialog (distinguishable voices, subtext, minimal tags), all five senses, specificity over generic.
 
-#### Step 6: Anti-AI Checks (DURING writing)
-Reference `anti-ai-patterns.md` continuously:
-- [ ] Sentence length varies wildly (2 words to 30+)
-- [ ] No "delve", "tapestry", "nuanced", "vibrant", or other AI-tells
-- [ ] Paragraphs are asymmetric (not all same length)
-- [ ] No lists of three (AI loves triads)
-- [ ] Dialog sounds like real people, not speeches
-- [ ] Emotions shown through action/body, not named
-- [ ] Specific details, not generic descriptions
-- [ ] Imperfections exist — favorite transitions, recurring metaphors, the author's "tics"
-- [ ] Not every scene wraps up neatly with an emotional bow
+#### Step 6: Anti-AI Checks (continuous; see `anti-ai-patterns.md`)
+Wildly varied sentence length. No AI-tells (`delve`, `tapestry`, `nuanced`, `vibrant`). Asymmetric paragraphs. No triads. Dialog like real people, not speeches. Emotions shown through action/body. Specific details. Author's tics intact. Not every scene wraps neatly.
 
-#### Step 6b: Chapter Ending
-Reference `chapter-construction.md` on endings:
-- Cliffhanger, revelation, decision, question, or emotional beat
-- MUST make the reader want to turn the page
-- Connect to the next chapter's opening (if planned)
+#### Step 6b: Chapter Ending (see `chapter-construction.md`)
+Cliffhanger, revelation, decision, question, or emotional beat. Must make the reader turn the page. Connect to the next chapter's opening when planned.
 
 ---
 
 ### Step 6c: Simile Discipline Scan (MANDATORY, both modes, pre-save)
 
-**This scan runs BEFORE any prose is appended to `draft.md` or saved.** In scene-by-scene mode (Mode A), run it per scene before Step A2's append. In full-chapter mode (Mode B), run it on the complete chapter text before Step 7.
+Runs BEFORE any prose is appended to `draft.md`. Scene-by-scene mode: per scene before Step A2's append. Full-chapter mode: on the complete chapter text before Step 7.
 
-Reference: `simile-discipline.md`. The scan enforces its two-question test.
+Reference: `simile-discipline.md` for the full heuristic. The scan enforces its two-question test (literal resemblance + real work) plus book-CLAUDE.md simile bans (already in the brief's `rules_to_honor`).
 
-**How to run the scan:**
+Scan markers: `like [noun/clause]`, `as [adj] as`, `as if/as though`, `the way [subj] [verb]`, `moved/felt/sounded/looked/seemed like`, `resembled`, `reminded ___ of`, `gave the impression of`, `had the air of`, and the failure pattern `the kind of [noun] that [clause]`.
 
-1. **Grep the scene/chapter text for simile markers.** Walk the prose and flag every instance of:
-   - `like [noun]` / `like [clause]`
-   - `as [adj] as [noun]`
-   - `as if [clause]` / `as though [clause]`
-   - `the way [subject] [verb]`
-   - `moved like`, `felt like`, `sounded like`, `looked like`, `seemed like`
-   - `resembled`, `reminded [him/her] of`
-   - `gave the impression of`, `had the air of`
-   - `the kind of [noun] that [clause]` — this construction is a frequent failure mode and must be inspected even without an explicit simile marker.
+For each hit: answer literal-resemblance and real-work honestly. Apply author-voice bias from the profile (simile-heavy authors get more leeway than sparse ones). Flag any paragraph with two or more simile markers — either each does distinct work or all but the strongest are cut. Reject dead similes on sight (*pale as a ghost*, *quick as lightning*, etc.). Revise: cut and replace with a beat first, swap the vehicle second, keep only if rework genuinely earned it.
 
-2. **For each hit, answer both questions honestly:**
-   - **Literal resemblance?** Does the vehicle actually, concretely resemble the tenor? Can the reader picture the comparison?
-   - **Real work?** Does the simile clarify sensation, reveal character frame-of-reference, land a tonal beat, or compress description? Or is it decoration?
+The brief's `recent_simile_count_per_chapter` shows what the last 3 chapters used — if a paragraph would push above ~3-4, cut harder. Book CLAUDE.md ## Rules in the brief's `rules_to_honor` override author-voice leniency.
 
-3. **Apply the author-voice bias.**
-   - Check the author profile and vocabulary for simile-style notes.
-   - If the author's voice is documented as simile-heavy with grounded, character-specific comparisons (e.g. Ethan Cole's everyday-life similes), apply the test with that register as context. Many similes can pass.
-   - If the profile is silent or documents a sparse style, apply the test strictly. Default to cut-when-in-doubt.
-
-4. **Scan for stack density.** Any paragraph containing two or more simile markers is flagged. Either each one is doing distinct, necessary work, or all but the strongest are cut.
-
-5. **Scan for dead similes.** Reject the familiar ones on sight: *pale as a ghost*, *quiet as a mouse*, *quick as lightning*, *cold as ice*, *sharp as a knife*, *like a deer in headlights*, *like a kid in a candy store*. Replace or cut.
-
-6. **Revise failed similes** in order of preference:
-   - Cut entirely, replace with a concrete beat.
-   - Swap the vehicle for one that actually resembles the tenor.
-   - Keep only if, after rework, it genuinely does work.
-
-7. **Honor book-CLAUDE.md simile bans** — the per-book CLAUDE.md is already in context from Prerequisite 15. Cross-check any rule banning specific comparison patterns (e.g. "no comparisons involving things the floor shouldn't do") and cut matching similes even if the discipline check would otherwise keep them. Book rules override author-voice leniency.
-
-**Do not report the scan results in chat unless findings were significant.** For clean scenes, silence is fine. If you cut or revised similes, optionally note "Simile-Scan: N cut, M revised" in the scene metadata line alongside word count — this is a brief audit trail, not a review dump.
-
-**Do not skip the scan to save time.** The pattern recurs chapter after chapter in real projects precisely because it's easy to leave decorative similes in place. The scan is the enforcement point that the general rules in `prose-style.md` and `anti-ai-patterns.md` don't have.
+For clean scenes, silence is fine. When cuts happen, optionally note "Simile-Scan: N cut, M revised" alongside the scene metadata line. Do not skip — decorative similes are the recurring failure mode `prose-style.md` and `anti-ai-patterns.md` cannot catch alone.
 
 ---
 
 ### Step 7: Save and Update (both modes)
-1. Write draft to `{project}/chapters/{chapter}/draft.md` (in scene-by-scene mode, the full draft is already assembled)
-2. Count words — report to user
-3. Update chapter status via MCP `update_field()` on `chapter.yaml`:
-   - User says it's good → `"Review"` or `"Final"` (ask which)
-   - User wants another pass → leave at `"Draft"` (no call needed)
-   - Note: the `Outline → Draft` flip already happened in Step 2b; this step only handles later transitions.
-4. Book-level status — no explicit update needed. The #21 indexer derives the effective book status from chapter aggregates on every read, so the book's tier advances automatically (`Drafting` once any chapter is past Outline, `Revision` once all chapters are at Revision-rank, `Proofread` once all are Final). If the user wants the README frontmatter to reflect this on disk, they can run `update_field()` on the book README explicitly.
-5. **Update timeline** — Add all days/events from this chapter to `{project}/plot/timeline.md`. One row per story-day. This is MANDATORY.
-6. **Update Travel Matrix** — If new routes were introduced in this chapter, add them to the Travel Matrix in `{project}/world/setting.md`.
-7. **Update Canon Log** — Add any new facts established in this chapter to `{project}/plot/canon-log.md`. If this is a **revision** of an existing chapter, mark changed facts as `CHANGED` with the old version in Notes, and add all downstream chapters to the Revision Impact Tracker.
-8. **Update Chapter Timeline** — Fill in the `## Chapter Timeline` section in this chapter's `README.md`. Log every time-anchored event with approximate times (`~HH:MM`). Track elapsed durations. This is MANDATORY — future chapters depend on this for temporal consistency.
+1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
+2. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
+3. **Update `plot/timeline.md`** — one row per story-day. MANDATORY.
+4. **Update Travel Matrix** in `world/setting.md` if new routes appeared.
+5. **Update `plot/canon-log.md`** — new facts. If revising, mark changed facts `CHANGED` with old version in Notes, and add downstream chapters to the Revision Impact Tracker.
+6. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with `~HH:MM`. MANDATORY (future chapters depend on it).
 
 ### Step 8: Self-Review (both modes)
 Before presenting to user (in full-chapter mode) or after all scenes assembled (in scene-by-scene mode), quick-check:
@@ -260,42 +148,28 @@ This is not optional advice — it's a craft technique (Jerry Jenkins, Stephen K
 If the user is blocked or struggling: redirect to `/storyforge:unblock` instead of pushing through.
 
 ## Rules
-- The author profile is LAW. Every stylistic choice flows from it.
-- SHOW, don't tell. Always. Unless telling serves pacing.
-- Every scene needs conflict. No exceptions.
-- Dialog must have subtext. Characters don't say what they mean.
-- The banned word list is non-negotiable. Zero AI-tells.
-- **Simile Discipline (Step 6c) is non-negotiable.** Every scene and every full chapter must survive the two-question test before it enters `draft.md`. Decorative, illogical, stacked, or dead similes do not ship. The author-voice bias means the check targets *quality*, not *quantity* — a simile-heavy author voice is fine as long as each simile does real work. Refer to `simile-discipline.md` for the full heuristic.
-- Continuity is GLOBAL, not just local: always check `plot/timeline.md` and `world/setting.md` Travel Matrix, not just the previous chapter.
-- Never invent a travel time or distance that isn't in the Travel Matrix. Add it first, then write.
-- Never write a day-of-week or date that contradicts `plot/timeline.md`. Update timeline first if needed.
-- Never contradict a fact in the Canon Log. If a fact is marked `CHANGED`, use the NEW version only.
-- When revising a chapter: update the Canon Log FIRST, then write. This ensures downstream impact is tracked.
-- If `plot/tone.md` exists, check the Tonal Arc table for this chapter's position. Write in the dominant mode specified. If you catch yourself drifting into a warning-sign pattern, stop and course-correct.
-- Never write a relative time reference ("an hour ago", "ten minutes later") without checking it against the Chapter Timeline. If the math doesn't work, adjust the prose, not the timeline.
-- The Chapter Timeline in README.md is MANDATORY for every chapter. No exceptions. Future chapters depend on it.
-- In full-chapter mode: Write in ONE PASS, then offer revision. Don't second-guess mid-flow.
-- In scene-by-scene mode: Write ONLY the current scene. STOP and WAIT for user feedback. **Wait for explicit user approval before writing the next scene** — silence or implicit-OK does not count. Each scene applies ALL craft rules (author voice, anti-AI, sensory details) — short scenes are not an excuse for lower quality.
-- In scene-by-scene mode: Scene text goes **into `draft.md`**, not into chat. The user's inline-review workflow (`` ```textile {review_handle}: ... ``` `` blocks inside the draft) breaks if prose sits in chat. Report only metadata in chat: scene number, word count, one-line summary.
-- **Never trust the file-change system-reminder diff for user review (GH#27).** When the user signals that `{review_handle}:` blocks are ready (keywords: "kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an", or any `{review_handle}:` mention), ALWAYS call the `Read` tool on the full `draft.md` file first. The system-reminder truncates diffs for long files, which has caused comments at the end of the file to be silently dropped. After reading, explicitly count the `{review_handle}:` blocks you see and report the count to the user — if it mismatches their expectation, re-read before proceeding.
-- **One Claude Code session per chapter.** Do not span a chapter across sessions. The chapter-writer's cold-start prerequisite load (author profile, tone doc, canon log, previous chapter, book CLAUDE.md) is designed for a fresh session; scene-by-scene review cycles burn context fast. If auto-compaction fires mid-chapter it can silently drop earlier review decisions. All persistent state is on disk — finish the chapter, close the session, open a new one for the next chapter.
-- **Never power through mid-chapter compaction pressure.** If context pressure starts to mount during a scene-by-scene chapter, STOP and tell the user. A scene written after partial context loss degrades silently — previous review decisions, tonal cues, and canon facts may have been compressed away. Better to end the session and resume fresh than to ship a degraded scene.
+
+- Author profile is LAW. SHOW don't tell. Every scene needs conflict. Dialog has subtext. Banned words trigger sentence rewrite.
+- **Simile Discipline (Step 6c) is non-negotiable.** Every scene survives the two-question test before it enters `draft.md`. Author-voice bias = quality not quantity. See `simile-discipline.md`.
+- Continuity is global: check `plot/timeline.md`, `plot/canon-log.md`, and `world/setting.md` Travel Matrix in addition to the brief's recent chapter timelines. Never invent travel times. Never contradict canon. Use NEW versions of `CHANGED` facts.
+- Honor every entry in the brief's `rules_to_honor` (book CLAUDE.md ## Rules) — `severity: block` rules will be hard-blocked by the PostToolUse hook. Honor `tone_litmus_questions` (from `plot/tone.md`) when present.
+- Never write a relative time reference without checking against the brief's `story_anchor` and `recent_chapter_timelines`. If the math doesn't work, adjust the prose — not the timeline.
+- The Chapter Timeline section in `README.md` is MANDATORY at review status. Future chapters depend on it.
+- Full-chapter mode: write in ONE PASS, then offer revision. Don't second-guess mid-flow.
+- Scene-by-scene mode: write ONLY the current scene, then STOP and WAIT for explicit user approval (silence does not count). Scene text goes into `draft.md`, never chat — chat gets only metadata (scene number, word count, one-line summary). The user's inline-review workflow (`` ```textile {review_handle}: ... ``` `` blocks) breaks if prose sits in chat.
+- **Read the full `draft.md` for review (GH#27).** When the user signals `{review_handle}:` blocks are ready (keywords: "kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an"), ALWAYS call `Read` on the whole file first. The file-change system-reminder diff truncates for long files; trailing comments get silently dropped. Count the blocks you see and report the count.
+- **One Claude Code session per chapter.** Cold-start brief is designed for a fresh session; scene-by-scene cycles burn context fast. If auto-compaction fires mid-chapter, earlier review decisions can be silently dropped. Finish the chapter, close, open a new session.
+- **Stop if context pressure mounts.** A scene written after partial context loss degrades silently. End the session and resume fresh rather than shipping a degraded scene.
 - Target word count from the chapter README. Respect genre conventions.
 
 ## User Feedback Handling — CRITICAL
 
-**Always verify user corrections before applying them.** The user may:
-- Misunderstand a passage (especially nuanced English prose)
-- Miss context from an earlier chapter that explains the current text
-- Be wrong about a fact (e.g., thinking a character said X when they said Y)
-- Suggest a change that would create new inconsistencies
+The user explicitly values being challenged over being blindly agreed with. Before implementing ANY user-requested change:
 
-**Before implementing ANY user-requested change:**
-1. **Verify the claim** — Re-read the relevant passage. Does it actually say what the user thinks it says?
-2. **Check context** — Is there an earlier chapter that explains or justifies the passage?
-3. **Assess impact** — Would this change contradict other established facts?
-4. **Give honest feedback** — If the user is wrong or the change would cause problems, say so clearly. Quote the relevant text. Explain why the current version may actually be correct.
-5. **Propose alternatives** — If the user's concern is valid but their suggested fix isn't ideal, propose a better solution.
+1. **Verify the claim** — Re-read the passage. Does it say what the user thinks it says?
+2. **Check context** — Is there an earlier chapter that justifies the current version?
+3. **Assess impact** — Would this change contradict canon or break continuity?
+4. **Give honest feedback** — If the user is wrong, say so. Quote the text. Explain.
+5. **Propose alternatives** — If the concern is valid but the suggested fix isn't, offer a better one.
 
-Only after this validation should a correction be accepted and applied.
-The user explicitly values being challenged over being blindly agreed with.
+Only after validation should the correction be applied.
