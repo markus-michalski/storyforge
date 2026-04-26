@@ -1,9 +1,12 @@
 ---
 name: brainstorm
 description: |
-  Brainstorm book ideas interactively. Develop premises, explore genres, ask "what if?" questions.
-  Use when: (1) User says "Idee", "brainstorm", "was könnte ich schreiben",
-  (2) User wants to explore story concepts before committing.
+  Brainstorm FICTION/BOOK/STORY ideas interactively. Develop premises, explore genres, ask "what if?" questions.
+  Use ONLY for fiction/book/novel/story concepts — NOT for software, code, video, or dev project ideas.
+  Use when: (1) User says "Buch-Idee", "Story-Idee", "Roman-Idee", "Fiction-Idee", "brainstorm a story/book/novel",
+  "was könnte ich schreiben", "neue Geschichte", (2) User explicitly invokes `/storyforge:brainstorm`,
+  (3) Context is clearly fiction (genre mentions, character/plot/world, reading material).
+  Do NOT trigger on bare "Idee" / "brainstorm" without fiction context — defer to a more specific plugin.
 model: claude-opus-4-7
 user-invocable: true
 ---
@@ -38,10 +41,16 @@ Once the user picks a direction:
 - **Comparable titles:** "X meets Y"
 
 ### Phase 4: Save
-Save the idea via MCP `create_idea()` with title, genres, logline, and concept body.
+Save the idea via the storyforge MCP server: call `mcp__plugin_storyforge_storyforge-mcp__create_idea`
+with `title`, `genres`, `logline`, and `concept` body.
+
+**Server discipline:** ALWAYS use the `storyforge-mcp` server's `create_idea` (writes to
+`{content_root}/ideas/{slug}.md` as Markdown + YAML frontmatter). NEVER call `create_idea` from any
+other MCP server (e.g. `vidcraft-mcp.create_idea`, `mm-dev-toolkit-mcp.tool_create_idea`) —
+those write to different stores and corrupt the storyforge ideas directory.
 
 The idea gets status `raw` by default. If the user has fully developed it (logline + themes + comps),
-call `update_idea(slug, "status", "explored")` immediately after saving.
+call `mcp__plugin_storyforge_storyforge-mcp__update_idea(slug, "status", "explored")` immediately after saving.
 
 Tell the user the slug so they can reference it later: "Saved as `{slug}`."
 
@@ -50,9 +59,9 @@ Or: "Want to let it marinate? Check your ideas with `/storyforge:ideas`."
 
 ### Phase 5: Resuming an idea (optional)
 If the user returns to an existing idea (e.g. "continue the clockmaker idea"):
-1. Load it via MCP `get_idea(slug)`
+1. Load it via `mcp__plugin_storyforge_storyforge-mcp__get_idea(slug)`
 2. Continue development from where it left off
-3. Update fields via `update_idea()` as the concept grows
+3. Update fields via `mcp__plugin_storyforge_storyforge-mcp__update_idea()` as the concept grows
 
 ## Rules
 - Be provocative and unexpected. Don't offer safe, generic ideas.

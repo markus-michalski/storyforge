@@ -24,8 +24,8 @@ Use MCP tools for ALL state operations. Direct file parsing in skills bypasses c
 | User Intent | Skill |
 |------------|-------|
 | "New book" / "Neues Buch" | `/storyforge:new-book` IMMEDIATELY |
-| "Brainstorm" / "Idee" / "Was könnte ich schreiben?" | `/storyforge:brainstorm` |
-| "Meine Ideen" / "Ideas" / "Was habe ich gespeichert?" | `/storyforge:ideas` |
+| "Buch-Idee" / "Story-Idee" / "Roman-Idee" / "Fiction-Idee" / "Brainstorm a story/book/novel" / "Was könnte ich schreiben?" / "neue Geschichte" | `/storyforge:brainstorm` (only when fiction context is clear; defer if ambiguous) |
+| "Meine Buch-Ideen" / "Story-Ideen" / "Was habe ich an Buchideen gespeichert?" | `/storyforge:ideas` |
 | Book title/name mentioned | `/storyforge:resume [name]` |
 | "What's next?" / "Was steht an?" | `/storyforge:next-step` |
 | "Dashboard" / "Status" / "Fortschritt" | `/storyforge:book-dashboard` |
