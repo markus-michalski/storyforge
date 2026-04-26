@@ -493,6 +493,89 @@ def _scan_ai_tells(text: str) -> list[Finding]:
     return findings
 
 
+# ---------------------------------------------------------------------------
+# Story-time anchor scan (relative phrases vs. chapter timeline)
+# ---------------------------------------------------------------------------
+
+# Phrases the anchor mapper knows how to resolve. Pattern keeps each
+# phrase as its own group so we can match them case-insensitively without
+# losing the matched text. Multi-word phrases must come before their
+# substrings (``last night`` before ``night``).
+_RELATIVE_PHRASE_RE = re.compile(
+    r"\b("
+    r"yesterday"
+    r"|tomorrow"
+    r"|tonight"
+    r"|last\s+night"
+    r"|last\s+week"
+    r"|next\s+week"
+    r"|this\s+morning"
+    r"|this\s+afternoon"
+    r"|this\s+evening"
+    r"|two\s+hours\s+ago"
+    r"|one\s+hour\s+ago"
+    r"|an\s+hour\s+ago"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _scan_time_anchor(text: str, draft_path: Path) -> list[Finding]:
+    """Warn when prose uses a relative time phrase, naming the implied
+    story-calendar target so the writer can verify against
+    ``plot/timeline.md``.
+
+    Severity is ``warn`` — semantic event-vs-timeline matching is out of
+    scope for this hook (would need NLP). The annotation alone catches
+    most drift cases by giving the writer a concrete date to check
+    against. Block-on-conflict can come in a follow-up issue.
+    """
+    findings: list[Finding] = []
+    chapter_dir = draft_path.parent
+
+    try:
+        from tools.timeline_anchor import (
+            compute_relative_phrase_mapping,
+            get_chapter_anchor,
+        )
+    except Exception:
+        return findings
+
+    anchor = get_chapter_anchor(chapter_dir)
+    if anchor is None or anchor.start is None:
+        return findings
+
+    mapping = compute_relative_phrase_mapping(anchor)
+    if not mapping:
+        return findings
+
+    seen_offsets: set[int] = set()
+    for match in _RELATIVE_PHRASE_RE.finditer(text):
+        offset = match.start()
+        if offset in seen_offsets:
+            continue
+        seen_offsets.add(offset)
+        # Normalize whitespace inside the matched phrase for lookup.
+        phrase = re.sub(r"\s+", " ", match.group(1).lower())
+        implied = mapping.get(phrase)
+        if implied is None:
+            continue
+        line_num = _line_for_offset(text, offset)
+        findings.append(
+            Finding(
+                severity=SEVERITY_WARN,
+                category="time_anchor",
+                message=(
+                    f"phrase '{match.group(1)}' implies {implied} "
+                    f"(chapter starts {anchor.start.label()}). "
+                    f"Verify against plot/timeline.md."
+                ),
+                line=line_num,
+            )
+        )
+    return findings
+
+
 def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
     """Block-severity scan against the active book's author vocabulary.md.
 
@@ -653,6 +736,7 @@ def validate_chapter(file_path: str) -> list[Finding]:
     if book_root is not None:
         findings.extend(_scan_book_banlist(text, book_root, path))
         findings.extend(_scan_author_banlist(text, book_root))
+    findings.extend(_scan_time_anchor(text, path))
     findings.extend(_scan_meta_narrative(text))
     findings.extend(_scan_ai_tells(text))
     findings.extend(_scan_sentence_variance(text))

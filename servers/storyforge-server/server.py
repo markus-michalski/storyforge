@@ -25,6 +25,7 @@ from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_pa
 from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted, parse_chapter_readme
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
+from tools.timeline_anchor import get_story_anchor
 from tools.claudemd.manager import (
     append_callback as _append_callback_impl,
     append_rule as _append_rule_impl,
@@ -153,6 +154,53 @@ def get_chapter(book_slug: str, chapter_slug: str) -> str:
         return json.dumps({"error": f"Chapter '{chapter_slug}' not found in '{book_slug}'"})
 
     return json.dumps(chapter)
+
+
+@mcp.tool()
+def get_current_story_anchor(book_slug: str, chapter_slug: str = "") -> str:
+    """Resolve the current story-time anchor for a chapter.
+
+    Loads the chapter's `## Chapter Timeline` section (Start / End points)
+    plus the previous chapter's anchor, and returns a structured payload
+    that maps common relative phrases (`yesterday`, `this morning`,
+    `last week`, etc.) to their implied story-calendar dates.
+
+    Use this from `chapter-writer` instead of computing date math by
+    hand — it's the fix for the cross-chapter time-anchor drift that
+    surfaced in the Blood & Binary Ch 22 review (#72).
+
+    Args:
+        book_slug: book identifier (`get_book_full` slug).
+        chapter_slug: chapter identifier. When empty, uses the current
+            session's `last_chapter` if set, otherwise returns an error.
+
+    Returns JSON with keys ``current_chapter``, ``previous_chapter`` and
+    ``available_relative_phrases``.
+    """
+    state = _cache.get()
+    book = state.get("books", {}).get(book_slug)
+    if not book:
+        return json.dumps({"error": f"Book '{book_slug}' not found"})
+
+    if not chapter_slug:
+        session = state.get("session", {}) or {}
+        chapter_slug = session.get("last_chapter") or ""
+    if not chapter_slug:
+        return json.dumps({
+            "error": (
+                "chapter_slug not provided and no last_chapter in session. "
+                "Pass chapter_slug explicitly or call update_session first."
+            )
+        })
+
+    book_root = resolve_project_path(load_config(), book_slug)
+    if not book_root.is_dir():
+        return json.dumps({
+            "error": f"Book directory missing on disk: {book_root}"
+        })
+
+    anchor = get_story_anchor(book_root, chapter_slug)
+    return json.dumps(anchor.to_dict())
 
 
 @mcp.tool()
