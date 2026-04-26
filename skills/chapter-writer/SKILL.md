@@ -88,6 +88,8 @@ Target ~900 words per scene (can vary — some scenes need 600, others 1200). Th
 #### Step A2: Write One Scene
 For the current scene, apply ALL craft rules (Steps 3-6 from Mode B below). Write ONLY this scene — do not continue into the next scene.
 
+**Before writing, if this scene involves combat OR group movement through dangerous space (keywords like `walk`, `hike`, `drive`, `attack`, `mission`, `enter the building`, `approach`, multi-character formation), call MCP `verify_tactical_setup(book_slug, scene_outline_text, characters_present)`.** Resolve every warn-severity warning before drafting — do not paper over walking-order or formation problems in prose. Use the returned `questions_for_writer` as a 30-second sanity-check checklist (who scouts, who covers the protected character, fallback formation if attacked).
+
 **Before appending, run the Step 6c Simile Discipline Scan on the scene text.** No scene goes into `draft.md` before the scan.
 
 After writing the scene:

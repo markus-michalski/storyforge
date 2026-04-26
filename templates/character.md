@@ -7,6 +7,18 @@ gender: ""
 job: ""
 archetype: ""
 description: ""
+# Optional tactical profile — used by `verify_tactical_setup` (#75) to
+# pre-check combat and travel scenes for walking-order plausibility.
+# Delete this block for non-action characters; fill in for any
+# character likely to appear in fights, raids, or group movement.
+# tactical:
+#   protector_role: false       # actively protects others
+#   protected_role: false       # needs protection in combat
+#   combat_skill: unknown       # none|low|medium|high|elite|unknown
+#   movement_lead: false        # tends to take point
+#   movement_rear: false        # tends to bring up the rear
+#   vulnerable_to: []           # e.g. [daylight, silver]
+#   carries: []                 # e.g. [knife, backup_blade]
 ---
 
 # {{name}}
