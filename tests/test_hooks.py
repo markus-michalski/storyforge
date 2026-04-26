@@ -545,6 +545,108 @@ class TestAuthorVocabBanlist:
 # ---------------------------------------------------------------------------
 
 
+class TestTimeAnchorScanner:
+    """End-to-end: chapter README has a Chapter Timeline → relative
+    phrases in prose surface as warn-severity findings annotated with
+    the implied story date."""
+
+    def _setup_chapter(self, tmp_path: Path) -> Path:
+        book = _make_book(tmp_path)
+        chapter_dir = book / "chapters" / "01-intro"
+        (chapter_dir / "README.md").write_text(
+            "# Chapter\n\n"
+            "## Chapter Timeline\n\n"
+            "**Start:** Tue Dec 24 ~19:30 (library)\n"
+            "**End:** Wed Dec 25 ~07:00 (trailhead)\n",
+            encoding="utf-8",
+        )
+        return book
+
+    def test_yesterday_in_prose_triggers_warn(self, tmp_path):
+        book = self._setup_chapter(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 22\n\n"
+            + (
+                "Yesterday felt like a different country, the kind he could "
+                "not return to. He sat at the window and watched the snow. "
+                "The room was cold. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        time_warns = [f for f in findings if f.category == "time_anchor"]
+        assert time_warns
+        assert all(f.severity == vc.SEVERITY_WARN for f in time_warns)
+        # Annotation should point at the implied date.
+        msg = time_warns[0].message
+        assert "Mon Dec 23" in msg
+        assert "yesterday" in msg.lower()
+
+    def test_an_hour_ago_resolves_to_specific_time(self, tmp_path):
+        book = self._setup_chapter(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 22\n\n"
+            + (
+                "An hour ago he had still believed the message would come. "
+                "Now the silence had its own gravity. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        time_warns = [f for f in findings if f.category == "time_anchor"]
+        assert any("18:30" in f.message for f in time_warns)
+
+    def test_no_chapter_timeline_skips_scan(self, tmp_path):
+        book = _make_book(tmp_path)
+        # No README written for the chapter → scanner has no anchor.
+        draft = _write_draft(
+            book,
+            "# Chapter 1\n\n"
+            + (
+                "Yesterday felt distant. He sat at the window and watched. "
+                "The room was cold. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        time_warns = [f for f in findings if f.category == "time_anchor"]
+        assert time_warns == []
+
+    def test_unrelated_phrases_do_not_match(self, tmp_path):
+        book = self._setup_chapter(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 22\n\n"
+            + (
+                "He had not slept. The kettle had cooled. The book on the "
+                "table was still open. The hour was hard to read. " * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        time_warns = [f for f in findings if f.category == "time_anchor"]
+        assert time_warns == []
+
+    def test_block_in_strict_mode_does_not_fire(self, tmp_path, monkeypatch, capsys):
+        """Time-anchor findings are warn-only — even in strict mode they
+        must not trigger exit code 2 (#72 keeps semantics conservative
+        until block-on-conflict is added in a follow-up)."""
+        book = self._setup_chapter(tmp_path)
+        draft = _write_draft(
+            book,
+            "# Chapter 22\n\n"
+            + (
+                "Yesterday already felt like a different country. He sat "
+                "at the window and watched the snow. " * 5
+            ),
+        )
+        payload = {
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(draft)},
+        }
+        rc = _run_hook(payload, monkeypatch, capsys)
+        # No block — only warn.
+        assert rc == 0
+
+
 class TestGlobalAITellsLoading:
     """The hook now reads its AI-tells from
     ``reference/craft/anti-ai-patterns.md`` via the loader, not from a
