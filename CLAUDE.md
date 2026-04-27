@@ -132,6 +132,12 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 
 Phase 1 ships memoir knowledge under `book_categories/memoir/` but does **not** yet branch the skills above. Memoir books currently flow through the same fiction workflows; skills will branch on `book_category` once Phase 2 (#57–#60, #63), Phase 3 (#61, #62, #65, #66) and Phase 4 (#64) land.
 
+Memoir-aware skills already wired:
+
+- `/storyforge:new-book` — scaffolds memoir-shaped tree (`people/` instead of `characters/`, no `world/`, structure-types outline) when `book_category: memoir` is selected (Issue #63)
+- `/storyforge:book-dashboard` — surfaces `Category` and `Length` separately, re-labels people table for memoir (Issue #63)
+- `/storyforge:book-conceptualizer` (memoir mode) — runs the 5-phase concept with Phase 3 *Scope* (time window / cast / deliberate exclusions) instead of Phase 3 *Conflict*, memoir-blurb conventions in Phase 5 (Issue #60)
+
 The forthcoming memoir-specific routing (not yet wired):
 
 - `/storyforge:memoir-ethics-checker` — consent/defamation/anonymization scan (Issue #65)
@@ -234,6 +240,7 @@ Each doc in `reference/craft/` carries a `book_categories: [...]` frontmatter (I
 
 Skills MUST load relevant craft references before generating creative content. Until Phase 2+ wires automatic filtering by `book_category`, skills should also manually skip docs whose frontmatter excludes the current category.
 
+- `book-conceptualizer` → loads: theme-development for both modes; fiction adds story-structure + plot-craft; memoir adds (via `book_categories/memoir/craft/`) memoir-structure-types, emotional-truth, scene-vs-summary, real-people-ethics, memoir-anti-ai-patterns. Memoir replaces Phase 3 (Conflict) with Phase 3 (Scope).
 - `chapter-writer` → loads: chapter-construction, dialog-craft, show-dont-tell, pacing-guide, anti-ai-patterns, prose-style, simile-discipline + genre craft (memoir mode adds: `book_categories/memoir/craft/scene-vs-summary.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`)
 - `chapter-reviewer` → loads: dos-and-donts, anti-ai-patterns, chapter-construction, dialog-craft, show-dont-tell, simile-discipline (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`)
 - `plot-architect` → loads: story-structure, plot-craft, tension-and-suspense (memoir mode loads `book_categories/memoir/craft/memoir-structure-types.md` instead of `plot-craft.md`)
