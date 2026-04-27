@@ -26,6 +26,7 @@ from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted, parse_chapter_readme
 from tools.analysis.callback_validator import verify_callbacks as _verify_callbacks_impl
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
+from tools.analysis.timeline_validator import validate_timeline
 from tools.analysis.tactical_checker import (
     verify_tactical_setup as _verify_tactical_setup_impl,
 )
@@ -509,6 +510,36 @@ def scan_manuscript(
         "report_path": report_path,
         "findings": result["findings"],
     })
+
+
+@mcp.tool()
+def validate_timeline_consistency(book_slug: str) -> str:
+    """Cross-validate chapter anchors and draft prose against plot/timeline.md.
+
+    For each chapter that has a parseable ``## Chapter Timeline`` anchor in its
+    README, scans the draft for relative time phrases (``yesterday``,
+    ``tomorrow``, ``last week``, ``this morning``, ...) and checks whether the
+    implied story-date matches the event calendar in ``plot/timeline.md``. Flags
+    any drift greater than zero calendar days.
+
+    Also reports chapters that are missing a parseable anchor so the writer
+    knows which READMEs need a ``## Chapter Timeline`` section.
+
+    Results are persisted to ``<book>/reports/timeline-validation.json`` and
+    also returned as JSON.
+
+    Args:
+        book_slug: The book project slug.
+    """
+    config = load_config()
+    book_path = resolve_project_path(config, book_slug)
+    if not book_path.exists():
+        return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
+    try:
+        result = validate_timeline(book_path)
+    except Exception as exc:  # noqa: BLE001
+        return json.dumps({"error": str(exc), "book_slug": book_slug})
+    return json.dumps(result, indent=2, ensure_ascii=False)
 
 
 @mcp.tool()
