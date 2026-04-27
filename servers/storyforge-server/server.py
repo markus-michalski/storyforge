@@ -36,6 +36,10 @@ from tools.state.chapter_timeline_parser import (
 from tools.state.chapter_writing_brief import (
     build_chapter_writing_brief as _build_chapter_writing_brief_impl,
 )
+from tools.state.review_brief import build_review_brief as _build_review_brief_impl
+from tools.state.continuity_brief import (
+    build_continuity_brief as _build_continuity_brief_impl,
+)
 from tools.timeline_anchor import get_story_anchor
 from tools.claudemd.manager import (
     append_callback as _append_callback_impl,
@@ -358,6 +362,76 @@ def get_chapter_writing_brief(book_slug: str, chapter_slug: str) -> str:
         chapter_slug=chapter_slug,
         plugin_root=plugin_root,
         review_handle=review_handle,
+    ))
+
+
+@mcp.tool()
+def get_review_brief(book_slug: str, chapter_slug: str) -> str:
+    """Structured brief for chapter-reviewer — Issue #99 (ADR-0001).
+
+    Replaces direct file reads in ``chapter-reviewer`` with a single
+    structured JSON payload. The brief bundles every piece of project-state
+    metadata the reviewer needs: chapter timelines, canonical timeline,
+    travel matrix, canon log facts, tonal rules, and book CLAUDE.md rules.
+
+    Chapter draft text is intentionally NOT included — the reviewer reads
+    that directly as the primary content under review.
+
+    Args:
+        book_slug: Book identifier.
+        chapter_slug: Chapter identifier (e.g. "22-the-night-before").
+
+    Returns JSON with:
+        chapter_timeline        — start/end/scenes for the target chapter
+        previous_chapter_timeline — same for the preceding chapter (or null)
+        canonical_timeline_entries — parsed plot/timeline.md events
+        travel_matrix           — parsed world/setting.md Travel Matrix rows
+        canon_log_facts         — parsed plot/canon-log.md Established Facts
+        tonal_rules             — non-negotiable rules, litmus, banned patterns
+        active_rules            — book CLAUDE.md ## Rules with severity
+        active_callbacks        — book CLAUDE.md ## Callback Register items
+        errors                  — partial failures (brief ships with degraded data)
+    """
+    book_root = resolve_project_path(load_config(), book_slug)
+    if not book_root.is_dir():
+        return json.dumps({"error": f"Book directory missing on disk: {book_root}"})
+
+    return json.dumps(_build_review_brief_impl(
+        book_root=book_root,
+        book_slug=book_slug,
+        chapter_slug=chapter_slug,
+    ))
+
+
+@mcp.tool()
+def get_continuity_brief(book_slug: str) -> str:
+    """Structured brief for continuity-checker — Issue #100 (ADR-0001).
+
+    Replaces direct file reads in ``continuity-checker`` with a single
+    structured JSON payload. Bundles canonical calendar, travel matrix,
+    canon log facts, character index, and all chapter timeline grids.
+
+    Chapter draft texts are intentionally NOT included — they are the data
+    being checked, not project-state metadata (ADR-0001).
+
+    Args:
+        book_slug: Book identifier.
+
+    Returns JSON with:
+        canonical_calendar  — parsed plot/timeline.md events
+        travel_matrix       — parsed world/setting.md Travel Matrix rows
+        canon_log_facts     — parsed plot/canon-log.md Established Facts
+        character_index     — all character files as flat list
+        chapter_timelines   — all chapter timeline grids (any status)
+        errors              — partial failures (brief ships with degraded data)
+    """
+    book_root = resolve_project_path(load_config(), book_slug)
+    if not book_root.is_dir():
+        return json.dumps({"error": f"Book directory missing on disk: {book_root}"})
+
+    return json.dumps(_build_continuity_brief_impl(
+        book_root=book_root,
+        book_slug=book_slug,
     ))
 
 
