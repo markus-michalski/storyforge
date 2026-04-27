@@ -35,6 +35,60 @@ from typing import Any, Iterable
 # Plugin root: two levels up from tools/analysis/
 _PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 
+# ---------------------------------------------------------------------------
+# Book genre detection (stdlib-only frontmatter parse)
+# ---------------------------------------------------------------------------
+
+_FRONTMATTER_BLOCK_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+_GENRES_INLINE_RE = re.compile(r"^\s*genres:\s*\[([^\]]*)\]", re.MULTILINE)
+_GENRES_KEY_RE = re.compile(r"^\s*genres:\s*$", re.MULTILINE)
+_GENRES_ITEM_RE = re.compile(r"^[ \t]+-[ \t]+['\"]?([^'\"#\n]+?)['\"]?\s*$")
+
+
+def _read_book_genres(book_path: Path) -> list[str]:
+    """Parse the genres list from book README.md YAML frontmatter.
+
+    Handles both inline ( genres: ["a", "b"] ) and block ( genres:\\n  - a )
+    formats without requiring a yaml library.
+    """
+    readme = book_path / "README.md"
+    if not readme.is_file():
+        return []
+
+    text = readme.read_text(encoding="utf-8")
+    fm_match = _FRONTMATTER_BLOCK_RE.match(text)
+    if not fm_match:
+        return []
+    frontmatter = fm_match.group(1)
+
+    # Inline list: genres: ["a", "b"] or genres: ['a']
+    inline = _GENRES_INLINE_RE.search(frontmatter)
+    if inline:
+        raw = inline.group(1)
+        return [
+            g.strip().strip("\"'")
+            for g in raw.split(",")
+            if g.strip().strip("\"'")
+        ]
+
+    # Block list: genres:\n  - a\n  - b
+    if _GENRES_KEY_RE.search(frontmatter):
+        genres: list[str] = []
+        in_genres = False
+        for line in frontmatter.splitlines():
+            if re.match(r"^\s*genres:\s*$", line):
+                in_genres = True
+                continue
+            if in_genres:
+                m = _GENRES_ITEM_RE.match(line)
+                if m:
+                    genres.append(m.group(1).strip())
+                elif line.strip() and not line.startswith(" ") and not line.startswith("\t"):
+                    break
+        return genres
+
+    return []
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -755,15 +809,16 @@ _ENTRY_RE = re.compile(
 
 def _load_cliche_banlist(
     plugin_root: Path,
-    genre: str | None = None,
+    genres: list[str] | None = None,
 ) -> list[tuple[str, str]]:
     """Load the cliché banlist from reference/craft/cliche-banlist.md.
 
     Returns a list of (phrase, severity) tuples. Falls back to the hardcoded
     CLICHE_PHRASES constant (all severity 'high') when the file is missing.
-    If genre is given, merges the genre-specific override file on top.
+    Each genre in `genres` merges its cliche-banlist-{genre}.md on top;
+    files that don't exist are silently skipped.
     """
-    base_file = plugin_root / "reference" / "craft" / "cliche-banlist.md"
+    craft_dir = plugin_root / "reference" / "craft"
 
     def _parse_file(path: Path) -> list[tuple[str, str]]:
         if not path.is_file():
@@ -779,18 +834,19 @@ def _load_cliche_banlist(
                 entries.append((phrase, severity))
         return entries
 
-    base = _parse_file(base_file)
+    base = _parse_file(craft_dir / "cliche-banlist.md")
     if not base:
-        # Fallback: keep old behaviour
         base = [(p, "high") for p in CLICHE_PHRASES]
 
-    if genre:
-        override_file = (
-            plugin_root / "reference" / "craft" / f"cliche-banlist-{genre}.md"
-        )
-        extra = _parse_file(override_file)
-        existing = {p for p, _ in base}
-        base = base + [(p, s) for p, s in extra if p not in existing]
+    if genres:
+        seen = {p for p, _ in base}
+        for genre_slug in genres:
+            for phrase, severity in _parse_file(
+                craft_dir / f"cliche-banlist-{genre_slug}.md"
+            ):
+                if phrase not in seen:
+                    base.append((phrase, severity))
+                    seen.add(phrase)
 
     return base
 
@@ -808,7 +864,7 @@ _CLICHE_PATTERNS = _compile_cliche_patterns()
 def _scan_cliches(
     book_path: Path,
     plugin_root: Path | None = None,
-    genre: str | None = None,
+    genres: list[str] | None = None,
 ) -> list[Finding]:
     """Flag hits from the curated cliché banlist.
 
@@ -820,7 +876,7 @@ def _scan_cliches(
         return []
 
     root = plugin_root if plugin_root is not None else _PLUGIN_ROOT
-    banlist = _load_cliche_banlist(root, genre=genre)
+    banlist = _load_cliche_banlist(root, genres=genres)
     patterns = [
         (phrase, severity, re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE))
         for phrase, severity in banlist
@@ -1073,6 +1129,7 @@ def scan_repetitions(
     ngram_sizes: Iterable[int] = DEFAULT_NGRAM_SIZES,
     min_occurrences: int = DEFAULT_MIN_OCCURRENCES,
     max_findings_per_category: int | None = None,
+    plugin_root: Path | None = None,
 ) -> dict[str, Any]:
     """Scan all chapter drafts of a book for repeated phrases.
 
@@ -1158,7 +1215,14 @@ def scan_repetitions(
     # question-as-statement punctuation, sentence-level repetitions).
     findings.extend(_scan_filter_words(book_path))
     findings.extend(_scan_adverb_density(book_path))
-    findings.extend(_scan_cliches(book_path))
+    book_genres = _read_book_genres(book_path)
+    findings.extend(
+        _scan_cliches(
+            book_path,
+            plugin_root=plugin_root,
+            genres=book_genres or None,
+        )
+    )
     findings.extend(_scan_question_as_statement(book_path))
     findings.extend(_scan_sentence_repetitions(book_path))
 

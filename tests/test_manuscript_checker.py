@@ -19,6 +19,7 @@ from tools.analysis.manuscript_checker import (
     _extract_patterns_from_rule,
     _load_cliche_banlist,
     _read_allowed_repetitions,
+    _read_book_genres,
     _read_book_rules,
     _scan_adverb_density,
     _scan_book_rules,
@@ -632,7 +633,7 @@ class TestClicheBanlistLoader:
             "## Romance Additions\n- star-crossed lovers (severity: medium)\n",
             encoding="utf-8",
         )
-        phrases = _load_cliche_banlist(tmp_path, genre="romance")
+        phrases = _load_cliche_banlist(tmp_path, genres=["romance"])
         texts = [p[0] for p in phrases]
         assert "blood ran cold" in texts
         assert "star-crossed lovers" in texts
@@ -644,11 +645,52 @@ class TestClicheBanlistLoader:
             "## Extra\n- hearts entwined (severity: medium)\n",
             encoding="utf-8",
         )
-        phrases = _load_cliche_banlist(tmp_path, genre="romance")
+        phrases = _load_cliche_banlist(tmp_path, genres=["romance"])
         texts = [p[0] for p in phrases]
         # Falls back to legacy for base, merges genre override
         assert "blood ran cold" in texts
         assert "hearts entwined" in texts
+
+    def test_multi_genre_merges_all_files(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
+        )
+        (ref / "cliche-banlist-romance.md").write_text(
+            "## Romance\n- star-crossed lovers (severity: medium)\n", encoding="utf-8"
+        )
+        (ref / "cliche-banlist-sci-fi.md").write_text(
+            "## Sci-Fi\n- as you know bob (severity: high)\n", encoding="utf-8"
+        )
+        phrases = _load_cliche_banlist(tmp_path, genres=["romance", "sci-fi"])
+        texts = [p[0] for p in phrases]
+        assert "blood ran cold" in texts
+        assert "star-crossed lovers" in texts
+        assert "as you know bob" in texts
+
+    def test_unknown_genre_silently_skipped(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
+        )
+        # No cliche-banlist-nonexistent.md — should not raise
+        phrases = _load_cliche_banlist(tmp_path, genres=["nonexistent"])
+        assert any(p[0] == "blood ran cold" for p in phrases)
+
+    def test_no_genre_deduplication_across_files(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
+        )
+        (ref / "cliche-banlist-romance.md").write_text(
+            "## Romance\n- blood ran cold (severity: high)\n", encoding="utf-8"
+        )
+        phrases = _load_cliche_banlist(tmp_path, genres=["romance"])
+        texts = [p[0] for p in phrases]
+        assert texts.count("blood ran cold") == 1
 
     def test_scan_cliches_detects_filter_verb_from_file(self, tmp_path: Path) -> None:
         chapters = {"01-open": "# Ch 1\n\nShe began to walk toward the door.\n"}
@@ -673,6 +715,73 @@ class TestClicheBanlistLoader:
         sev = {f.phrase: f.severity for f in findings}
         assert sev.get("blood ran cold") == "high"
         assert sev.get("seemed to") == "medium"
+
+
+# ---------------------------------------------------------------------------
+# _read_book_genres
+# ---------------------------------------------------------------------------
+
+
+def _write_readme(book: Path, genres_line: str) -> None:
+    """Write a minimal book README.md with YAML frontmatter."""
+    (book / "README.md").write_text(
+        f"---\ntitle: Test\n{genres_line}\n---\n\n# Test\n",
+        encoding="utf-8",
+    )
+
+
+class TestReadBookGenres:
+    def test_parses_inline_list(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _write_readme(book, 'genres: ["romance", "sci-fi"]')
+        assert _read_book_genres(book) == ["romance", "sci-fi"]
+
+    def test_parses_block_list(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _write_readme(book, "genres:\n  - thriller\n  - horror")
+        assert _read_book_genres(book) == ["thriller", "horror"]
+
+    def test_parses_single_quoted(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _write_readme(book, "genres: ['fantasy']")
+        assert _read_book_genres(book) == ["fantasy"]
+
+    def test_empty_list_returns_empty(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _write_readme(book, "genres: []")
+        assert _read_book_genres(book) == []
+
+    def test_missing_readme_returns_empty(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        assert _read_book_genres(book) == []
+
+    def test_missing_genres_field_returns_empty(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _write_readme(book, "title: Test")
+        assert _read_book_genres(book) == []
+
+    def test_scan_repetitions_auto_detects_genres(self, tmp_path: Path) -> None:
+        # Integration: genre phrases loaded automatically from README genres field
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
+        )
+        (ref / "cliche-banlist-thriller.md").write_text(
+            "## Thriller\n- adrenaline surged (severity: high)\n", encoding="utf-8"
+        )
+        book = tmp_path / "book"
+        book.mkdir()
+        (book / "CLAUDE.md").write_text(CLAUDEMD_EMPTY_RULES, encoding="utf-8")
+        _write_readme(book, 'genres: ["thriller"]')
+        chapters_dir = book / "chapters" / "01-open"
+        chapters_dir.mkdir(parents=True)
+        (chapters_dir / "draft.md").write_text(
+            "# Ch 1\n\nAdrenaline surged through her veins.\n", encoding="utf-8"
+        )
+        result = scan_repetitions(book, plugin_root=ref.parent.parent)
+        categories_phrases = [f["phrase"] for f in result["findings"]]
+        assert any("adrenaline surged" in p for p in categories_phrases)
 
 
 # ---------------------------------------------------------------------------
