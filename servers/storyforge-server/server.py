@@ -31,9 +31,11 @@ from tools.state.parsers import (
     is_valid_person_category,
     is_valid_consent_status,
     is_valid_anonymization,
+    is_valid_memoir_structure_type,
     _ALLOWED_PERSON_CATEGORIES,
     _ALLOWED_CONSENT_STATUSES,
     _ALLOWED_ANONYMIZATION_LEVELS,
+    _ALLOWED_MEMOIR_STRUCTURE_TYPES,
 )
 from tools.analysis.callback_validator import verify_callbacks as _verify_callbacks_impl
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
@@ -1253,6 +1255,97 @@ description: {json.dumps(description)}
         "slug": slug,
         "path": str(person_path),
         "message": f"Person '{name}' created",
+    })
+
+
+@mcp.tool()
+def set_memoir_structure_type(book_slug: str, structure_type: str) -> str:
+    """Persist the memoir's chosen structure type (Path E #58).
+
+    Validates against the four allowed types from
+    ``book_categories/memoir/craft/memoir-structure-types.md``:
+    chronological / thematic / braided / vignette.
+
+    Writes to ``plot/structure.md`` frontmatter so downstream skills
+    (``chapter-writer`` in memoir mode #57, ``rolling-planner``) can read
+    the choice without parsing the body. The body of the file is
+    preserved if it already exists; missing frontmatter is prepended.
+
+    Memoir-only — fiction books are rejected. Use ``plot-architect``
+    Step 2's standard structure catalog for fiction.
+
+    Args:
+        book_slug: Book project slug.
+        structure_type: One of chronological, thematic, braided, vignette.
+    """
+    if not is_valid_memoir_structure_type(structure_type):
+        allowed = ", ".join(_ALLOWED_MEMOIR_STRUCTURE_TYPES)
+        return json.dumps({
+            "error": (
+                f"Invalid structure_type '{structure_type}'. "
+                f"Allowed values: {allowed}."
+            )
+        })
+
+    # Memoir-only gate — same pattern as create_person.
+    state = _cache.get()
+    book = state.get("books", {}).get(book_slug)
+    if not book:
+        _cache.invalidate()
+        state = _cache.get()
+        book = state.get("books", {}).get(book_slug)
+    if not book:
+        return json.dumps({"error": f"Book '{book_slug}' not found"})
+    if book.get("book_category") != "memoir":
+        return json.dumps({
+            "error": (
+                f"Book '{book_slug}' is not a memoir "
+                f"(book_category: {book.get('book_category', 'fiction')}). "
+                "Memoir structure types only apply to book_category: memoir."
+            )
+        })
+
+    config = load_config()
+    project_dir = resolve_project_path(config, book_slug)
+    structure_path = project_dir / "plot" / "structure.md"
+
+    # If the file does not exist (legacy memoir scaffolded before #63),
+    # create it with frontmatter + a stub body. Otherwise, parse and
+    # preserve the body — only the frontmatter is rewritten.
+    if structure_path.exists():
+        existing = structure_path.read_text(encoding="utf-8")
+        meta, body = parse_frontmatter(existing)
+        meta["structure_type"] = structure_type
+        # YAML round-trip via inline strings so the file stays diff-friendly
+        # for the user's editor.
+        fm = "\n".join(f'{k}: "{v}"' if isinstance(v, str) else f"{k}: {v}"
+                       for k, v in meta.items())
+        new_text = f"---\n{fm}\n---\n{body if body else ''}"
+        if not body:
+            # Existing file had no frontmatter and no body — write a stub.
+            new_text = (
+                f'---\nstructure_type: "{structure_type}"\n---\n\n'
+                f"# {book.get('title', book_slug)} — Memoir Structure\n\n"
+                f"*Structure type: {structure_type}. "
+                "See `book_categories/memoir/craft/memoir-structure-types.md`.*\n"
+            )
+    else:
+        structure_path.parent.mkdir(parents=True, exist_ok=True)
+        new_text = (
+            f'---\nstructure_type: "{structure_type}"\n---\n\n'
+            f"# {book.get('title', book_slug)} — Memoir Structure\n\n"
+            f"*Structure type: {structure_type}. "
+            "See `book_categories/memoir/craft/memoir-structure-types.md`.*\n"
+        )
+
+    structure_path.write_text(new_text, encoding="utf-8")
+    _cache.invalidate()
+
+    return json.dumps({
+        "success": True,
+        "book_slug": book_slug,
+        "structure_type": structure_type,
+        "path": str(structure_path),
     })
 
 
