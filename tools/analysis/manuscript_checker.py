@@ -1120,6 +1120,178 @@ def _scan_sentence_repetitions(
 
 
 # ---------------------------------------------------------------------------
+# Snapshot detector — static description blocks without movement or dialog
+# ---------------------------------------------------------------------------
+
+_SNAPSHOT_THRESHOLD_DEFAULT = 5
+_SNAPSHOT_THRESHOLD_RE = re.compile(
+    r"^\s*-\s+snapshot_threshold:\s*(\d+)", re.MULTILINE
+)
+_LINTER_CONFIG_RE = re.compile(r"^##\s+Linter Config\s*$", re.MULTILINE)
+
+# Fallback action verbs when the reference file is missing.
+_ACTION_VERBS_FALLBACK = frozenset(
+    {
+        "walk", "run", "move", "step", "reach", "grab", "turn", "look", "sit",
+        "stand", "open", "close", "push", "pull", "say", "ask", "tell", "call",
+        "enter", "leave", "fall", "rise", "jump", "catch", "throw", "pull",
+        "lift", "carry", "take", "give", "find", "decide", "realize", "notice",
+    }
+)
+
+# Split on sentence-ending punctuation followed by whitespace.
+# Deliberately lenient: ellipsis (...) and single-char abbreviations are
+# handled by requiring at least one letter before the end marker.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[a-zA-Z\d][.!?])\s+")
+_DIALOG_CHAR_RE = re.compile(r'["“”]')
+
+
+def _read_snapshot_threshold(book_path: Path) -> int:
+    """Read per-book snapshot threshold from ## Linter Config in CLAUDE.md."""
+    claudemd = book_path / "CLAUDE.md"
+    if not claudemd.is_file():
+        return _SNAPSHOT_THRESHOLD_DEFAULT
+    text = claudemd.read_text(encoding="utf-8")
+    # Only look inside the ## Linter Config section
+    lc = _LINTER_CONFIG_RE.search(text)
+    if not lc:
+        return _SNAPSHOT_THRESHOLD_DEFAULT
+    section = text[lc.start():]
+    # Stop at next heading
+    next_heading = re.search(r"^##\s", section[3:], re.MULTILINE)
+    if next_heading:
+        section = section[: next_heading.start() + 3]
+    m = _SNAPSHOT_THRESHOLD_RE.search(section)
+    if m:
+        return max(2, int(m.group(1)))
+    return _SNAPSHOT_THRESHOLD_DEFAULT
+
+
+def _load_action_verbs(plugin_root: Path) -> frozenset[str]:
+    """Load the action verb list from reference/craft/action-verbs.md.
+
+    Returns a frozenset of lowercased base verb forms. Falls back to a minimal
+    hardcoded set if the file is missing.
+    """
+    path = plugin_root / "reference" / "craft" / "action-verbs.md"
+    if not path.is_file():
+        return _ACTION_VERBS_FALLBACK
+    verbs: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip().lstrip("- ").strip()
+        if stripped and not stripped.startswith("#") and len(stripped) >= 2:
+            verbs.add(stripped.lower())
+    return frozenset(verbs) if verbs else _ACTION_VERBS_FALLBACK
+
+
+def _sentence_has_action(sentence: str, action_verbs: frozenset[str]) -> bool:
+    """Return True if the sentence contains at least one action verb."""
+    tokens = set(_tokenise(sentence))
+    for verb in action_verbs:
+        if verb in tokens:
+            return True
+        # Common inflections
+        if f"{verb}s" in tokens or f"{verb}ed" in tokens or f"{verb}ing" in tokens:
+            return True
+        # Drop trailing -e before -ing: take → taking, move → moving
+        if verb.endswith("e") and f"{verb[:-1]}ing" in tokens:
+            return True
+        # Doubling final consonant: run → running, sit → sitting
+        if len(verb) >= 3 and verb[-1] == verb[-2] and f"{verb}ing" in tokens:
+            return True
+    return False
+
+
+def _scan_snapshots(
+    book_path: Path,
+    plugin_root: Path | None = None,
+) -> list[Finding]:
+    """Flag static description blocks with no action verbs and no dialog.
+
+    Reads the threshold from ## Linter Config → snapshot_threshold (default 5).
+    One Finding per flagged block; severity is always medium.
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    threshold = _read_snapshot_threshold(book_path)
+    root = plugin_root if plugin_root is not None else _PLUGIN_ROOT
+    action_verbs = _load_action_verbs(root)
+
+    findings: list[Finding] = []
+
+    for chapter_slug, raw_text in drafts:
+        cleaned = _strip_markdown(raw_text)
+        lines = cleaned.splitlines()
+
+        # Collect paragraphs (blank-line-separated blocks of text).
+        paragraphs: list[tuple[int, str]] = []  # (start_line, text)
+        para_start = 0
+        para_lines: list[str] = []
+        for line_no, line in enumerate(lines, start=1):
+            if line.strip():
+                if not para_lines:
+                    para_start = line_no
+                para_lines.append(line)
+            else:
+                if para_lines:
+                    paragraphs.append((para_start, " ".join(para_lines)))
+                    para_lines = []
+        if para_lines:
+            paragraphs.append((para_start, " ".join(para_lines)))
+
+        for para_start_line, para_text in paragraphs:
+            sentences = [
+                s.strip()
+                for s in _SENTENCE_SPLIT_RE.split(para_text)
+                if s.strip()
+            ]
+            if len(sentences) < threshold:
+                continue
+
+            # Walk through sentences counting consecutive descriptive ones.
+            streak: list[str] = []
+            streak_start = para_start_line
+
+            def _flush_streak(streak: list[str], start: int) -> None:
+                if len(streak) >= threshold:
+                    snippet = " ".join(streak)[:200].rstrip()
+                    if len(" ".join(streak)) > 200:
+                        snippet += "…"
+                    findings.append(
+                        Finding(
+                            phrase=f"snapshot:{chapter_slug}:{start}",
+                            category="snapshot",
+                            severity="medium",
+                            count=len(streak),
+                            occurrences=[
+                                Occurrence(
+                                    chapter=chapter_slug,
+                                    line=start,
+                                    snippet=snippet,
+                                )
+                            ],
+                        )
+                    )
+
+            for sent in sentences:
+                if not sent:
+                    continue
+                if _DIALOG_CHAR_RE.search(sent) or _sentence_has_action(sent, action_verbs):
+                    _flush_streak(streak, streak_start)
+                    streak = []
+                else:
+                    if not streak:
+                        streak_start = para_start_line
+                    streak.append(sent)
+
+            _flush_streak(streak, streak_start)
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Scanning
 # ---------------------------------------------------------------------------
 
@@ -1225,6 +1397,7 @@ def scan_repetitions(
     )
     findings.extend(_scan_question_as_statement(book_path))
     findings.extend(_scan_sentence_repetitions(book_path))
+    findings.extend(_scan_snapshots(book_path, plugin_root=plugin_root))
 
     # Sort order priority: book_rule_violation first (user-authored rules
     # override everything), then clichés (always bad), then the rest by
@@ -1282,6 +1455,7 @@ CATEGORY_LABELS = {
     "filter_word": "POV Filter Words",
     "adverb_density": "Adverb Density (per Chapter)",
     "sentence_repetition": "Sentence-Level Repetitions (8-15 words)",
+    "snapshot": "Snapshot Blocks (static description, no movement)",
     "simile": "Similes & Metaphors",
     "blocking_tic": "Blocking Tics",
     "character_tell": "Character Tells",
@@ -1297,6 +1471,7 @@ CATEGORY_ORDER = [
     "filter_word",
     "adverb_density",
     "sentence_repetition",
+    "snapshot",
     "simile",
     "character_tell",
     "blocking_tic",
@@ -1439,6 +1614,18 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
         return (
             f"_Recommendation:_ Same sensory description in {count} places — "
             f"vary at least {count - 1} of them so each scene has its own texture."
+        )
+    if cat == "snapshot":
+        count = finding["count"]
+        return (
+            f"_Recommendation:_ {count} consecutive descriptive sentences with no "
+            f"action and no dialog — the scene becomes a photograph. Fix options: "
+            f"**(A)** insert one beat of character action (reaching for something, "
+            f"shifting weight, a micro-gesture that shows state of mind); "
+            f"**(B)** cut the block to 2-3 sentences of pure setting and trust the "
+            f"reader to fill in the rest; "
+            f"**(C)** if description is intentional (lyrical pause, aftermath beat), "
+            f"raise the per-book threshold in `## Linter Config → snapshot_threshold`."
         )
     if cat == "sentence_repetition":
         return (

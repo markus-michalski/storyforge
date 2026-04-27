@@ -17,16 +17,19 @@ from pathlib import Path
 
 from tools.analysis.manuscript_checker import (
     _extract_patterns_from_rule,
+    _load_action_verbs,
     _load_cliche_banlist,
     _read_allowed_repetitions,
     _read_book_genres,
     _read_book_rules,
+    _read_snapshot_threshold,
     _scan_adverb_density,
     _scan_book_rules,
     _scan_cliches,
     _scan_filter_words,
     _scan_question_as_statement,
     _scan_sentence_repetitions,
+    _scan_snapshots,
     _strip_dialogue,
     scan_repetitions,
 )
@@ -882,3 +885,145 @@ class TestReadAllowedRepetitions:
         book = tmp_path / "book"
         book.mkdir()
         assert _read_allowed_repetitions(book) == frozenset()
+
+
+# ---------------------------------------------------------------------------
+# #81 — Snapshot detector (static description blocks without movement)
+# ---------------------------------------------------------------------------
+
+# 7 sentences, all descriptive — no action verbs, no dialog
+_SNAPSHOT_BLOCK = (
+    "The room was warm. "
+    "The fire burned low in the grate. "
+    "Ash drifted up and settled on the mantelpiece. "
+    "The curtains were heavy velvet, deep burgundy. "
+    "A single lamp cast yellow light across the rug. "
+    "Dust motes hung in the air near the window. "
+    "The walls were lined with bookshelves, floor to ceiling."
+)
+
+# 4 sentences — below default threshold of 5
+_SHORT_BLOCK = (
+    "The room was warm. "
+    "The fire burned low in the grate. "
+    "Ash drifted up and settled on the mantelpiece. "
+    "The curtains were heavy velvet, deep burgundy."
+)
+
+
+class TestScanSnapshots:
+    def test_detects_7_sentence_description_block(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_SNAPSHOT_BLOCK}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_snapshots(book)
+        assert findings, "expected snapshot finding for 7-sentence description block"
+        assert findings[0].category == "snapshot"
+
+    def test_ignores_4_sentence_block_below_threshold(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_SHORT_BLOCK}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        assert _scan_snapshots(book) == []
+
+    def test_action_verb_breaks_block(self, tmp_path: Path) -> None:
+        # 3 descriptive + 1 action + 3 descriptive = two 3-sentence blocks, neither ≥ 5
+        action_break = (
+            "The room was warm. "
+            "The fire burned low. "
+            "Ash drifted up. "
+            "He walked to the window. "  # action verb → resets counter
+            "The curtains were heavy velvet. "
+            "Dust motes hung in the air. "
+            "The walls were lined with bookshelves."
+        )
+        chapters = {"01-open": f"# Ch 1\n\n{action_break}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        assert _scan_snapshots(book) == []
+
+    def test_dialog_breaks_block(self, tmp_path: Path) -> None:
+        dialog_break = (
+            "The room was warm. "
+            "The fire burned low. "
+            "Ash drifted up. "
+            '"It is rather cold tonight," she said. '  # dialog → resets counter
+            "The curtains were heavy velvet. "
+            "Dust motes hung in the air. "
+            "The walls were lined with bookshelves."
+        )
+        chapters = {"01-open": f"# Ch 1\n\n{dialog_break}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        assert _scan_snapshots(book) == []
+
+    def test_per_book_threshold_respected(self, tmp_path: Path) -> None:
+        # Default threshold = 5; set to 8 → 7 sentences should NOT flag
+        claudemd = CLAUDEMD_EMPTY_RULES + "\n## Linter Config\n- snapshot_threshold: 8\n"
+        chapters = {"01-open": f"# Ch 1\n\n{_SNAPSHOT_BLOCK}\n"}
+        book = _write_book(tmp_path, claudemd, chapters)
+        assert _scan_snapshots(book) == []
+
+    def test_threshold_8_flags_9_sentence_block(self, tmp_path: Path) -> None:
+        claudemd = CLAUDEMD_EMPTY_RULES + "\n## Linter Config\n- snapshot_threshold: 8\n"
+        long_block = _SNAPSHOT_BLOCK + " The clock ticked on the mantle. The hour was late."
+        chapters = {"01-open": f"# Ch 1\n\n{long_block}\n"}
+        book = _write_book(tmp_path, claudemd, chapters)
+        findings = _scan_snapshots(book)
+        assert findings, "expected finding for 9-sentence block with threshold 8"
+
+    def test_severity_is_medium(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_SNAPSHOT_BLOCK}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_snapshots(book)
+        assert findings
+        assert all(f.severity == "medium" for f in findings)
+
+    def test_occurrence_records_chapter_and_line(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_SNAPSHOT_BLOCK}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_snapshots(book)
+        assert findings
+        occ = findings[0].occurrences[0]
+        assert occ.chapter == "01-open"
+        assert occ.line >= 1
+
+    def test_snapshot_appears_in_scan_repetitions(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_SNAPSHOT_BLOCK}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        result = scan_repetitions(book)
+        categories = {f["category"] for f in result["findings"]}
+        assert "snapshot" in categories
+
+    def test_empty_chapters_no_findings(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        assert _scan_snapshots(book) == []
+
+
+class TestReadSnapshotThreshold:
+    def test_default_is_5(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        assert _read_snapshot_threshold(book) == 5
+
+    def test_parses_custom_threshold(self, tmp_path: Path) -> None:
+        claudemd = CLAUDEMD_EMPTY_RULES + "\n## Linter Config\n- snapshot_threshold: 8\n"
+        book = _write_book(tmp_path, claudemd, {})
+        assert _read_snapshot_threshold(book) == 8
+
+    def test_missing_claudemd_returns_default(self, tmp_path: Path) -> None:
+        book = tmp_path / "book"
+        book.mkdir()
+        assert _read_snapshot_threshold(book) == 5
+
+
+class TestLoadActionVerbs:
+    def test_real_file_loads_entries(self) -> None:
+        verbs = _load_action_verbs(PLUGIN_ROOT)
+        assert len(verbs) >= 50, f"only {len(verbs)} verbs — expected ≥50"
+
+    def test_common_verbs_present(self) -> None:
+        verbs = _load_action_verbs(PLUGIN_ROOT)
+        assert "walk" in verbs
+        assert "run" in verbs
+        assert "reach" in verbs
+
+    def test_missing_file_returns_fallback(self, tmp_path: Path) -> None:
+        verbs = _load_action_verbs(tmp_path)
+        # Should still return non-empty fallback set
+        assert len(verbs) >= 20
