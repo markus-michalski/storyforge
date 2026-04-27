@@ -54,6 +54,14 @@ Show the user this overview:
 | `/storyforge:chapter-writer` | Write a chapter in author's voice |
 | `/storyforge:chapter-reviewer` | Review and critique a chapter |
 
+### Quality & Rules
+| Command | What it does |
+|---------|-------------|
+| `/storyforge:manuscript-checker` | Scan full manuscript for prose tics, clichés, repetition |
+| `/storyforge:report-issue` | Report a recurring problem and convert it to an enforceable rule |
+| `/storyforge:promote-rule` | Promote a book-scoped rule to author or global scope |
+| `/storyforge:beta-feedback` | Process beta-reader feedback |
+
 ### Research & Sensitivity
 | Command | What it does |
 |---------|-------------|
