@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.15.0] - 2026-04-27
+
+### Added
+- report-issue and promote-rule — close the beta-feedback loop (#102)
+
+### Changed
+- replace direct file reads with get_review_brief() and get_continuity_brief() MCP tools (#103)
+- document data-briefs-over-prompt-instructions principle (#101)
+
 ## [1.14.0] - 2026-04-27
 
 ### Added
@@ -219,3 +228,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.13.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.13.0
 [1.13.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.13.1
 [1.14.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.14.0
+[1.15.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.15.0
