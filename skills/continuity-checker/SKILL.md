@@ -18,13 +18,29 @@ Systematically scan all chapter drafts for inconsistencies in:
 2. **Spatial continuity** — distances, travel times, location descriptions
 
 ## Prerequisites
+
+### Step 1 — Load the continuity brief (single MCP call, replaces 4+ direct file reads)
+
+Call MCP `get_continuity_brief(book_slug)`. This returns:
+
+- `canonical_calendar` — parsed `plot/timeline.md` events (story_day/real_date/chapter_slug/key_events)
+- `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (from/to/distance/transport/travel_time/notes)
+- `canon_log_facts` — parsed `plot/canon-log.md` facts with status (ACTIVE / CHANGED / SUPERSEDED) and domain
+- `character_index` — all character files as flat list (slug/name/role/description)
+- `chapter_timelines` — intra-day timeline grids for ALL chapters (any status); use these as the source of truth for chapter start/end anchors and scene-level clock times instead of re-parsing each `README.md`
+- `errors` — graceful degrade: non-empty means some files were missing or unreadable
+
+Honor every populated field in the brief. Empty lists mean "file missing — degrade gracefully, do not invent."
+
+### Step 2 — Load book metadata
+
 - Load book data via MCP `get_book_full()`
-- Read `{project}/plot/timeline.md` — canonical timeline
-- Read `{project}/plot/canon-log.md` — established facts and revision tracking
-- Read `{project}/world/setting.md` — Travel Matrix and location data
-- Load recent chapter timeline grids via MCP `get_recent_chapter_timelines(book_slug, n=99)` — structured intra-day grids for every review-or-later chapter; use these as the source of truth for chapter Start/End anchors and scene-level clock times instead of re-parsing each `README.md`.
+
+### Step 3 — Read the chapter drafts (direct file reads — this is the content under review)
+
+Chapter draft texts are intentionally NOT in the brief — they are the data being checked, not project-state metadata.
+
 - Read ALL chapter drafts: `{project}/chapters/*/draft.md`
-- Read ALL character files: `{project}/characters/*.md`
 
 ## Workflow
 

@@ -12,6 +12,25 @@ argument-hint: "<book-slug> <chapter-slug>"
 # Chapter Reviewer
 
 ## Prerequisites — MANDATORY LOADS
+
+### Step 1 — Load the review brief (single MCP call, replaces 6+ direct file reads)
+
+Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
+
+- `chapter_timeline` — intra-day time grid for this chapter (start/end/scenes)
+- `previous_chapter_timeline` — same for the preceding chapter (cross-chapter time checks)
+- `canonical_timeline_entries` — parsed `plot/timeline.md` events (day/date/chapter/events)
+- `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (from/to/distance/travel_time)
+- `canon_log_facts` — parsed `plot/canon-log.md` facts with status (ACTIVE / CHANGED)
+- `tonal_rules` — non-negotiable rules, litmus test, banned patterns, warning signs from `plot/tone.md`
+- `active_rules` — book CLAUDE.md ## Rules with severity (block / advisory)
+- `active_callbacks` — book CLAUDE.md ## Callback Register items
+- `errors` — graceful degrade: non-empty means some files were missing or unreadable
+
+Honor every populated field in the brief. Empty lists / null means "file missing — degrade gracefully, do not invent."
+
+### Step 2 — Load author and craft context (MCP calls)
+
 - **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline — without it, "voice match" is gut-feel.
 - **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Banned-word scan and preferred-word presence check both run against this list.
 - **Craft references** via MCP `get_craft_reference()`:
@@ -21,18 +40,14 @@ argument-hint: "<book-slug> <chapter-slug>"
   - `dialog-craft` — **Why:** Subtext, voice differentiation, tag discipline — for points 9 and 15.
   - `show-dont-tell` — **Why:** Show/tell balance check for points 6 and 24.
   - `simile-discipline` — **Why:** The two-question test sub-point 10b runs.
-- **Detect if this is Chapter 1:** Check chapter slug (starts with `01-` or `001-`) or frontmatter chapter number (`chapter: 1`). If Chapter 1: also load `openings-and-endings` craft reference.
+- **Detect if this is Chapter 1:** Check chapter slug (starts with `01-` or `001-`) or frontmatter chapter number. If Chapter 1: also load `openings-and-endings` craft reference.
+
+### Step 3 — Read the prose (direct file reads — this is the content under review)
+
 - Read the chapter draft: `{project}/chapters/{chapter}/draft.md`
 - Read the chapter outline: `{project}/chapters/{chapter}/README.md`
-- Read previous chapter draft for continuity
-- Read `{project}/plot/canon-log.md` — check for facts marked `CHANGED` that this chapter may still reference incorrectly
-- Read `{project}/plot/timeline.md` — verify temporal claims match the canonical timeline
-- Read `{project}/world/setting.md` — verify travel times/distances match the Travel Matrix
-- Read `{project}/plot/tone.md` if it exists — check tonal rules, warning signs, and litmus test for this chapter's arc position
-- Read the `## Chapter Timeline` section from this chapter's `README.md` — verify all time references in the prose match the logged times
-- Read the `## Chapter Timeline` from the PREVIOUS chapter's `README.md` — verify cross-chapter time references (e.g. "an hour ago" across chapter boundaries)
+- Read previous chapter draft for continuity context
 - Optional: If `{project}/research/manuscript-report.md` exists, read it and check whether any of THIS chapter's distinctive 5-7 word phrases already appear in earlier chapters (lightweight cross-chapter repetition check). Flag any matches in the Continuity Report section.
-- **Per-book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. Mandatory. Check the draft against every **Rule** (deduct points if violated) and verify that **Callbacks** are either honored, intentionally deferred, or not applicable to this chapter. Flag missed callbacks in the Continuity Report section.
 
 ## First Chapter Checklist — 13 Points (ONLY for Chapter 1)
 
