@@ -31,7 +31,7 @@ from tools.analysis.tactical_checker import (
     load_tactical_profiles,
     analyze_tactical_setup,
 )
-from tools.shared.paths import slugify
+from tools.shared.paths import resolve_people_dir, slugify
 from tools.state.chapter_timeline_parser import get_recent_chapter_timelines
 from tools.state.parsers import parse_chapter_readme, parse_frontmatter
 from tools.timeline_anchor import get_story_anchor
@@ -249,6 +249,81 @@ def _character_payload(path: Path) -> dict[str, Any]:
     return payload
 
 
+# Path E #57: memoir mode pulls real-people profiles (not character profiles)
+# from `people/`. The schema is different — no role/knowledge/tactical;
+# instead relationship + person_category + consent_status + anonymization.
+# Surfaced separately so chapter-writer can apply ethics-aware drafting.
+
+def _person_payload(path: Path) -> dict[str, Any]:
+    """Full real-person payload for memoir mode.
+
+    Shape mirrors what `parse_person_file` returns. The brief consumer
+    (chapter-writer in memoir mode) reads `consent_status` and surfaces
+    a warning before drafting any scene with a `pending` or `refused`
+    person. `real_name` is intentionally excluded — it stays private to
+    the people file and never enters the writing brief.
+    """
+    text = path.read_text(encoding="utf-8")
+    meta, _body = parse_frontmatter(text)
+    return {
+        "slug": path.stem,
+        "name": str(meta.get("name", path.stem)),
+        "relationship": str(meta.get("relationship", "")),
+        "person_category": str(meta.get("person_category", "")),
+        "consent_status": str(meta.get("consent_status", "")),
+        "anonymization": str(meta.get("anonymization", "none")),
+        "description": str(meta.get("description", "")),
+    }
+
+
+def _consent_status_warnings(people: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Surface consent issues for memoir scenes (Path E #57).
+
+    Three warning tiers:
+      - missing  — no consent_status set; user must decide before drafting
+      - pending  — consent intended but not yet asked; flag if scene is
+                   sensitive
+      - refused  — consent was refused; the person should be cut,
+                   anonymized, or re-framed before this scene drafts
+
+    Confirmed-consent / not-required / not-asking statuses produce no
+    warning. The skill consumes the full list; an empty list means the
+    chapter passes the consent gate.
+    """
+    warnings: list[dict[str, str]] = []
+    for person in people:
+        status = str(person.get("consent_status", "")).strip()
+        if not status:
+            warnings.append({
+                "person": person.get("name", person.get("slug", "")),
+                "tier": "missing",
+                "message": (
+                    "consent_status is unset — decide before drafting any "
+                    "scene with this person on the page."
+                ),
+            })
+        elif status == "pending":
+            warnings.append({
+                "person": person.get("name", person.get("slug", "")),
+                "tier": "pending",
+                "message": (
+                    "consent_status is pending — drafting is allowed, "
+                    "but the request must happen before publication."
+                ),
+            })
+        elif status == "refused":
+            warnings.append({
+                "person": person.get("name", person.get("slug", "")),
+                "tier": "refused",
+                "message": (
+                    "consent_status is refused — cut the scene, "
+                    "anonymize the portrayal, or re-frame from a different "
+                    "angle before drafting."
+                ),
+            })
+    return warnings
+
+
 # ---------------------------------------------------------------------------
 # Public assembler
 # ---------------------------------------------------------------------------
@@ -310,10 +385,38 @@ def build_chapter_writing_brief(
             except ValueError:
                 pass
 
-    # ----- characters present ---------------------------------------------
+    # ----- book category --------------------------------------------------
+    # Path E #57: chapter-writer behavior branches on book_category. The
+    # field lives in the book's README frontmatter; missing defaults to
+    # fiction (legacy books pre-#54).
+    book_category = "fiction"
+    book_readme = book_root / "README.md"
+    if book_readme.is_file():
+        book_text = recorder.run(
+            "book.read",
+            lambda: book_readme.read_text(encoding="utf-8"),
+            "",
+        )
+        if book_text:
+            book_meta, _ = parse_frontmatter(book_text)
+            book_category = str(book_meta.get("book_category", "fiction"))
+
+    is_memoir = book_category == "memoir"
+
+    # ----- characters / people present -------------------------------------
+    # Memoir books look in `people/` (with `characters/` fallback for
+    # legacy memoir books written before #59). Fiction stays at
+    # `characters/`. The same `characters_present` key carries both —
+    # consumers branch on `book_category` from the brief.
     characters: list[dict[str, Any]] = []
-    chars_dir = book_root / "characters"
+    consent_warnings: list[dict[str, str]] = []
+    chars_dir = (
+        resolve_people_dir(book_root, book_category) if is_memoir
+        else book_root / "characters"
+    )
     pov_added = False
+
+    payload_loader = _person_payload if is_memoir else _character_payload
 
     if pov_character:
         pov_slug = slugify(pov_character)
@@ -321,7 +424,7 @@ def build_chapter_writing_brief(
         if pov_path.is_file():
             payload = recorder.run(
                 "characters.pov",
-                lambda: _character_payload(pov_path),
+                lambda: payload_loader(pov_path),
                 None,
             )
             if payload:
@@ -350,11 +453,21 @@ def build_chapter_writing_brief(
             continue
         payload = recorder.run(
             f"characters.{slug}",
-            lambda p=path: _character_payload(p),
+            lambda p=path: payload_loader(p),
             None,
         )
         if payload:
             characters.append(payload)
+
+    # Memoir consent gate: surface any present-in-scene people whose
+    # consent_status is missing, pending, or refused. The skill must
+    # show these warnings to the user before drafting.
+    if is_memoir:
+        consent_warnings = recorder.run(
+            "consent_status_warnings",
+            lambda: _consent_status_warnings(characters),
+            [],
+        )
 
     # ----- story anchor ---------------------------------------------------
     story_anchor = recorder.run(
@@ -473,6 +586,7 @@ def build_chapter_writing_brief(
 
     return {
         "book_slug": book_slug,
+        "book_category": book_category,
         "chapter_slug": chapter_slug,
         "chapter": _serialize_chapter_meta(chapter_meta),
         "pov_character": pov_character,
@@ -480,6 +594,7 @@ def build_chapter_writing_brief(
         "recent_chapter_timelines": recent_timelines,
         "recent_chapter_endings": recent_endings,
         "characters_present": characters,
+        "consent_status_warnings": consent_warnings,
         "rules_to_honor": rules_to_honor,
         "callbacks_in_register": callbacks_in_register,
         "banned_phrases": banned_phrases,
