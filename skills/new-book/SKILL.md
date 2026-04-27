@@ -22,8 +22,9 @@ argument-hint: "[title]"
 ### Standard flow
 1. **Gather information** — Ask the user (use AskUserQuestion):
    - **Title** — What's the working title?
-   - **Genre(s)** — Show available genres via MCP `list_genres()`. Allow 1-3 selections. Mention genre-mixing.
-   - **Book type** — short-story, novelette, novella, novel, epic
+   - **Book category** — `fiction` (default) or `memoir`. Memoir branches scaffold and several skills (Path E #97). Skip the question only when the user has already stated the category in their request.
+   - **Genre(s)** — Show available genres via MCP `list_genres()`. Allow 1-3 selections. Mention genre-mixing. For memoir, frame genres as **thematic tags** (memoir-of-illness, memoir-of-place, etc.) — memoir does not use plot-genre conventions.
+   - **Book type** — short-story, novelette, novella, novel, epic. Length is independent of category — a "memoir novella" is valid.
    - **Author profile** — Show available authors via MCP `list_authors()`. If none exist, suggest `/storyforge:create-author` first.
    - **Language** — Default: English
    - **Target word count** — Suggest based on book type:
@@ -50,7 +51,7 @@ argument-hint: "[title]"
    - `plantser` → suggest `/storyforge:plot-architect` (user will choose minimal outline or Snowflake there)
    - `discovery` → suggest `/storyforge:rolling-planner` instead of `plot-architect`
 
-3. **Create project** — Use MCP `create_book_structure()` with collected info
+3. **Create project** — Use MCP `create_book_structure()` with collected info. ALWAYS pass `book_category` explicitly (fiction or memoir) — the server branches the scaffold on this field (memoir uses `people/` instead of `characters/` and skips `world/`).
 
 4. **Create CLAUDE.md** — Use MCP `init_book_claudemd(book_slug, book_title, pov, tense, genre, writing_mode)` to scaffold the per-book context file. Ask the user for `writing_mode` if not obvious: `scene-by-scene` (default), `chapter`, or `book`. Note: this `writing_mode` controls how Claude composes chapters — it is different from `author_writing_mode` which controls the planning workflow.
 
@@ -58,13 +59,22 @@ argument-hint: "[title]"
 
 6. **Load genre README(s)** — Use MCP `get_genre()` for each selected genre. Show key conventions to the user.
 
-7. **Suggest next steps** — Based on effective `author_writing_mode`:
+7. **Suggest next steps** — Based on `book_category` and effective `author_writing_mode`:
+
+   **Fiction:**
    - **Outliner:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` for the full outline"
    - **Plantser:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` (choose minimal outline or Snowflake)"
    - **Discovery:** "Start with `/storyforge:book-conceptualizer` (concept only, no plot) → then `/storyforge:rolling-planner` before each writing session"
 
+   **Memoir:**
+   - Mention that memoir-aware skills land in Phase 2+ (#97). Until then, manually load `book_categories/memoir/README.md` and the relevant `craft/*.md` docs at the start of each creative skill.
+   - **Outliner:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` to pick a structure type (chronological / thematic / braided / vignette)"
+   - **Plantser:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` for a chapter spine matching your structure type"
+   - **Discovery:** "Start with `/storyforge:book-conceptualizer` (concept only) → then `/storyforge:rolling-planner` before each writing session. Skip `plot-architect`."
+
 ## Rules
 - ALWAYS create the author profile BEFORE the book if none exists
 - NEVER skip genre selection — it drives the entire writing process
+- ALWAYS pass `book_category` explicitly to `create_book_structure()` — never rely on the default for memoir
 - If the user provides a title as argument, use it directly
 - Lazy migration in step 2a is idempotent — only ask if `author_writing_mode` is truly missing/empty

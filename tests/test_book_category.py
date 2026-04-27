@@ -228,6 +228,179 @@ class TestListBooksBookCategory:
 
 
 # ---------------------------------------------------------------------------
+# Scaffold layout — Issue #63 (Phase 2): fiction vs. memoir directory tree
+# ---------------------------------------------------------------------------
+
+
+class TestScaffoldFictionLayout:
+    """Fiction scaffold preserves the historical layout (regression guard)."""
+
+    def test_fiction_creates_characters_and_world(
+        self, server_module, content_root: Path
+    ):
+        result = json.loads(
+            server_module.create_book_structure(title="Fiction Layout")
+        )
+        assert result.get("success") is True
+
+        project = content_root / "projects" / "fiction-layout"
+        assert (project / "characters").is_dir()
+        assert (project / "characters" / "INDEX.md").is_file()
+        assert (project / "world").is_dir()
+        assert (project / "world" / "setting.md").is_file()
+        assert (project / "world" / "rules.md").is_file()
+        assert (project / "world" / "history.md").is_file()
+        assert (project / "world" / "glossary.md").is_file()
+        assert not (project / "people").exists()
+
+    def test_fiction_plot_files_are_three_act(
+        self, server_module, content_root: Path
+    ):
+        json.loads(server_module.create_book_structure(title="Fiction Plot"))
+
+        outline = (content_root / "projects" / "fiction-plot" / "plot" / "outline.md").read_text(
+            encoding="utf-8"
+        )
+        assert "Act 1: Setup" in outline
+        assert "Act 2: Confrontation" in outline
+        assert "Act 3: Resolution" in outline
+
+        # Fiction keeps acts.md and arcs.md
+        plot_dir = content_root / "projects" / "fiction-plot" / "plot"
+        assert (plot_dir / "acts.md").is_file()
+        assert (plot_dir / "arcs.md").is_file()
+        assert not (plot_dir / "structure.md").exists()
+
+
+class TestScaffoldMemoirLayout:
+    """Memoir scaffold swaps characters→people, drops world/, drops plot/arcs."""
+
+    def test_memoir_creates_people_not_characters(
+        self, server_module, content_root: Path
+    ):
+        result = json.loads(
+            server_module.create_book_structure(
+                title="Memoir Layout", book_category="memoir"
+            )
+        )
+        assert result.get("success") is True
+
+        project = content_root / "projects" / "memoir-layout"
+        assert (project / "people").is_dir()
+        assert (project / "people" / "INDEX.md").is_file()
+        # No fiction-shaped characters/ scaffolded for memoir.
+        assert not (project / "characters").exists()
+
+    def test_memoir_skips_world_directory(
+        self, server_module, content_root: Path
+    ):
+        # Memoir documents real settings via research, not invented worlds.
+        json.loads(
+            server_module.create_book_structure(
+                title="No World Memoir", book_category="memoir"
+            )
+        )
+
+        project = content_root / "projects" / "no-world-memoir"
+        assert not (project / "world").exists(), (
+            "Memoir scaffold must skip world/ entirely (#63 spec)"
+        )
+
+    def test_memoir_people_index_mentions_consent(
+        self, server_module, content_root: Path
+    ):
+        # The INDEX must hint at memoir-specific concerns
+        # (consent, anonymization) so users know real-people ethics applies.
+        json.loads(
+            server_module.create_book_structure(
+                title="Consent Memoir", book_category="memoir"
+            )
+        )
+
+        index = (content_root / "projects" / "consent-memoir" / "people" / "INDEX.md").read_text(
+            encoding="utf-8"
+        )
+        assert "consent" in index.lower() or "anonymization" in index.lower()
+        # Sections should be people-shaped, not character-shaped.
+        assert "Protagonists" not in index
+        assert "Antagonists" not in index
+
+    def test_memoir_plot_uses_structure_types_not_acts(
+        self, server_module, content_root: Path
+    ):
+        # Memoir's outline.md must point at structure types
+        # (chronological/thematic/braided/vignette), not three-act structure.
+        json.loads(
+            server_module.create_book_structure(
+                title="Structure Memoir", book_category="memoir"
+            )
+        )
+
+        plot_dir = content_root / "projects" / "structure-memoir" / "plot"
+        outline = (plot_dir / "outline.md").read_text(encoding="utf-8")
+
+        assert "Act 1" not in outline
+        assert "structure type" in outline.lower() or "chronological" in outline.lower()
+
+        # Memoir adds structure.md, drops arcs.md (no character arcs in memoir)
+        # and acts.md (no three-act).
+        assert (plot_dir / "structure.md").is_file()
+        assert not (plot_dir / "arcs.md").exists()
+        assert not (plot_dir / "acts.md").exists()
+
+    def test_memoir_keeps_shared_dirs(
+        self, server_module, content_root: Path
+    ):
+        # Shared infrastructure (chapters/, research/, cover/, export/, plot/timeline+tone)
+        # must remain identical across categories.
+        json.loads(
+            server_module.create_book_structure(
+                title="Shared Dirs Memoir", book_category="memoir"
+            )
+        )
+
+        project = content_root / "projects" / "shared-dirs-memoir"
+        assert (project / "chapters").is_dir()
+        assert (project / "research" / "notes").is_dir()
+        assert (project / "cover" / "art").is_dir()
+        assert (project / "export" / "output").is_dir()
+        assert (project / "translations").is_dir()
+        assert (project / "plot" / "timeline.md").is_file()
+        assert (project / "plot" / "tone.md").is_file()
+
+
+# ---------------------------------------------------------------------------
+# get_book_progress — surface book_category for the dashboard
+# ---------------------------------------------------------------------------
+
+
+class TestGetBookProgressBookCategory:
+    """get_book_progress must expose book_category so book-dashboard can render it."""
+
+    def test_progress_includes_book_category_for_fiction(
+        self, server_module, content_root: Path
+    ):
+        json.loads(server_module.create_book_structure(title="Progress Fiction"))
+        server_module._cache.invalidate()
+
+        result = json.loads(server_module.get_book_progress("progress-fiction"))
+        assert result["book_category"] == "fiction"
+
+    def test_progress_includes_book_category_for_memoir(
+        self, server_module, content_root: Path
+    ):
+        json.loads(
+            server_module.create_book_structure(
+                title="Progress Memoir", book_category="memoir"
+            )
+        )
+        server_module._cache.invalidate()
+
+        result = json.loads(server_module.get_book_progress("progress-memoir"))
+        assert result["book_category"] == "memoir"
+
+
+# ---------------------------------------------------------------------------
 # get_book_category_dir tool — Issue #55 path resolution
 # ---------------------------------------------------------------------------
 

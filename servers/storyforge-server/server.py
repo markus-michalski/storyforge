@@ -142,6 +142,7 @@ def get_book_progress(slug: str) -> str:
         # Indexer already derived this from chapter state (Issue #19).
         "status": book.get("status", "Idea"),
         "status_disk": book.get("status_disk", book.get("status", "Idea")),
+        "book_category": book.get("book_category", "fiction"),
         "chapters_total": total,
         "chapters_drafted": drafted,
         "chapters_final": final,
@@ -832,12 +833,17 @@ def create_book_structure(
 
     genre_list = [g.strip() for g in genres.split(",") if g.strip()] if genres else []
     today = date.today().isoformat()
+    is_memoir = book_category == "memoir"
 
-    # Create directory structure
-    for subdir in [
-        "plot", "characters", "world", "research/notes",
-        "chapters", "cover/art", "export/output", "translations",
-    ]:
+    # Create directory structure. Memoir scaffolds `people/` instead of
+    # `characters/` and skips `world/` entirely (per #63 spec) — real-life
+    # settings are documented via research, not invented.
+    common_subdirs = ["plot", "research/notes", "chapters", "cover/art", "export/output", "translations"]
+    if is_memoir:
+        subdirs = common_subdirs + ["people"]
+    else:
+        subdirs = common_subdirs + ["characters", "world"]
+    for subdir in subdirs:
         (project_dir / subdir).mkdir(parents=True, exist_ok=True)
 
     # Book README
@@ -876,21 +882,56 @@ updated: "{today}"
     (project_dir / "README.md").write_text(readme, encoding="utf-8")
     (project_dir / "synopsis.md").write_text(f"# {title} — Synopsis\n\n*To be written after plot is outlined.*\n", encoding="utf-8")
 
-    # Plot files
-    (project_dir / "plot" / "outline.md").write_text(f"# {title} — Plot Outline\n\n## Act 1: Setup\n\n## Act 2: Confrontation\n\n## Act 3: Resolution\n", encoding="utf-8")
-    (project_dir / "plot" / "acts.md").write_text(f"# {title} — Act Structure\n\n*Use /storyforge:plot-architect to develop.*\n", encoding="utf-8")
+    # Plot files. Memoir uses structure-types instead of three-act / character
+    # arcs; fiction keeps the existing scaffold.
     (project_dir / "plot" / "timeline.md").write_text(f"# {title} — Timeline\n\n*Chronological events.*\n", encoding="utf-8")
     (project_dir / "plot" / "tone.md").write_text(f"# {title} — Tonal Document\n\n*Use /storyforge:plot-architect to develop after plot outline is complete.*\n", encoding="utf-8")
-    (project_dir / "plot" / "arcs.md").write_text(f"# {title} — Character Arcs\n\n*Use /storyforge:character-creator to develop.*\n", encoding="utf-8")
+    if is_memoir:
+        (project_dir / "plot" / "outline.md").write_text(
+            f"# {title} — Narrative Arc\n\n"
+            "*The angle on the lived material — not invented events. "
+            "Use /storyforge:plot-architect (memoir mode) to develop.*\n\n"
+            "## Structure type\n\n"
+            "*Pick one: chronological / thematic / braided / vignette. "
+            "See `book_categories/memoir/craft/memoir-structure-types.md`.*\n\n"
+            "## Through-line\n\n"
+            "*The unifying question or theme that ties the chosen scenes together.*\n",
+            encoding="utf-8",
+        )
+        (project_dir / "plot" / "structure.md").write_text(
+            f"# {title} — Memoir Structure\n\n"
+            "*Selected structure type and its scaffolding (chapter spine, "
+            "thematic chapters, braid threads, or vignette index). "
+            "Use /storyforge:plot-architect (memoir mode) to develop.*\n",
+            encoding="utf-8",
+        )
+    else:
+        (project_dir / "plot" / "outline.md").write_text(f"# {title} — Plot Outline\n\n## Act 1: Setup\n\n## Act 2: Confrontation\n\n## Act 3: Resolution\n", encoding="utf-8")
+        (project_dir / "plot" / "acts.md").write_text(f"# {title} — Act Structure\n\n*Use /storyforge:plot-architect to develop.*\n", encoding="utf-8")
+        (project_dir / "plot" / "arcs.md").write_text(f"# {title} — Character Arcs\n\n*Use /storyforge:character-creator to develop.*\n", encoding="utf-8")
 
-    # Characters
-    (project_dir / "characters" / "INDEX.md").write_text(f"# {title} — Characters\n\n## Protagonists\n\n## Antagonists\n\n## Supporting\n", encoding="utf-8")
+    # Characters / People
+    if is_memoir:
+        (project_dir / "people" / "INDEX.md").write_text(
+            f"# {title} — Real People\n\n"
+            "*Real people who appear in this memoir. Track consent and "
+            "anonymization status per person. See "
+            "`book_categories/memoir/craft/real-people-ethics.md`.*\n\n"
+            "## Family\n\n"
+            "## Friends & relationships\n\n"
+            "## Public figures\n\n"
+            "## Pseudonymized / composite\n",
+            encoding="utf-8",
+        )
+    else:
+        (project_dir / "characters" / "INDEX.md").write_text(f"# {title} — Characters\n\n## Protagonists\n\n## Antagonists\n\n## Supporting\n", encoding="utf-8")
 
-    # World
-    (project_dir / "world" / "setting.md").write_text(f"# {title} — Setting\n\n*Where and when does the story take place?*\n", encoding="utf-8")
-    (project_dir / "world" / "rules.md").write_text(f"# {title} — Rules\n\n*Magic system, physics, society rules.*\n", encoding="utf-8")
-    (project_dir / "world" / "history.md").write_text(f"# {title} — History\n\n*Background history of the world.*\n", encoding="utf-8")
-    (project_dir / "world" / "glossary.md").write_text(f"# {title} — Glossary\n\n*Terms, places, concepts.*\n", encoding="utf-8")
+    # World — fiction only. Memoir documents real settings via research.
+    if not is_memoir:
+        (project_dir / "world" / "setting.md").write_text(f"# {title} — Setting\n\n*Where and when does the story take place?*\n", encoding="utf-8")
+        (project_dir / "world" / "rules.md").write_text(f"# {title} — Rules\n\n*Magic system, physics, society rules.*\n", encoding="utf-8")
+        (project_dir / "world" / "history.md").write_text(f"# {title} — History\n\n*Background history of the world.*\n", encoding="utf-8")
+        (project_dir / "world" / "glossary.md").write_text(f"# {title} — Glossary\n\n*Terms, places, concepts.*\n", encoding="utf-8")
 
     # Research
     (project_dir / "research" / "sources.md").write_text(f"# {title} — Sources\n\n*Research materials and references.*\n", encoding="utf-8")
