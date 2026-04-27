@@ -17,15 +17,20 @@ from pathlib import Path
 
 from tools.analysis.manuscript_checker import (
     _extract_patterns_from_rule,
+    _load_cliche_banlist,
+    _read_allowed_repetitions,
     _read_book_rules,
     _scan_adverb_density,
     _scan_book_rules,
     _scan_cliches,
     _scan_filter_words,
     _scan_question_as_statement,
+    _scan_sentence_repetitions,
     _strip_dialogue,
     scan_repetitions,
 )
+
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 
 
 # ---------------------------------------------------------------------------
@@ -579,3 +584,192 @@ class TestScanManuscriptIntegration:
         result = scan_repetitions(book)
         assert result["findings"]
         assert result["findings"][0]["category"] == "cliche"
+
+
+# ---------------------------------------------------------------------------
+# #80 — Cliché banlist: file-based loader
+# ---------------------------------------------------------------------------
+
+
+class TestClicheBanlistLoader:
+    def test_real_file_has_minimum_120_phrases(self) -> None:
+        phrases = _load_cliche_banlist(PLUGIN_ROOT)
+        assert len(phrases) >= 120, f"only {len(phrases)} entries — expected ≥120"
+
+    def test_all_legacy_phrases_still_present(self) -> None:
+        phrases = _load_cliche_banlist(PLUGIN_ROOT)
+        texts = [p[0] for p in phrases]
+        assert "blood ran cold" in texts
+        assert "heart skipped a beat" in texts
+        assert "time stood still" in texts
+
+    def test_filter_verbs_included(self) -> None:
+        phrases = _load_cliche_banlist(PLUGIN_ROOT)
+        texts = [p[0] for p in phrases]
+        assert "began to" in texts
+        assert "started to" in texts
+
+    def test_each_entry_has_severity(self) -> None:
+        phrases = _load_cliche_banlist(PLUGIN_ROOT)
+        for phrase, severity in phrases:
+            assert severity in ("high", "medium"), (
+                f"unexpected severity {severity!r} for {phrase!r}"
+            )
+
+    def test_missing_file_falls_back_to_legacy_constant(self, tmp_path: Path) -> None:
+        phrases = _load_cliche_banlist(tmp_path)
+        texts = [p[0] for p in phrases]
+        assert "blood ran cold" in texts
+
+    def test_genre_override_adds_phrases(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Tired Phrases\n- blood ran cold (severity: high)\n",
+            encoding="utf-8",
+        )
+        (ref / "cliche-banlist-romance.md").write_text(
+            "## Romance Additions\n- star-crossed lovers (severity: medium)\n",
+            encoding="utf-8",
+        )
+        phrases = _load_cliche_banlist(tmp_path, genre="romance")
+        texts = [p[0] for p in phrases]
+        assert "blood ran cold" in texts
+        assert "star-crossed lovers" in texts
+
+    def test_genre_override_without_base_still_works(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist-romance.md").write_text(
+            "## Extra\n- hearts entwined (severity: medium)\n",
+            encoding="utf-8",
+        )
+        phrases = _load_cliche_banlist(tmp_path, genre="romance")
+        texts = [p[0] for p in phrases]
+        # Falls back to legacy for base, merges genre override
+        assert "blood ran cold" in texts
+        assert "hearts entwined" in texts
+
+    def test_scan_cliches_detects_filter_verb_from_file(self, tmp_path: Path) -> None:
+        chapters = {"01-open": "# Ch 1\n\nShe began to walk toward the door.\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_cliches(book)
+        assert any("began to" in f.phrase for f in findings), (
+            "expected 'began to' from file-loaded banlist"
+        )
+
+    def test_scan_cliches_severity_respected(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Test\n- seemed to (severity: medium)\n- blood ran cold (severity: high)\n",
+            encoding="utf-8",
+        )
+        chapters = {
+            "01-open": "# Ch 1\n\nHer blood ran cold. She seemed to hesitate.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_cliches(book, plugin_root=tmp_path)
+        sev = {f.phrase: f.severity for f in findings}
+        assert sev.get("blood ran cold") == "high"
+        assert sev.get("seemed to") == "medium"
+
+
+# ---------------------------------------------------------------------------
+# #82 — Sentence-level repetition detector (8-15 word n-grams)
+# ---------------------------------------------------------------------------
+
+_LONG_REPEATED = (
+    "his heart hammered against his ribs as he forced himself to breathe"
+)
+
+
+class TestScanSentenceRepetitions:
+    def test_detects_12_word_phrase_across_two_chapters(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n",
+            "02-mid": f"# Ch 2\n\n{_LONG_REPEATED.capitalize()} again.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_sentence_repetitions(book)
+        assert findings, "expected sentence_repetition finding"
+        all_phrases = " ".join(f.phrase for f in findings)
+        assert "heart hammered against his ribs" in all_phrases
+
+    def test_short_phrase_not_caught_by_sentence_detector(self, tmp_path: Path) -> None:
+        # 5-word phrase — below 8-word minimum
+        short = "the wind moved through trees"
+        chapters = {
+            "01-open": f"# Ch 1\n\n{short}.\n",
+            "02-mid": f"# Ch 2\n\n{short}.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_sentence_repetitions(book)
+        assert all("wind moved through" not in f.phrase for f in findings)
+
+    def test_single_occurrence_not_flagged(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        assert _scan_sentence_repetitions(book) == []
+
+    def test_category_is_sentence_repetition(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n",
+            "02-mid": f"# Ch 2\n\n{_LONG_REPEATED.capitalize()} softly.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_sentence_repetitions(book)
+        assert findings
+        assert all(f.category == "sentence_repetition" for f in findings)
+
+    def test_severity_is_always_high(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n",
+            "02-mid": f"# Ch 2\n\n{_LONG_REPEATED.capitalize()} again.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_sentence_repetitions(book)
+        assert findings
+        assert all(f.severity == "high" for f in findings)
+
+    def test_allowed_repetitions_excluded(self, tmp_path: Path) -> None:
+        claudemd = CLAUDEMD_EMPTY_RULES + f"\n## Allowed Repetitions\n- {_LONG_REPEATED}\n"
+        chapters = {
+            "01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n",
+            "02-mid": f"# Ch 2\n\n{_LONG_REPEATED.capitalize()} softly.\n",
+        }
+        book = _write_book(tmp_path, claudemd, chapters)
+        findings = _scan_sentence_repetitions(book)
+        assert all("heart hammered against his ribs" not in f.phrase for f in findings)
+
+    def test_sentence_repetition_in_scan_repetitions_result(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n",
+            "02-mid": f"# Ch 2\n\n{_LONG_REPEATED.capitalize()} again.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        result = scan_repetitions(book)
+        categories = {f["category"] for f in result["findings"]}
+        assert "sentence_repetition" in categories
+
+
+class TestReadAllowedRepetitions:
+    def test_parses_allowed_section(self, tmp_path: Path) -> None:
+        claudemd = (
+            "# Book\n\n## Allowed Repetitions\n"
+            "- his heart hammered against his ribs\n"
+            "- the way the light fell\n"
+        )
+        book = _write_book(tmp_path, claudemd, {})
+        allowed = _read_allowed_repetitions(book)
+        assert "his heart hammered against his ribs" in allowed
+        assert "the way the light fell" in allowed
+
+    def test_missing_section_returns_empty(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        assert _read_allowed_repetitions(book) == frozenset()
+
+    def test_missing_claudemd_returns_empty(self, tmp_path: Path) -> None:
+        book = tmp_path / "book"
+        book.mkdir()
+        assert _read_allowed_repetitions(book) == frozenset()

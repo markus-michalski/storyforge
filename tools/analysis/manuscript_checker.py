@@ -32,6 +32,9 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Iterable
 
+# Plugin root: two levels up from tools/analysis/
+_PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -744,6 +747,54 @@ CLICHE_PHRASES: tuple[str, ...] = (
 )
 
 
+_ENTRY_RE = re.compile(
+    r"^\s*-\s+(.+?)(?:\s+\(severity:\s+(high|medium)\))?(?:\s+—.*)?$",
+    re.IGNORECASE,
+)
+
+
+def _load_cliche_banlist(
+    plugin_root: Path,
+    genre: str | None = None,
+) -> list[tuple[str, str]]:
+    """Load the cliché banlist from reference/craft/cliche-banlist.md.
+
+    Returns a list of (phrase, severity) tuples. Falls back to the hardcoded
+    CLICHE_PHRASES constant (all severity 'high') when the file is missing.
+    If genre is given, merges the genre-specific override file on top.
+    """
+    base_file = plugin_root / "reference" / "craft" / "cliche-banlist.md"
+
+    def _parse_file(path: Path) -> list[tuple[str, str]]:
+        if not path.is_file():
+            return []
+        entries: list[tuple[str, str]] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            m = _ENTRY_RE.match(line)
+            if not m:
+                continue
+            phrase = m.group(1).strip()
+            severity = (m.group(2) or "high").lower()
+            if phrase and len(phrase) > 2:
+                entries.append((phrase, severity))
+        return entries
+
+    base = _parse_file(base_file)
+    if not base:
+        # Fallback: keep old behaviour
+        base = [(p, "high") for p in CLICHE_PHRASES]
+
+    if genre:
+        override_file = (
+            plugin_root / "reference" / "craft" / f"cliche-banlist-{genre}.md"
+        )
+        extra = _parse_file(override_file)
+        existing = {p for p, _ in base}
+        base = base + [(p, s) for p, s in extra if p not in existing]
+
+    return base
+
+
 def _compile_cliche_patterns() -> tuple[tuple[str, re.Pattern[str]], ...]:
     return tuple(
         (phrase, re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE))
@@ -754,18 +805,29 @@ def _compile_cliche_patterns() -> tuple[tuple[str, re.Pattern[str]], ...]:
 _CLICHE_PATTERNS = _compile_cliche_patterns()
 
 
-def _scan_cliches(book_path: Path) -> list[Finding]:
+def _scan_cliches(
+    book_path: Path,
+    plugin_root: Path | None = None,
+    genre: str | None = None,
+) -> list[Finding]:
     """Flag hits from the curated cliché banlist.
 
-    One Finding per unique cliché with all occurrences. Severity is always
-    high — a cliché is a cliché even if used once.
+    Loads patterns from the versioned reference file when available; falls back
+    to the hardcoded CLICHE_PHRASES constant. One Finding per unique phrase.
     """
     drafts = _read_chapter_drafts(book_path)
     if not drafts:
         return []
 
+    root = plugin_root if plugin_root is not None else _PLUGIN_ROOT
+    banlist = _load_cliche_banlist(root, genre=genre)
+    patterns = [
+        (phrase, severity, re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE))
+        for phrase, severity in banlist
+    ]
+
     findings: list[Finding] = []
-    for phrase, pattern in _CLICHE_PATTERNS:
+    for phrase, severity, pattern in patterns:
         occurrences: list[Occurrence] = []
         for chapter_slug, raw_text in drafts:
             cleaned = _strip_markdown(raw_text)
@@ -786,7 +848,7 @@ def _scan_cliches(book_path: Path) -> list[Finding]:
                 Finding(
                     phrase=phrase,
                     category="cliche",
-                    severity="high",
+                    severity=severity,
                     count=len(occurrences),
                     occurrences=sorted(occurrences, key=lambda o: (o.chapter, o.line)),
                 )
@@ -902,6 +964,106 @@ def _scan_question_as_statement(book_path: Path) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
+# Allowed repetitions — book-level exclusion list
+# ---------------------------------------------------------------------------
+
+_ALLOWED_REPS_RE = re.compile(r"^##\s+Allowed Repetitions\s*$", re.IGNORECASE)
+
+
+def _read_allowed_repetitions(book_path: Path) -> frozenset[str]:
+    """Parse ## Allowed Repetitions from book CLAUDE.md.
+
+    Returns a frozenset of lowercased, tokenised phrases that should be
+    excluded from the sentence-level repetition scan.
+    """
+    claudemd = book_path / "CLAUDE.md"
+    if not claudemd.is_file():
+        return frozenset()
+
+    allowed: set[str] = set()
+    in_section = False
+    for line in claudemd.read_text(encoding="utf-8").splitlines():
+        if _ALLOWED_REPS_RE.match(line):
+            in_section = True
+            continue
+        if in_section:
+            if line.startswith("#"):
+                break
+            stripped = line.strip().lstrip("- ").strip()
+            if stripped:
+                normalized = " ".join(_tokenise(stripped))
+                if normalized:
+                    allowed.add(normalized)
+    return frozenset(allowed)
+
+
+# ---------------------------------------------------------------------------
+# Sentence-level repetition detector (8-15 word n-grams)
+# ---------------------------------------------------------------------------
+
+DEFAULT_SENTENCE_NGRAM_SIZES = tuple(range(8, 16))
+
+
+def _scan_sentence_repetitions(
+    book_path: Path,
+    min_length: int = 8,
+    max_length: int = 15,
+    min_occurrences: int = 2,
+) -> list[Finding]:
+    """Detect repeated whole-sentence-level phrases (8-15 word n-grams).
+
+    The existing 4-7 word detector catches short constructions; this pass
+    targets longer units — the most egregious AI tell when reused verbatim.
+    Phrases listed under ## Allowed Repetitions in the book CLAUDE.md are
+    excluded.
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    allowed = _read_allowed_repetitions(book_path)
+    sizes = tuple(range(min_length, max_length + 1))
+    index: dict[str, list[Occurrence]] = defaultdict(list)
+
+    for chapter_slug, raw_text in drafts:
+        cleaned = _strip_markdown(raw_text)
+        for line_no, original_line in enumerate(cleaned.splitlines(), start=1):
+            stripped = original_line.strip()
+            if not stripped:
+                continue
+            tokens = _tokenise(stripped)
+            if len(tokens) < min_length:
+                continue
+            for _size, _i, phrase in _ngrams_in_line(tokens, sizes):
+                index[phrase].append(
+                    Occurrence(
+                        chapter=chapter_slug,
+                        line=line_no,
+                        snippet=_make_snippet(stripped, phrase),
+                    )
+                )
+
+    findings: list[Finding] = []
+    for phrase, occs in index.items():
+        if len(occs) < min_occurrences:
+            continue
+        # Skip if any allowed repetition contains this phrase as a sub-phrase
+        if any(phrase in allowed_phrase for allowed_phrase in allowed):
+            continue
+        findings.append(
+            Finding(
+                phrase=phrase,
+                category="sentence_repetition",
+                severity="high",
+                count=len(occs),
+                occurrences=sorted(occs, key=lambda o: (o.chapter, o.line)),
+            )
+        )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Scanning
 # ---------------------------------------------------------------------------
 
@@ -993,11 +1155,12 @@ def scan_repetitions(
     # by definition and ignore the n-gram frequency thresholds above.
     findings.extend(_scan_book_rules(book_path))
     # Merge the craft-level checks (filter words, adverb density, clichés,
-    # question-as-statement punctuation).
+    # question-as-statement punctuation, sentence-level repetitions).
     findings.extend(_scan_filter_words(book_path))
     findings.extend(_scan_adverb_density(book_path))
     findings.extend(_scan_cliches(book_path))
     findings.extend(_scan_question_as_statement(book_path))
+    findings.extend(_scan_sentence_repetitions(book_path))
 
     # Sort order priority: book_rule_violation first (user-authored rules
     # override everything), then clichés (always bad), then the rest by
@@ -1054,6 +1217,7 @@ CATEGORY_LABELS = {
     "question_as_statement": "Dialogue Punctuation (Q-word + period)",
     "filter_word": "POV Filter Words",
     "adverb_density": "Adverb Density (per Chapter)",
+    "sentence_repetition": "Sentence-Level Repetitions (8-15 words)",
     "simile": "Similes & Metaphors",
     "blocking_tic": "Blocking Tics",
     "character_tell": "Character Tells",
@@ -1068,6 +1232,7 @@ CATEGORY_ORDER = [
     "question_as_statement",
     "filter_word",
     "adverb_density",
+    "sentence_repetition",
     "simile",
     "character_tell",
     "blocking_tic",
@@ -1210,6 +1375,15 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
         return (
             f"_Recommendation:_ Same sensory description in {count} places — "
             f"vary at least {count - 1} of them so each scene has its own texture."
+        )
+    if cat == "sentence_repetition":
+        return (
+            f"_Recommendation:_ This {len(finding['phrase'].split())}-word sentence "
+            f"recurs {count}× — the loudest AI tell in the book. Do not fix by swapping "
+            f"one word; the rhythm and structure are what the reader recognises. Rewrite "
+            f"the emotional beat entirely: different body signal, different duration, "
+            f"different syntax. If it is a deliberate motif, add it to the book's "
+            f"## Allowed Repetitions section in CLAUDE.md."
         )
     return (
         f"_Recommendation:_ Decide which occurrence is most necessary; cut or "
