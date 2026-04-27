@@ -1,3 +1,10 @@
+---
+book_categories: [fiction]
+craft_topic: world
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # World-Building: Creating Worlds That Feel Real
 
 World-building is the craft of creating a fictional world so detailed, consistent, and alive that readers believe in it. But it's not just detail—it's the *selective* detail. The iceberg principle: show 10%, know 100%.

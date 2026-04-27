@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: scene-craft
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Dialogue Craft: The Art of Meaningful Conversation
 
 A comprehensive guide to writing dialogue that reveals character, advances plot, and creates authenticity. In fiction, dialogue is not how people actually speak—it's how people speak *in story*.

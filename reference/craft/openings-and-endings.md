@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: scene-craft
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Openings and Endings: The Art of First and Last Impressions
 
 The opening and closing of a story are the two most critical passages you will ever write. Readers decide whether to continue in the first line. Readers decide whether to recommend your book to others in the last line. Everything else is just the middle.

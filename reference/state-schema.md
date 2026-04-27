@@ -19,6 +19,7 @@
       "author": "dark-narrator",
       "genres": ["horror", "supernatural"],
       "book_type": "novel",
+      "book_category": "fiction",
       "status": "Drafting",
       "language": "en",
       "target_word_count": 80000,

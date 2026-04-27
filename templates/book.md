@@ -4,6 +4,7 @@ slug: "{{slug}}"
 author: "{{author}}"
 genres: {{genres}}
 book_type: "{{book_type}}"
+book_category: "{{book_category}}"
 status: "Idea"
 language: "{{language}}"
 target_word_count: {{target_word_count}}

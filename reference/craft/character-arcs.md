@@ -1,3 +1,10 @@
+---
+book_categories: [fiction]
+craft_topic: character
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Character Arcs: Transforming Characters Through Story
 
 A character arc is the trajectory of change (or lack of change) a character undergoes from the beginning to the end of a story. While character creation establishes who a character is, character arcs determine how they transform—or fail to transform—through the pressures of the narrative.

@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: structure
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Tension and Suspense in Fiction
 
 A comprehensive guide to creating and maintaining tension at every level of your narrative. Tension is what keeps readers turning pages—it's the promise that something matters and something will be revealed or resolved.

@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: structure
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Pacing Guide: Controlling the Reader's Experience of Time
 
 ## Introduction

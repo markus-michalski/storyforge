@@ -20,7 +20,7 @@ if plugin_root not in sys.path:
 
 from mcp.server.fastmcp import FastMCP
 
-from tools.shared.config import load_config, get_content_root, get_genres_dir, get_reference_dir, get_review_handle
+from tools.shared.config import load_config, get_content_root, get_genres_dir, get_reference_dir, get_review_handle, get_book_categories_dir
 from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_character_path, resolve_author_path, find_chapters, resolve_series_path, resolve_world_dir
 from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted, parse_chapter_readme
@@ -77,6 +77,7 @@ def list_books() -> str:
             "genres": book.get("genres", []),
             "author": book.get("author", ""),
             "book_type": book.get("book_type", "novel"),
+            "book_category": book.get("book_category", "fiction"),
             "chapter_count": book.get("chapter_count", 0),
             "total_words": book.get("total_words", 0),
         })
@@ -786,12 +787,19 @@ def update_author(slug: str, field: str, value: str) -> str:
 # ============================================================
 
 
+# Path E (#54): allowed book_category values for create_book_structure.
+# Phase 1 only ships fiction + memoir. Other non-fiction subtypes
+# (biography, how-to, academic, history) are deferred per #49 / #97.
+_ALLOWED_BOOK_CATEGORIES = ("fiction", "memoir")
+
+
 @mcp.tool()
 def create_book_structure(
     title: str,
     author: str = "",
     genres: str = "",
     book_type: str = "novel",
+    book_category: str = "fiction",
     language: str = "en",
     target_word_count: int = 80000,
 ) -> str:
@@ -801,10 +809,20 @@ def create_book_structure(
         title: Book title
         author: Author profile slug
         genres: Comma-separated genres (e.g. "horror, supernatural")
-        book_type: Type (short-story, novelette, novella, novel, epic)
+        book_type: Length class (short-story, novelette, novella, novel, epic)
+        book_category: Broad category (fiction, memoir). Default: fiction.
         language: Writing language
         target_word_count: Target word count
     """
+    if book_category not in _ALLOWED_BOOK_CATEGORIES:
+        allowed = ", ".join(_ALLOWED_BOOK_CATEGORIES)
+        return json.dumps({
+            "error": (
+                f"Invalid book_category '{book_category}'. "
+                f"Allowed values: {allowed}."
+            )
+        })
+
     config = load_config()
     slug = slugify(title)
     project_dir = resolve_project_path(config, slug)
@@ -829,6 +847,7 @@ slug: "{slug}"
 author: "{author}"
 genres: {json.dumps(genre_list)}
 book_type: "{book_type}"
+book_category: "{book_category}"
 status: "Idea"
 language: "{language}"
 target_word_count: {target_word_count}
@@ -1189,6 +1208,36 @@ def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str
         base = base / sub_path
 
     return json.dumps({"path": str(base), "exists": base.exists()})
+
+
+@mcp.tool()
+def get_book_category_dir(category: str) -> str:
+    """Resolve the plugin-relative path to a book category's knowledge dir.
+
+    Path E (#55): skills loading category-specific knowledge (memoir craft
+    docs, status models) call this to get the canonical directory under
+    ``{plugin_root}/book_categories/{category}/``.
+
+    Args:
+        category: One of the allowed book categories (fiction, memoir).
+
+    Returns JSON with ``category``, ``path``, and ``exists`` (bool).
+    """
+    if category not in _ALLOWED_BOOK_CATEGORIES:
+        allowed = ", ".join(_ALLOWED_BOOK_CATEGORIES)
+        return json.dumps({
+            "error": (
+                f"Unknown book_category '{category}'. "
+                f"Allowed: {allowed}."
+            )
+        })
+
+    base = get_book_categories_dir() / category
+    return json.dumps({
+        "category": category,
+        "path": str(base),
+        "exists": base.exists(),
+    })
 
 
 # ============================================================

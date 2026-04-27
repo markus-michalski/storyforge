@@ -41,6 +41,9 @@ def parse_book_readme(path: Path) -> dict[str, Any]:
         "author": meta.get("author", ""),
         "genres": meta.get("genres", []),
         "book_type": meta.get("book_type", "novel"),
+        # Path E (#54): broad category orthogonal to book_type length class.
+        # Default "fiction" preserves backwards compat for books written pre-#54.
+        "book_category": meta.get("book_category", "fiction"),
         "status": _normalize_book_status(meta.get("status", "Idea")),
         "language": meta.get("language", "en"),
         "target_word_count": meta.get("target_word_count", 0),

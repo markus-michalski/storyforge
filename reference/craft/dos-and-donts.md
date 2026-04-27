@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: general
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Fiction Writing: 50 Essential Do's and Don'ts
 
 This guide distills the core principles of narrative craft into actionable rules. These aren't laws—they're tools. Each can be broken. But break them intentionally, understanding what you're sacrificing.

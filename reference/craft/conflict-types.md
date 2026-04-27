@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: structure
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Conflict Types: The Engine of Story
 
 Every story is built on conflict. Not necessarily violence or overt hostility, but the fundamental collision of opposing forces, desires, or values. Conflict is what makes narrative possible. Without it, there's no story—just a sequence of events.
