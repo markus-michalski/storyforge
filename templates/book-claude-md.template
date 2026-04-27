@@ -28,6 +28,11 @@ Per-book context file. Loaded automatically by StoryForge skills and persisted a
 
 Characters, objects, or plot threads the user wants to recur in later chapters.
 
+Entry format:
+- `**Name**` — plain name (search terms derived automatically)
+- `**Name** — expected return by Ch N` — deadline annotation; `verify_callbacks` flags if Ch N passes without appearance
+- `_(must not be forgotten)_` — escalates to high-severity finding after 10+ chapters of silence
+
 <!-- CALLBACKS:START -->
 <!-- CALLBACKS:END -->
 

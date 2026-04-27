@@ -24,6 +24,7 @@ from tools.shared.config import load_config, get_content_root, get_genres_dir, g
 from tools.shared.paths import slugify, resolve_project_path, resolve_chapter_path, resolve_character_path, resolve_author_path, find_chapters, resolve_series_path, resolve_world_dir
 from tools.state.indexer import StateCache, rebuild
 from tools.state.parsers import parse_frontmatter, count_words_in_file, is_chapter_drafted, parse_chapter_readme
+from tools.analysis.callback_validator import verify_callbacks as _verify_callbacks_impl
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
 from tools.analysis.tactical_checker import (
     verify_tactical_setup as _verify_tactical_setup_impl,
@@ -508,6 +509,39 @@ def scan_manuscript(
         "report_path": report_path,
         "findings": result["findings"],
     })
+
+
+@mcp.tool()
+def verify_callbacks(book_slug: str) -> str:
+    """Check the book's Callback Register against all drafted chapters.
+
+    Parses ``## Callback Register`` from the book's CLAUDE.md and searches
+    each drafted chapter for every registered callback name and its derived
+    keywords.
+
+    Returns three status buckets:
+    - ``satisfied``           — callback found in at least one chapter, no overdue deadline
+    - ``deferred``            — callback never appeared, or silent without a must-not-forget flag
+    - ``potentially_dropped`` — expected-return deadline passed without appearance,
+                                OR must-not-forget callback silent for >10 chapters
+
+    Args:
+        book_slug: The book project slug.
+    """
+    config = load_config()
+    book_path = resolve_project_path(config, book_slug)
+    if not book_path.exists():
+        return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
+
+    claudemd_path = book_path / "CLAUDE.md"
+    if not claudemd_path.exists():
+        return json.dumps({
+            "error": f"No CLAUDE.md found for '{book_slug}'. Run init_book_claudemd first.",
+        })
+
+    claudemd_text = claudemd_path.read_text(encoding="utf-8")
+    result = _verify_callbacks_impl(book_path, claudemd_text)
+    return json.dumps(result)
 
 
 # ============================================================

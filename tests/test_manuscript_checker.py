@@ -25,6 +25,7 @@ from tools.analysis.manuscript_checker import (
     _read_snapshot_threshold,
     _scan_adverb_density,
     _scan_book_rules,
+    _scan_callbacks,
     _scan_cliches,
     _scan_filter_words,
     _scan_question_as_statement,
@@ -1027,3 +1028,85 @@ class TestLoadActionVerbs:
         verbs = _load_action_verbs(tmp_path)
         # Should still return non-empty fallback set
         assert len(verbs) >= 20
+
+
+# ---------------------------------------------------------------------------
+# TestScanCallbacksIntegration
+# ---------------------------------------------------------------------------
+
+_CLAUDEMD_WITH_CALLBACKS = """\
+# My Book
+
+## Callback Register
+
+<!-- CALLBACKS:START -->
+- **Theo's watch** — expected return by Ch 5. _(added 2026-01-01)_
+<!-- CALLBACKS:END -->
+"""
+
+_CLAUDEMD_LONG_SILENCE = """\
+# My Book
+
+## Callback Register
+
+<!-- CALLBACKS:START -->
+- **the silver ring** _(must not be forgotten)_ _(added 2026-01-01)_
+<!-- CALLBACKS:END -->
+"""
+
+
+class TestScanCallbacksIntegration:
+    def test_no_claudemd_returns_empty(self, tmp_path: Path) -> None:
+        book = tmp_path / "book"
+        book.mkdir()
+        (book / "chapters").mkdir()
+        assert _scan_callbacks(book) == []
+
+    def test_no_callbacks_markers_returns_empty(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {"01": "Some text."})
+        assert _scan_callbacks(book) == []
+
+    def test_overdue_expected_return_is_high_severity(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-ch": "She walked down the corridor.",
+            "06-ch": "Rain fell outside the window.",
+            "10-ch": "The final chapter arrived.",
+        }
+        book = _write_book(tmp_path, _CLAUDEMD_WITH_CALLBACKS, chapters)
+        findings = _scan_callbacks(book)
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.category == "callback_dropped"
+        assert f.severity == "high"
+        assert "Theo" in f.phrase or "watch" in f.phrase
+
+    def test_recent_deferred_below_threshold_no_finding(self, tmp_path: Path) -> None:
+        claudemd = """\
+# My Book
+
+## Callback Register
+
+<!-- CALLBACKS:START -->
+- **the blue notebook** _(added 2026-01-01)_
+<!-- CALLBACKS:END -->
+"""
+        # Only 3 chapters: chapters_since <= 10 → no finding
+        chapters = {
+            "01-ch": "She sat by the fire.",
+            "02-ch": "Morning arrived.",
+            "03-ch": "The rain continued.",
+        }
+        book = _write_book(tmp_path, claudemd, chapters)
+        findings = _scan_callbacks(book)
+        assert findings == []
+
+    def test_scan_repetitions_includes_callback_findings(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-ch": "She walked away without looking back.",
+            "06-ch": "The sun set over the valley.",
+            "10-ch": "Night fell at last.",
+        }
+        book = _write_book(tmp_path, _CLAUDEMD_WITH_CALLBACKS, chapters)
+        result = scan_repetitions(book)
+        categories = {f["category"] for f in result["findings"]}
+        assert "callback_dropped" in categories

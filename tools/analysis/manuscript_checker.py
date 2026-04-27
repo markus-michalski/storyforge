@@ -32,6 +32,8 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Iterable
 
+from tools.analysis.callback_validator import verify_callbacks as _verify_callbacks
+
 # Plugin root: two levels up from tools/analysis/
 _PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 
@@ -1292,6 +1294,60 @@ def _scan_snapshots(
 
 
 # ---------------------------------------------------------------------------
+# Callback register scanner
+# ---------------------------------------------------------------------------
+
+_CALLBACK_DEFERRED_SILENCE = 10  # chapters of silence before deferred becomes a finding
+
+
+def _scan_callbacks(book_path: Path) -> list[Finding]:
+    """Surface broken callback promises as manuscript findings.
+
+    Reads the book's CLAUDE.md, runs verify_callbacks, and converts:
+    - ``potentially_dropped`` entries → high-severity ``callback_dropped`` findings
+    - ``deferred`` entries with chapters_since > threshold → medium-severity
+      ``callback_deferred`` findings
+
+    Satisfied callbacks and recent-deferred callbacks produce no findings.
+    """
+    claudemd_path = book_path / "CLAUDE.md"
+    if not claudemd_path.exists():
+        return []
+
+    claudemd_text = claudemd_path.read_text(encoding="utf-8")
+    result = _verify_callbacks(book_path, claudemd_text)
+
+    findings: list[Finding] = []
+
+    for entry in result.get("potentially_dropped", []):
+        warning = entry.get("warning", "no appearance found")
+        occ = Occurrence(chapter="CLAUDE.md", line=0, snippet=warning)
+        findings.append(Finding(
+            phrase=entry["name"],
+            category="callback_dropped",
+            severity="high",
+            count=entry.get("chapters_since", 0),
+            occurrences=[occ],
+        ))
+
+    for entry in result.get("deferred", []):
+        chapters_since = entry.get("chapters_since", 0)
+        if chapters_since <= _CALLBACK_DEFERRED_SILENCE:
+            continue
+        snippet = f"not appeared in {chapters_since} drafted chapters"
+        occ = Occurrence(chapter="CLAUDE.md", line=0, snippet=snippet)
+        findings.append(Finding(
+            phrase=entry["name"],
+            category="callback_deferred",
+            severity="medium",
+            count=chapters_since,
+            occurrences=[occ],
+        ))
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Scanning
 # ---------------------------------------------------------------------------
 
@@ -1398,6 +1454,7 @@ def scan_repetitions(
     findings.extend(_scan_question_as_statement(book_path))
     findings.extend(_scan_sentence_repetitions(book_path))
     findings.extend(_scan_snapshots(book_path, plugin_root=plugin_root))
+    findings.extend(_scan_callbacks(book_path))
 
     # Sort order priority: book_rule_violation first (user-authored rules
     # override everything), then clichés (always bad), then the rest by
@@ -1456,6 +1513,8 @@ CATEGORY_LABELS = {
     "adverb_density": "Adverb Density (per Chapter)",
     "sentence_repetition": "Sentence-Level Repetitions (8-15 words)",
     "snapshot": "Snapshot Blocks (static description, no movement)",
+    "callback_dropped": "Dropped Callbacks (promised threads, no follow-through)",
+    "callback_deferred": "Deferred Callbacks (long-silent registered threads)",
     "simile": "Similes & Metaphors",
     "blocking_tic": "Blocking Tics",
     "character_tell": "Character Tells",
@@ -1472,6 +1531,8 @@ CATEGORY_ORDER = [
     "adverb_density",
     "sentence_repetition",
     "snapshot",
+    "callback_dropped",
+    "callback_deferred",
     "simile",
     "character_tell",
     "blocking_tic",
@@ -1635,6 +1696,19 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             f"the emotional beat entirely: different body signal, different duration, "
             f"different syntax. If it is a deliberate motif, add it to the book's "
             f"## Allowed Repetitions section in CLAUDE.md."
+        )
+    if cat == "callback_dropped":
+        return (
+            f"_Recommendation:_ '{finding['phrase']}' is registered in the Callback "
+            f"Register with a hard deadline or must-not-forget flag that has been "
+            f"breached. Either (A) plant the callback in the appropriate chapter now, "
+            f"(B) update the register entry to reflect the new plan, or "
+            f"(C) remove the callback if the thread was intentionally dropped."
+        )
+    if cat == "callback_deferred":
+        return (
+            f"_Recommendation:_ '{finding['phrase']}' has been silent for {count} "
+            f"chapters. Decide whether to plant it soon or remove it from the register."
         )
     return (
         f"_Recommendation:_ Decide which occurrence is most necessary; cut or "
