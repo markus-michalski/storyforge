@@ -14,8 +14,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from tools.analysis.callback_validator import (
     _extract_search_terms,
     parse_callback_register,
@@ -217,8 +215,6 @@ class TestVerifyCallbacks:
         }
         book = _write_book(tmp_path, claudemd, chapters)
         result = verify_callbacks(book, claudemd)
-        names_deferred = [e["name"] for e in result["deferred"]]
-        names_dropped = [e["name"] for e in result["potentially_dropped"]]
         # Both French press and Gary not mentioned
         assert len(result["satisfied"]) == 0
         # At least one is deferred (no expected_ch, no must_not_forget)
