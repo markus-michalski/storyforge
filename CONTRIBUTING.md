@@ -69,6 +69,12 @@ Follow existing code patterns. For each change type:
 - **New genre**: Add to `genres/{name}/README.md`. Update CLAUDE.md genre list.
 - **Craft reference**: Add to `reference/craft/` or `reference/genre/`. Update skill loading instructions in CLAUDE.md.
 
+#### Architecture principle for new skills
+
+Skills that need project-state data (dates, banned phrases, callbacks, character facts) must follow the **data-briefs-over-prompt-instructions** principle documented in [docs/adr/0001-data-briefs-over-prompt-instructions.md](docs/adr/0001-data-briefs-over-prompt-instructions.md).
+
+Short version: serve project-state facts via an MCP `get_X_brief()` tool, not as natural-language instructions in the skill prompt. Skill prompts should reduce to *"Call `get_X_brief()`. Honor every field."*
+
 ### 5. Test Locally
 
 ```bash

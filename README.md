@@ -46,8 +46,11 @@ storyforge/
 ├── reference/    # 36+ craft & genre reference documents
 ├── templates/    # 16 markdown scaffolds
 ├── hooks/        # PreCompact & validation hooks
+├── docs/adr/     # Architecture Decision Records
 └── tests/        # pytest suite
 ```
+
+**Core design principle:** Skills that need project-state facts (story dates, banned phrases, callbacks, character constraints) receive them as structured JSON from MCP tools — not as natural-language prompt instructions. See [ADR-0001](docs/adr/0001-data-briefs-over-prompt-instructions.md).
 
 ## Contributing
 
