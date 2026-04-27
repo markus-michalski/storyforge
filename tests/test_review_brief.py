@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from tools.state.review_brief import (
     _parse_canon_log_facts,
     _parse_tonal_rules,

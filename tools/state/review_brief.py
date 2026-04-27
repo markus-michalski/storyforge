@@ -19,7 +19,6 @@ from typing import Any
 
 from tools.analysis.timeline_validator import parse_plot_timeline
 from tools.state.chapter_timeline_parser import parse_chapter_timeline_grid
-from tools.state.parsers import parse_frontmatter
 
 
 # ---------------------------------------------------------------------------
