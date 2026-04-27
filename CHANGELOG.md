@@ -25,6 +25,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.14.0] - 2026-04-27
+
+### Added
+- cross-chapter timeline validator (#79)
+- Sprint 3 — cliché banlist, sentence repetition, snapshot detector, callback validator (#98)
+- knowledge-domain boundary checker for POV character plausibility (#95)
+- tactical sanity check before combat/travel scenes (#94)
+- get_recent_chapter_timelines() — load last 3 intra-day grids as JSON brief (#93)
+- get_current_story_anchor() MCP tool + relative-time hook (#92)
+- unified banned-phrase hook (author vocab + global anti-AI) (#91)
+- per-scene counter for structural tics with chapter-cap limits (#90)
+- meta-narrative detector blocks script-reviewer language in prose (#89)
+- wire validate_chapter as PostToolUse with hard-block exit code (#86)
+
+### Changed
+- get_chapter_writing_brief() — replace prose prereq-load with structured JSON (#96)
+
+### Fixed
+- banned-phrase format strictness — hook backticks-only + persistence normalization (#88)
+
 ## [1.13.1] - 2026-04-26
 
 ### Changed
@@ -198,3 +218,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.12.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.12.0
 [1.13.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.13.0
 [1.13.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.13.1
+[1.14.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.14.0
