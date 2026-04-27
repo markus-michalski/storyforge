@@ -138,6 +138,18 @@ _ALLOWED_ANONYMIZATION_LEVELS: tuple[str, ...] = (
     "composite",
 )
 
+# Path E #58: memoir books use one of four structure types instead of
+# fiction's three-act / hero's-journey / etc. catalog. plot-architect
+# (memoir mode) lets the user pick; downstream skills (chapter-writer #57,
+# rolling-planner) consume the choice from plot/structure.md frontmatter.
+# Reference: book_categories/memoir/craft/memoir-structure-types.md.
+_ALLOWED_MEMOIR_STRUCTURE_TYPES: tuple[str, ...] = (
+    "chronological",
+    "thematic",
+    "braided",
+    "vignette",
+)
+
 
 def is_valid_person_category(value: str) -> bool:
     return value in _ALLOWED_PERSON_CATEGORIES
@@ -149,6 +161,10 @@ def is_valid_consent_status(value: str) -> bool:
 
 def is_valid_anonymization(value: str) -> bool:
     return value in _ALLOWED_ANONYMIZATION_LEVELS
+
+
+def is_valid_memoir_structure_type(value: str) -> bool:
+    return value in _ALLOWED_MEMOIR_STRUCTURE_TYPES
 
 
 def parse_person_file(path: Path) -> dict[str, Any]:
