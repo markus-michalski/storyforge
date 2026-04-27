@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: scene-craft
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Simile Discipline: When Comparisons Work and When They Don't
 
 Similes are among the most abused tools in fiction. Used well, a simile sharpens an image the reader couldn't otherwise picture, reveals character through the comparison itself, or lands a tonal beat that bare description misses. Used badly, it is decoration — pretty-sounding placeholder prose that tells the reader nothing, and worse, that trains their eye to skim.

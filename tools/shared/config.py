@@ -49,6 +49,7 @@ def _default_config() -> dict[str, Any]:
         "defaults": {
             "language": "en",
             "book_type": "novel",
+            "book_category": "fiction",
             "review_handle": "Author",
         },
         "export": {
@@ -104,6 +105,15 @@ def get_plugin_root() -> Path:
 def get_genres_dir() -> Path:
     """Return the genres directory path."""
     return get_plugin_root() / "genres"
+
+
+def get_book_categories_dir() -> Path:
+    """Return the book categories directory path (Path E, Issue #55).
+
+    Houses category-specific knowledge (e.g. memoir craft docs, status models)
+    under ``book_categories/{category}/``.
+    """
+    return get_plugin_root() / "book_categories"
 
 
 def get_reference_dir() -> Path:

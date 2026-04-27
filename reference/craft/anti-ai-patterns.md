@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: voice-and-truth
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Anti-AI Patterns: A Writer's Guide to Authentic Fiction
 
 When artificial intelligence generates narrative, it leaves footprints. These aren't accidents—they're artifacts of how language models work. They process statistical probability rather than human emotion. They optimize for coherence over character. They speak in the voice of the internet average.

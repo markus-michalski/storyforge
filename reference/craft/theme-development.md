@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: voice-and-truth
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Theme Development: The Hidden Argument
 
 Every story makes an argument. Not a preachy, explicit argument with a moral tagged on the end, but a fundamental argument about how the world works, what matters, what's worth suffering for, whether redemption is possible, whether love survives betrayal. That argument is the theme.

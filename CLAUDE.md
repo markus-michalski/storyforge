@@ -2,7 +2,9 @@
 
 ## Overview
 
-StoryForge is a Claude Code plugin for writing fiction: from brainstorming through concept, plot, characters, world-building, chapter-by-chapter writing, to export as EPUB/PDF/MOBI. Author profiles ensure authentic voice — not generic AI output.
+StoryForge is a Claude Code plugin for writing fiction **and memoir**: from brainstorming through concept, plot, characters, world-building, chapter-by-chapter writing, to export as EPUB/PDF/MOBI. Author profiles ensure authentic voice — not generic AI output.
+
+Books carry a `book_category` field (`fiction` | `memoir`) that gates category-specific craft and skill behavior. See **Book Category** below.
 
 ## Configuration
 
@@ -18,6 +20,28 @@ StoryForge is a Claude Code plugin for writing fiction: from brainstorming throu
 Server name: `storyforge-mcp`
 
 Use MCP tools for ALL state operations. Direct file parsing in skills bypasses caching and validation — go through MCP.
+
+## Book Category
+
+Every book carries a `book_category` field in its README frontmatter:
+
+| Value | Meaning | Default |
+|-------|---------|---------|
+| `fiction` | Invented narrative, fiction-shaped craft | ✓ default for new books and for legacy books missing the field |
+| `memoir` | Personal narrative shaped from lived experience | Set explicitly via `create_book_structure(book_category="memoir")` |
+
+Category-specific knowledge lives at `{plugin_root}/book_categories/{category}/`:
+
+- `book_categories/fiction/README.md` — pointer to canonical fiction docs (this file, `reference/craft/`)
+- `book_categories/memoir/README.md` — memoir conventions, structure types, craft index
+- `book_categories/memoir/craft/` — five memoir-specific craft references (structure types, scene vs. summary, emotional truth, real-people ethics, memoir anti-AI patterns)
+- `book_categories/{fiction,memoir}/status-model.md` — per-category status interpretation
+
+Resolve the path from a skill via MCP `get_book_category_dir(category)`.
+
+`book_category` is **orthogonal** to `book_type` (length class: `short-story | novelette | novella | novel | epic`). A "memoir novella" is valid; the two fields don't constrain each other.
+
+Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching by category lands in Phase 2+ (epic #97). Until those phases ship, all skills behave the same regardless of `book_category`.
 
 ## Skill Routing
 
@@ -104,6 +128,20 @@ Use MCP tools for ALL state operations. Direct file parsing in skills bypasses c
 13. `/storyforge:promo-writer` — Social media campaign (FB, Instagram, TikTok, X, Bluesky, Newsletter)
 14. `/storyforge:translator` — Translate to other languages
 
+### Memoir Workflows (Phase 2+ — forthcoming)
+
+Phase 1 ships memoir knowledge under `book_categories/memoir/` but does **not** yet branch the skills above. Memoir books currently flow through the same fiction workflows; skills will branch on `book_category` once Phase 2 (#57–#60, #63), Phase 3 (#61, #62, #65, #66) and Phase 4 (#64) land.
+
+The forthcoming memoir-specific routing (not yet wired):
+
+- `/storyforge:memoir-ethics-checker` — consent/defamation/anonymization scan (Issue #65)
+- `/storyforge:emotional-truth-prompt` — render-the-felt-sense pass (Issue #66)
+- `/storyforge:character-creator` (memoir mode) — real-people handler with consent tracking (Issue #59)
+- `/storyforge:plot-architect` (memoir mode) — narrative-arc shaping with structure-type selection (Issue #58)
+- `/storyforge:chapter-writer` (memoir mode) — loads memoir craft, scene-vs-summary discipline (Issue #57)
+
+Until those land, when working on a memoir book, manually load `book_categories/memoir/README.md` and the relevant `craft/` files at the start of any creative skill.
+
 ## Project Structure
 
 Books live at `{content_root}/projects/{slug}/`:
@@ -123,6 +161,8 @@ Books live at `{content_root}/projects/{slug}/`:
 ├── export/             # front-matter.md, back-matter.md, output/
 └── translations/       # {lang}/ with glossary.md + chapters/
 ```
+
+For `book_category: memoir` projects, the same paths carry **shifted meaning** (characters/ = real people; plot/outline.md = narrative arc shaped from truth, not invented; world/setting.md = real places + eras). See `book_categories/memoir/README.md` for the full mapping. The on-disk layout itself is unchanged in Phase 1 — Phase 2 (#59) may introduce a `people/` alias for memoir; until then `characters/` works for both categories.
 
 ## Status Progressions
 
@@ -163,6 +203,10 @@ Outline → Draft → Revision → Polished → Final
 Concept → Profile → Backstory → Arc Defined → Final
 ```
 
+### Memoir status interpretation
+
+The book status sequence is **identical** for `book_category: memoir`. Several stages carry shifted intent (e.g., `Plot Outlined` = narrative arc identified; `Characters Created` = people profiles drafted with consent decisions). Phase 3 quality gates (consent verification, emotional-truth pass) are documented in `book_categories/memoir/status-model.md` and will be enforced by `memoir-ethics-checker` (#65) once Phase 3 lands.
+
 ## Author Profiles
 
 Authors live at `~/.storyforge/authors/{slug}/`:
@@ -182,16 +226,21 @@ Books can combine 1-3 genres.
 
 ## Craft Knowledge Base
 
-`{plugin_root}/reference/craft/` contains 18 reference documents on writing craft.
-`{plugin_root}/reference/genre/` contains genre-specific craft guides.
+- `{plugin_root}/reference/craft/` — 19 universal/fiction-craft reference documents
+- `{plugin_root}/reference/genre/` — genre-specific craft guides
+- `{plugin_root}/book_categories/memoir/craft/` — 5 memoir-specific craft documents (structure types, scene vs. summary, emotional truth, real-people ethics, memoir anti-AI patterns)
 
-Skills MUST load relevant craft references before generating creative content:
-- `chapter-writer` → loads: chapter-construction, dialog-craft, show-dont-tell, pacing-guide, anti-ai-patterns, prose-style, simile-discipline + genre craft
-- `chapter-reviewer` → loads: dos-and-donts, anti-ai-patterns, chapter-construction, dialog-craft, show-dont-tell, simile-discipline
-- `plot-architect` → loads: story-structure, plot-craft, tension-and-suspense
-- `character-creator` → loads: character-creation, character-arcs
-- `world-builder` → loads: world-building
-- `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts
+Each doc in `reference/craft/` carries a `book_categories: [...]` frontmatter (Issue #56) that declares whether it applies to `[fiction]`, `[fiction, memoir]`, or other future categories. Most apply to both; the four pure-invention docs (`character-creation`, `character-arcs`, `plot-craft`, `world-building`) are tagged `[fiction]` because memoir handles those concerns differently (see `book_categories/memoir/craft/real-people-ethics.md`).
+
+Skills MUST load relevant craft references before generating creative content. Until Phase 2+ wires automatic filtering by `book_category`, skills should also manually skip docs whose frontmatter excludes the current category.
+
+- `chapter-writer` → loads: chapter-construction, dialog-craft, show-dont-tell, pacing-guide, anti-ai-patterns, prose-style, simile-discipline + genre craft (memoir mode adds: `book_categories/memoir/craft/scene-vs-summary.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`)
+- `chapter-reviewer` → loads: dos-and-donts, anti-ai-patterns, chapter-construction, dialog-craft, show-dont-tell, simile-discipline (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`)
+- `plot-architect` → loads: story-structure, plot-craft, tension-and-suspense (memoir mode loads `book_categories/memoir/craft/memoir-structure-types.md` instead of `plot-craft.md`)
+- `character-creator` → loads: character-creation, character-arcs (memoir mode loads `book_categories/memoir/craft/real-people-ethics.md` instead — Phase 2 #59 splits this into a dedicated `real-people-handler` skill)
+- `world-builder` → loads: world-building (memoir typically skips this skill — real settings are documented in `world/setting.md` via research, not invention)
+- `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`)
+- `manuscript-checker` → memoir mode adds memoir-specific patterns (Phase 3 #61)
 - `promo-writer` → loads: genre README(s) for blurb tone guidance, `reference/promo/platforms.md` for platform characteristics
 
 ## Important Rules
@@ -215,6 +264,7 @@ Skills MUST load relevant craft references before generating creative content:
 17. ALWAYS load the book's `CLAUDE.md` via MCP `get_book_claudemd()` before writing or reviewing a chapter — it contains persisted workflow rules and callbacks that survive session compaction
 18. Prefix grammar for persistence: messages starting with `Regel:`, `Workflow:`, or `Callback:` are extracted by the PreCompact hook and written to the book's CLAUDE.md. Unprefixed messages are never persisted automatically.
 19. **ALWAYS `Read` the full file when processing review comments** (GH#27). When the user signals that review comments (`{review_handle}:` blocks) are ready, call the `Read` tool on the full file first. The file-change `system-reminder` diff is truncated for long files — end-of-file comments get silently dropped. After reading, count the comments you see and report the count; re-read if the count mismatches expectation.
+20. **ALWAYS check `book_category` before creative work on a book** (Path E #54/#67). Read it from `get_book_full(slug).book_category`. For `memoir`, additionally load `book_categories/memoir/README.md` and the relevant `book_categories/memoir/craft/*.md` docs at the start of any creative skill. Phase 1 wires the field but does not yet auto-branch skills — the manual load is the bridge until Phase 2+ ships the automatic routing. For named living people in memoir scenes, surface `consent_status` decisions explicitly (Phase 3 #65 will enforce this automatically).
 
 ## Code Style
 

@@ -1,3 +1,10 @@
+---
+book_categories: [fiction]
+craft_topic: structure
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Plot Craft: A Comprehensive Reference
 
 ## Introduction

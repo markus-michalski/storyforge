@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: structure
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Story Structure: A Comprehensive Reference Guide
 
 A well-crafted story structure is the skeleton upon which all narrative flesh hangs. Whether you're writing a literary novel, a thriller, or a romance, understanding the underlying patterns of storytelling will give you both the freedom and the framework to tell compelling stories. This reference document covers the major story structures used in fiction writing, when to use each, and practical guidance for implementation.

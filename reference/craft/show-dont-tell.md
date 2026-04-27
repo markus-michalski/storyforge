@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: scene-craft
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Show, Don't Tell: The Cornerstone of Vivid Fiction
 
 ## The Core Principle

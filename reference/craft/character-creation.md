@@ -1,3 +1,10 @@
+---
+book_categories: [fiction]
+craft_topic: character
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Character Creation: A Comprehensive Guide to Building Believable, Compelling Characters
 
 Creating authentic, multi-dimensional characters is the foundation of compelling fiction. A well-crafted character doesn't just populate your story; they drive it forward through their contradictions, desires, and internal conflicts. This guide provides practical frameworks for building characters that readers will care about.

@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: general
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # The Revision Process: From Draft to Manuscript
 
 The first draft is discovery. Revision is craft.

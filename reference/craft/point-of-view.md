@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: voice-and-truth
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Point of View: Mastering Narrative Perspective in Fiction
 
 ## Introduction: POV as a Fundamental Tool

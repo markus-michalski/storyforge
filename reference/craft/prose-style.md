@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: scene-craft
+status: stable
+last_reviewed: 2026-04-27
+---
+
 # Prose Style: The Architecture of Sentences
 
 Prose style is how you say something, distinct from what you're saying. It's the difference between "The old man was angry" and "The old man's face had gone the color of raw liver." Both convey rage, but one lands like a punch and the other lands like a statistical report. Mastering prose style means learning to control the reader's experience at the sentence level—their pace, their attention, their emotional response.
