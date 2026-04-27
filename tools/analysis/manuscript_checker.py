@@ -32,6 +32,65 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Iterable
 
+from tools.analysis.callback_validator import verify_callbacks as _verify_callbacks
+
+# Plugin root: two levels up from tools/analysis/
+_PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+
+# ---------------------------------------------------------------------------
+# Book genre detection (stdlib-only frontmatter parse)
+# ---------------------------------------------------------------------------
+
+_FRONTMATTER_BLOCK_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+_GENRES_INLINE_RE = re.compile(r"^\s*genres:\s*\[([^\]]*)\]", re.MULTILINE)
+_GENRES_KEY_RE = re.compile(r"^\s*genres:\s*$", re.MULTILINE)
+_GENRES_ITEM_RE = re.compile(r"^[ \t]+-[ \t]+['\"]?([^'\"#\n]+?)['\"]?\s*$")
+
+
+def _read_book_genres(book_path: Path) -> list[str]:
+    """Parse the genres list from book README.md YAML frontmatter.
+
+    Handles both inline ( genres: ["a", "b"] ) and block ( genres:\\n  - a )
+    formats without requiring a yaml library.
+    """
+    readme = book_path / "README.md"
+    if not readme.is_file():
+        return []
+
+    text = readme.read_text(encoding="utf-8")
+    fm_match = _FRONTMATTER_BLOCK_RE.match(text)
+    if not fm_match:
+        return []
+    frontmatter = fm_match.group(1)
+
+    # Inline list: genres: ["a", "b"] or genres: ['a']
+    inline = _GENRES_INLINE_RE.search(frontmatter)
+    if inline:
+        raw = inline.group(1)
+        return [
+            g.strip().strip("\"'")
+            for g in raw.split(",")
+            if g.strip().strip("\"'")
+        ]
+
+    # Block list: genres:\n  - a\n  - b
+    if _GENRES_KEY_RE.search(frontmatter):
+        genres: list[str] = []
+        in_genres = False
+        for line in frontmatter.splitlines():
+            if re.match(r"^\s*genres:\s*$", line):
+                in_genres = True
+                continue
+            if in_genres:
+                m = _GENRES_ITEM_RE.match(line)
+                if m:
+                    genres.append(m.group(1).strip())
+                elif line.strip() and not line.startswith(" ") and not line.startswith("\t"):
+                    break
+        return genres
+
+    return []
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -744,6 +803,56 @@ CLICHE_PHRASES: tuple[str, ...] = (
 )
 
 
+_ENTRY_RE = re.compile(
+    r"^\s*-\s+(.+?)(?:\s+\(severity:\s+(high|medium)\))?(?:\s+—.*)?$",
+    re.IGNORECASE,
+)
+
+
+def _load_cliche_banlist(
+    plugin_root: Path,
+    genres: list[str] | None = None,
+) -> list[tuple[str, str]]:
+    """Load the cliché banlist from reference/craft/cliche-banlist.md.
+
+    Returns a list of (phrase, severity) tuples. Falls back to the hardcoded
+    CLICHE_PHRASES constant (all severity 'high') when the file is missing.
+    Each genre in `genres` merges its cliche-banlist-{genre}.md on top;
+    files that don't exist are silently skipped.
+    """
+    craft_dir = plugin_root / "reference" / "craft"
+
+    def _parse_file(path: Path) -> list[tuple[str, str]]:
+        if not path.is_file():
+            return []
+        entries: list[tuple[str, str]] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            m = _ENTRY_RE.match(line)
+            if not m:
+                continue
+            phrase = m.group(1).strip()
+            severity = (m.group(2) or "high").lower()
+            if phrase and len(phrase) > 2:
+                entries.append((phrase, severity))
+        return entries
+
+    base = _parse_file(craft_dir / "cliche-banlist.md")
+    if not base:
+        base = [(p, "high") for p in CLICHE_PHRASES]
+
+    if genres:
+        seen = {p for p, _ in base}
+        for genre_slug in genres:
+            for phrase, severity in _parse_file(
+                craft_dir / f"cliche-banlist-{genre_slug}.md"
+            ):
+                if phrase not in seen:
+                    base.append((phrase, severity))
+                    seen.add(phrase)
+
+    return base
+
+
 def _compile_cliche_patterns() -> tuple[tuple[str, re.Pattern[str]], ...]:
     return tuple(
         (phrase, re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE))
@@ -754,18 +863,29 @@ def _compile_cliche_patterns() -> tuple[tuple[str, re.Pattern[str]], ...]:
 _CLICHE_PATTERNS = _compile_cliche_patterns()
 
 
-def _scan_cliches(book_path: Path) -> list[Finding]:
+def _scan_cliches(
+    book_path: Path,
+    plugin_root: Path | None = None,
+    genres: list[str] | None = None,
+) -> list[Finding]:
     """Flag hits from the curated cliché banlist.
 
-    One Finding per unique cliché with all occurrences. Severity is always
-    high — a cliché is a cliché even if used once.
+    Loads patterns from the versioned reference file when available; falls back
+    to the hardcoded CLICHE_PHRASES constant. One Finding per unique phrase.
     """
     drafts = _read_chapter_drafts(book_path)
     if not drafts:
         return []
 
+    root = plugin_root if plugin_root is not None else _PLUGIN_ROOT
+    banlist = _load_cliche_banlist(root, genres=genres)
+    patterns = [
+        (phrase, severity, re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE))
+        for phrase, severity in banlist
+    ]
+
     findings: list[Finding] = []
-    for phrase, pattern in _CLICHE_PATTERNS:
+    for phrase, severity, pattern in patterns:
         occurrences: list[Occurrence] = []
         for chapter_slug, raw_text in drafts:
             cleaned = _strip_markdown(raw_text)
@@ -786,7 +906,7 @@ def _scan_cliches(book_path: Path) -> list[Finding]:
                 Finding(
                     phrase=phrase,
                     category="cliche",
-                    severity="high",
+                    severity=severity,
                     count=len(occurrences),
                     occurrences=sorted(occurrences, key=lambda o: (o.chapter, o.line)),
                 )
@@ -902,6 +1022,332 @@ def _scan_question_as_statement(book_path: Path) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
+# Allowed repetitions — book-level exclusion list
+# ---------------------------------------------------------------------------
+
+_ALLOWED_REPS_RE = re.compile(r"^##\s+Allowed Repetitions\s*$", re.IGNORECASE)
+
+
+def _read_allowed_repetitions(book_path: Path) -> frozenset[str]:
+    """Parse ## Allowed Repetitions from book CLAUDE.md.
+
+    Returns a frozenset of lowercased, tokenised phrases that should be
+    excluded from the sentence-level repetition scan.
+    """
+    claudemd = book_path / "CLAUDE.md"
+    if not claudemd.is_file():
+        return frozenset()
+
+    allowed: set[str] = set()
+    in_section = False
+    for line in claudemd.read_text(encoding="utf-8").splitlines():
+        if _ALLOWED_REPS_RE.match(line):
+            in_section = True
+            continue
+        if in_section:
+            if line.startswith("#"):
+                break
+            stripped = line.strip().lstrip("- ").strip()
+            if stripped:
+                normalized = " ".join(_tokenise(stripped))
+                if normalized:
+                    allowed.add(normalized)
+    return frozenset(allowed)
+
+
+# ---------------------------------------------------------------------------
+# Sentence-level repetition detector (8-15 word n-grams)
+# ---------------------------------------------------------------------------
+
+DEFAULT_SENTENCE_NGRAM_SIZES = tuple(range(8, 16))
+
+
+def _scan_sentence_repetitions(
+    book_path: Path,
+    min_length: int = 8,
+    max_length: int = 15,
+    min_occurrences: int = 2,
+) -> list[Finding]:
+    """Detect repeated whole-sentence-level phrases (8-15 word n-grams).
+
+    The existing 4-7 word detector catches short constructions; this pass
+    targets longer units — the most egregious AI tell when reused verbatim.
+    Phrases listed under ## Allowed Repetitions in the book CLAUDE.md are
+    excluded.
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    allowed = _read_allowed_repetitions(book_path)
+    sizes = tuple(range(min_length, max_length + 1))
+    index: dict[str, list[Occurrence]] = defaultdict(list)
+
+    for chapter_slug, raw_text in drafts:
+        cleaned = _strip_markdown(raw_text)
+        for line_no, original_line in enumerate(cleaned.splitlines(), start=1):
+            stripped = original_line.strip()
+            if not stripped:
+                continue
+            tokens = _tokenise(stripped)
+            if len(tokens) < min_length:
+                continue
+            for _size, _i, phrase in _ngrams_in_line(tokens, sizes):
+                index[phrase].append(
+                    Occurrence(
+                        chapter=chapter_slug,
+                        line=line_no,
+                        snippet=_make_snippet(stripped, phrase),
+                    )
+                )
+
+    findings: list[Finding] = []
+    for phrase, occs in index.items():
+        if len(occs) < min_occurrences:
+            continue
+        # Skip if any allowed repetition contains this phrase as a sub-phrase
+        if any(phrase in allowed_phrase for allowed_phrase in allowed):
+            continue
+        findings.append(
+            Finding(
+                phrase=phrase,
+                category="sentence_repetition",
+                severity="high",
+                count=len(occs),
+                occurrences=sorted(occs, key=lambda o: (o.chapter, o.line)),
+            )
+        )
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Snapshot detector — static description blocks without movement or dialog
+# ---------------------------------------------------------------------------
+
+_SNAPSHOT_THRESHOLD_DEFAULT = 5
+_SNAPSHOT_THRESHOLD_RE = re.compile(
+    r"^\s*-\s+snapshot_threshold:\s*(\d+)", re.MULTILINE
+)
+_LINTER_CONFIG_RE = re.compile(r"^##\s+Linter Config\s*$", re.MULTILINE)
+
+# Fallback action verbs when the reference file is missing.
+_ACTION_VERBS_FALLBACK = frozenset(
+    {
+        "walk", "run", "move", "step", "reach", "grab", "turn", "look", "sit",
+        "stand", "open", "close", "push", "pull", "say", "ask", "tell", "call",
+        "enter", "leave", "fall", "rise", "jump", "catch", "throw", "pull",
+        "lift", "carry", "take", "give", "find", "decide", "realize", "notice",
+    }
+)
+
+# Split on sentence-ending punctuation followed by whitespace.
+# Deliberately lenient: ellipsis (...) and single-char abbreviations are
+# handled by requiring at least one letter before the end marker.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[a-zA-Z\d][.!?])\s+")
+_DIALOG_CHAR_RE = re.compile(r'["“”]')
+
+
+def _read_snapshot_threshold(book_path: Path) -> int:
+    """Read per-book snapshot threshold from ## Linter Config in CLAUDE.md."""
+    claudemd = book_path / "CLAUDE.md"
+    if not claudemd.is_file():
+        return _SNAPSHOT_THRESHOLD_DEFAULT
+    text = claudemd.read_text(encoding="utf-8")
+    # Only look inside the ## Linter Config section
+    lc = _LINTER_CONFIG_RE.search(text)
+    if not lc:
+        return _SNAPSHOT_THRESHOLD_DEFAULT
+    section = text[lc.start():]
+    # Stop at next heading
+    next_heading = re.search(r"^##\s", section[3:], re.MULTILINE)
+    if next_heading:
+        section = section[: next_heading.start() + 3]
+    m = _SNAPSHOT_THRESHOLD_RE.search(section)
+    if m:
+        return max(2, int(m.group(1)))
+    return _SNAPSHOT_THRESHOLD_DEFAULT
+
+
+def _load_action_verbs(plugin_root: Path) -> frozenset[str]:
+    """Load the action verb list from reference/craft/action-verbs.md.
+
+    Returns a frozenset of lowercased base verb forms. Falls back to a minimal
+    hardcoded set if the file is missing.
+    """
+    path = plugin_root / "reference" / "craft" / "action-verbs.md"
+    if not path.is_file():
+        return _ACTION_VERBS_FALLBACK
+    verbs: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip().lstrip("- ").strip()
+        if stripped and not stripped.startswith("#") and len(stripped) >= 2:
+            verbs.add(stripped.lower())
+    return frozenset(verbs) if verbs else _ACTION_VERBS_FALLBACK
+
+
+def _sentence_has_action(sentence: str, action_verbs: frozenset[str]) -> bool:
+    """Return True if the sentence contains at least one action verb."""
+    tokens = set(_tokenise(sentence))
+    for verb in action_verbs:
+        if verb in tokens:
+            return True
+        # Common inflections
+        if f"{verb}s" in tokens or f"{verb}ed" in tokens or f"{verb}ing" in tokens:
+            return True
+        # Drop trailing -e before -ing: take → taking, move → moving
+        if verb.endswith("e") and f"{verb[:-1]}ing" in tokens:
+            return True
+        # Doubling final consonant: run → running, sit → sitting
+        if len(verb) >= 3 and verb[-1] == verb[-2] and f"{verb}ing" in tokens:
+            return True
+    return False
+
+
+def _scan_snapshots(
+    book_path: Path,
+    plugin_root: Path | None = None,
+) -> list[Finding]:
+    """Flag static description blocks with no action verbs and no dialog.
+
+    Reads the threshold from ## Linter Config → snapshot_threshold (default 5).
+    One Finding per flagged block; severity is always medium.
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    threshold = _read_snapshot_threshold(book_path)
+    root = plugin_root if plugin_root is not None else _PLUGIN_ROOT
+    action_verbs = _load_action_verbs(root)
+
+    findings: list[Finding] = []
+
+    for chapter_slug, raw_text in drafts:
+        cleaned = _strip_markdown(raw_text)
+        lines = cleaned.splitlines()
+
+        # Collect paragraphs (blank-line-separated blocks of text).
+        paragraphs: list[tuple[int, str]] = []  # (start_line, text)
+        para_start = 0
+        para_lines: list[str] = []
+        for line_no, line in enumerate(lines, start=1):
+            if line.strip():
+                if not para_lines:
+                    para_start = line_no
+                para_lines.append(line)
+            else:
+                if para_lines:
+                    paragraphs.append((para_start, " ".join(para_lines)))
+                    para_lines = []
+        if para_lines:
+            paragraphs.append((para_start, " ".join(para_lines)))
+
+        for para_start_line, para_text in paragraphs:
+            sentences = [
+                s.strip()
+                for s in _SENTENCE_SPLIT_RE.split(para_text)
+                if s.strip()
+            ]
+            if len(sentences) < threshold:
+                continue
+
+            # Walk through sentences counting consecutive descriptive ones.
+            streak: list[str] = []
+            streak_start = para_start_line
+
+            def _flush_streak(streak: list[str], start: int) -> None:
+                if len(streak) >= threshold:
+                    snippet = " ".join(streak)[:200].rstrip()
+                    if len(" ".join(streak)) > 200:
+                        snippet += "…"
+                    findings.append(
+                        Finding(
+                            phrase=f"snapshot:{chapter_slug}:{start}",
+                            category="snapshot",
+                            severity="medium",
+                            count=len(streak),
+                            occurrences=[
+                                Occurrence(
+                                    chapter=chapter_slug,
+                                    line=start,
+                                    snippet=snippet,
+                                )
+                            ],
+                        )
+                    )
+
+            for sent in sentences:
+                if not sent:
+                    continue
+                if _DIALOG_CHAR_RE.search(sent) or _sentence_has_action(sent, action_verbs):
+                    _flush_streak(streak, streak_start)
+                    streak = []
+                else:
+                    if not streak:
+                        streak_start = para_start_line
+                    streak.append(sent)
+
+            _flush_streak(streak, streak_start)
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Callback register scanner
+# ---------------------------------------------------------------------------
+
+_CALLBACK_DEFERRED_SILENCE = 10  # chapters of silence before deferred becomes a finding
+
+
+def _scan_callbacks(book_path: Path) -> list[Finding]:
+    """Surface broken callback promises as manuscript findings.
+
+    Reads the book's CLAUDE.md, runs verify_callbacks, and converts:
+    - ``potentially_dropped`` entries → high-severity ``callback_dropped`` findings
+    - ``deferred`` entries with chapters_since > threshold → medium-severity
+      ``callback_deferred`` findings
+
+    Satisfied callbacks and recent-deferred callbacks produce no findings.
+    """
+    claudemd_path = book_path / "CLAUDE.md"
+    if not claudemd_path.exists():
+        return []
+
+    claudemd_text = claudemd_path.read_text(encoding="utf-8")
+    result = _verify_callbacks(book_path, claudemd_text)
+
+    findings: list[Finding] = []
+
+    for entry in result.get("potentially_dropped", []):
+        warning = entry.get("warning", "no appearance found")
+        occ = Occurrence(chapter="CLAUDE.md", line=0, snippet=warning)
+        findings.append(Finding(
+            phrase=entry["name"],
+            category="callback_dropped",
+            severity="high",
+            count=entry.get("chapters_since", 0),
+            occurrences=[occ],
+        ))
+
+    for entry in result.get("deferred", []):
+        chapters_since = entry.get("chapters_since", 0)
+        if chapters_since <= _CALLBACK_DEFERRED_SILENCE:
+            continue
+        snippet = f"not appeared in {chapters_since} drafted chapters"
+        occ = Occurrence(chapter="CLAUDE.md", line=0, snippet=snippet)
+        findings.append(Finding(
+            phrase=entry["name"],
+            category="callback_deferred",
+            severity="medium",
+            count=chapters_since,
+            occurrences=[occ],
+        ))
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Scanning
 # ---------------------------------------------------------------------------
 
@@ -911,6 +1357,7 @@ def scan_repetitions(
     ngram_sizes: Iterable[int] = DEFAULT_NGRAM_SIZES,
     min_occurrences: int = DEFAULT_MIN_OCCURRENCES,
     max_findings_per_category: int | None = None,
+    plugin_root: Path | None = None,
 ) -> dict[str, Any]:
     """Scan all chapter drafts of a book for repeated phrases.
 
@@ -993,11 +1440,21 @@ def scan_repetitions(
     # by definition and ignore the n-gram frequency thresholds above.
     findings.extend(_scan_book_rules(book_path))
     # Merge the craft-level checks (filter words, adverb density, clichés,
-    # question-as-statement punctuation).
+    # question-as-statement punctuation, sentence-level repetitions).
     findings.extend(_scan_filter_words(book_path))
     findings.extend(_scan_adverb_density(book_path))
-    findings.extend(_scan_cliches(book_path))
+    book_genres = _read_book_genres(book_path)
+    findings.extend(
+        _scan_cliches(
+            book_path,
+            plugin_root=plugin_root,
+            genres=book_genres or None,
+        )
+    )
     findings.extend(_scan_question_as_statement(book_path))
+    findings.extend(_scan_sentence_repetitions(book_path))
+    findings.extend(_scan_snapshots(book_path, plugin_root=plugin_root))
+    findings.extend(_scan_callbacks(book_path))
 
     # Sort order priority: book_rule_violation first (user-authored rules
     # override everything), then clichés (always bad), then the rest by
@@ -1054,6 +1511,10 @@ CATEGORY_LABELS = {
     "question_as_statement": "Dialogue Punctuation (Q-word + period)",
     "filter_word": "POV Filter Words",
     "adverb_density": "Adverb Density (per Chapter)",
+    "sentence_repetition": "Sentence-Level Repetitions (8-15 words)",
+    "snapshot": "Snapshot Blocks (static description, no movement)",
+    "callback_dropped": "Dropped Callbacks (promised threads, no follow-through)",
+    "callback_deferred": "Deferred Callbacks (long-silent registered threads)",
     "simile": "Similes & Metaphors",
     "blocking_tic": "Blocking Tics",
     "character_tell": "Character Tells",
@@ -1068,6 +1529,10 @@ CATEGORY_ORDER = [
     "question_as_statement",
     "filter_word",
     "adverb_density",
+    "sentence_repetition",
+    "snapshot",
+    "callback_dropped",
+    "callback_deferred",
     "simile",
     "character_tell",
     "blocking_tic",
@@ -1210,6 +1675,40 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
         return (
             f"_Recommendation:_ Same sensory description in {count} places — "
             f"vary at least {count - 1} of them so each scene has its own texture."
+        )
+    if cat == "snapshot":
+        count = finding["count"]
+        return (
+            f"_Recommendation:_ {count} consecutive descriptive sentences with no "
+            f"action and no dialog — the scene becomes a photograph. Fix options: "
+            f"**(A)** insert one beat of character action (reaching for something, "
+            f"shifting weight, a micro-gesture that shows state of mind); "
+            f"**(B)** cut the block to 2-3 sentences of pure setting and trust the "
+            f"reader to fill in the rest; "
+            f"**(C)** if description is intentional (lyrical pause, aftermath beat), "
+            f"raise the per-book threshold in `## Linter Config → snapshot_threshold`."
+        )
+    if cat == "sentence_repetition":
+        return (
+            f"_Recommendation:_ This {len(finding['phrase'].split())}-word sentence "
+            f"recurs {count}× — the loudest AI tell in the book. Do not fix by swapping "
+            f"one word; the rhythm and structure are what the reader recognises. Rewrite "
+            f"the emotional beat entirely: different body signal, different duration, "
+            f"different syntax. If it is a deliberate motif, add it to the book's "
+            f"## Allowed Repetitions section in CLAUDE.md."
+        )
+    if cat == "callback_dropped":
+        return (
+            f"_Recommendation:_ '{finding['phrase']}' is registered in the Callback "
+            f"Register with a hard deadline or must-not-forget flag that has been "
+            f"breached. Either (A) plant the callback in the appropriate chapter now, "
+            f"(B) update the register entry to reflect the new plan, or "
+            f"(C) remove the callback if the thread was intentionally dropped."
+        )
+    if cat == "callback_deferred":
+        return (
+            f"_Recommendation:_ '{finding['phrase']}' has been silent for {count} "
+            f"chapters. Decide whether to plant it soon or remove it from the register."
         )
     return (
         f"_Recommendation:_ Decide which occurrence is most necessary; cut or "

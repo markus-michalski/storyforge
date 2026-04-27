@@ -17,15 +17,25 @@ from pathlib import Path
 
 from tools.analysis.manuscript_checker import (
     _extract_patterns_from_rule,
+    _load_action_verbs,
+    _load_cliche_banlist,
+    _read_allowed_repetitions,
+    _read_book_genres,
     _read_book_rules,
+    _read_snapshot_threshold,
     _scan_adverb_density,
     _scan_book_rules,
+    _scan_callbacks,
     _scan_cliches,
     _scan_filter_words,
     _scan_question_as_statement,
+    _scan_sentence_repetitions,
+    _scan_snapshots,
     _strip_dialogue,
     scan_repetitions,
 )
+
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 
 
 # ---------------------------------------------------------------------------
@@ -579,3 +589,524 @@ class TestScanManuscriptIntegration:
         result = scan_repetitions(book)
         assert result["findings"]
         assert result["findings"][0]["category"] == "cliche"
+
+
+# ---------------------------------------------------------------------------
+# #80 — Cliché banlist: file-based loader
+# ---------------------------------------------------------------------------
+
+
+class TestClicheBanlistLoader:
+    def test_real_file_has_minimum_120_phrases(self) -> None:
+        phrases = _load_cliche_banlist(PLUGIN_ROOT)
+        assert len(phrases) >= 120, f"only {len(phrases)} entries — expected ≥120"
+
+    def test_all_legacy_phrases_still_present(self) -> None:
+        phrases = _load_cliche_banlist(PLUGIN_ROOT)
+        texts = [p[0] for p in phrases]
+        assert "blood ran cold" in texts
+        assert "heart skipped a beat" in texts
+        assert "time stood still" in texts
+
+    def test_filter_verbs_included(self) -> None:
+        phrases = _load_cliche_banlist(PLUGIN_ROOT)
+        texts = [p[0] for p in phrases]
+        assert "began to" in texts
+        assert "started to" in texts
+
+    def test_each_entry_has_severity(self) -> None:
+        phrases = _load_cliche_banlist(PLUGIN_ROOT)
+        for phrase, severity in phrases:
+            assert severity in ("high", "medium"), (
+                f"unexpected severity {severity!r} for {phrase!r}"
+            )
+
+    def test_missing_file_falls_back_to_legacy_constant(self, tmp_path: Path) -> None:
+        phrases = _load_cliche_banlist(tmp_path)
+        texts = [p[0] for p in phrases]
+        assert "blood ran cold" in texts
+
+    def test_genre_override_adds_phrases(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Tired Phrases\n- blood ran cold (severity: high)\n",
+            encoding="utf-8",
+        )
+        (ref / "cliche-banlist-romance.md").write_text(
+            "## Romance Additions\n- star-crossed lovers (severity: medium)\n",
+            encoding="utf-8",
+        )
+        phrases = _load_cliche_banlist(tmp_path, genres=["romance"])
+        texts = [p[0] for p in phrases]
+        assert "blood ran cold" in texts
+        assert "star-crossed lovers" in texts
+
+    def test_genre_override_without_base_still_works(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist-romance.md").write_text(
+            "## Extra\n- hearts entwined (severity: medium)\n",
+            encoding="utf-8",
+        )
+        phrases = _load_cliche_banlist(tmp_path, genres=["romance"])
+        texts = [p[0] for p in phrases]
+        # Falls back to legacy for base, merges genre override
+        assert "blood ran cold" in texts
+        assert "hearts entwined" in texts
+
+    def test_multi_genre_merges_all_files(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
+        )
+        (ref / "cliche-banlist-romance.md").write_text(
+            "## Romance\n- star-crossed lovers (severity: medium)\n", encoding="utf-8"
+        )
+        (ref / "cliche-banlist-sci-fi.md").write_text(
+            "## Sci-Fi\n- as you know bob (severity: high)\n", encoding="utf-8"
+        )
+        phrases = _load_cliche_banlist(tmp_path, genres=["romance", "sci-fi"])
+        texts = [p[0] for p in phrases]
+        assert "blood ran cold" in texts
+        assert "star-crossed lovers" in texts
+        assert "as you know bob" in texts
+
+    def test_unknown_genre_silently_skipped(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
+        )
+        # No cliche-banlist-nonexistent.md — should not raise
+        phrases = _load_cliche_banlist(tmp_path, genres=["nonexistent"])
+        assert any(p[0] == "blood ran cold" for p in phrases)
+
+    def test_no_genre_deduplication_across_files(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
+        )
+        (ref / "cliche-banlist-romance.md").write_text(
+            "## Romance\n- blood ran cold (severity: high)\n", encoding="utf-8"
+        )
+        phrases = _load_cliche_banlist(tmp_path, genres=["romance"])
+        texts = [p[0] for p in phrases]
+        assert texts.count("blood ran cold") == 1
+
+    def test_scan_cliches_detects_filter_verb_from_file(self, tmp_path: Path) -> None:
+        chapters = {"01-open": "# Ch 1\n\nShe began to walk toward the door.\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_cliches(book)
+        assert any("began to" in f.phrase for f in findings), (
+            "expected 'began to' from file-loaded banlist"
+        )
+
+    def test_scan_cliches_severity_respected(self, tmp_path: Path) -> None:
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Test\n- seemed to (severity: medium)\n- blood ran cold (severity: high)\n",
+            encoding="utf-8",
+        )
+        chapters = {
+            "01-open": "# Ch 1\n\nHer blood ran cold. She seemed to hesitate.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_cliches(book, plugin_root=tmp_path)
+        sev = {f.phrase: f.severity for f in findings}
+        assert sev.get("blood ran cold") == "high"
+        assert sev.get("seemed to") == "medium"
+
+
+# ---------------------------------------------------------------------------
+# _read_book_genres
+# ---------------------------------------------------------------------------
+
+
+def _write_readme(book: Path, genres_line: str) -> None:
+    """Write a minimal book README.md with YAML frontmatter."""
+    (book / "README.md").write_text(
+        f"---\ntitle: Test\n{genres_line}\n---\n\n# Test\n",
+        encoding="utf-8",
+    )
+
+
+class TestReadBookGenres:
+    def test_parses_inline_list(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _write_readme(book, 'genres: ["romance", "sci-fi"]')
+        assert _read_book_genres(book) == ["romance", "sci-fi"]
+
+    def test_parses_block_list(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _write_readme(book, "genres:\n  - thriller\n  - horror")
+        assert _read_book_genres(book) == ["thriller", "horror"]
+
+    def test_parses_single_quoted(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _write_readme(book, "genres: ['fantasy']")
+        assert _read_book_genres(book) == ["fantasy"]
+
+    def test_empty_list_returns_empty(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _write_readme(book, "genres: []")
+        assert _read_book_genres(book) == []
+
+    def test_missing_readme_returns_empty(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        assert _read_book_genres(book) == []
+
+    def test_missing_genres_field_returns_empty(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _write_readme(book, "title: Test")
+        assert _read_book_genres(book) == []
+
+    def test_scan_repetitions_auto_detects_genres(self, tmp_path: Path) -> None:
+        # Integration: genre phrases loaded automatically from README genres field
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "cliche-banlist.md").write_text(
+            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
+        )
+        (ref / "cliche-banlist-thriller.md").write_text(
+            "## Thriller\n- adrenaline surged (severity: high)\n", encoding="utf-8"
+        )
+        book = tmp_path / "book"
+        book.mkdir()
+        (book / "CLAUDE.md").write_text(CLAUDEMD_EMPTY_RULES, encoding="utf-8")
+        _write_readme(book, 'genres: ["thriller"]')
+        chapters_dir = book / "chapters" / "01-open"
+        chapters_dir.mkdir(parents=True)
+        (chapters_dir / "draft.md").write_text(
+            "# Ch 1\n\nAdrenaline surged through her veins.\n", encoding="utf-8"
+        )
+        result = scan_repetitions(book, plugin_root=ref.parent.parent)
+        categories_phrases = [f["phrase"] for f in result["findings"]]
+        assert any("adrenaline surged" in p for p in categories_phrases)
+
+
+# ---------------------------------------------------------------------------
+# #82 — Sentence-level repetition detector (8-15 word n-grams)
+# ---------------------------------------------------------------------------
+
+_LONG_REPEATED = (
+    "his heart hammered against his ribs as he forced himself to breathe"
+)
+
+
+class TestScanSentenceRepetitions:
+    def test_detects_12_word_phrase_across_two_chapters(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n",
+            "02-mid": f"# Ch 2\n\n{_LONG_REPEATED.capitalize()} again.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_sentence_repetitions(book)
+        assert findings, "expected sentence_repetition finding"
+        all_phrases = " ".join(f.phrase for f in findings)
+        assert "heart hammered against his ribs" in all_phrases
+
+    def test_short_phrase_not_caught_by_sentence_detector(self, tmp_path: Path) -> None:
+        # 5-word phrase — below 8-word minimum
+        short = "the wind moved through trees"
+        chapters = {
+            "01-open": f"# Ch 1\n\n{short}.\n",
+            "02-mid": f"# Ch 2\n\n{short}.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_sentence_repetitions(book)
+        assert all("wind moved through" not in f.phrase for f in findings)
+
+    def test_single_occurrence_not_flagged(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        assert _scan_sentence_repetitions(book) == []
+
+    def test_category_is_sentence_repetition(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n",
+            "02-mid": f"# Ch 2\n\n{_LONG_REPEATED.capitalize()} softly.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_sentence_repetitions(book)
+        assert findings
+        assert all(f.category == "sentence_repetition" for f in findings)
+
+    def test_severity_is_always_high(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n",
+            "02-mid": f"# Ch 2\n\n{_LONG_REPEATED.capitalize()} again.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_sentence_repetitions(book)
+        assert findings
+        assert all(f.severity == "high" for f in findings)
+
+    def test_allowed_repetitions_excluded(self, tmp_path: Path) -> None:
+        claudemd = CLAUDEMD_EMPTY_RULES + f"\n## Allowed Repetitions\n- {_LONG_REPEATED}\n"
+        chapters = {
+            "01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n",
+            "02-mid": f"# Ch 2\n\n{_LONG_REPEATED.capitalize()} softly.\n",
+        }
+        book = _write_book(tmp_path, claudemd, chapters)
+        findings = _scan_sentence_repetitions(book)
+        assert all("heart hammered against his ribs" not in f.phrase for f in findings)
+
+    def test_sentence_repetition_in_scan_repetitions_result(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-open": f"# Ch 1\n\n{_LONG_REPEATED.capitalize()}.\n",
+            "02-mid": f"# Ch 2\n\n{_LONG_REPEATED.capitalize()} again.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        result = scan_repetitions(book)
+        categories = {f["category"] for f in result["findings"]}
+        assert "sentence_repetition" in categories
+
+
+class TestReadAllowedRepetitions:
+    def test_parses_allowed_section(self, tmp_path: Path) -> None:
+        claudemd = (
+            "# Book\n\n## Allowed Repetitions\n"
+            "- his heart hammered against his ribs\n"
+            "- the way the light fell\n"
+        )
+        book = _write_book(tmp_path, claudemd, {})
+        allowed = _read_allowed_repetitions(book)
+        assert "his heart hammered against his ribs" in allowed
+        assert "the way the light fell" in allowed
+
+    def test_missing_section_returns_empty(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        assert _read_allowed_repetitions(book) == frozenset()
+
+    def test_missing_claudemd_returns_empty(self, tmp_path: Path) -> None:
+        book = tmp_path / "book"
+        book.mkdir()
+        assert _read_allowed_repetitions(book) == frozenset()
+
+
+# ---------------------------------------------------------------------------
+# #81 — Snapshot detector (static description blocks without movement)
+# ---------------------------------------------------------------------------
+
+# 7 sentences, all descriptive — no action verbs, no dialog
+_SNAPSHOT_BLOCK = (
+    "The room was warm. "
+    "The fire burned low in the grate. "
+    "Ash drifted up and settled on the mantelpiece. "
+    "The curtains were heavy velvet, deep burgundy. "
+    "A single lamp cast yellow light across the rug. "
+    "Dust motes hung in the air near the window. "
+    "The walls were lined with bookshelves, floor to ceiling."
+)
+
+# 4 sentences — below default threshold of 5
+_SHORT_BLOCK = (
+    "The room was warm. "
+    "The fire burned low in the grate. "
+    "Ash drifted up and settled on the mantelpiece. "
+    "The curtains were heavy velvet, deep burgundy."
+)
+
+
+class TestScanSnapshots:
+    def test_detects_7_sentence_description_block(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_SNAPSHOT_BLOCK}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_snapshots(book)
+        assert findings, "expected snapshot finding for 7-sentence description block"
+        assert findings[0].category == "snapshot"
+
+    def test_ignores_4_sentence_block_below_threshold(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_SHORT_BLOCK}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        assert _scan_snapshots(book) == []
+
+    def test_action_verb_breaks_block(self, tmp_path: Path) -> None:
+        # 3 descriptive + 1 action + 3 descriptive = two 3-sentence blocks, neither ≥ 5
+        action_break = (
+            "The room was warm. "
+            "The fire burned low. "
+            "Ash drifted up. "
+            "He walked to the window. "  # action verb → resets counter
+            "The curtains were heavy velvet. "
+            "Dust motes hung in the air. "
+            "The walls were lined with bookshelves."
+        )
+        chapters = {"01-open": f"# Ch 1\n\n{action_break}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        assert _scan_snapshots(book) == []
+
+    def test_dialog_breaks_block(self, tmp_path: Path) -> None:
+        dialog_break = (
+            "The room was warm. "
+            "The fire burned low. "
+            "Ash drifted up. "
+            '"It is rather cold tonight," she said. '  # dialog → resets counter
+            "The curtains were heavy velvet. "
+            "Dust motes hung in the air. "
+            "The walls were lined with bookshelves."
+        )
+        chapters = {"01-open": f"# Ch 1\n\n{dialog_break}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        assert _scan_snapshots(book) == []
+
+    def test_per_book_threshold_respected(self, tmp_path: Path) -> None:
+        # Default threshold = 5; set to 8 → 7 sentences should NOT flag
+        claudemd = CLAUDEMD_EMPTY_RULES + "\n## Linter Config\n- snapshot_threshold: 8\n"
+        chapters = {"01-open": f"# Ch 1\n\n{_SNAPSHOT_BLOCK}\n"}
+        book = _write_book(tmp_path, claudemd, chapters)
+        assert _scan_snapshots(book) == []
+
+    def test_threshold_8_flags_9_sentence_block(self, tmp_path: Path) -> None:
+        claudemd = CLAUDEMD_EMPTY_RULES + "\n## Linter Config\n- snapshot_threshold: 8\n"
+        long_block = _SNAPSHOT_BLOCK + " The clock ticked on the mantle. The hour was late."
+        chapters = {"01-open": f"# Ch 1\n\n{long_block}\n"}
+        book = _write_book(tmp_path, claudemd, chapters)
+        findings = _scan_snapshots(book)
+        assert findings, "expected finding for 9-sentence block with threshold 8"
+
+    def test_severity_is_medium(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_SNAPSHOT_BLOCK}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_snapshots(book)
+        assert findings
+        assert all(f.severity == "medium" for f in findings)
+
+    def test_occurrence_records_chapter_and_line(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_SNAPSHOT_BLOCK}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        findings = _scan_snapshots(book)
+        assert findings
+        occ = findings[0].occurrences[0]
+        assert occ.chapter == "01-open"
+        assert occ.line >= 1
+
+    def test_snapshot_appears_in_scan_repetitions(self, tmp_path: Path) -> None:
+        chapters = {"01-open": f"# Ch 1\n\n{_SNAPSHOT_BLOCK}\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        result = scan_repetitions(book)
+        categories = {f["category"] for f in result["findings"]}
+        assert "snapshot" in categories
+
+    def test_empty_chapters_no_findings(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        assert _scan_snapshots(book) == []
+
+
+class TestReadSnapshotThreshold:
+    def test_default_is_5(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        assert _read_snapshot_threshold(book) == 5
+
+    def test_parses_custom_threshold(self, tmp_path: Path) -> None:
+        claudemd = CLAUDEMD_EMPTY_RULES + "\n## Linter Config\n- snapshot_threshold: 8\n"
+        book = _write_book(tmp_path, claudemd, {})
+        assert _read_snapshot_threshold(book) == 8
+
+    def test_missing_claudemd_returns_default(self, tmp_path: Path) -> None:
+        book = tmp_path / "book"
+        book.mkdir()
+        assert _read_snapshot_threshold(book) == 5
+
+
+class TestLoadActionVerbs:
+    def test_real_file_loads_entries(self) -> None:
+        verbs = _load_action_verbs(PLUGIN_ROOT)
+        assert len(verbs) >= 50, f"only {len(verbs)} verbs — expected ≥50"
+
+    def test_common_verbs_present(self) -> None:
+        verbs = _load_action_verbs(PLUGIN_ROOT)
+        assert "walk" in verbs
+        assert "run" in verbs
+        assert "reach" in verbs
+
+    def test_missing_file_returns_fallback(self, tmp_path: Path) -> None:
+        verbs = _load_action_verbs(tmp_path)
+        # Should still return non-empty fallback set
+        assert len(verbs) >= 20
+
+
+# ---------------------------------------------------------------------------
+# TestScanCallbacksIntegration
+# ---------------------------------------------------------------------------
+
+_CLAUDEMD_WITH_CALLBACKS = """\
+# My Book
+
+## Callback Register
+
+<!-- CALLBACKS:START -->
+- **Theo's watch** — expected return by Ch 5. _(added 2026-01-01)_
+<!-- CALLBACKS:END -->
+"""
+
+_CLAUDEMD_LONG_SILENCE = """\
+# My Book
+
+## Callback Register
+
+<!-- CALLBACKS:START -->
+- **the silver ring** _(must not be forgotten)_ _(added 2026-01-01)_
+<!-- CALLBACKS:END -->
+"""
+
+
+class TestScanCallbacksIntegration:
+    def test_no_claudemd_returns_empty(self, tmp_path: Path) -> None:
+        book = tmp_path / "book"
+        book.mkdir()
+        (book / "chapters").mkdir()
+        assert _scan_callbacks(book) == []
+
+    def test_no_callbacks_markers_returns_empty(self, tmp_path: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {"01": "Some text."})
+        assert _scan_callbacks(book) == []
+
+    def test_overdue_expected_return_is_high_severity(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-ch": "She walked down the corridor.",
+            "06-ch": "Rain fell outside the window.",
+            "10-ch": "The final chapter arrived.",
+        }
+        book = _write_book(tmp_path, _CLAUDEMD_WITH_CALLBACKS, chapters)
+        findings = _scan_callbacks(book)
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.category == "callback_dropped"
+        assert f.severity == "high"
+        assert "Theo" in f.phrase or "watch" in f.phrase
+
+    def test_recent_deferred_below_threshold_no_finding(self, tmp_path: Path) -> None:
+        claudemd = """\
+# My Book
+
+## Callback Register
+
+<!-- CALLBACKS:START -->
+- **the blue notebook** _(added 2026-01-01)_
+<!-- CALLBACKS:END -->
+"""
+        # Only 3 chapters: chapters_since <= 10 → no finding
+        chapters = {
+            "01-ch": "She sat by the fire.",
+            "02-ch": "Morning arrived.",
+            "03-ch": "The rain continued.",
+        }
+        book = _write_book(tmp_path, claudemd, chapters)
+        findings = _scan_callbacks(book)
+        assert findings == []
+
+    def test_scan_repetitions_includes_callback_findings(self, tmp_path: Path) -> None:
+        chapters = {
+            "01-ch": "She walked away without looking back.",
+            "06-ch": "The sun set over the valley.",
+            "10-ch": "Night fell at last.",
+        }
+        book = _write_book(tmp_path, _CLAUDEMD_WITH_CALLBACKS, chapters)
+        result = scan_repetitions(book)
+        categories = {f["category"] for f in result["findings"]}
+        assert "callback_dropped" in categories

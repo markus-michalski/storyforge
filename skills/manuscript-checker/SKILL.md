@@ -52,6 +52,10 @@ does real work in each location may be an intentional motif.
 | `question_as_statement` | Dialogue starting with a Q-word but ending with `.` | high if ≥5 hits |
 | `filter_word` | POV-distancing verbs per chapter (>3/1k words) | high if >6/1k |
 | `adverb_density` | `-ly` adverbs per chapter (>8/1k words) | high if >14/1k |
+| `sentence_repetition` | Identical 8-15-word sentences across chapters | always high |
+| `snapshot` | ≥5 consecutive descriptive sentences, no action, no dialog | always medium |
+| `callback_dropped` | Registered callback past its `expected return by Ch N` deadline, or must-not-forget + >10 ch silence | always high |
+| `callback_deferred` | Registered callback not seen in >10 drafted chapters | always medium |
 | `simile` / `character_tell` / `blocking_tic` / `sensory` / `structural` / `signature_phrase` | Cross-chapter n-gram repetition | high if ≥4 hits |
 
 The first two always sort to the top of the report — book rules because the
@@ -89,6 +93,8 @@ The tool returns:
     "question_as_statement": {"high": 1, "medium": 0},
     "filter_word": {"high": 4, "medium": 6},
     "adverb_density": {"high": 2, "medium": 3},
+    "callback_dropped": {"high": 1, "medium": 0},
+    "callback_deferred": {"high": 0, "medium": 2},
     "simile": {"high": 6, "medium": 14}
   },
   "report_path": ".../research/manuscript-report.md",
@@ -235,6 +241,18 @@ bullet under `## Rules` in the book's CLAUDE.md:
 - Italics (`*foo*`) are **ignored** — they're for narrative examples.
 - Rules without any extractable pattern produce no findings. Rephrase with
   backticks or quotes to make them machine-readable.
+
+## Callback Register findings
+
+`callback_dropped` and `callback_deferred` findings come from cross-referencing
+the book's `## Callback Register` section in CLAUDE.md against all chapter
+drafts. The standalone MCP tool `verify_callbacks(book_slug)` runs the same
+logic but returns the full three-bucket breakdown (satisfied / deferred /
+potentially_dropped) without going through the scan pipeline.
+
+Use `verify_callbacks` when the user asks specifically about callbacks; use
+`scan_manuscript` for the full manuscript health check which includes callbacks
+as one of its detection categories.
 
 ## Error handling
 
