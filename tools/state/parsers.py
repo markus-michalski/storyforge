@@ -110,6 +110,77 @@ def parse_character_file(path: Path) -> dict[str, Any]:
     }
 
 
+# Path E #59: real-person schema for memoir books. Distinct from the fiction
+# character schema — there is no ``role`` (no protagonist/antagonist), no
+# arc fields. Instead: relationship to the memoirist, ethics-relevant
+# category, consent posture, and anonymization decision. Mirrors the
+# four-category model in book_categories/memoir/craft/real-people-ethics.md.
+
+# Allowed values — kept here so parsers, validators, and the create_person
+# MCP tool stay aligned. memoir-ethics-checker (#65) consumes these too.
+_ALLOWED_PERSON_CATEGORIES: tuple[str, ...] = (
+    "public-figure",
+    "private-living-person",
+    "deceased",
+    "anonymized-or-composite",
+)
+_ALLOWED_CONSENT_STATUSES: tuple[str, ...] = (
+    "confirmed-consent",
+    "pending",
+    "not-required",
+    "refused",
+    "not-asking",
+)
+_ALLOWED_ANONYMIZATION_LEVELS: tuple[str, ...] = (
+    "none",
+    "partial",
+    "pseudonym",
+    "composite",
+)
+
+
+def is_valid_person_category(value: str) -> bool:
+    return value in _ALLOWED_PERSON_CATEGORIES
+
+
+def is_valid_consent_status(value: str) -> bool:
+    return value in _ALLOWED_CONSENT_STATUSES
+
+
+def is_valid_anonymization(value: str) -> bool:
+    return value in _ALLOWED_ANONYMIZATION_LEVELS
+
+
+def parse_person_file(path: Path) -> dict[str, Any]:
+    """Parse a real-person markdown file (memoir mode) into structured data.
+
+    Schema lives in `book_categories/memoir/craft/real-people-ethics.md`:
+    - relationship: free-text relationship to the memoirist
+    - person_category: one of ``_ALLOWED_PERSON_CATEGORIES``
+    - consent_status: one of ``_ALLOWED_CONSENT_STATUSES``
+    - anonymization: one of ``_ALLOWED_ANONYMIZATION_LEVELS``
+    - real_name: only set when anonymization != "none" (kept private)
+
+    Unknown values are passed through as-is so memoir-ethics-checker (#65)
+    can flag them. The parser does not reject malformed files — it only
+    surfaces what is on disk.
+    """
+    text = path.read_text(encoding="utf-8")
+    meta, body = parse_frontmatter(text)
+
+    return {
+        "slug": path.stem,
+        "name": meta.get("name", path.stem),
+        "relationship": meta.get("relationship", ""),
+        "person_category": meta.get("person_category", ""),
+        "consent_status": meta.get("consent_status", ""),
+        "anonymization": meta.get("anonymization", "none"),
+        "real_name": meta.get("real_name", ""),
+        "status": _normalize_character_status(meta.get("status", "Concept")),
+        "description": meta.get("description", ""),
+    }
+
+
 def parse_author_profile(path: Path) -> dict[str, Any]:
     """Parse an author profile.md into structured data."""
     text = path.read_text(encoding="utf-8")

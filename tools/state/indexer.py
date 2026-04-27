@@ -22,6 +22,7 @@ from tools.state.parsers import (
     parse_chapter_readme,
     parse_character_file,
     parse_frontmatter,
+    parse_person_file,
     parse_series_readme,
 )
 
@@ -221,7 +222,11 @@ def _scan_books(
             book["status_disk"] = disk_status
         book["status"] = derived_status
 
-        # Scan characters
+        # Scan characters / people. Path E #59: memoir books carry their
+        # cast under `people/` with a real-person schema; fiction stays at
+        # `characters/` with the historical schema. Both keys exist on
+        # every book so consumers can ask without checking book_category
+        # first — the irrelevant key is just empty.
         chars_dir = book_dir / "characters"
         if chars_dir.exists():
             book["characters"] = _scan_characters(chars_dir)
@@ -229,6 +234,18 @@ def _scan_books(
         else:
             book["characters"] = {}
             book["character_count"] = 0
+
+        if book.get("book_category") == "memoir":
+            people_dir = book_dir / "people"
+            if people_dir.exists():
+                book["people"] = _scan_people(people_dir)
+                book["people_count"] = len(book["people"])
+            else:
+                book["people"] = {}
+                book["people_count"] = 0
+        else:
+            book["people"] = {}
+            book["people_count"] = 0
 
         books[slug] = book
 
@@ -307,6 +324,19 @@ def _scan_characters(chars_dir: Path) -> dict[str, Any]:
         characters[char["slug"]] = char
 
     return characters
+
+
+def _scan_people(people_dir: Path) -> dict[str, Any]:
+    """Scan all real-person files within a memoir book (Path E #59)."""
+    people = {}
+
+    for person_file in sorted(people_dir.glob("*.md")):
+        if person_file.name == "INDEX.md":
+            continue
+        person = parse_person_file(person_file)
+        people[person["slug"]] = person
+
+    return people
 
 
 def _scan_authors(authors_dir: Path) -> dict[str, Any]:

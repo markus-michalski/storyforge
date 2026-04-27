@@ -137,12 +137,12 @@ Memoir-aware skills already wired:
 - `/storyforge:new-book` — scaffolds memoir-shaped tree (`people/` instead of `characters/`, no `world/`, structure-types outline) when `book_category: memoir` is selected (Issue #63)
 - `/storyforge:book-dashboard` — surfaces `Category` and `Length` separately, re-labels people table for memoir (Issue #63)
 - `/storyforge:book-conceptualizer` (memoir mode) — runs the 5-phase concept with Phase 3 *Scope* (time window / cast / deliberate exclusions) instead of Phase 3 *Conflict*, memoir-blurb conventions in Phase 5 (Issue #60)
+- `/storyforge:character-creator` (memoir mode) — real-people handler that captures relationship, person_category (4-category model), consent_status, and anonymization decisions; writes to `people/{slug}.md` via `create_person` MCP tool (Issue #59)
 
 The forthcoming memoir-specific routing (not yet wired):
 
 - `/storyforge:memoir-ethics-checker` — consent/defamation/anonymization scan (Issue #65)
 - `/storyforge:emotional-truth-prompt` — render-the-felt-sense pass (Issue #66)
-- `/storyforge:character-creator` (memoir mode) — real-people handler with consent tracking (Issue #59)
 - `/storyforge:plot-architect` (memoir mode) — narrative-arc shaping with structure-type selection (Issue #58)
 - `/storyforge:chapter-writer` (memoir mode) — loads memoir craft, scene-vs-summary discipline (Issue #57)
 
@@ -168,7 +168,13 @@ Books live at `{content_root}/projects/{slug}/`:
 └── translations/       # {lang}/ with glossary.md + chapters/
 ```
 
-For `book_category: memoir` projects, the same paths carry **shifted meaning** (characters/ = real people; plot/outline.md = narrative arc shaped from truth, not invented; world/setting.md = real places + eras). See `book_categories/memoir/README.md` for the full mapping. The on-disk layout itself is unchanged in Phase 1 — Phase 2 (#59) may introduce a `people/` alias for memoir; until then `characters/` works for both categories.
+For `book_category: memoir` projects, the layout differs at scaffold time (#63 / #59):
+
+- `people/` replaces `characters/` — real-person profiles with `person_category`, `consent_status`, `anonymization`, `real_name` fields. Created via MCP `create_person()`.
+- `world/` is omitted — real settings live in `research/sources.md` and the chapters' own setting prose.
+- `plot/` ships `structure.md` instead of `acts.md` + `arcs.md`.
+
+The indexer projects `book["people"]` for memoir books and `book["characters"]` for fiction; both keys exist on every book so consumers can ask without a category check (the irrelevant key is `{}`). Legacy memoir books that pre-date #59 fall back to `characters/` automatically — `resolve_people_dir` in `tools/shared/paths.py` handles the lookup.
 
 ## Status Progressions
 
@@ -244,7 +250,7 @@ Skills MUST load relevant craft references before generating creative content. U
 - `chapter-writer` → loads: chapter-construction, dialog-craft, show-dont-tell, pacing-guide, anti-ai-patterns, prose-style, simile-discipline + genre craft (memoir mode adds: `book_categories/memoir/craft/scene-vs-summary.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`)
 - `chapter-reviewer` → loads: dos-and-donts, anti-ai-patterns, chapter-construction, dialog-craft, show-dont-tell, simile-discipline (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`)
 - `plot-architect` → loads: story-structure, plot-craft, tension-and-suspense (memoir mode loads `book_categories/memoir/craft/memoir-structure-types.md` instead of `plot-craft.md`)
-- `character-creator` → loads: character-creation, character-arcs (memoir mode loads `book_categories/memoir/craft/real-people-ethics.md` instead — Phase 2 #59 splits this into a dedicated `real-people-handler` skill)
+- `character-creator` → fiction loads: character-creation, character-arcs, dialog-craft + genre. Memoir branches to a 6-step real-people handler (#59) that loads `book_categories/memoir/craft/real-people-ethics.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`; writes to `people/{slug}.md` via `create_person` MCP tool with the four-category ethics schema.
 - `world-builder` → loads: world-building (memoir typically skips this skill — real settings are documented in `world/setting.md` via research, not invention)
 - `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`)
 - `manuscript-checker` → memoir mode adds memoir-specific patterns (Phase 3 #61)

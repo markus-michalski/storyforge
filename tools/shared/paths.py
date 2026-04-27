@@ -56,6 +56,51 @@ def resolve_character_path(
     return resolve_project_path(config, book_slug) / "characters" / f"{character_slug}.md"
 
 
+# Path E #59: memoir books store real-people profiles under `people/`
+# instead of `characters/`. Scaffolded by `new-book` (#63), populated by
+# the memoir-mode branch of `character-creator`. The candidate list runs
+# `people/` first so memoir books resolve there even when a stray legacy
+# `characters/` directory exists alongside it.
+PEOPLE_DIR_CANDIDATES: tuple[str, ...] = ("people", "characters")
+
+
+def resolve_people_dir(project_dir: Path, book_category: str = "fiction") -> Path:
+    """Return the directory holding character / real-person profile files.
+
+    For memoir books, prefers ``people/`` and falls back to ``characters/``
+    when the memoir layout has not been scaffolded yet (legacy memoir books
+    written before #63 / #59 land). For fiction, always returns
+    ``characters/``.
+
+    The returned path may not exist — callers decide whether to create it
+    or treat absence as an empty cast.
+    """
+    if book_category == "memoir":
+        for name in PEOPLE_DIR_CANDIDATES:
+            candidate = project_dir / name
+            if candidate.exists():
+                return candidate
+        # Neither exists yet — return the canonical memoir path.
+        return project_dir / "people"
+    return project_dir / "characters"
+
+
+def resolve_person_path(
+    config: dict[str, Any],
+    book_slug: str,
+    person_slug: str,
+    book_category: str = "fiction",
+) -> Path:
+    """Resolve path for a person / character file within a book.
+
+    Memoir books resolve to ``people/{slug}.md``; fiction books to
+    ``characters/{slug}.md``.
+    """
+    return resolve_people_dir(
+        resolve_project_path(config, book_slug), book_category
+    ) / f"{person_slug}.md"
+
+
 def resolve_series_path(config: dict[str, Any], series_slug: str) -> Path:
     """Resolve path for a series directory."""
     return Path(config["paths"]["content_root"]) / "series" / series_slug
