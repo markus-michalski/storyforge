@@ -14,6 +14,13 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# coverage.py outputs — data file, parallel-mode shards, HTML report,
+# and the XML report some CI integrations consume.
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 *.swp
 *.swo
 *~
