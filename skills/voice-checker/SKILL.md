@@ -176,7 +176,15 @@ if both are present — memoir-specific issues are more reader-visible.]
 
 ### Verdict
 [AUTHENTIC / NEEDS WORK / REWRITE RECOMMENDED]
+
+VERDICT: PASS | WARN | FAIL
 ```
+
+Verdict mapping (per the gate contract — see `reference/gate-contract.md`):
+
+- **PASS** ↔ AUTHENTIC, score ≥ 70, no AI-tell vocabulary hits.
+- **WARN** ↔ NEEDS WORK, score 50–69, or AI-tell hits with a clear path to a single-pass rewrite.
+- **FAIL** ↔ REWRITE RECOMMENDED, score < 50, or systemic AI-tell patterns that require restructuring.
 
 ## Rules
 - Run this as the gate before marking a chapter "Polished" — voice-check is the last thing between draft and shipped prose.

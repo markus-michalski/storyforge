@@ -131,9 +131,27 @@ The tool returns:
     "simile": {"high": 6, "medium": 14}
   },
   "report_path": ".../research/manuscript-report.md",
-  "findings": [ { phrase, category, severity, count, occurrences: [...] } ]
+  "findings": [ { phrase, category, severity, count, occurrences: [...] } ],
+  "gate": {
+    "status": "PASS | WARN | FAIL",
+    "reasons": ["..."],
+    "findings": [ { code, message, severity, location } ],
+    "metadata": { "chapters_scanned": 34, "findings_count": 120, "rule_violations": 3 }
+  }
 }
 ```
+
+The `gate` envelope is the canonical verdict (see `reference/gate-contract.md`):
+
+- **FAIL** when any `book_rule_violation` finding exists — the user's own rules
+  outrank everything else.
+- **WARN** when other findings exist but no rule violations.
+- **PASS** when zero findings.
+
+Surface `gate.status` to the user as the headline before walking through the
+top offenders. When chaining into other quality steps (export-engineer,
+chapter-reviewer), the downstream skill can read `gate.status` directly
+instead of re-counting findings.
 
 ### 3. Read the generated report
 

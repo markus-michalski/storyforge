@@ -262,9 +262,17 @@ Report memoir AI-tells in their own labeled section, separate from universal Ant
 ### Verdict
 [PASS / NEEDS REVISION / MAJOR REVISION]
 
+VERDICT: PASS | WARN | FAIL
+
 ### Suggested Next Step
 [/storyforge:chapter-writer to revise | move to next chapter]
 ```
+
+Verdict mapping (per the gate contract — see `reference/gate-contract.md`):
+
+- **PASS** ↔ Verdict "PASS" — no Critical issues, no AI-tell-banlist hits, all load-bearing first-chapter rows clear (when applicable).
+- **WARN** ↔ Verdict "NEEDS REVISION" — Recommended issues exist, or Minor patterns repeat, but nothing blocks moving on after a single targeted pass.
+- **FAIL** ↔ Verdict "MAJOR REVISION" — at least one Critical issue, or any AI-tell banlist hit, or any load-bearing first-chapter row at FAIL.
 
 ## Rules
 - Be BRUTALLY honest. The user asked for honesty in their global instructions.

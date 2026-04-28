@@ -52,6 +52,20 @@ argument-hint: "<book-slug> [chapter-slug]"
 Report findings as: CONCERN (discuss) / FLAG (reconsider) / ISSUE (revise).
 Always pair every finding with a concrete alternative — "this is problematic" without an alternative is not actionable.
 
+### Final verdict line
+
+End the report with a single uppercase line that an aggregator can parse:
+
+```
+VERDICT: PASS | WARN | FAIL
+```
+
+Mapping (per the gate contract — see `reference/gate-contract.md`):
+
+- **PASS** — no CONCERN/FLAG/ISSUE items.
+- **WARN** — CONCERN or FLAG items only — discuss before publication, but no hard block.
+- **FAIL** — at least one ISSUE — revise before publication.
+
 ## Rules
 - This is advisory, not censorship. The author makes the final call.
 - Sensitivity ≠ sanitizing. Dark themes are valid when handled with care.

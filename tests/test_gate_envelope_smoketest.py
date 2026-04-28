@@ -255,3 +255,48 @@ class TestRunQualityGates:
     def test_aggregator_handles_missing_book(self, fiction_config: dict) -> None:
         result = json.loads(server.run_quality_gates("does-not-exist"))
         assert "error" in result
+
+
+# ---------------------------------------------------------------------------
+# Skill alignment with the gate contract
+# ---------------------------------------------------------------------------
+
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+
+# Skills that call an MCP tool which already emits the gate envelope: the
+# SKILL.md must reference the envelope so the skill author surfaces it.
+SKILLS_REFERENCING_GATE_ENVELOPE = {
+    "manuscript-checker",
+    "memoir-ethics-checker",
+}
+
+# Skills that produce their own report (no underlying MCP gate tool): they
+# must end the report with a "VERDICT: PASS | WARN | FAIL" line so an
+# aggregator can parse the verdict without re-implementing the rubric.
+SKILLS_REQUIRING_VERDICT_LINE = {
+    "chapter-reviewer",
+    "continuity-checker",
+    "voice-checker",
+    "sensitivity-reader",
+}
+
+
+class TestSkillAlignment:
+    @pytest.mark.parametrize("skill_name", sorted(SKILLS_REFERENCING_GATE_ENVELOPE))
+    def test_skill_references_gate_envelope(self, skill_name: str) -> None:
+        path = PLUGIN_ROOT / "skills" / skill_name / "SKILL.md"
+        assert path.is_file(), f"missing {path}"
+        text = path.read_text(encoding="utf-8")
+        assert "gate" in text and ("gate.status" in text or '"gate"' in text), (
+            f"{skill_name}: SKILL.md must document the gate envelope"
+        )
+
+    @pytest.mark.parametrize("skill_name", sorted(SKILLS_REQUIRING_VERDICT_LINE))
+    def test_skill_emits_verdict_line(self, skill_name: str) -> None:
+        path = PLUGIN_ROOT / "skills" / skill_name / "SKILL.md"
+        assert path.is_file(), f"missing {path}"
+        text = path.read_text(encoding="utf-8")
+        assert "VERDICT: PASS | WARN | FAIL" in text, (
+            f"{skill_name}: SKILL.md must instruct the skill to end its "
+            f"report with 'VERDICT: PASS | WARN | FAIL' for aggregator parsing"
+        )

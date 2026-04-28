@@ -190,6 +190,13 @@ Book category: {fiction | memoir}
 - CONFLICTS: X (temporal: X, spatial: X, fact: X)
 - WARNINGS: X
 
+VERDICT: PASS | WARN | FAIL
+
+Verdict mapping (per the gate contract — see `reference/gate-contract.md`):
+- PASS — zero CONFLICTS and zero WARNINGS.
+- WARN — WARNINGS only (ambiguous time markers, missing matrix entries, minor people-log gaps).
+- FAIL — at least one CONFLICT, OR any chapter contradicts a `consent_status: refused` person.
+
 ---
 
 ## Temporal Conflicts
