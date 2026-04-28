@@ -2,9 +2,61 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
+
+# Audit M1 (#117): pandoc forwards LaTeX, and xelatex respects
+# ``-shell-escape``. Without an allowlist these args could carry
+# ``\input{/etc/passwd}``, ``\write18{...}``, or shell-escape pivots.
+_ALLOWED_PDF_ENGINES = frozenset({
+    "xelatex",
+    "lualatex",
+    "pdflatex",
+    "context",
+    "tectonic",
+    "wkhtmltopdf",
+    "weasyprint",
+    "prince",
+})
+
+# Fonts: alphanumerics, spaces, hyphens, dots, underscores. Excludes the
+# shell metacharacters and LaTeX command introducers (``\``, ``{``, ``}``,
+# ``$``, ``;``, ``|``, newlines).
+_FONT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 \-_.]{0,63}$")
+
+# font_size: 1–2 digits + pt or em, e.g. "11pt", "12pt", "1em"
+_FONT_SIZE_PATTERN = re.compile(r"^\d{1,2}(pt|em)$")
+
+# margin: integer or decimal + cm/mm/in/em/pt, e.g. "1in", "2.5cm", "20mm"
+_MARGIN_PATTERN = re.compile(r"^\d{1,2}(\.\d+)?(cm|mm|in|em|pt)$")
+
+
+def _validate_pdf_args(
+    pdf_engine: str, font: str, font_size: str, margin: str
+) -> str | None:
+    """Return None if all args are safe, else an error message."""
+    if pdf_engine not in _ALLOWED_PDF_ENGINES:
+        allowed = ", ".join(sorted(_ALLOWED_PDF_ENGINES))
+        return (
+            f"Unsupported pdf_engine '{pdf_engine}'. "
+            f"Allowed: {allowed}"
+        )
+    if not _FONT_PATTERN.match(font):
+        return (
+            f"Invalid font '{font}': must match "
+            f"[A-Za-z0-9][A-Za-z0-9 \\-_.]{{0,63}} (no LaTeX or shell metachars)"
+        )
+    if not _FONT_SIZE_PATTERN.match(font_size):
+        return (
+            f"Invalid font_size '{font_size}': must match \\d{{1,2}}(pt|em)"
+        )
+    if not _MARGIN_PATTERN.match(margin):
+        return (
+            f"Invalid margin '{margin}': must match \\d{{1,2}}(\\.\\d+)?(cm|mm|in|em|pt)"
+        )
+    return None
 
 
 def check_pandoc() -> dict[str, Any]:
@@ -84,6 +136,10 @@ def generate_pdf(
     margin: str = "1in",
 ) -> dict[str, Any]:
     """Generate PDF from a Markdown manuscript."""
+    error = _validate_pdf_args(pdf_engine, font, font_size, margin)
+    if error is not None:
+        return {"success": False, "error": error}
+
     cmd = [
         "pandoc", str(manuscript_path),
         "-o", str(output_path),
