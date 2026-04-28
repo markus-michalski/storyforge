@@ -76,9 +76,19 @@ The tool returns:
   ],
   "pass_count": 3,
   "warn_count": 1,
-  "fail_count": 0
+  "fail_count": 0,
+  "gate": {
+    "status": "PASS | WARN | FAIL",
+    "reasons": ["..."],
+    "findings": [ { code, message, severity, location: { person } } ],
+    "metadata": { "pass_count": 3, "warn_count": 1, "fail_count": 0 }
+  }
 }
 ```
+
+The `gate.status` mirrors `overall` and conforms to the uniform contract in
+`reference/gate-contract.md`. Aggregators (e.g. the export-engineer pre-flight
+or `run_quality_gates`) read `gate.status` rather than `overall`.
 
 ### 4. Defamation-risk prose scan
 
