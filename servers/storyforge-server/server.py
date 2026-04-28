@@ -44,6 +44,9 @@ from tools.analysis.timeline_validator import validate_timeline
 from tools.analysis.tactical_checker import (
     verify_tactical_setup as _verify_tactical_setup_impl,
 )
+from tools.analysis.chapter_validator import (
+    validate_chapter_path as _validate_chapter_path_impl,
+)
 from tools.shared.gate_result import GateResult, aggregate_gates, wrap_legacy
 from tools.shared.gate_derivation import (
     derive_from_callback_verification,
@@ -1959,6 +1962,50 @@ def promote_idea(slug: str, book_slug: str) -> str:
 # ============================================================
 # Quality Gates
 # ============================================================
+
+
+@mcp.tool()
+def validate_chapter(book_slug: str, chapter_slug: str) -> str:
+    """Validate a chapter's draft.md against the same rules the PostToolUse
+    linter hook applies (#119).
+
+    Runs the full validator pipeline — book CLAUDE.md banlist, author
+    vocabulary, POV-knowledge boundary, time-anchor relative phrases,
+    meta-narrative leakage, AI-tells, and sentence-variance — and
+    returns the findings plus a uniform ``gate`` envelope.
+
+    Status mapping (per the gate contract — see
+    ``reference/gate-contract.md``):
+
+    - **FAIL** when the chapter has blocking findings AND the resolved
+      linter mode is ``strict`` (the hook would reject the write).
+    - **WARN** when findings exist but the hook would not block (warn
+      mode, or only warn-severity findings).
+    - **PASS** when no findings.
+
+    Args:
+        book_slug: The book project slug.
+        chapter_slug: The chapter slug (directory name under
+            ``chapters/``, e.g. ``01-opening``).
+    """
+    config = load_config()
+    book_path = resolve_project_path(config, book_slug)
+    if not book_path.exists():
+        return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
+
+    draft_path = book_path / "chapters" / chapter_slug / "draft.md"
+    if not draft_path.is_file():
+        return json.dumps({
+            "error": f"Chapter draft not found at {draft_path}",
+            "book_slug": book_slug,
+            "chapter_slug": chapter_slug,
+        })
+
+    result = _validate_chapter_path_impl(str(draft_path))
+    payload = result.to_json_dict()
+    payload["book_slug"] = book_slug
+    payload["chapter_slug"] = chapter_slug
+    return json.dumps(payload)
 
 
 @mcp.tool()
