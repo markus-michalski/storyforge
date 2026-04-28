@@ -13,10 +13,7 @@ Covers:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-
-import pytest
 
 from tools.analysis.manuscript_checker import (
     _read_book_category,
