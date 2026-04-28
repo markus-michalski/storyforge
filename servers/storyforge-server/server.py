@@ -44,6 +44,15 @@ from tools.analysis.timeline_validator import validate_timeline
 from tools.analysis.tactical_checker import (
     verify_tactical_setup as _verify_tactical_setup_impl,
 )
+from tools.shared.gate_result import GateResult, aggregate_gates, wrap_legacy
+from tools.shared.gate_derivation import (
+    derive_from_callback_verification,
+    derive_from_consent_check,
+    derive_from_manuscript_scan,
+    derive_from_structure_validation,
+    derive_from_tactical_setup,
+    derive_from_timeline_validation,
+)
 from tools.state.chapter_timeline_parser import (
     get_recent_chapter_timelines as _get_recent_chapter_timelines_impl,
 )
@@ -307,13 +316,13 @@ def verify_tactical_setup(
             "error": f"Book directory missing on disk: {book_root}"
         })
 
-    return json.dumps(
-        _verify_tactical_setup_impl(
-            book_root,
-            scene_outline_text=scene_outline_text,
-            characters_present=characters_present,
-        )
+    result = _verify_tactical_setup_impl(
+        book_root,
+        scene_outline_text=scene_outline_text,
+        characters_present=characters_present,
     )
+    gate = derive_from_tactical_setup(result)
+    return json.dumps(wrap_legacy(result, gate))
 
 
 @mcp.tool()
@@ -599,14 +608,16 @@ def scan_manuscript(
         report_file.write_text(render_report(result), encoding="utf-8")
         report_path = str(report_file)
 
-    return json.dumps({
+    legacy = {
         "book_slug": book_slug,
         "chapters_scanned": result["chapters_scanned"],
         "findings_count": len(result["findings"]),
         "summary": result["summary"],
         "report_path": report_path,
         "findings": result["findings"],
-    })
+    }
+    gate = derive_from_manuscript_scan(result)
+    return json.dumps(wrap_legacy(legacy, gate))
 
 
 @mcp.tool()
@@ -636,7 +647,8 @@ def validate_timeline_consistency(book_slug: str) -> str:
         result = validate_timeline(book_path)
     except Exception as exc:  # noqa: BLE001
         return json.dumps({"error": str(exc), "book_slug": book_slug})
-    return json.dumps(result, indent=2, ensure_ascii=False)
+    gate = derive_from_timeline_validation(result)
+    return json.dumps(wrap_legacy(result, gate), indent=2, ensure_ascii=False)
 
 
 @mcp.tool()
@@ -669,7 +681,8 @@ def verify_callbacks(book_slug: str) -> str:
 
     claudemd_text = claudemd_path.read_text(encoding="utf-8")
     result = _verify_callbacks_impl(book_path, claudemd_text)
-    return json.dumps(result)
+    gate = derive_from_callback_verification(result)
+    return json.dumps(wrap_legacy(result, gate))
 
 
 @mcp.tool()
@@ -708,7 +721,8 @@ def check_memoir_consent(book_slug: str) -> str:
         return json.dumps({"error": str(exc), "book_slug": book_slug})
     except FileNotFoundError as exc:
         return json.dumps({"error": str(exc), "book_slug": book_slug})
-    return json.dumps(result)
+    gate = derive_from_consent_check(result)
+    return json.dumps(wrap_legacy(result, gate))
 
 
 # ============================================================
@@ -1993,13 +2007,15 @@ def validate_book_structure(book_slug: str) -> str:
     passed = sum(1 for c in checks if c["status"] == "PASS")
     total = len(checks)
 
-    return json.dumps({
+    legacy = {
         "book": book_slug,
         "checks": checks,
         "passed": passed,
         "total": total,
         "verdict": "PASS" if passed == total else "NEEDS WORK",
-    })
+    }
+    gate = derive_from_structure_validation(legacy)
+    return json.dumps(wrap_legacy(legacy, gate))
 
 
 @mcp.tool()
@@ -2055,11 +2071,146 @@ def run_pre_export_gates(book_slug: str) -> str:
     blocking_fails = [g for g in gates if g["blocking"] and g["status"] == "FAIL"]
     verdict = "BLOCKED" if blocking_fails else "READY"
 
-    return json.dumps({
+    # Build the uniform gate envelope. Blocking failures map to FAIL,
+    # non-blocking warnings map to WARN, otherwise PASS.
+    if blocking_fails:
+        envelope = GateResult.failed(
+            reasons=[f"Export blocked by {len(blocking_fails)} gate(s)."],
+            metadata={"verdict": verdict, "blocking_fails": len(blocking_fails)},
+        )
+    elif any(g["status"] == "WARN" for g in gates):
+        envelope = GateResult.warned(
+            reasons=["Ready for export, but optional gates have warnings."],
+            metadata={"verdict": verdict},
+        )
+    else:
+        envelope = GateResult.passed(
+            reasons=["All export gates pass."],
+            metadata={"verdict": verdict},
+        )
+
+    legacy = {
         "book": book_slug,
         "gates": gates,
         "verdict": verdict,
         "message": f"{'Export blocked by ' + str(len(blocking_fails)) + ' gate(s)' if blocking_fails else 'Ready for export'}",
+    }
+    return json.dumps(wrap_legacy(legacy, envelope))
+
+
+@mcp.tool()
+def run_quality_gates(book_slug: str) -> str:
+    """Run every available quality checker for a book and aggregate the results.
+
+    Calls each checker that produces a ``GateResult``-shaped output and
+    returns one combined envelope.  Used by skills that want a single
+    pass/warn/fail signal for a book without orchestrating each checker
+    individually.
+
+    Per-checker results are preserved in ``results[<name>]`` so callers
+    can still drill into individual findings.
+
+    Args:
+        book_slug: The book project slug.
+    """
+    config = load_config()
+    book_path = resolve_project_path(config, book_slug)
+    if not book_path.exists():
+        return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
+
+    # Resolve book_category from disk (README frontmatter) — more robust than
+    # relying on the state cache, which may be empty for freshly scaffolded
+    # books or stale during quick edits.
+    book_category = "fiction"
+    readme = book_path / "README.md"
+    if readme.is_file():
+        meta, _ = parse_frontmatter(readme.read_text(encoding="utf-8"))
+        book_category = str(meta.get("book_category") or "fiction")
+
+    per_gate: dict[str, dict[str, Any]] = {}
+    gates: list[GateResult] = []
+
+    # --- Structure ---------------------------------------------------
+    structure_legacy = json.loads(validate_book_structure(book_slug))
+    if "gate" in structure_legacy:
+        per_gate["structure"] = structure_legacy["gate"]
+        gates.append(GateResult.from_dict(structure_legacy["gate"]))
+
+    # --- Manuscript scan --------------------------------------------
+    try:
+        scan_result = scan_repetitions(book_path=book_path)
+        scan_gate = derive_from_manuscript_scan(scan_result)
+        per_gate["manuscript"] = scan_gate.to_json_dict()
+        gates.append(scan_gate)
+    except Exception as exc:  # noqa: BLE001
+        per_gate["manuscript"] = {
+            "status": "WARN",
+            "reasons": [f"manuscript scan skipped: {exc}"],
+            "findings": [],
+            "metadata": {},
+        }
+
+    # --- Timeline ---------------------------------------------------
+    try:
+        timeline_result = validate_timeline(book_path)
+        timeline_gate = derive_from_timeline_validation(timeline_result)
+        per_gate["timeline"] = timeline_gate.to_json_dict()
+        gates.append(timeline_gate)
+    except Exception as exc:  # noqa: BLE001
+        per_gate["timeline"] = {
+            "status": "WARN",
+            "reasons": [f"timeline validation skipped: {exc}"],
+            "findings": [],
+            "metadata": {},
+        }
+
+    # --- Callbacks (only if CLAUDE.md exists) -----------------------
+    claudemd_path = book_path / "CLAUDE.md"
+    if claudemd_path.exists():
+        try:
+            cb_result = _verify_callbacks_impl(
+                book_path, claudemd_path.read_text(encoding="utf-8")
+            )
+            cb_gate = derive_from_callback_verification(cb_result)
+            per_gate["callbacks"] = cb_gate.to_json_dict()
+            gates.append(cb_gate)
+        except Exception as exc:  # noqa: BLE001
+            per_gate["callbacks"] = {
+                "status": "WARN",
+                "reasons": [f"callback verification skipped: {exc}"],
+                "findings": [],
+                "metadata": {},
+            }
+
+    # --- Memoir consent (memoir only) -------------------------------
+    if book_category == "memoir":
+        try:
+            consent_result = _check_consent_impl(book_path)
+            consent_gate = derive_from_consent_check(consent_result)
+            per_gate["consent"] = consent_gate.to_json_dict()
+            gates.append(consent_gate)
+        except (ValueError, FileNotFoundError) as exc:
+            per_gate["consent"] = {
+                "status": "WARN",
+                "reasons": [f"consent check skipped: {exc}"],
+                "findings": [],
+                "metadata": {},
+            }
+
+    aggregated = aggregate_gates(
+        gates,
+        metadata={
+            "book_slug": book_slug,
+            "book_category": book_category,
+            "checkers_run": list(per_gate.keys()),
+        },
+    )
+
+    return json.dumps({
+        "book_slug": book_slug,
+        "book_category": book_category,
+        "results": per_gate,
+        "gate": aggregated.to_json_dict(),
     })
 
 
