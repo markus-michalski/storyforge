@@ -92,6 +92,72 @@ def _read_book_genres(book_path: Path) -> list[str]:
     return []
 
 
+_BOOK_CATEGORY_RE = re.compile(
+    r"^\s*book_category:\s*['\"]?(\w+)['\"]?\s*$", re.MULTILINE
+)
+
+
+def _read_book_category(book_path: Path) -> str:
+    """Parse book_category from book README.md frontmatter. Defaults to 'fiction'."""
+    readme = book_path / "README.md"
+    if not readme.is_file():
+        return "fiction"
+    text = readme.read_text(encoding="utf-8")
+    fm_match = _FRONTMATTER_BLOCK_RE.match(text)
+    if not fm_match:
+        return "fiction"
+    m = _BOOK_CATEGORY_RE.search(fm_match.group(1))
+    return m.group(1).strip() if m else "fiction"
+
+
+# ---------------------------------------------------------------------------
+# People profiles (memoir — Path E #59)
+# ---------------------------------------------------------------------------
+
+_PERSON_NAME_RE = re.compile(
+    r"^\s*name:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", re.MULTILINE
+)
+_PERSON_ANONYMIZATION_RE = re.compile(
+    r"^\s*anonymization:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", re.MULTILINE
+)
+_PERSON_REAL_NAME_RE = re.compile(
+    r"^\s*real_name:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", re.MULTILINE
+)
+
+
+def _read_people_profiles(book_path: Path) -> list[dict[str, str]]:
+    """Read person profiles from book's people/ directory.
+
+    Returns a list of dicts with keys: slug, name, anonymization, real_name.
+    """
+    people_dir = book_path / "people"
+    if not people_dir.is_dir():
+        return []
+
+    people: list[dict[str, str]] = []
+    for person_file in sorted(people_dir.glob("*.md")):
+        if person_file.name == "INDEX.md":
+            continue
+        try:
+            text = person_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        fm_match = _FRONTMATTER_BLOCK_RE.match(text)
+        if not fm_match:
+            continue
+        fm = fm_match.group(1)
+        name_m = _PERSON_NAME_RE.search(fm)
+        anon_m = _PERSON_ANONYMIZATION_RE.search(fm)
+        real_m = _PERSON_REAL_NAME_RE.search(fm)
+        people.append({
+            "slug": person_file.stem,
+            "name": name_m.group(1).strip() if name_m else person_file.stem,
+            "anonymization": anon_m.group(1).strip() if anon_m else "none",
+            "real_name": real_m.group(1).strip() if real_m else "",
+        })
+    return people
+
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -1348,6 +1414,360 @@ def _scan_callbacks(book_path: Path) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
+# Memoir-specific checks (Phase 3, Issue #61)
+# ---------------------------------------------------------------------------
+
+# Temporal hand-waving phrases that leave the reader unanchored in time.
+_TEMPORAL_VAGUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("some time later",  re.compile(r"\bsome\s+time\s+later\b", re.IGNORECASE)),
+    ("at some point",    re.compile(r"\bat\s+some\s+point\b", re.IGNORECASE)),
+    ("one day",          re.compile(r"\bone\s+day\b", re.IGNORECASE)),
+    ("one night",        re.compile(r"\bone\s+night\b", re.IGNORECASE)),
+    ("eventually",       re.compile(r"\beventually\b", re.IGNORECASE)),
+    ("after a while",    re.compile(r"\bafter\s+a\s+while\b", re.IGNORECASE)),
+    ("a while later",    re.compile(r"\ba\s+while\s+later\b", re.IGNORECASE)),
+    ("years later",      re.compile(r"\byears\s+later\b", re.IGNORECASE)),
+    ("years earlier",    re.compile(r"\byears\s+earlier\b", re.IGNORECASE)),
+    ("years before",     re.compile(r"\byears\s+before\b", re.IGNORECASE)),
+    ("years ago",        re.compile(r"\byears\s+ago\b", re.IGNORECASE)),
+    ("a long time ago",  re.compile(r"\ba\s+long\s+time\s+ago\b", re.IGNORECASE)),
+    ("back then",        re.compile(r"\bback\s+then\b", re.IGNORECASE)),
+    ("in those days",    re.compile(r"\bin\s+those\s+days\b", re.IGNORECASE)),
+    ("at that time",     re.compile(r"\bat\s+that\s+time\b", re.IGNORECASE)),
+    ("around that time", re.compile(r"\baround\s+that\s+time\b", re.IGNORECASE)),
+    ("sometime later",   re.compile(r"\bsometime\s+later\b", re.IGNORECASE)),
+    ("not long after",   re.compile(r"\bnot\s+long\s+after\b", re.IGNORECASE)),
+    ("before long",      re.compile(r"\bbefore\s+long\b", re.IGNORECASE)),
+)
+
+TIMELINE_AMBIGUITY_MEDIUM_PER_1K = 3.0
+TIMELINE_AMBIGUITY_HIGH_PER_1K = 6.0
+
+
+def _scan_timeline_ambiguity(book_path: Path) -> list[Finding]:
+    """Memoir: flag chapters with excessive temporal hand-waving.
+
+    A memoir scene that never anchors when it happened loses credibility. This
+    check flags chapters where temporal vagueness density is high — not single
+    uses (which are legitimate shorthand), but systemic avoidance of specific
+    time anchoring.
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    findings: list[Finding] = []
+    for chapter_slug, raw_text in drafts:
+        cleaned = _strip_markdown(raw_text)
+        word_count = len(_tokenise(cleaned))
+        if word_count < 200:
+            continue
+
+        occurrences: list[Occurrence] = []
+        per_pattern_counts: dict[str, int] = defaultdict(int)
+
+        for line_no, line in enumerate(cleaned.splitlines(), start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            for label, pattern in _TEMPORAL_VAGUE_PATTERNS:
+                for m in pattern.finditer(stripped):
+                    per_pattern_counts[label] += 1
+                    occurrences.append(
+                        Occurrence(
+                            chapter=chapter_slug,
+                            line=line_no,
+                            snippet=_make_snippet(stripped, m.group(0).lower()),
+                        )
+                    )
+
+        if not occurrences:
+            continue
+
+        density = (len(occurrences) / word_count) * 1000.0
+        if density < TIMELINE_AMBIGUITY_MEDIUM_PER_1K:
+            continue
+
+        severity = "high" if density >= TIMELINE_AMBIGUITY_HIGH_PER_1K else "medium"
+        top = sorted(per_pattern_counts.items(), key=lambda kv: -kv[1])[:3]
+        top_str = ", ".join(f"{label}×{n}" for label, n in top)
+        phrase = f"{chapter_slug}: {top_str} ({density:.1f}/1k words)"
+
+        findings.append(
+            Finding(
+                phrase=phrase,
+                category="timeline_ambiguity",
+                severity=severity,
+                count=len(occurrences),
+                occurrences=occurrences[:20],
+            )
+        )
+    return findings
+
+
+# Retrospective commentary patterns that collapse scene into TED talk.
+_REFLECTIVE_PLATITUDE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("looking back",         re.compile(r"\blooking\s+back\b", re.IGNORECASE)),
+    ("in retrospect",        re.compile(r"\bin\s+retrospect\b", re.IGNORECASE)),
+    ("in hindsight",         re.compile(r"\bin\s+hindsight\b", re.IGNORECASE)),
+    ("with hindsight",       re.compile(r"\bwith\s+hindsight\b", re.IGNORECASE)),
+    ("I now realize",        re.compile(r"\bI\s+now\s+realiz", re.IGNORECASE)),
+    ("I now understand",     re.compile(r"\bI\s+now\s+understand\b", re.IGNORECASE)),
+    ("I now know",           re.compile(r"\bI\s+now\s+know\b", re.IGNORECASE)),
+    ("I realize now",        re.compile(r"\bI\s+realiz\w*\s+now\b", re.IGNORECASE)),
+    ("I understand now",     re.compile(r"\bI\s+understand\s+now\b", re.IGNORECASE)),
+    ("what I learned",       re.compile(r"\bwhat\s+I\s+learned\b", re.IGNORECASE)),
+    ("I came to realize",    re.compile(r"\bI\s+came\s+to\s+realiz", re.IGNORECASE)),
+    ("I came to understand", re.compile(r"\bI\s+came\s+to\s+understand\b", re.IGNORECASE)),
+    ("I would later",        re.compile(r"\bI\s+would\s+later\b", re.IGNORECASE)),
+    ("it taught me",         re.compile(r"\bit\s+taught\s+me\b", re.IGNORECASE)),
+    ("taught me that",       re.compile(r"\btaught\s+me\s+that\b", re.IGNORECASE)),
+    ("I had come to",        re.compile(r"\bI\s+had\s+come\s+to\b", re.IGNORECASE)),
+    ("the lesson was",       re.compile(r"\bthe\s+lesson\s+was\b", re.IGNORECASE)),
+)
+
+PLATITUDE_MEDIUM_THRESHOLD = 2  # per chapter (absolute count)
+PLATITUDE_HIGH_THRESHOLD = 3
+
+
+def _scan_reflective_platitudes(book_path: Path) -> list[Finding]:
+    """Memoir: flag chapters heavy with retrospective lesson-summary language.
+
+    Some reflective narration is memoir's lifeblood. But dense retrospective
+    commentary ("looking back", "in hindsight", "what I learned") turns a lived
+    scene into a TED talk. Flag chapters where the count crosses the threshold.
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    findings: list[Finding] = []
+    for chapter_slug, raw_text in drafts:
+        cleaned = _strip_markdown(raw_text)
+
+        occurrences: list[Occurrence] = []
+        per_pattern_counts: dict[str, int] = defaultdict(int)
+
+        for line_no, line in enumerate(cleaned.splitlines(), start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            for label, pattern in _REFLECTIVE_PLATITUDE_PATTERNS:
+                for m in pattern.finditer(stripped):
+                    per_pattern_counts[label] += 1
+                    occurrences.append(
+                        Occurrence(
+                            chapter=chapter_slug,
+                            line=line_no,
+                            snippet=_make_snippet(stripped, m.group(0).lower()),
+                        )
+                    )
+
+        if len(occurrences) < PLATITUDE_MEDIUM_THRESHOLD:
+            continue
+
+        severity = "high" if len(occurrences) >= PLATITUDE_HIGH_THRESHOLD else "medium"
+        top = sorted(per_pattern_counts.items(), key=lambda kv: -kv[1])[:3]
+        top_str = ", ".join(f"{label}×{n}" for label, n in top)
+        phrase = f"{chapter_slug}: {top_str} ({len(occurrences)} hits)"
+
+        findings.append(
+            Finding(
+                phrase=phrase,
+                category="reflective_platitude",
+                severity=severity,
+                count=len(occurrences),
+                occurrences=occurrences[:20],
+            )
+        )
+    return findings
+
+
+# Lesson-summary patterns in chapter endings.
+_LESSON_ENDING_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bI\s+(?:had\s+)?learned\b", re.IGNORECASE),
+    re.compile(r"\btaught\s+me\b", re.IGNORECASE),
+    re.compile(r"\bmade\s+me\s+realiz", re.IGNORECASE),
+    re.compile(r"\bhelped\s+me\s+(?:realiz|understand|see)\b", re.IGNORECASE),
+    re.compile(r"\bshowed\s+me\s+that\b", re.IGNORECASE),
+    re.compile(r"\bmade\s+me\s+understand\b", re.IGNORECASE),
+    re.compile(r"\bI\s+(?:had\s+)?come\s+to\s+understand\b", re.IGNORECASE),
+    re.compile(r"\bI\s+now\s+(?:understood|knew)\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+I\s+came\s+away\s+with\b", re.IGNORECASE),
+    re.compile(r"\bchanged\s+(?:the\s+way\s+I|me\s+forever|everything)\b", re.IGNORECASE),
+    re.compile(r"\bI\s+would\s+never\s+(?:forget|be\s+the\s+same)\b", re.IGNORECASE),
+    re.compile(r"\bthe\s+lesson\s+(?:I|was|here)\b", re.IGNORECASE),
+)
+
+
+def _last_paragraph(text: str) -> str:
+    """Return the last non-empty paragraph of a text block."""
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    return paragraphs[-1] if paragraphs else ""
+
+
+def _scan_tidy_lesson_endings(book_path: Path) -> list[Finding]:
+    """Memoir: flag chapters whose final paragraph closes on a moral or lesson summary.
+
+    Great memoir endings leave the reader in the moment — not in a retrospective
+    summary. A chapter ending with "and that is what taught me X" explains rather
+    than renders. Flag chapters where the last paragraph has multiple lesson-cues.
+    """
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    findings: list[Finding] = []
+    for chapter_slug, raw_text in drafts:
+        cleaned = _strip_markdown(raw_text)
+        last_para = _last_paragraph(cleaned)
+        if not last_para or len(last_para.split()) < 10:
+            continue
+
+        hits: list[str] = []
+        for pattern in _LESSON_ENDING_PATTERNS:
+            for m in pattern.finditer(last_para):
+                hits.append(m.group(0))
+
+        if len(hits) < 2:
+            continue
+
+        severity = "high" if len(hits) >= 3 else "medium"
+        snippet = last_para[:200].rstrip()
+        if len(last_para) > 200:
+            snippet += "…"
+
+        findings.append(
+            Finding(
+                phrase=f"{chapter_slug}: chapter ends on lesson-summary language",
+                category="tidy_lesson_ending",
+                severity=severity,
+                count=len(hits),
+                occurrences=[
+                    Occurrence(chapter=chapter_slug, line=0, snippet=snippet)
+                ],
+            )
+        )
+    return findings
+
+
+def _scan_anonymization_leak(book_path: Path) -> list[Finding]:
+    """Memoir: flag draft chapters that contain a person's real name despite anonymization.
+
+    A single occurrence is high severity — this is a potential privacy or
+    defamation leak that must be caught before publication.
+    """
+    people = _read_people_profiles(book_path)
+    anon_people = [
+        p for p in people
+        if p["anonymization"] != "none" and p["real_name"]
+    ]
+    if not anon_people:
+        return []
+
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    findings: list[Finding] = []
+    for person in anon_people:
+        real_name = person["real_name"]
+        display_name = person["name"]
+        pattern = re.compile(r"\b" + re.escape(real_name) + r"\b", re.IGNORECASE)
+
+        occurrences: list[Occurrence] = []
+        for chapter_slug, raw_text in drafts:
+            cleaned = _strip_markdown(raw_text)
+            for line_no, line in enumerate(cleaned.splitlines(), start=1):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                for m in pattern.finditer(stripped):
+                    occurrences.append(
+                        Occurrence(
+                            chapter=chapter_slug,
+                            line=line_no,
+                            snippet=_make_snippet(stripped, m.group(0).lower()),
+                        )
+                    )
+
+        if occurrences:
+            findings.append(
+                Finding(
+                    phrase=f'real name "{real_name}" (pseudonym: "{display_name}")',
+                    category="anonymization_leak",
+                    severity="high",
+                    count=len(occurrences),
+                    occurrences=sorted(occurrences, key=lambda o: (o.chapter, o.line)),
+                )
+            )
+    return findings
+
+
+def _scan_real_people_consistency(book_path: Path) -> list[Finding]:
+    """Memoir: flag inconsistent capitalisation/form of a person's display name across chapters.
+
+    If "Anna" appears as "anna" in one chapter and "Anna" in another, that is
+    an inconsistency the author should resolve — especially for pseudonymous
+    characters where case variation can break anonymization conventions.
+    """
+    people = _read_people_profiles(book_path)
+    if not people:
+        return []
+
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    findings: list[Finding] = []
+
+    for person in people:
+        display_name = person["name"]
+        if not display_name or len(display_name) < 2:
+            continue
+
+        # Case-sensitive search: collect distinct forms found across chapters.
+        forms_found: dict[str, list[Occurrence]] = defaultdict(list)
+        name_pattern = re.compile(r"\b" + re.escape(display_name) + r"\b", re.IGNORECASE)
+
+        for chapter_slug, raw_text in drafts:
+            cleaned = _strip_markdown(raw_text)
+            for line_no, line in enumerate(cleaned.splitlines(), start=1):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                for m in name_pattern.finditer(stripped):
+                    matched_form = m.group(0)  # preserve original case
+                    forms_found[matched_form].append(
+                        Occurrence(
+                            chapter=chapter_slug,
+                            line=line_no,
+                            snippet=_make_snippet(stripped, matched_form.lower()),
+                        )
+                    )
+
+        if len(forms_found) <= 1:
+            continue
+
+        forms_str = ", ".join(f'"{f}"' for f in sorted(forms_found.keys()))
+        all_occurrences = [
+            occ for occs in forms_found.values() for occ in occs
+        ]
+        findings.append(
+            Finding(
+                phrase=f'"{display_name}": multiple forms found — {forms_str}',
+                category="real_people_consistency",
+                severity="medium",
+                count=len(forms_found),
+                occurrences=sorted(
+                    all_occurrences, key=lambda o: (o.chapter, o.line)
+                )[:10],
+            )
+        )
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Scanning
 # ---------------------------------------------------------------------------
 
@@ -1358,6 +1778,7 @@ def scan_repetitions(
     min_occurrences: int = DEFAULT_MIN_OCCURRENCES,
     max_findings_per_category: int | None = None,
     plugin_root: Path | None = None,
+    book_category: str | None = None,
 ) -> dict[str, Any]:
     """Scan all chapter drafts of a book for repeated phrases.
 
@@ -1456,12 +1877,24 @@ def scan_repetitions(
     findings.extend(_scan_snapshots(book_path, plugin_root=plugin_root))
     findings.extend(_scan_callbacks(book_path))
 
+    # Memoir-specific checks — run only when book_category is memoir.
+    if book_category is None:
+        book_category = _read_book_category(book_path)
+    if book_category == "memoir":
+        findings.extend(_scan_anonymization_leak(book_path))
+        findings.extend(_scan_tidy_lesson_endings(book_path))
+        findings.extend(_scan_reflective_platitudes(book_path))
+        findings.extend(_scan_timeline_ambiguity(book_path))
+        findings.extend(_scan_real_people_consistency(book_path))
+
     # Sort order priority: book_rule_violation first (user-authored rules
-    # override everything), then clichés (always bad), then the rest by
-    # severity. Within same bucket: severity desc, count desc, phrase asc.
+    # override everything), then anonymization_leak (privacy-critical),
+    # then clichés (always bad), then the rest by severity.
+    # Within same bucket: severity desc, count desc, phrase asc.
     category_rank = {
         "book_rule_violation": 0,
-        "cliche": 1,
+        "anonymization_leak": 1,
+        "cliche": 2,
     }
     severity_rank = {"high": 0, "medium": 1}
     findings.sort(
@@ -1515,6 +1948,13 @@ CATEGORY_LABELS = {
     "snapshot": "Snapshot Blocks (static description, no movement)",
     "callback_dropped": "Dropped Callbacks (promised threads, no follow-through)",
     "callback_deferred": "Deferred Callbacks (long-silent registered threads)",
+    # Memoir-specific (Phase 3, #61)
+    "anonymization_leak": "Anonymization Leaks (real name in manuscript)",
+    "tidy_lesson_ending": "Tidy-Lesson Endings (chapter closes on a moral)",
+    "reflective_platitude": "Reflective Platitude Density (retrospective commentary)",
+    "timeline_ambiguity": "Timeline Ambiguity (temporal hand-waving)",
+    "real_people_consistency": "Real-People Name Inconsistency",
+    # N-gram repetition categories
     "simile": "Similes & Metaphors",
     "blocking_tic": "Blocking Tics",
     "character_tell": "Character Tells",
@@ -1525,6 +1965,7 @@ CATEGORY_LABELS = {
 
 CATEGORY_ORDER = [
     "book_rule_violation",
+    "anonymization_leak",
     "cliche",
     "question_as_statement",
     "filter_word",
@@ -1533,6 +1974,12 @@ CATEGORY_ORDER = [
     "snapshot",
     "callback_dropped",
     "callback_deferred",
+    # Memoir-specific
+    "tidy_lesson_ending",
+    "reflective_platitude",
+    "timeline_ambiguity",
+    "real_people_consistency",
+    # N-gram repetition categories
     "simile",
     "character_tell",
     "blocking_tic",
@@ -1709,6 +2156,44 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
         return (
             f"_Recommendation:_ '{finding['phrase']}' has been silent for {count} "
             f"chapters. Decide whether to plant it soon or remove it from the register."
+        )
+    if cat == "anonymization_leak":
+        return (
+            "_Recommendation:_ A person's real name appears in the manuscript despite "
+            "their profile being marked as anonymized. Replace every occurrence with "
+            "the pseudonym (or a relationship-term like 'my colleague') before the "
+            "manuscript leaves the author's desk. This is a pre-publication blocker."
+        )
+    if cat == "tidy_lesson_ending":
+        return (
+            "_Recommendation:_ The chapter ends by explaining what the experience "
+            "meant rather than letting the moment speak. Cut the lesson language and "
+            "close on a concrete detail — an image, a gesture, a line of dialogue. "
+            "The reader draws the meaning; the author renders the scene."
+        )
+    if cat == "reflective_platitude":
+        return (
+            "_Recommendation:_ Dense retrospective commentary ('looking back', "
+            "'in hindsight', 'what I learned') collapses scene into TED talk. "
+            "Memoir earns its reflection by first rendering the experience fully. "
+            "Cut or push the commentary phrases to a single moment of narrating-self "
+            "intrusion; let the rest of the chapter stay in the experiencing self."
+        )
+    if cat == "timeline_ambiguity":
+        return (
+            "_Recommendation:_ Temporal hand-waving ('at some point', 'eventually', "
+            "'one day') leaves the reader unanchored. Memoir credibility depends on "
+            "specificity: a season, a year, a day-of-week, a life stage. Replace at "
+            "least the chapter-opening time anchor with something concrete. A few "
+            "vague transitions inside a chapter are fine; flagging density means too "
+            "many in a row with no specific date anywhere in the chapter."
+        )
+    if cat == "real_people_consistency":
+        return (
+            "_Recommendation:_ The same person is referred to by different name forms "
+            "across chapters. Pick the canonical form (the pseudonym, or the first-name "
+            "only, or the full pseudonym) and apply it consistently throughout. "
+            "Inconsistency confuses readers and can partially undermine anonymization."
         )
     return (
         f"_Recommendation:_ Decide which occurrence is most necessary; cut or "

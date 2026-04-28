@@ -45,21 +45,35 @@ does real work in each location may be an intentional motif.
 
 ## Detection categories
 
+The checker is `book_category`-aware. All books get the base checks; memoir
+books additionally get five memoir-specific passes.
+
+### Base checks (all books)
+
 | Category | What it catches | Severity logic |
 |---|---|---|
 | `book_rule_violation` | Patterns extracted from `<book>/CLAUDE.md` rules | always high |
-| `cliche` | Curated banlist of worn-out fiction phrasings | always high |
+| `cliche` | Curated banlist of worn-out phrasings | always high |
 | `question_as_statement` | Dialogue starting with a Q-word but ending with `.` | high if ≥5 hits |
 | `filter_word` | POV-distancing verbs per chapter (>3/1k words) | high if >6/1k |
 | `adverb_density` | `-ly` adverbs per chapter (>8/1k words) | high if >14/1k |
 | `sentence_repetition` | Identical 8-15-word sentences across chapters | always high |
 | `snapshot` | ≥5 consecutive descriptive sentences, no action, no dialog | always medium |
-| `callback_dropped` | Registered callback past its `expected return by Ch N` deadline, or must-not-forget + >10 ch silence | always high |
-| `callback_deferred` | Registered callback not seen in >10 drafted chapters | always medium |
+| `callback_dropped` | Callback past deadline or must-not-forget + >10 ch silence | always high |
+| `callback_deferred` | Callback not seen in >10 drafted chapters | always medium |
 | `simile` / `character_tell` / `blocking_tic` / `sensory` / `structural` / `signature_phrase` | Cross-chapter n-gram repetition | high if ≥4 hits |
 
-The first two always sort to the top of the report — book rules because the
-user explicitly wrote them, clichés because they're unambiguously stale.
+### Memoir-specific checks (`book_category: memoir` only)
+
+| Category | What it catches | Severity logic |
+|---|---|---|
+| `anonymization_leak` | Real name appearing in manuscript despite people/ profile marking the person as anonymized | always high — pre-publication blocker |
+| `tidy_lesson_ending` | Chapter's final paragraph closes on a moral/lesson summary instead of a moment | high if ≥3 cues, medium if 2 |
+| `reflective_platitude` | Density of retrospective commentary per chapter ("looking back", "in hindsight", "what I learned") | high if ≥3 hits, medium if 2 |
+| `timeline_ambiguity` | Density of temporal hand-waving per chapter ("at some point", "eventually", "years later") | high if >6/1k words, medium if >3/1k |
+| `real_people_consistency` | Same person's display name appearing in inconsistent capitalization or forms across chapters | always medium |
+
+Sort priority: `book_rule_violation` → `anonymization_leak` (privacy-critical) → `cliche` → all others by severity.
 
 ## Workflow
 
@@ -68,6 +82,25 @@ user explicitly wrote them, clichés because they're unambiguously stale.
 If the user provided a slug, use it. Otherwise call MCP `get_session()` and
 use the active book. If still ambiguous, call `list_books()` and ask which
 one.
+
+### 1b. Check book_category
+
+Call MCP `get_book_full(book_slug)` and read `book_category`. If it is
+`memoir`, load `book_categories/memoir/README.md` and
+`book_categories/memoir/craft/memoir-anti-ai-patterns.md` before presenting
+findings — memoir-specific recommendations need that context.
+
+**Memoir mode differences in presentation:**
+- Surface `anonymization_leak` findings first and mark them as
+  **pre-publication blockers** — these are not craft suggestions, they are
+  privacy issues that must be resolved before the manuscript leaves the author.
+- For `tidy_lesson_ending` findings: quote the last paragraph and ask the
+  author whether the lesson language is load-bearing or can be cut.
+- For `reflective_platitude` findings: distinguish between narrating-self
+  commentary (legitimate in memoir) and filler platitudes (cut).
+- For `timeline_ambiguity` findings: suggest the smallest possible anchor
+  ("late summer 1987" beats "a few years later") rather than pushing for
+  exact dates everywhere.
 
 ### 2. Run the scan
 
@@ -144,10 +177,13 @@ If the user says yes (or passes `--interactive`):
 Process findings in **category priority order**:
 
 1. `book_rule_violation` (user explicitly wants these fixed)
-2. `cliche` (always worth fixing)
-3. `question_as_statement` (distinct fix pattern — see below)
-4. `filter_word`, `adverb_density` (per-chapter craft fixes)
-5. Repetition categories (`simile`, `character_tell`, etc.)
+2. `anonymization_leak` (memoir: privacy blocker — fix before any other category)
+3. `cliche` (always worth fixing)
+4. `question_as_statement` (distinct fix pattern — see below)
+5. `filter_word`, `adverb_density` (per-chapter craft fixes)
+6. Memoir-specific: `tidy_lesson_ending`, `reflective_platitude`, `timeline_ambiguity`
+7. Repetition categories (`simile`, `character_tell`, etc.)
+8. `real_people_consistency` (last — name-form cleanup, no prose rewrite needed)
 
 For each high-severity finding:
 
