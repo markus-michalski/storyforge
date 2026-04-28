@@ -39,6 +39,7 @@ from tools.state.parsers import (
 )
 from tools.analysis.callback_validator import verify_callbacks as _verify_callbacks_impl
 from tools.analysis.manuscript_checker import scan_repetitions, render_report
+from tools.analysis.memoir_ethics import check_consent as _check_consent_impl
 from tools.analysis.timeline_validator import validate_timeline
 from tools.analysis.tactical_checker import (
     verify_tactical_setup as _verify_tactical_setup_impl,
@@ -668,6 +669,45 @@ def verify_callbacks(book_slug: str) -> str:
 
     claudemd_text = claudemd_path.read_text(encoding="utf-8")
     result = _verify_callbacks_impl(book_path, claudemd_text)
+    return json.dumps(result)
+
+
+@mcp.tool()
+def check_memoir_consent(book_slug: str) -> str:
+    """Check consent status and ethics risk for all people in a memoir book.
+
+    Reads every profile in ``people/`` and classifies each person as:
+    - PASS  — confirmed-consent or not-required
+    - WARN  — pending, not-asking, missing or unknown consent_status or
+              person_category (incomplete profile)
+    - FAIL  — refused (person explicitly declined — publication blocked)
+
+    Overall verdict: FAIL beats WARN beats PASS.
+
+    Returns a JSON object with:
+        book_slug    — slug string
+        overall      — "PASS" | "WARN" | "FAIL"
+        people       — per-person list with verdict + reason
+        pass_count   — int
+        warn_count   — int
+        fail_count   — int
+
+    Only runs on memoir books (book_category: memoir). Returns an error
+    for fiction books.
+
+    Args:
+        book_slug: The book project slug.
+    """
+    config = load_config()
+    book_path = resolve_project_path(config, book_slug)
+    if not book_path.exists():
+        return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
+    try:
+        result = _check_consent_impl(book_path)
+    except ValueError as exc:
+        return json.dumps({"error": str(exc), "book_slug": book_slug})
+    except FileNotFoundError as exc:
+        return json.dumps({"error": str(exc), "book_slug": book_slug})
     return json.dumps(result)
 
 
