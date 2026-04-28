@@ -130,26 +130,38 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 13. `/storyforge:promo-writer` — Social media campaign (FB, Instagram, TikTok, X, Bluesky, Newsletter)
 14. `/storyforge:translator` — Translate to other languages
 
-### Memoir Workflows (Phase 2+ — forthcoming)
+### Memoir Workflows
 
-Phase 1 ships memoir knowledge under `book_categories/memoir/` but does **not** yet branch the skills above. Memoir books currently flow through the same fiction workflows; skills will branch on `book_category` once Phase 2 (#57–#60, #63), Phase 3 (#61, #62, #65, #66) and Phase 4 (#64) land.
+All memoir skill phases are now wired (Phases 1–4). Memoir books flow through memoir-specific paths automatically via `book_category` branching.
 
-Memoir-aware skills already wired:
+**Phase 1–2 skills (foundation + core branching):**
 
 - `/storyforge:new-book` — scaffolds memoir-shaped tree (`people/` instead of `characters/`, no `world/`, structure-types outline) when `book_category: memoir` is selected (Issue #63)
 - `/storyforge:book-dashboard` — surfaces `Category` and `Length` separately, re-labels people table for memoir (Issue #63)
-- `/storyforge:book-conceptualizer` (memoir mode) — runs the 5-phase concept with Phase 3 *Scope* (time window / cast / deliberate exclusions) instead of Phase 3 *Conflict*, memoir-blurb conventions in Phase 5 (Issue #60)
-- `/storyforge:character-creator` (memoir mode) — real-people handler that captures relationship, person_category (4-category model), consent_status, and anonymization decisions; writes to `people/{slug}.md` via `create_person` MCP tool (Issue #59)
-- `/storyforge:plot-architect` (memoir mode) — narrative-arc shaping; user picks one of four structure types (chronological / thematic / braided / vignette), persisted via `set_memoir_structure_type`; chapter spine, timeline anchor, and tonal document still apply (Issue #58)
-- `/storyforge:chapter-writer` (memoir mode) — loads memoir craft (scene-vs-summary, emotional-truth, real-people-ethics, memoir-anti-ai-patterns); reads `book_category` + `consent_status_warnings` from the brief; surfaces consent gates for refused/pending/missing status before drafting; closes chapters into `plot/people-log.md` instead of `plot/canon-log.md`; skips `world/setting.md` (no Travel Matrix) and genre-as-plot-contract loads (Issue #57)
+- `/storyforge:book-conceptualizer` (memoir mode) — 5-phase concept with Phase 3 *Scope*; memoir-blurb conventions in Phase 5 (Issue #60)
+- `/storyforge:character-creator` (memoir mode) — real-people handler; consent_status, anonymization, people-log (Issue #59)
+- `/storyforge:plot-architect` (memoir mode) — narrative-arc shaping; four structure types (Issue #58)
+- `/storyforge:chapter-writer` (memoir mode) — memoir craft loads; consent gates; people-log closes (Issue #57)
 
-Memoir-specific skills now wired (Phase 3):
+**Phase 3 skills (memoir-specific):**
 
-- `/storyforge:memoir-ethics-checker` — consent/defamation/anonymization scan; calls `check_memoir_consent` MCP tool; export-engineer runs this as Step 0 for memoir books; hard-fails when any person has `consent_status: refused` (Issue #65)
+- `/storyforge:manuscript-checker` (memoir mode) — memoir-specific pattern passes (Issue #61)
+- `/storyforge:voice-checker` (memoir mode) — Dimension 8 memoir AI-tells (Issue #62)
+- `/storyforge:memoir-ethics-checker` — consent/defamation/anonymization scan; export-engineer Step 0 (Issue #65)
+- `/storyforge:emotional-truth-prompt` — 7-dimension felt-sense analysis; memoir-only (Issue #66)
 
-- `/storyforge:emotional-truth-prompt` — interactive felt-sense interrogation of a chapter draft; 7-dimension analysis (implicit feeling, retrospective vantage drift, memory contradiction, avoidance hedges, thoroughness trap, scene/summary mode errors, "I was wrong" rendering); outputs targeted questions + revision directions, not rewrites; runs before `chapter-reviewer`; memoir-only (Issue #66)
+**Phase 4 supporting skills — now wired (Issue #64):**
 
-All Phase 3 memoir-specific skills are now wired (#61, #62, #65, #66). When working on a memoir book, still manually load `book_categories/memoir/README.md` and the relevant `craft/` files at the start of any creative skill — Phase 4 (#64) will add the automatic routing.
+- `/storyforge:brainstorm` (memoir mode) — excavation mode: three-question framework (why this story / why you / why now); refuses to invent memoir material
+- `/storyforge:create-author` (memoir mode) — subject_position field (writing-self / writing-other / shared), relationship-to-material, off_limits; memoir-specific influence list; memoir AI-tell banlist pre-populated
+- `/storyforge:researcher` (memoir mode) — self-research categories (memory verification, period detail, place recovery, timeline anchoring); verifies and reports gaps honestly
+- `/storyforge:world-builder` (memoir mode) — Setting Notes mode: four-question sensory anchoring per location; memory vs. researched tagging; no Travel Matrix
+- `/storyforge:rolling-planner` (memoir mode) — life-stakes questions instead of plot-stakes; skip tactical sanity check for memoir
+- `/storyforge:continuity-checker` (memoir mode) — people-log instead of canon-log; real-world plausibility check instead of Travel Matrix; no matrix reconstruction
+- `/storyforge:chapter-reviewer` (memoir mode) — memoir anti-AI patterns (6-point dimension); consent gate flags; people-log continuity; dialog reconstruction honesty check
+- `/storyforge:cover-artist` (memoir mode) — photographic/typographic/portrait brief; period color palette; no AI-generated real-person likenesses
+- `/storyforge:promo-writer` (memoir mode) — 4-element memoir blurb (hook / personal stake / universal theme / tone signal); memoir quote card guidance
+- `/storyforge:study-author` (memoir mode) — voice excavation from personal writing (journals, letters, diaries); privacy-safe analysis; no Phase 2.5 gate for memoir
 
 ## Project Structure
 
@@ -280,7 +292,7 @@ Skills MUST load relevant craft references before generating creative content. U
 17. ALWAYS load the book's `CLAUDE.md` via MCP `get_book_claudemd()` before writing or reviewing a chapter — it contains persisted workflow rules and callbacks that survive session compaction
 18. Prefix grammar for persistence: messages starting with `Regel:`, `Workflow:`, or `Callback:` are extracted by the PreCompact hook and written to the book's CLAUDE.md. Unprefixed messages are never persisted automatically.
 19. **ALWAYS `Read` the full file when processing review comments** (GH#27). When the user signals that review comments (`{review_handle}:` blocks) are ready, call the `Read` tool on the full file first. The file-change `system-reminder` diff is truncated for long files — end-of-file comments get silently dropped. After reading, count the comments you see and report the count; re-read if the count mismatches expectation.
-20. **ALWAYS check `book_category` before creative work on a book** (Path E #54/#67). Read it from `get_book_full(slug).book_category`. For `memoir`, additionally load `book_categories/memoir/README.md` and the relevant `book_categories/memoir/craft/*.md` docs at the start of any creative skill. The manual load remains the bridge until Phase 4 (#64) ships automatic routing. For named living people in memoir scenes, surface `consent_status` decisions explicitly — use `/storyforge:memoir-ethics-checker` (Phase 3 #65). For felt-sense gaps in chapter drafts, use `/storyforge:emotional-truth-prompt` (Phase 3 #66).
+20. **ALWAYS check `book_category` before creative work on a book** (Path E #54/#67). Read it from `get_book_full(slug).book_category`. All skills now branch automatically on `book_category` (Phase 4 #64 complete — no more manual load bridge needed). For named living people in memoir scenes, surface `consent_status` decisions explicitly — use `/storyforge:memoir-ethics-checker` (#65). For felt-sense gaps in chapter drafts, use `/storyforge:emotional-truth-prompt` (#66).
 
 ## Code Style
 

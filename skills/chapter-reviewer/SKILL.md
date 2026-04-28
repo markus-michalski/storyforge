@@ -11,23 +11,44 @@ argument-hint: "<book-slug> <chapter-slug>"
 
 # Chapter Reviewer
 
+## Step 0 — Resolve Book Category
+
+Read `book_category` from the review brief (Step 1) — the brief carries it explicitly. Treat missing as `fiction`.
+
+If `book_category == "memoir"`, surface a one-line note: *"Working in memoir mode — loading memoir anti-AI patterns, skipping Travel Matrix checks, checking consent status for named people."*
+
+Branch Step 2 loads and checklist adjustments on `book_category`.
+
 ## Prerequisites — MANDATORY LOADS
 
 ### Step 1 — Load the review brief (single MCP call, replaces 6+ direct file reads)
 
 Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
 
+- `book_category` — `fiction` or `memoir`
 - `chapter_timeline` — intra-day time grid for this chapter (start/end/scenes)
 - `previous_chapter_timeline` — same for the preceding chapter (cross-chapter time checks)
 - `canonical_timeline_entries` — parsed `plot/timeline.md` events (day/date/chapter/events)
-- `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (from/to/distance/travel_time)
-- `canon_log_facts` — parsed `plot/canon-log.md` facts with status (ACTIVE / CHANGED)
+- `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (**fiction only** — empty for memoir)
+- `canon_log_facts` — parsed `plot/canon-log.md` facts (**fiction only** — empty for memoir)
+- `consent_status_warnings` — people with non-approved consent status (**memoir only**)
 - `tonal_rules` — non-negotiable rules, litmus test, banned patterns, warning signs from `plot/tone.md`
 - `active_rules` — book CLAUDE.md ## Rules with severity (block / advisory)
 - `active_callbacks` — book CLAUDE.md ## Callback Register items
 - `errors` — graceful degrade: non-empty means some files were missing or unreadable
 
 Honor every populated field in the brief. Empty lists / null means "file missing — degrade gracefully, do not invent."
+
+**Memoir supplement:** Also directly read `{project}/plot/people-log.md` if it exists — the brief's `canon_log_facts` is empty for memoir; people-log is the memoir equivalent.
+
+### Step 1b — Memoir Consent Gate
+
+**Memoir only.** Before reviewing a single line of prose, check `consent_status_warnings` from the brief.
+
+- If any person appears with `consent_status: refused` — flag as **CRITICAL** in the review. The scene should not be published. Route the user to `/storyforge:memoir-ethics-checker` for the cut/anonymize/re-frame decision.
+- If `consent_status: missing` or `pending` — flag as **WARNING**. Surface the name and note that consent needs to be resolved before export.
+
+This is a review flag, not a halt — the review continues, but the consent issue must appear prominently at the top of the report.
 
 ### Step 2 — Load author and craft context (MCP calls)
 
@@ -40,6 +61,8 @@ Honor every populated field in the brief. Empty lists / null means "file missing
   - `dialog-craft` — **Why:** Subtext, voice differentiation, tag discipline — for points 9 and 15.
   - `show-dont-tell` — **Why:** Show/tell balance check for points 6 and 24.
   - `simile-discipline` — **Why:** The two-question test sub-point 10b runs.
+- **Memoir only** — additionally load via `get_book_category_dir("memoir")`:
+  - `memoir-anti-ai-patterns.md` — **Why:** Memoir-specific AI-tells the universal catalog misses (reflective platitudes, "looking back" hinges, tidy lesson endings, hedging-as-humility, therapeutic reframe, explanation-after-image). These run as a separate checklist section.
 - **Detect if this is Chapter 1:** Check chapter slug (starts with `01-` or `001-`) or frontmatter chapter number. If Chapter 1: also load `openings-and-endings` craft reference.
 
 ### Step 3 — Read the prose (direct file reads — this is the content under review)
@@ -101,13 +124,23 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 14. **Sentence rhythm** — Varied length? Matches author's style?
 15. **Dialog voice** — Each character distinguishable without tags?
 
-### Continuity (5 points + 1 sub-point)
+### Continuity (5 points + 1 sub-point) — branched by book_category
+
+**Fiction:**
 16. **Canon consistency** — Does the chapter contradict any fact in the Canon Log? Pay special attention to `CHANGED` facts.
 17. **Timeline accuracy** — Do day/date references match `plot/timeline.md`?
 18. **Travel consistency** — Do distances/travel times match the Travel Matrix?
 19. **Stale references** — Is this chapter flagged as `[STALE]` in the Revision Impact Tracker? If so, list all outdated references.
 20. **Character facts** — Do character descriptions/behaviors match established facts? (e.g., does a vampire eat or not?)
-20a. **POV knowledge boundary** — Does the narration attribute domain knowledge (forensics, tactical combat, ballistics, medicine, automotive repair, ...) to the POV character that their `knowledge:` profile says they don't have? The `validate_chapter` hook surfaces these as `[WARN] pov_boundary` lines — review every one. Three remediation options: (a) move into dialog by a character who would know, (b) reframe as the POV character's lay observation, (c) cut. Skip when the POV character has no `knowledge:` block (graceful degrade).
+20a. **POV knowledge boundary** — Does the narration attribute domain knowledge the POV character's profile says they don't have? Three remediation options: (a) move into dialog, (b) reframe as lay observation, (c) cut.
+
+**Memoir (replace 16 and 18):**
+16. **People-Log consistency** — Does the chapter contradict any established fact in `plot/people-log.md`? Pay special attention to descriptions, relationships, or events recorded in earlier chapters.
+17. **Timeline accuracy** — Do date/year references match `plot/timeline.md`? In memoir this is real chronology — an error is not just a continuity problem, it's a factual error.
+18. **Real-world plausibility** — Do stated distances or travel times match real-world geography? (No Travel Matrix — use common sense. Flag implausible claims as WARNING.)
+19. **Stale references** — same as fiction.
+20. **Person facts** — Do descriptions and behaviors of named people match what was established in earlier chapters and the people-log?
+20a. **Dialog reconstruction honesty** — Is reconstructed dialog presented with appropriate epistemic humility? Does the chapter claim verbatim precision for conversations that happened decades ago? Flag any dialog rendered as if perfectly remembered without any qualifying framing.
 
 ### Tonal Consistency (5 points) — only if `plot/tone.md` exists
 21. **Dominant mode** — Does the chapter match the dominant mode defined in the Tonal Arc table for this chapter's position?
@@ -121,12 +154,25 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 27. **Internal consistency** — Do all relative time references ("ten minutes later", "an hour ago") match the Chapter Timeline in README.md?
 28. **Cross-chapter consistency** — Do references to earlier events use durations that match the previous chapter's timeline?
 
-### Anti-AI (5 points)
+### Anti-AI (5 points — both modes)
 21. **AI vocabulary** — Any words from the banned list? (delve, tapestry, nuanced, etc.)
 22. **Structural uniformity** — Are paragraphs/sentences suspiciously uniform in length?
 23. **Generic descriptions** — Any "bustling city", "warm smile", "piercing gaze" clichés?
 24. **Emotional telling** — Any "he felt a wave of sadness" instead of showing?
 25. **Neat resolution** — Does every scene wrap up too tidily?
+
+### Memoir Anti-AI (6 points — memoir mode only, skip for fiction)
+
+Run this section only when `book_category: memoir`. Load `memoir-anti-ai-patterns.md` (loaded in Step 2). Grade each:
+
+26. **Reflective platitude** — Any generic wisdom claims ("family is complicated", "grief takes time", "I came to realize how much I'd grown")? These are the memoir equivalent of "bustling city". Flag every instance.
+27. **"Looking back" hinges** — Any phrases like "looking back now I can see", "in retrospect", "what I didn't know then was"? Occasional retrospective framing is valid; a pattern of it is evasion — the memoirist is summarizing instead of dramatizing.
+28. **Tidy lesson ending** — Does the chapter close with an explained moral or stated insight ("And that's when I understood that...")? The best memoir closes on a scene or image, not a lesson.
+29. **Hedging as humility** — Density of "perhaps", "in some way", "I think", "maybe", "I'm not sure but"? In memoir, persistent hedging reads as performative safety behavior, not authentic uncertainty. Flag if density exceeds 2 per 500 words as a pattern.
+30. **Therapeutic reframe** — Any "I came to understand that my anger was actually grief" / "what felt like fear was really longing" framing? These translate lived experience into therapy-speak and distance the reader from the raw event.
+31. **Explanation after image** — Does the chapter describe a scene or image and then immediately explain what it meant? (e.g., "The silence between us said everything. We had grown apart.") The image should land alone. The explanation undercuts it.
+
+Report memoir AI-tells in their own labeled section, separate from universal Anti-AI findings.
 
 ## Output Format
 
@@ -156,7 +202,7 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 
 ---
 
-### Score: [X]/25 (core) + [X]/5 (tonal, if tone.md exists) + [X]/3 (timeline)
+### Score: [X]/25 (core) + [X]/5 (tonal, if tone.md exists) + [X]/3 (timeline) + [X]/6 (memoir AI-tells, memoir only)
 
 ### Strengths
 - *What works well*
@@ -174,10 +220,11 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 - [Issue] — [Location] — [Suggested fix]
 
 ### Continuity Report
-- Canon conflicts: [count] — [details]
+- [Fiction] Canon conflicts / [Memoir] People-Log conflicts: [count] — [details]
 - Timeline conflicts: [count] — [details]
-- Travel Matrix conflicts: [count] — [details]
+- [Fiction] Travel Matrix conflicts / [Memoir] Real-world plausibility issues: [count] — [details]
 - Stale references (from revisions): [count] — [details]
+- [Memoir] Consent warnings: [list persons with non-approved consent_status, or "none"]
 
 ### Tonal Report (if tone.md exists)
 - Dominant mode match: [yes/no — expected: X, actual: Y]
@@ -195,6 +242,14 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 - Flagged words: [list]
 - Sentence length variance: [high/medium/low]
 - Generic descriptions found: [count]
+
+### Memoir AI-Tell Report _(memoir mode only — omit section for fiction)_
+- Reflective platitudes: [count] — [examples]
+- "Looking back" hinges: [count] — [examples or "none"]
+- Tidy lesson endings: [found / not found]
+- Hedging density: [X per 500 words — flag if > 2]
+- Therapeutic reframes: [count] — [examples or "none"]
+- Explanation-after-image: [count] — [examples or "none"]
 
 ### Simile Report
 - Total simile markers found: [count]
@@ -218,3 +273,5 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 - Suggest concrete rewrites, not just "make this better."
 - The AI-tell check runs as a hard gate — if banned words appear, flag the chapter as NEEDS REVISION regardless of other scores.
 - When the user flags an issue: VERIFY before accepting. Re-read the passage, check context from earlier chapters, and push back if the user misunderstood (especially English nuances). The user explicitly wants to be challenged, not blindly agreed with.
+- **Memoir:** run Dimension 26-31 (Memoir Anti-AI) and report in a separate labeled section. Do NOT fold memoir-specific tells into the universal Anti-AI section — the author needs the distinction between "bad prose" and "bad memoir prose."
+- **Memoir:** consent warnings from Step 1b must appear PROMINENTLY — as the first item in the Critical section if any person has `consent_status: refused`. This is a publication blocker, not a craft note.
