@@ -57,7 +57,8 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Serie planen" / "Series" | `/storyforge:series-planner` |
 | "Autor anlegen" / "Create author" | `/storyforge:create-author` |
 | "Buch studieren" / "Study this PDF" | `/storyforge:study-author` |
-| "Plot" / "Handlung" / "Struktur" | `/storyforge:plot-architect` |
+| "Plot" / "Handlung" / "Struktur" (fiction) | `/storyforge:plot-architect` |
+| "Plot" / "Handlung" / "Struktur" / "Aufbau" / "narrative arc" (memoir) | `/storyforge:plot-architect-memoir` |
 | "Charakter" / "Character" | `/storyforge:character-creator` |
 | "Welt" / "World" / "Setting" / "Magic System" | `/storyforge:world-builder` |
 | "Kapitel schreiben" / "Write chapter" | `/storyforge:chapter-writer` |
@@ -140,7 +141,7 @@ All memoir skill phases are now wired (Phases 1–4). Memoir books flow through 
 - `/storyforge:book-dashboard` — surfaces `Category` and `Length` separately, re-labels people table for memoir (Issue #63)
 - `/storyforge:book-conceptualizer` (memoir mode) — 5-phase concept with Phase 3 *Scope*; memoir-blurb conventions in Phase 5 (Issue #60)
 - `/storyforge:character-creator` (memoir mode) — real-people handler; consent_status, anonymization, people-log (Issue #59)
-- `/storyforge:plot-architect` (memoir mode) — narrative-arc shaping; four structure types (Issue #58)
+- `/storyforge:plot-architect-memoir` — narrative-arc shaping; four structure types (Issue #58, split out from plot-architect in #126)
 - `/storyforge:chapter-writer` (memoir mode) — memoir craft loads; consent gates; people-log closes (Issue #57)
 
 **Phase 3 skills (memoir-specific):**
@@ -264,7 +265,8 @@ Skills MUST load relevant craft references before generating creative content. U
 - `book-conceptualizer` → loads: theme-development for both modes; fiction adds story-structure + plot-craft; memoir adds (via `book_categories/memoir/craft/`) memoir-structure-types, emotional-truth, scene-vs-summary, real-people-ethics, memoir-anti-ai-patterns. Memoir replaces Phase 3 (Conflict) with Phase 3 (Scope).
 - `chapter-writer` → both modes load: chapter-construction, dialog-craft, show-dont-tell, pacing-guide, anti-ai-patterns, prose-style, simile-discipline. Fiction adds: genre craft, `world/setting.md` (Travel Matrix), `plot/canon-log.md`. Memoir replaces those with: `book_categories/memoir/craft/scene-vs-summary.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`, `real-people-ethics.md`, `plot/structure.md` (structure_type), `plot/people-log.md`. Memoir mode also enforces a consent gate via the brief's `consent_status_warnings` field — refused-tier warnings halt drafting (#57).
 - `chapter-reviewer` → loads: dos-and-donts, anti-ai-patterns, chapter-construction, dialog-craft, show-dont-tell, simile-discipline (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`)
-- `plot-architect` → fiction loads: story-structure, plot-craft, tension-and-suspense, conflict-types. Memoir branches to a 6-step narrative-arc workflow (#58) that loads `book_categories/memoir/craft/memoir-structure-types.md`, `scene-vs-summary.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`; the user picks one of four structure types (chronological / thematic / braided / vignette), persisted via `set_memoir_structure_type` MCP tool to `plot/structure.md` frontmatter.
+- `plot-architect` (fiction-only since #126) → loads: story-structure, plot-craft, tension-and-suspense, conflict-types. Refuses memoir books and routes to `plot-architect-memoir`.
+- `plot-architect-memoir` (memoir-only, split out in #126) → 6-step narrative-arc workflow (#58) that loads `book_categories/memoir/craft/memoir-structure-types.md`, `scene-vs-summary.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`; the user picks one of four structure types (chronological / thematic / braided / vignette), persisted via `set_memoir_structure_type` MCP tool to `plot/structure.md` frontmatter.
 - `character-creator` → fiction loads: character-creation, character-arcs, dialog-craft + genre. Memoir branches to a 6-step real-people handler (#59) that loads `book_categories/memoir/craft/real-people-ethics.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`; writes to `people/{slug}.md` via `create_person` MCP tool with the four-category ethics schema.
 - `world-builder` → loads: world-building (memoir typically skips this skill — real settings are documented in `world/setting.md` via research, not invention)
 - `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`; runs Dimension 8 memoir-specific AI-tells: reflective platitude, "looking back" hinges, tidy lesson endings, hedging-as-humility, therapeutic reframe, explanation-after-image — Issue #62)
