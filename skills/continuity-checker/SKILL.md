@@ -1,8 +1,8 @@
 ---
 name: continuity-checker
 description: |
-  Scan all chapter drafts and validate against the story timeline and travel matrix.
-  Reports temporal and spatial inconsistencies with chapter references.
+  Scan all chapter drafts and validate against the story timeline, travel matrix (fiction),
+  or people-log and real chronology (memoir).
   Use when: (1) User says "Continuity prüfen", "check continuity", "Zeitlinie prüfen",
   (2) After writing multiple chapters, (3) Before revision or export.
 model: claude-sonnet-4-6
@@ -12,33 +12,39 @@ argument-hint: "<book-slug>"
 
 # Continuity Checker
 
+## Step 0 — Resolve Book Category
+
+Load `book_category` from MCP `get_book_full(book_slug)`. Treat missing as `fiction`.
+Branch Prerequisites and Workflow Steps 3, 5, 6 on `book_category`.
+
 ## Purpose
-Systematically scan all chapter drafts for inconsistencies in:
-1. **Temporal continuity** — days, dates, durations, day-of-week claims
-2. **Spatial continuity** — distances, travel times, location descriptions
+
+**Fiction:** Scan for inconsistencies in invented chronology, Travel Matrix distances, and Canon Log facts.
+
+**Memoir:** Scan for inconsistencies in real chronology, people-log facts, and real-world geography claims. No Travel Matrix exists — spatial claims are checked for real-world plausibility instead.
 
 ## Prerequisites
 
-### Step 1 — Load the continuity brief (single MCP call, replaces 4+ direct file reads)
+### Step 1 — Load the continuity brief (single MCP call)
 
 Call MCP `get_continuity_brief(book_slug)`. This returns:
 
 - `canonical_calendar` — parsed `plot/timeline.md` events (story_day/real_date/chapter_slug/key_events)
-- `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (from/to/distance/transport/travel_time/notes)
-- `canon_log_facts` — parsed `plot/canon-log.md` facts with status (ACTIVE / CHANGED / SUPERSEDED) and domain
-- `character_index` — all character files as flat list (slug/name/role/description)
-- `chapter_timelines` — intra-day timeline grids for ALL chapters (any status); use these as the source of truth for chapter start/end anchors and scene-level clock times instead of re-parsing each `README.md`
+- `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (**fiction only** — empty for memoir)
+- `canon_log_facts` — parsed `plot/canon-log.md` facts (**fiction only** — empty for memoir)
+- `character_index` — all character/people files as flat list (slug/name/role/description)
+- `chapter_timelines` — intra-day timeline grids for ALL chapters
 - `errors` — graceful degrade: non-empty means some files were missing or unreadable
 
-Honor every populated field in the brief. Empty lists mean "file missing — degrade gracefully, do not invent."
+Honor every populated field. Empty lists mean "file missing — degrade gracefully, do not invent."
+
+**Memoir supplement:** If `book_category == "memoir"`, also directly read `{project}/plot/people-log.md` (analogue of canon-log for memoir). If it doesn't exist yet, note this in the report and proceed without it.
 
 ### Step 2 — Load book metadata
 
 - Load book data via MCP `get_book_full()`
 
-### Step 3 — Read the chapter drafts (direct file reads — this is the content under review)
-
-Chapter draft texts are intentionally NOT in the brief — they are the data being checked, not project-state metadata.
+### Step 3 — Read the chapter drafts (direct file reads)
 
 - Read ALL chapter drafts: `{project}/chapters/*/draft.md`
 
@@ -83,8 +89,11 @@ Flag as **WARNING** if:
 - The timeline doesn't have an entry for this chapter yet
 - A relative time reference is ambiguous
 
-### Step 3: Validate Against Travel Matrix
+### Step 3: Validate Against Travel Matrix / Real-World Geography
 
+Branch by `book_category`:
+
+**Fiction — Validate Against Travel Matrix:**
 For each spatial claim:
 1. Identify the route (From → To)
 2. Look up the route in `world/setting.md` Travel Matrix
@@ -98,6 +107,16 @@ Flag as **CONFLICT** if:
 Flag as **INFO** if:
 - Route exists but travel time varies within 30% (traffic, weather — acceptable)
 
+**Memoir — Real-World Plausibility Check:**
+No Travel Matrix exists for memoir. For each spatial claim with a stated travel time or distance:
+1. Use common-sense real-world geography (or WebSearch for specific routes if needed)
+2. Flag claims that are implausible (e.g., "the 10-minute walk to school" — if research shows the distance is 3km)
+3. Do NOT construct or propose a Travel Matrix for memoir
+
+Flag as **WARNING** if:
+- A stated travel time seems implausible for the described distance/mode of transport
+- A location's described size or layout contradicts what is known about the real place
+
 ### Step 4: Rebuild Timeline (if missing or incomplete)
 
 If `plot/timeline.md` is empty or incomplete:
@@ -106,49 +125,68 @@ If `plot/timeline.md` is empty or incomplete:
 3. Write the proposed timeline to `plot/timeline.md`
 4. Mark all entries as `[RECONSTRUCTED]` so the author can verify
 
-### Step 5: Rebuild Travel Matrix (if missing or incomplete)
+**Memoir note:** Memoir timelines use real dates. If chapters reference verifiable public events (news, seasons, school years), use those as anchors for the reconstructed timeline.
 
-If Travel Matrix in `world/setting.md` is empty or has gaps:
+### Step 5: Rebuild Travel Matrix (fiction only)
+
+**Skip entirely for memoir.**
+
+If Travel Matrix in `world/setting.md` is empty or has gaps (fiction only):
 1. Collect all travel references from chapters
 2. Build a proposed Travel Matrix (most frequently mentioned values win)
 3. Note conflicts in the matrix
 4. Add proposed entries with `[RECONSTRUCTED]` marker
 
-### Step 6: Validate Fact Consistency (Canon Log)
+### Step 6: Validate Fact Consistency
 
-**If `plot/canon-log.md` exists:**
+Branch by `book_category`:
+
+**Fiction — Canon Log:**
+
+If `plot/canon-log.md` exists:
 1. For each fact marked `CHANGED`, scan all chapters AFTER the revision for references to the OLD version
 2. For each fact marked `ACTIVE`, verify it isn't contradicted in any chapter
 
-**If `plot/canon-log.md` is empty or missing:**
+If `plot/canon-log.md` is empty or missing:
 1. Extract key facts from each chapter (character traits, abilities, relationships, rules)
 2. Build a proposed Canon Log organized by domain (Character, Relationship, World, Plot)
-3. Identify contradictions between chapters (e.g., Ch 4 says "eats normally" but Ch 8 says "doesn't eat")
-4. Write the proposed Canon Log to `{project}/plot/canon-log.md` with `[RECONSTRUCTED]` markers
+3. Identify contradictions between chapters
+4. Write to `{project}/plot/canon-log.md` with `[RECONSTRUCTED]` markers
 
-**Fact categories to extract:**
-- Character abilities/limitations (e.g., "can/cannot eat", "has/doesn't have powers")
-- Character descriptions (appearance, age, occupation)
-- Relationship status (who knows whom, family ties)
-- Rules of the world (how magic/supernatural elements work)
-- Object ownership/possession (who has the key, where is the artifact)
+Fact categories: character abilities/limitations, descriptions, relationship status, world rules, object ownership.
+
+**Memoir — People Log:**
+
+If `{project}/plot/people-log.md` exists:
+1. For each entry, verify that all chapters referencing that person are consistent with what the log records (what they did, said, believed in each chapter)
+2. Flag any chapter that contradicts an established people-log entry
+
+If `people-log.md` is missing:
+1. Extract key facts about named people from each chapter (descriptions, behaviors, quotes attributed to them, relationship status)
+2. Build a proposed People Log organized by person
+3. Identify contradictions between chapters (e.g., Ch 3 says "she never spoke about the accident" but Ch 7 has her describing it)
+4. Write to `{project}/plot/people-log.md` with `[RECONSTRUCTED]` markers
+
+People-log fact categories: physical description, relationship to author, what they said/did/believed in each chapter, consent_status if known.
 
 Flag as **FACT CONFLICT** if:
-- A chapter references the old version of a `CHANGED` fact
-- Two chapters make contradictory claims about the same fact
-- A character behaves inconsistently with established abilities/traits
+- Two chapters make contradictory claims about the same person or fact
+- A chapter contradicts an established people-log entry
 
 ### Step 7: Output Report
+
+Fiction report includes Travel Matrix section. Memoir replaces it with Real-World Plausibility and uses People Log instead of Canon Log.
 
 ```markdown
 # Continuity Check Report — {Book Title}
 Generated: {date}
+Book category: {fiction | memoir}
 
 ## Summary
 - Chapters scanned: X
 - Timeline entries: X
-- Travel Matrix routes: X
-- Canon facts tracked: X
+- [Fiction] Travel Matrix routes: X | [Memoir] Spatial plausibility checks: X
+- [Fiction] Canon facts tracked: X | [Memoir] People-log entries: X
 - CONFLICTS: X (temporal: X, spatial: X, fact: X)
 - WARNINGS: X
 
@@ -164,35 +202,38 @@ Generated: {date}
 
 ---
 
-## Spatial Conflicts
+## [Fiction] Spatial Conflicts — Travel Matrix
 
 ### CONFLICT: Chapter 5 vs Travel Matrix
 **Chapter 5:** "The city was only 12 km away, and the drive took 40 minutes"
 **Travel Matrix:** City → Campground = 120 km / 2h 30min
-**Analysis:** 12 km at normal speed = ~10 minutes, not 40. 40 minutes ≈ 40 km. Neither matches.
-**Suggested fix:** Update Chapter 5 to "120 km / 2.5 hours" or update Travel Matrix if 12 km is correct.
+**Suggested fix:** Update Chapter 5 or Travel Matrix for consistency.
+
+## [Memoir] Spatial Plausibility
+
+### WARNING: Chapter 5 — implausible travel time
+**Chapter 5:** "the 10-minute walk to school"
+**Real-world assessment:** ~3km distance = approx 35-40 minutes on foot.
+**Suggested fix:** Revise the stated duration or distance.
 
 ---
 
-## Fact Conflicts
+## [Fiction] Fact Conflicts — Canon Log / [Memoir] Fact Conflicts — People Log
 
-### CONFLICT: Chapter 4 (revised) vs Chapter 8
-**Canon Log:** "Marcus eats normal food" (CHANGED in Ch 4 revision, was: "Marcus doesn't eat")
-**Chapter 8:** "You don't eat, remember?" — Lena said, pushing her plate aside.
-**Analysis:** Chapter 8 still references pre-revision fact. Marcus now eats normally per Ch 4.
-**Suggested fix:** Rewrite Ch 8 dialog to reflect that Marcus eats.
+### CONFLICT: Chapter 4 vs Chapter 8
+**[Fiction] Canon Log / [Memoir] People Log:** [established fact]
+**Chapter 8:** [contradicting text]
+**Suggested fix:** [options]
 
 ---
 
 ## Warnings (verify manually)
-
 - Chapter 4: "a few days later" — ambiguous, not reflected in timeline.md
-- Chapter 9: travel route "downtown → warehouse" not in Travel Matrix
+- [Fiction] Chapter 9: travel route "downtown → warehouse" not in Travel Matrix
 
 ---
 
 ## Reconstructed Timeline
-
 *(Only shown if timeline.md was empty/incomplete)*
 ...
 ```
@@ -203,12 +244,17 @@ Write report to `{project}/research/continuity-report.md`.
 
 Suggest: Fix conflicts manually or ask chapter-reviewer to address specific chapters.
 
-### Step 9: Update Canon Log
+### Step 9: Update Fact Log
 
-If the Canon Log was reconstructed or new facts were discovered:
-1. Save the updated Canon Log to `{project}/plot/canon-log.md`
+**Fiction:** If the Canon Log was reconstructed or new facts were discovered:
+1. Save to `{project}/plot/canon-log.md`
 2. Populate the Revision Impact Tracker with chapters that need attention
 3. Report to the user which chapters are flagged as `[STALE]`
+
+**Memoir:** If the People Log was reconstructed or new facts were discovered:
+1. Save to `{project}/plot/people-log.md`
+2. Flag chapters that contradict the log as `[STALE]`
+3. If any person with `consent_status: refused` appears in a chapter — flag as CRITICAL, route to `/storyforge:memoir-ethics-checker`
 
 ## Rules
 - Report ALL conflicts, even minor ones. The author decides what to fix.
