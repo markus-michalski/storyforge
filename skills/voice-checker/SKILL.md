@@ -20,6 +20,20 @@ argument-hint: "<book-slug> [chapter-slug]"
 - **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Preferred/banned word list — the per-author enforcement layer that overrides the generic AI-tell list when in conflict.
 - Read the text to check (chapter draft or entire book).
 
+**Memoir mode — additional mandatory load:**
+
+Call MCP `get_book_full(book_slug)` and read `book_category`. If it equals
+`memoir`, additionally load:
+
+- **`memoir-anti-ai-patterns.md`** via MCP `get_book_category_dir("memoir")` +
+  `/craft/memoir-anti-ai-patterns.md`. **Why:** Memoir has five failure modes
+  that fiction prompts don't catch: reflective platitudes, retrospective hinges,
+  tidy lesson endings, hedging-as-humility, and therapeutic-vocabulary
+  anachronisms. The universal anti-ai-patterns doc does not cover these.
+
+If `book_category` is `fiction` or missing, skip the memoir load and proceed
+with the standard 7-dimension analysis only.
+
 ## Analysis — 7 Dimensions
 
 ### 1. Vocabulary Scan
@@ -69,6 +83,58 @@ Compare against the defined author profile:
 - Are avoided patterns actually avoided?
 - Does the pacing match the profile's setting?
 
+### 8. Memoir-Specific AI-Tells _(memoir mode only — skip for fiction)_
+
+Run this dimension only when `book_category: memoir`. Grade against
+`memoir-anti-ai-patterns.md`. Six patterns to flag:
+
+**8a. Reflective platitude** — a narrator pause that delivers universal-life
+wisdom in elegant cadence. True the way fortune cookies are true; applies to
+everyone, therefore to no one. Signal phrases: "we all face moments like these",
+"grief is not a destination but a companion", "life has a way of…". **Fix:**
+replace with a specific, slightly wrong thing only this narrator would say.
+
+**8b. "Looking back" hinges** — the retrospective announcement construction:
+"Looking back, I now realize…", "In hindsight, I see that…", "Only later did
+I come to know…", "What I did not yet know was…". The announcement is the
+problem — it tells the reader what is about to happen instead of just doing it.
+**Fix:** cut the hinge; move directly into the realization.
+
+**8c. Tidy lesson / earned wisdom** — the chapter ends with a clean takeaway.
+The narrator has Learned Something. Real change is partial, contradicted by
+next week's behavior; a lesson that announces itself as final almost certainly
+wasn't. **Fix:** end on the moment, not the meaning. Cut the last paragraph if
+it delivers the lesson; trust the reader.
+
+**8d. Hedging as humility** — every claim softened by qualifiers until the
+prose is upholstered in cotton: *perhaps*, *I think*, *maybe*, *some part of
+me*, *in a sense*, *to a certain extent*, *in some way*. This is performative
+uncertainty — the writer's fear of commitment, not the narrator's genuine doubt.
+**Fix:** remove every qualifier on the first pass; restore only those marking
+genuine uncertainty.
+
+**8e. Therapeutic reframe** — anachronistic therapy vocabulary imposed on a
+past self who didn't have it: *nervous system*, *dysregulated*, *attachment
+style*, *somatic*, *trauma response*, *parts work*, *nervous system regulation*.
+**Fix:** render the past-self's experience in the past-self's vocabulary; mark
+the contemporary frame explicitly as retrospective if it matters at all.
+
+**8f. Explanation-after-image** — every concrete image immediately followed by
+its interpretation: "He set down the mug carefully — *the small ceremony of a
+man trying to control what he could*." The explanation eats the image's work.
+**Fix:** strip the explanation; trust the image. If it can't stand alone, make
+it stronger.
+
+Scoring for Dimension 8:
+- 0 patterns found → 100/100
+- 1 pattern found → 80/100 (note it; no hard stop)
+- 2–3 patterns → 60/100 (revision recommended)
+- 4+ patterns → 40/100 or below (rewrite recommended; flag as a systemic problem)
+
+Report memoir tells **in their own labeled section** separate from the
+universal-AI-tell findings, so the author sees which issues are memoir-specific
+and which would also affect fiction.
+
 ## Output Format
 
 ```markdown
@@ -86,9 +152,16 @@ Compare against the defined author profile:
 | Emotional Expression | X/100 | [Shown / Mixed / Told] |
 | Specificity | X/100 | [Concrete / Mixed / Generic] |
 | Author Match | X/100 | [Strong / Partial / Weak] |
+| Memoir AI-Tells | X/100 | [memoir mode only — omit for fiction] |
 
 ### Flagged Words
 [List with line numbers — max ~150 words, group by category if many]
+
+### Memoir AI-Tells _(memoir mode only — omit section for fiction)_
+[One subsection per pattern found (8a–8f). Quote the offending phrase,
+name the pattern, give a one-sentence fix direction. Omit subsections
+for patterns not found. If none found, write: "No memoir-specific
+AI-tells detected."]
 
 ### Most AI-Like Passages
 [Quote 3-5 passages that read most "AI" with explanations — max ~150 words per passage incl. explanation]
@@ -97,7 +170,9 @@ Compare against the defined author profile:
 [Quote 3-5 passages that feel most authentic — max ~100 words per passage]
 
 ### Recommendations
-[Specific rewrites for the worst offenders — max 5 entries, before/after pairs]
+[Specific rewrites for the worst offenders — max 5 entries, before/after pairs.
+For memoir: prioritise memoir-specific tells (8a–8f) over universal tells
+if both are present — memoir-specific issues are more reader-visible.]
 
 ### Verdict
 [AUTHENTIC / NEEDS WORK / REWRITE RECOMMENDED]
@@ -109,3 +184,5 @@ Compare against the defined author profile:
 - Below 50 means significant rewriting.
 - Run the vocabulary scan as a hard gate before proceeding. If AI-tell words are found, STOP and request a rewrite of the affected sentences before re-scoring.
 - Be specific with line numbers and quotes — generic "it sounds AI" is not actionable; quote the offending text.
+- **Memoir mode:** always run Dimension 8 and report its findings in a separate section. Do NOT fold memoir-specific tells into the universal dimensions — the author needs to see the distinction between "this is bad prose" and "this is bad memoir prose". A passage can score well on universal dimensions and still be riddled with memoir-specific AI patterns.
+- **Memoir mode:** hedging qualifiers (*perhaps*, *in some way*) score differently from fiction mode — in memoir they are performative safety behaviour, not stylistic choice. Flag all density above 2 per 500 words as a pattern, not as individual occurrences.
