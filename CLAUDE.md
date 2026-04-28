@@ -71,6 +71,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Recherche" / "Research" | `/storyforge:researcher` |
 | "Sensitivity" / "Problematisch?" | `/storyforge:sensitivity-reader` |
 | "Ethics check" / "Consent check" / "Einwilligungen prüfen" / "Personen prüfen" | `/storyforge:memoir-ethics-checker` (memoir only) |
+| "Emotional truth" / "Deepen scene" / "Memoir scene check" / "Felt sense" / "Emotionale Wahrheit" / "Szene vertiefen" / "Erinnerung prüfen" | `/storyforge:emotional-truth-prompt` (memoir only) |
 | "Export" / "EPUB" / "PDF" / "MOBI" | `/storyforge:export-engineer` |
 | "Übersetzen" / "Translate" | `/storyforge:translator` |
 | "Cover" / "Buchcover" | `/storyforge:cover-artist` |
@@ -146,11 +147,9 @@ Memoir-specific skills now wired (Phase 3):
 
 - `/storyforge:memoir-ethics-checker` — consent/defamation/anonymization scan; calls `check_memoir_consent` MCP tool; export-engineer runs this as Step 0 for memoir books; hard-fails when any person has `consent_status: refused` (Issue #65)
 
-The forthcoming memoir-specific routing (not yet wired):
+- `/storyforge:emotional-truth-prompt` — interactive felt-sense interrogation of a chapter draft; 7-dimension analysis (implicit feeling, retrospective vantage drift, memory contradiction, avoidance hedges, thoroughness trap, scene/summary mode errors, "I was wrong" rendering); outputs targeted questions + revision directions, not rewrites; runs before `chapter-reviewer`; memoir-only (Issue #66)
 
-- `/storyforge:emotional-truth-prompt` — render-the-felt-sense pass (Issue #66)
-
-Until those land, when working on a memoir book, manually load `book_categories/memoir/README.md` and the relevant `craft/` files at the start of any creative skill.
+All Phase 3 memoir-specific skills are now wired (#61, #62, #65, #66). When working on a memoir book, still manually load `book_categories/memoir/README.md` and the relevant `craft/` files at the start of any creative skill — Phase 4 (#64) will add the automatic routing.
 
 ## Project Structure
 
@@ -221,7 +220,7 @@ Concept → Profile → Backstory → Arc Defined → Final
 
 ### Memoir status interpretation
 
-The book status sequence is **identical** for `book_category: memoir`. Several stages carry shifted intent (e.g., `Plot Outlined` = narrative arc identified; `Characters Created` = people profiles drafted with consent decisions). Phase 3 quality gates (consent verification, emotional-truth pass) are documented in `book_categories/memoir/status-model.md`. `memoir-ethics-checker` (#65) enforces the consent gate; `emotional-truth-prompt` (#66) enforces the felt-sense pass (forthcoming).
+The book status sequence is **identical** for `book_category: memoir`. Several stages carry shifted intent (e.g., `Plot Outlined` = narrative arc identified; `Characters Created` = people profiles drafted with consent decisions). Phase 3 quality gates (consent verification, emotional-truth pass) are documented in `book_categories/memoir/status-model.md`. `memoir-ethics-checker` (#65) enforces the consent gate; `emotional-truth-prompt` (#66) enforces the felt-sense pass — both now wired.
 
 ## Author Profiles
 
@@ -281,7 +280,7 @@ Skills MUST load relevant craft references before generating creative content. U
 17. ALWAYS load the book's `CLAUDE.md` via MCP `get_book_claudemd()` before writing or reviewing a chapter — it contains persisted workflow rules and callbacks that survive session compaction
 18. Prefix grammar for persistence: messages starting with `Regel:`, `Workflow:`, or `Callback:` are extracted by the PreCompact hook and written to the book's CLAUDE.md. Unprefixed messages are never persisted automatically.
 19. **ALWAYS `Read` the full file when processing review comments** (GH#27). When the user signals that review comments (`{review_handle}:` blocks) are ready, call the `Read` tool on the full file first. The file-change `system-reminder` diff is truncated for long files — end-of-file comments get silently dropped. After reading, count the comments you see and report the count; re-read if the count mismatches expectation.
-20. **ALWAYS check `book_category` before creative work on a book** (Path E #54/#67). Read it from `get_book_full(slug).book_category`. For `memoir`, additionally load `book_categories/memoir/README.md` and the relevant `book_categories/memoir/craft/*.md` docs at the start of any creative skill. Phase 1 wires the field but does not yet auto-branch skills — the manual load is the bridge until Phase 2+ ships the automatic routing. For named living people in memoir scenes, surface `consent_status` decisions explicitly — use `/storyforge:memoir-ethics-checker` to run the full consent scan (Phase 3 #65, now wired).
+20. **ALWAYS check `book_category` before creative work on a book** (Path E #54/#67). Read it from `get_book_full(slug).book_category`. For `memoir`, additionally load `book_categories/memoir/README.md` and the relevant `book_categories/memoir/craft/*.md` docs at the start of any creative skill. The manual load remains the bridge until Phase 4 (#64) ships automatic routing. For named living people in memoir scenes, surface `consent_status` decisions explicitly — use `/storyforge:memoir-ethics-checker` (Phase 3 #65). For felt-sense gaps in chapter drafts, use `/storyforge:emotional-truth-prompt` (Phase 3 #66).
 
 ## Code Style
 
