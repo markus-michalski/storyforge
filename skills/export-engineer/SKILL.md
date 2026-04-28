@@ -19,6 +19,20 @@ argument-hint: "<book-slug> [format]"
 
 ## Workflow
 
+### Step 0: Memoir consent gate _(memoir books only)_
+
+Call MCP `get_book_full(book_slug)` and read `book_category`.
+
+If `book_category == "memoir"`: call MCP `check_memoir_consent(book_slug)`
+**before** running pre-export gates.
+
+- Overall `FAIL` → **hard stop**. Do not proceed. Tell the user:
+  > Export blocked — at least one person has `consent_status: refused`.
+  > Resolve via `/storyforge:memoir-ethics-checker` before exporting.
+- Overall `WARN` → surface the warnings, ask the user to confirm they want
+  to export anyway. Proceed only on explicit confirmation.
+- Overall `PASS` → continue to Step 1.
+
 ### Step 1: Pre-Flight Check
 Run MCP `run_pre_export_gates()`. If BLOCKED, show the issues and stop.
 If WARN-only, show warnings and ask if user wants to proceed anyway.
