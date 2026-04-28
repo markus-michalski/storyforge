@@ -64,7 +64,7 @@ def _make_fiction_book(tmp_path: Path, *, slug: str = "test-fiction") -> Path:
     (book / "plot").mkdir()
     (book / "world").mkdir()
     (book / "README.md").write_text(
-        f'---\ntitle: "Test Fiction"\nbook_category: "fiction"\n---\n\n# Test Fiction\n',
+        '---\ntitle: "Test Fiction"\nbook_category: "fiction"\n---\n\n# Test Fiction\n',
         encoding="utf-8",
     )
     return book
