@@ -1497,6 +1497,28 @@ def update_field(file_path: str, field: str, value: str) -> str:
     as pure YAML — no frontmatter delimiters are written. For all other files
     the standard ``---`` frontmatter format is used.
     """
+    # Audit H1 (#115): file_path must resolve under content_root or
+    # authors_root. Without containment a poisoned prompt could rewrite any
+    # existing user file (~/.bashrc, ~/.ssh/authorized_keys, dotfiles in
+    # ~/.claude/...) as YAML.
+    config = load_config()
+    allowed_roots = [
+        Path(config["paths"]["content_root"]).resolve(),
+        Path(config["paths"]["authors_root"]).resolve(),
+    ]
+    try:
+        resolved = Path(file_path).resolve()
+    except (OSError, RuntimeError) as exc:
+        return json.dumps({"error": f"Invalid file_path: {exc}"})
+
+    if not any(resolved.is_relative_to(root) for root in allowed_roots):
+        return json.dumps({
+            "error": (
+                f"file_path must be within content_root or authors_root "
+                f"(got: {file_path})"
+            )
+        })
+
     path = Path(file_path)
     if not path.exists():
         return json.dumps({"error": f"File not found: {file_path}"})
@@ -1549,6 +1571,23 @@ def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str
 
     if sub_path:
         base = base / sub_path
+
+    # Audit H2 (#116): defense-in-depth — even with a validated book_slug,
+    # `component` and `sub_path` flow into the join unsanitized. Reject any
+    # final path that escapes content_root.
+    content_root = Path(config["paths"]["content_root"]).resolve()
+    try:
+        resolved = base.resolve()
+    except (OSError, RuntimeError) as exc:
+        return json.dumps({"error": f"Invalid path components: {exc}"})
+
+    if not resolved.is_relative_to(content_root):
+        return json.dumps({
+            "error": (
+                f"Resolved path escapes content_root "
+                f"(component='{component}', sub_path='{sub_path}')"
+            )
+        })
 
     return json.dumps({"path": str(base), "exists": base.exists()})
 
