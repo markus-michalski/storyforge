@@ -552,14 +552,21 @@ def scan_manuscript(
     """Scan all chapter drafts of a book for prose-quality issues that only
     surface when the whole manuscript is read in one pass.
 
-    Detects:
+    Detects (all books):
     - Violations of rules from the book's CLAUDE.md (highest priority)
-    - Curated fiction clichés ("blood ran cold", "time stood still", ...)
+    - Curated clichés ("blood ran cold", "time stood still", ...)
     - Dialogue punctuation anomalies (Q-word opener + trailing period)
     - POV filter-word overuse per chapter ("felt", "noticed", "saw that", ...)
     - Per-chapter `-ly` adverb density
     - Cross-chapter repeated phrases: similes, character tells, blocking tics,
       structural patterns, signature phrases
+
+    Memoir-only (book_category: memoir, Phase 3 #61):
+    - Anonymization leaks — real name appearing despite people/ profile marking
+    - Tidy-lesson endings — chapters that close on a moral instead of a moment
+    - Reflective platitude density — retrospective commentary overuse per chapter
+    - Timeline ambiguity — temporal hand-waving density per chapter
+    - Real-people name consistency — inconsistent name forms across chapters
 
     Returns the structured findings as JSON. When `write_report` is true,
     also writes a human-readable Markdown report to
