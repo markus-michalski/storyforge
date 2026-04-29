@@ -14,10 +14,31 @@ from tools.state.continuity_brief import (
     _get_all_chapter_timelines,
     build_continuity_brief,
 )
-from tests.test_review_brief import (
-    CANON_LOG_SAMPLE,
-    TRAVEL_MATRIX_SAMPLE,
-)
+TRAVEL_MATRIX_SAMPLE = """\
+## Travel Matrix
+
+| From | To | Distance | Transport | Travel Time | Notes |
+|------|-----|----------|-----------|-------------|-------|
+| City | Campground | 120 km | Car | 2h 30min | Highway, no traffic |
+| Airport | Hotel | 15 km | Taxi | 20min | City traffic |
+"""
+
+CANON_LOG_SAMPLE = """\
+## Established Facts
+
+### Character Facts
+
+| Fact | Established In | Status | Notes |
+|------|----------------|--------|-------|
+| Marcus is a vampire | Ch 1 | ACTIVE | |
+| Lena eats normal food | Ch 4 (rev) | CHANGED | Was: Lena doesn't eat (Ch 4 original) |
+
+### World / Setting Facts
+
+| Fact | Established In | Status | Notes |
+|------|----------------|--------|-------|
+| Vampires can walk in daylight | Ch 1 | ACTIVE | But weakened by sunlight |
+"""
 
 
 # ---------------------------------------------------------------------------

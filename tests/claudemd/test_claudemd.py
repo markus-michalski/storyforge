@@ -20,7 +20,7 @@ from tools.claudemd.parser import (
     parse_prefixed_entry,
 )
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 @pytest.fixture

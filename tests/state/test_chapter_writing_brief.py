@@ -34,7 +34,7 @@ def _setup_book(tmp_path: Path) -> tuple[Path, Path]:
         '---\ntitle: "Test Book"\nauthor: ""\n---\n\n# Test Book\n',
         encoding="utf-8",
     )
-    return book, Path(__file__).resolve().parent.parent
+    return book, Path(__file__).resolve().parent.parent.parent
 
 
 def _make_chapter(

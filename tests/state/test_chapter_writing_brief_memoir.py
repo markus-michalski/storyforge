@@ -35,7 +35,7 @@ def _make_memoir_book(tmp_path: Path, *, category: str = "memoir") -> tuple[Path
         f'---\ntitle: "Test Memoir"\nbook_category: "{category}"\n---\n\n# Test Memoir\n',
         encoding="utf-8",
     )
-    return book, Path(__file__).resolve().parent.parent
+    return book, Path(__file__).resolve().parent.parent.parent
 
 
 def _make_fiction_book(tmp_path: Path) -> tuple[Path, Path]:
@@ -49,7 +49,7 @@ def _make_fiction_book(tmp_path: Path) -> tuple[Path, Path]:
         '---\ntitle: "Test Fiction"\nbook_category: "fiction"\n---\n\n# Test Fiction\n',
         encoding="utf-8",
     )
-    return book, Path(__file__).resolve().parent.parent
+    return book, Path(__file__).resolve().parent.parent.parent
 
 
 def _make_chapter(
@@ -151,7 +151,7 @@ class TestBookCategoryExposure:
             book_root=book,
             book_slug="legacy",
             chapter_slug="01-opening",
-            plugin_root=Path(__file__).resolve().parent.parent,
+            plugin_root=Path(__file__).resolve().parent.parent.parent,
         )
         assert brief["book_category"] == "fiction"
 

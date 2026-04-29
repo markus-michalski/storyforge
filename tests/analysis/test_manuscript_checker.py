@@ -35,7 +35,7 @@ from tools.analysis.manuscript_checker import (
     scan_repetitions,
 )
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 # ---------------------------------------------------------------------------

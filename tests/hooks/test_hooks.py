@@ -1071,7 +1071,7 @@ class TestHookSubprocess:
     """Run the hook as Claude Code would — fresh process, JSON on stdin."""
 
     def _hook_path(self) -> Path:
-        return Path(__file__).resolve().parent.parent / "hooks" / "validate_chapter.py"
+        return Path(__file__).resolve().parent.parent.parent / "hooks" / "validate_chapter.py"
 
     def test_strict_block_via_subprocess(self, tmp_path):
         book = _make_book(

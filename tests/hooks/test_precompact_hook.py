@@ -15,7 +15,7 @@ from hooks.precompact_sync_claudemd import (
 )
 from tools.claudemd.manager import get_claudemd, init_claudemd
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _write_transcript(path: Path, entries: list[dict]) -> None:

@@ -19,7 +19,7 @@ from tools.rule_writer import (
     write_global_rule,
 )
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 # ---------------------------------------------------------------------------
