@@ -25,6 +25,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.16.0] - 2026-04-29
+
+### Added
+- GateResult schema for checker MCP tools (#122) (#133)
+- memoir support for 10 supporting skills (Phase 4, #64) (#114)
+- add emotional-truth-prompt skill (Phase 3 #66) (#113)
+- add memoir-ethics-checker skill (Phase 3 #65) (#112)
+- branch voice-checker for memoir AI-tells (#62) (#111)
+- branch manuscript-checker for memoir-specific patterns (#61) (#110)
+- branch chapter-writer for memoir mode (Path E Phase 2, #57) (#109)
+- branch plot-architect for memoir structure types (Path E Phase 2, #58) (#108)
+- branch character-creator into real-people-handler for memoir (Path E Phase 2, #59) (#107)
+- branch book-conceptualizer for memoir 5-phase concept (Path E Phase 2, #60) (#106)
+- branch new-book and book-dashboard for book_category (Path E Phase 2, #63) (#105)
+- add book_category field for memoir support (Path E Phase 1) (#104)
+
+### Changed
+- add weekly watcher for issue #138 split trigger (#144)
+- add coverage for zero-coverage modules (#124) (#143)
+- mirror tests/ structure to source modules (#127) (#142)
+- Phase 3 quick wins — ruff format + .gitignore (#123, #125) (#140)
+- split server.py monolith into domain router modules (#120) (#139)
+- split plot-architect SKILL into fiction + memoir variants (#126) (#137)
+- split manuscript_checker.py god-module into focused modules (#118) (#136)
+- extract chapter_writing_brief loaders into focused modules (#121) (#135)
+- extract validate_chapter hook logic into MCP tool (#119) (#134)
+- add memoir integration tests for Phase 2-4 branching (#68)
+
+### Fixed
+- remove spurious f-prefix in test helper (ruff F541)
+- remove unused imports flagged by ruff
+
+### Security
+- allowlist pandoc PDF args to prevent LaTeX/shell injection (#132)
+- harden MCP boundary against path traversal and arbitrary write (#131)
+
 ## [1.15.0] - 2026-04-27
 
 ### Added
@@ -229,3 +265,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.13.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.13.1
 [1.14.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.14.0
 [1.15.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.15.0
+[1.16.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.16.0
