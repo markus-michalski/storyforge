@@ -1,22 +1,10 @@
-"""StoryForge MCP Server — bootstrap and backward-compat surface.
+"""StoryForge MCP Server — entry point and tool surface.
 
-The 59 ``@mcp.tool()`` handlers were split out of this module into
-domain-specific routers under ``routers/`` (#120). This file now exists
-to:
+The 60 @mcp.tool() handlers live in domain modules under routers/ (#120).
+This file bootstraps the server and re-exports every tool function so tests
+and callers can reach them via ``import server``.
 
-1. Set up ``sys.path`` so plain ``import routers`` works when ``server.py``
-   is launched as a script via ``runpy.run_path`` from ``run.py``.
-2. Trigger side-effect tool registration by importing the ``routers``
-   package (its ``__init__`` imports every domain module).
-3. Re-export the shared ``mcp`` and ``_cache`` instances plus every
-   domain tool function. This preserves the historical contract that
-   tests can ``import server`` and reach ``server.create_chapter``,
-   ``server.list_books`` etc. directly.
-4. Re-export ``load_config`` and ``get_content_root`` so the legacy
-   ``monkeypatch.setattr(server, "load_config", ...)`` pattern keeps
-   compiling — but **note**: tests targeting the new code path should
-   patch ``routers._app.load_config`` instead, since that is the single
-   symbol the router functions actually look up.
+Patch target for tests: ``routers._app.load_config`` (not this module).
 """
 
 from __future__ import annotations
@@ -32,37 +20,17 @@ plugin_root = os.environ.get(
 if plugin_root not in sys.path:
     sys.path.insert(0, plugin_root)
 
-# Make `routers` importable when this file is loaded via runpy.run_path —
-# `servers/storyforge-server/` is not a package, so the directory itself
-# must be on sys.path.
+# Make `routers` importable when this file is loaded via runpy.run_path.
 _server_dir = str(Path(__file__).resolve().parent)
 if _server_dir not in sys.path:
     sys.path.insert(0, _server_dir)
 
-# Shared FastMCP instance + cache.
 from routers._app import _cache, mcp  # noqa: E402,F401
-
-# Side-effect import — every router module registers its @mcp.tool()
-# handlers on `mcp` as a side effect of being imported.
 import routers  # noqa: E402, F401
 
 # ---------------------------------------------------------------------------
-# Backward-compatible re-exports
+# Re-exports — tool surface for ``import server`` callers and tests.
 # ---------------------------------------------------------------------------
-#
-# Tests and external callers historically reached every tool via
-# ``server.<tool_name>`` and patched ``server.load_config``. Preserve that
-# surface by re-exporting the relevant symbols from the routers + the
-# shared config helpers.
-
-from tools.shared.config import (  # noqa: E402
-    get_book_categories_dir,  # noqa: F401
-    get_content_root,  # noqa: F401
-    get_genres_dir,  # noqa: F401
-    get_reference_dir,  # noqa: F401
-    get_review_handle,  # noqa: F401
-    load_config,  # noqa: F401
-)
 
 from routers.authors import (  # noqa: E402, F401
     create_author,
@@ -148,49 +116,6 @@ from routers.state import (  # noqa: E402, F401
     update_field,
     update_session,
 )
-
-# ---------------------------------------------------------------------------
-# Patch-mirroring shim — preserves the legacy ``server.load_config`` patch
-# point.
-# ---------------------------------------------------------------------------
-#
-# The router modules call ``_app.load_config()`` (and the other config
-# helpers), not ``server.load_config()``. After the #120 split, a test that
-# does ``patch.object(server, "load_config", return_value=fake)`` would only
-# patch the re-export here while the actual call site (``_app``) keeps
-# returning the real config.
-#
-# Rather than rewrite every existing test (~13 files), we hook this module's
-# ``__setattr__`` to mirror writes for the specific config helpers onto
-# ``routers._app`` (and ``tools.shared.config``, since that is what
-# ``tools.state.indexer`` imports). This means ``patch.object(server, ...)``
-# Just Works for the legacy test surface without leaking into other module
-# attributes.
-import routers._app as _app_module  # noqa: E402
-import tools.shared.config as _config_module  # noqa: E402
-
-_MIRRORED_SYMBOLS = {
-    "load_config",
-    "get_content_root",
-    "get_genres_dir",
-    "get_reference_dir",
-    "get_review_handle",
-    "get_book_categories_dir",
-}
-
-
-class _PatchMirroringModule(type(sys.modules[__name__])):
-    """Module subclass that mirrors writes for known config helpers."""
-
-    def __setattr__(self, name: str, value) -> None:  # noqa: ANN001
-        super().__setattr__(name, value)
-        if name in _MIRRORED_SYMBOLS:
-            setattr(_app_module, name, value)
-            setattr(_config_module, name, value)
-
-
-sys.modules[__name__].__class__ = _PatchMirroringModule
-
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

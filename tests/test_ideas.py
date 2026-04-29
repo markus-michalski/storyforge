@@ -45,20 +45,18 @@ def mock_config(content_root: Path):
         "defaults": {"language": "en", "book_type": "novel"},
     }
 
-    # Import by plain name — conftest.py adds the server directory to sys.path
-    import server as server_mod  # noqa: WPS433
+    import routers._app as server_mod
 
     with patch.object(server_mod, "load_config", return_value=fake_config), \
          patch.object(server_mod, "get_content_root", return_value=content_root):
-        # Invalidate the cache so subsequent reads re-scan the new content root
         server_mod._cache.invalidate()
         yield fake_config
 
 
 @pytest.fixture
-def server_module(mock_config):
+def server_module(mock_config):  # noqa: F811
     """Return the storyforge server module with config mocked."""
-    import server as server_mod  # noqa: WPS433
+    import server as server_mod
     return server_mod
 
 

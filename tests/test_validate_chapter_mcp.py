@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-import server
+import routers._app as _app
+from routers.gates import validate_chapter
 
 
 def _build_book(content_root: Path, slug: str = "demo-book") -> Path:
@@ -55,13 +56,13 @@ def config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
         ),
     )
     cfg = {"paths": {"content_root": str(content_root)}}
-    monkeypatch.setattr(server, "load_config", lambda: cfg)
+    monkeypatch.setattr(_app, "load_config", lambda: cfg)
     return cfg
 
 
 class TestValidateChapterMcp:
     def test_clean_chapter_returns_pass_gate(self, config: dict) -> None:
-        result = json.loads(server.validate_chapter("demo-book", "01-opening"))
+        result = json.loads(validate_chapter("demo-book", "01-opening"))
         assert result["book_slug"] == "demo-book"
         assert result["chapter_slug"] == "01-opening"
         assert "gate" in result
@@ -83,16 +84,16 @@ class TestValidateChapterMcp:
             + ("The river ran cold past the camp. " * 30),
             encoding="utf-8",
         )
-        result = json.loads(server.validate_chapter("demo-book", "01-opening"))
+        result = json.loads(validate_chapter("demo-book", "01-opening"))
         gate = result["gate"]
         assert gate["status"] == "FAIL"
         assert any(f["code"] == "META_NARRATIVE" for f in gate["findings"])
 
     def test_missing_book(self, config: dict) -> None:
-        result = json.loads(server.validate_chapter("does-not-exist", "01-opening"))
+        result = json.loads(validate_chapter("does-not-exist", "01-opening"))
         assert "error" in result
 
     def test_missing_chapter(self, config: dict) -> None:
-        result = json.loads(server.validate_chapter("demo-book", "99-missing"))
+        result = json.loads(validate_chapter("demo-book", "99-missing"))
         assert "error" in result
         assert result["book_slug"] == "demo-book"

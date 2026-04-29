@@ -4,7 +4,7 @@ Exercises every checker MCP tool against a real on-disk fixture book and
 asserts the uniform ``gate`` envelope is present and well-shaped.  The
 aggregator (``run_quality_gates``) is also covered.
 
-Each checker test uses ``monkeypatch`` to stub ``server.load_config`` so
+Each checker test uses ``monkeypatch`` to stub ``routers._app.load_config`` so
 the tool reads from a temporary content_root.
 """
 
@@ -15,7 +15,16 @@ from pathlib import Path
 
 import pytest
 
-import server
+import routers._app as _app
+from routers.chapters import verify_tactical_setup
+from routers.gates import (
+    check_memoir_consent,
+    run_quality_gates,
+    scan_manuscript,
+    validate_book_structure,
+    validate_timeline_consistency,
+    verify_callbacks,
+)
 
 
 REQUIRED_GATE_KEYS = {"status", "reasons", "findings", "metadata"}
@@ -145,7 +154,7 @@ def fiction_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     content_root = tmp_path / "content"
     _write_fiction_book(content_root)
     config = {"paths": {"content_root": str(content_root)}}
-    monkeypatch.setattr(server, "load_config", lambda: config)
+    monkeypatch.setattr(_app, "load_config", lambda: config)
     return config
 
 
@@ -154,7 +163,7 @@ def memoir_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     content_root = tmp_path / "content"
     _write_memoir_book(content_root)
     config = {"paths": {"content_root": str(content_root)}}
-    monkeypatch.setattr(server, "load_config", lambda: config)
+    monkeypatch.setattr(_app, "load_config", lambda: config)
     return config
 
 
@@ -165,7 +174,7 @@ def memoir_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
 
 class TestGateEnvelopePerChecker:
     def test_scan_manuscript_envelope(self, fiction_config: dict) -> None:
-        result = json.loads(server.scan_manuscript("demo-book", write_report=False))
+        result = json.loads(scan_manuscript("demo-book", write_report=False))
         gate = _assert_gate_envelope(result, name="scan_manuscript")
         # Tiny draft, no rule violations expected → PASS.
         assert gate["status"] == "PASS"
@@ -174,21 +183,21 @@ class TestGateEnvelopePerChecker:
         assert "chapters_scanned" in result
 
     def test_validate_timeline_envelope(self, fiction_config: dict) -> None:
-        result = json.loads(server.validate_timeline_consistency("demo-book"))
+        result = json.loads(validate_timeline_consistency("demo-book"))
         gate = _assert_gate_envelope(result, name="validate_timeline_consistency")
         # Minimal anchor present, no drift → PASS or WARN allowed.
         assert gate["status"] in {"PASS", "WARN"}
         assert "missing_anchors" in result
 
     def test_verify_callbacks_envelope(self, fiction_config: dict) -> None:
-        result = json.loads(server.verify_callbacks("demo-book"))
+        result = json.loads(verify_callbacks("demo-book"))
         gate = _assert_gate_envelope(result, name="verify_callbacks")
         # Empty callback register → PASS.
         assert gate["status"] == "PASS"
         assert "satisfied" in result
 
     def test_validate_book_structure_envelope(self, fiction_config: dict) -> None:
-        result = json.loads(server.validate_book_structure("demo-book"))
+        result = json.loads(validate_book_structure("demo-book"))
         gate = _assert_gate_envelope(result, name="validate_book_structure")
         assert gate["status"] in {"PASS", "WARN", "FAIL"}
         assert "checks" in result and "verdict" in result
@@ -197,7 +206,7 @@ class TestGateEnvelopePerChecker:
         self, memoir_config: dict, tmp_path: Path
     ) -> None:
         # memoir-consent on a memoir book with one refused person → FAIL
-        result = json.loads(server.check_memoir_consent("demo-memoir"))
+        result = json.loads(check_memoir_consent("demo-memoir"))
         gate = _assert_gate_envelope(result, name="check_memoir_consent")
         assert gate["status"] == "FAIL"
         assert any(f["code"] == "CONSENT_FAIL" for f in gate["findings"])
@@ -206,13 +215,13 @@ class TestGateEnvelopePerChecker:
     def test_check_memoir_consent_rejects_fiction(
         self, fiction_config: dict
     ) -> None:
-        result = json.loads(server.check_memoir_consent("demo-book"))
+        result = json.loads(check_memoir_consent("demo-book"))
         # Fiction book → tool returns error, no gate is emitted by design.
         assert "error" in result
 
     def test_verify_tactical_setup_envelope(self, fiction_config: dict) -> None:
         result = json.loads(
-            server.verify_tactical_setup(
+            verify_tactical_setup(
                 "demo-book",
                 scene_outline_text="Two characters walk through the woods.",
                 characters_present=[],
@@ -229,7 +238,7 @@ class TestGateEnvelopePerChecker:
 
 class TestRunQualityGates:
     def test_fiction_aggregator_emits_envelope(self, fiction_config: dict) -> None:
-        result = json.loads(server.run_quality_gates("demo-book"))
+        result = json.loads(run_quality_gates("demo-book"))
         assert "gate" in result, "aggregator missing gate envelope"
         gate = result["gate"]
         assert REQUIRED_GATE_KEYS.issubset(gate.keys())
@@ -246,14 +255,14 @@ class TestRunQualityGates:
         assert "checkers_run" in gate["metadata"]
 
     def test_memoir_aggregator_includes_consent(self, memoir_config: dict) -> None:
-        result = json.loads(server.run_quality_gates("demo-memoir"))
+        result = json.loads(run_quality_gates("demo-memoir"))
         gate = result["gate"]
         assert "consent" in result["results"]
         # Refused-consent person → consent gate FAIL → aggregator FAIL.
         assert gate["status"] == "FAIL"
 
     def test_aggregator_handles_missing_book(self, fiction_config: dict) -> None:
-        result = json.loads(server.run_quality_gates("does-not-exist"))
+        result = json.loads(run_quality_gates("does-not-exist"))
         assert "error" in result
 
 

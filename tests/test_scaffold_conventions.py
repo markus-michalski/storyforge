@@ -47,7 +47,7 @@ def mock_config(content_root: Path):
         "defaults": {"language": "en", "book_type": "novel"},
     }
 
-    import server as server_mod  # noqa: WPS433
+    import routers._app as server_mod
 
     with patch.object(server_mod, "load_config", return_value=fake_config), \
          patch.object(server_mod, "get_content_root", return_value=content_root):
@@ -56,8 +56,8 @@ def mock_config(content_root: Path):
 
 
 @pytest.fixture
-def server_module(mock_config):
-    import server as server_mod  # noqa: WPS433
+def server_module(mock_config):  # noqa: F811
+    import server as server_mod
     return server_mod
 
 
