@@ -37,9 +37,7 @@ _PASS_STATUSES = frozenset({"confirmed-consent", "not-required"})
 _FAIL_STATUSES = frozenset({"refused"})
 _WARN_STATUSES = frozenset({"pending", "not-asking"})
 
-_VALID_PERSON_CATEGORIES = frozenset(
-    {"public-figure", "private-living-person", "deceased", "anonymized-or-composite"}
-)
+_VALID_PERSON_CATEGORIES = frozenset({"public-figure", "private-living-person", "deceased", "anonymized-or-composite"})
 
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 _BOOK_CATEGORY_RE = re.compile(r"^\s*book_category:\s*['\"]?(\w[\w-]*)['\"]?\s*$", re.MULTILINE)
@@ -98,18 +96,12 @@ def _classify_person(person: dict[str, Any]) -> tuple[str, str]:
                 f"consent_status is '{consent}' and person_category is "
                 f"'{category or '(empty)'}' — both need attention before publication."
             )
-        return "WARN", (
-            f"consent_status is '{consent}' — resolve before publication."
-        )
+        return "WARN", (f"consent_status is '{consent}' — resolve before publication.")
 
     # Unknown / empty consent_status
-    reason_parts = [
-        f"consent_status is '{consent or '(empty)'}' — unrecognised value."
-    ]
+    reason_parts = [f"consent_status is '{consent or '(empty)'}' — unrecognised value."]
     if missing_category:
-        reason_parts.append(
-            f"person_category is '{category or '(empty)'}' — unrecognised value."
-        )
+        reason_parts.append(f"person_category is '{category or '(empty)'}' — unrecognised value.")
     return "WARN", " ".join(reason_parts)
 
 
@@ -156,10 +148,7 @@ def check_consent(book_path: Path) -> dict[str, Any]:
     """
     category, slug = _read_book_meta(book_path)
     if category != "memoir":
-        raise ValueError(
-            f"memoir-ethics-checker only runs on memoir books; "
-            f"this book has book_category='{category}'."
-        )
+        raise ValueError(f"memoir-ethics-checker only runs on memoir books; this book has book_category='{category}'.")
 
     people_raw = read_people_for_ethics(book_path)
     people_out: list[dict[str, Any]] = []

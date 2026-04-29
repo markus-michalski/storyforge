@@ -69,10 +69,7 @@ def _print_diff(original: str, new_content: str, path: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description=(
-            "Convert ban-cued double-quoted phrases in a book's CLAUDE.md "
-            "to backtick form."
-        ),
+        description=("Convert ban-cued double-quoted phrases in a book's CLAUDE.md to backtick form."),
     )
     parser.add_argument(
         "book_path",

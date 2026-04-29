@@ -189,9 +189,7 @@ class TestVerifyCallbacks:
         # With no chapters, callbacks can't be satisfied
         assert len(result["satisfied"]) == 0
 
-    def test_appears_in_multiple_chapters_is_satisfied(
-        self, tmp_path: Path
-    ) -> None:
+    def test_appears_in_multiple_chapters_is_satisfied(self, tmp_path: Path) -> None:
         claudemd = CALLBACKS_BOLD
         chapters = {
             "01-opening": "Gary the cat sat by the fire. A fine morning.",
@@ -200,9 +198,7 @@ class TestVerifyCallbacks:
         }
         book = _write_book(tmp_path, claudemd, chapters)
         result = verify_callbacks(book, claudemd)
-        gary = next(
-            (e for e in result["satisfied"] if "Gary" in e["name"]), None
-        )
+        gary = next((e for e in result["satisfied"] if "Gary" in e["name"]), None)
         assert gary is not None
         assert gary["appears_in"] == [1, 5, 10]
         assert gary["last_appeared_ch"] == 10
@@ -220,9 +216,7 @@ class TestVerifyCallbacks:
         # At least one is deferred (no expected_ch, no must_not_forget)
         assert len(result["deferred"]) + len(result["potentially_dropped"]) == 2
 
-    def test_expected_return_overdue_is_potentially_dropped(
-        self, tmp_path: Path
-    ) -> None:
+    def test_expected_return_overdue_is_potentially_dropped(self, tmp_path: Path) -> None:
         claudemd = """\
 # Book
 
@@ -245,9 +239,7 @@ class TestVerifyCallbacks:
         assert "Theo" in dropped["name"] or "vampire" in dropped["name"]
         assert "expected" in dropped["warning"].lower() or "deadline" in dropped["warning"].lower()
 
-    def test_must_not_forget_plus_long_silence_is_potentially_dropped(
-        self, tmp_path: Path
-    ) -> None:
+    def test_must_not_forget_plus_long_silence_is_potentially_dropped(self, tmp_path: Path) -> None:
         claudemd = """\
 # Book
 
@@ -274,7 +266,10 @@ class TestVerifyCallbacks:
         result = verify_callbacks(book, claudemd)
         # 11 chapters of silence after ch 1 — must-not-forget → potentially_dropped
         assert len(result["potentially_dropped"]) == 1
-        assert "forgotten" in result["potentially_dropped"][0]["warning"].lower() or "silence" in result["potentially_dropped"][0]["warning"].lower()
+        assert (
+            "forgotten" in result["potentially_dropped"][0]["warning"].lower()
+            or "silence" in result["potentially_dropped"][0]["warning"].lower()
+        )
 
     def test_book_slug_in_result(self, tmp_path: Path) -> None:
         book = _write_book(tmp_path, CALLBACKS_EMPTY, {})
@@ -305,6 +300,4 @@ class TestVerifyCallbacks:
         }
         book = _write_book(tmp_path, claudemd, chapters)
         result = verify_callbacks(book, claudemd)
-        assert len(result["satisfied"]) == 1 or (
-            len(result["deferred"]) == 0 and result["callbacks_checked"] == 1
-        )
+        assert len(result["satisfied"]) == 1 or (len(result["deferred"]) == 0 and result["callbacks_checked"] == 1)

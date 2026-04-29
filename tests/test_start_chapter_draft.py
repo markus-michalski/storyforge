@@ -48,11 +48,13 @@ def mock_config(content_root: Path):
 
     fake_state_path = content_root / "_cache" / "state.json"
 
-    with patch.object(server_mod, "load_config", return_value=fake_config), \
-         patch.object(server_mod, "get_content_root", return_value=content_root), \
-         patch.object(indexer_mod, "load_config", return_value=fake_config), \
-         patch.object(indexer_mod, "STATE_PATH", fake_state_path), \
-         patch.object(indexer_mod, "CACHE_DIR", fake_state_path.parent):
+    with (
+        patch.object(server_mod, "load_config", return_value=fake_config),
+        patch.object(server_mod, "get_content_root", return_value=content_root),
+        patch.object(indexer_mod, "load_config", return_value=fake_config),
+        patch.object(indexer_mod, "STATE_PATH", fake_state_path),
+        patch.object(indexer_mod, "CACHE_DIR", fake_state_path.parent),
+    ):
         server_mod._cache.invalidate()
         yield fake_config
 
@@ -60,6 +62,7 @@ def mock_config(content_root: Path):
 @pytest.fixture
 def server_module(mock_config):  # noqa: F811
     import server as server_mod
+
     return server_mod
 
 
@@ -101,15 +104,11 @@ def _write_chapter_with_readme_frontmatter(book: Path, slug: str, status: str) -
 
 
 class TestStartChapterDraft:
-    def test_flips_outline_to_draft_via_chapter_yaml(
-        self, server_module, content_root: Path
-    ):
+    def test_flips_outline_to_draft_via_chapter_yaml(self, server_module, content_root: Path):
         book = _write_book(content_root, "book-a")
         ch = _write_chapter_with_yaml(book, "01-start", status="Outline")
 
-        result = json.loads(
-            server_module.start_chapter_draft("book-a", "01-start")
-        )
+        result = json.loads(server_module.start_chapter_draft("book-a", "01-start"))
 
         assert result["success"] is True
         assert result["chapter_status_before"] == "Outline"
@@ -119,9 +118,7 @@ class TestStartChapterDraft:
         meta = yaml.safe_load((ch / "chapter.yaml").read_text(encoding="utf-8"))
         assert meta["status"] == "Draft"
 
-    def test_migrates_readme_frontmatter_to_chapter_yaml_on_first_draft(
-        self, server_module, content_root: Path
-    ):
+    def test_migrates_readme_frontmatter_to_chapter_yaml_on_first_draft(self, server_module, content_root: Path):
         # Legacy chapter without chapter.yaml — the tool migrates metadata
         # from README frontmatter into chapter.yaml (the canonical source
         # per #16) and strips the frontmatter from README.
@@ -135,9 +132,7 @@ class TestStartChapterDraft:
             encoding="utf-8",
         )
 
-        result = json.loads(
-            server_module.start_chapter_draft("book-b", "01-start")
-        )
+        result = json.loads(server_module.start_chapter_draft("book-b", "01-start"))
 
         assert result["success"] is True
         assert result["chapter_status_after"] == "Draft"
@@ -163,9 +158,7 @@ class TestStartChapterDraft:
         book = _write_book(content_root, "book-c")
         ch = _write_chapter_with_yaml(book, "01-mid", status="Draft")
 
-        result = json.loads(
-            server_module.start_chapter_draft("book-c", "01-mid")
-        )
+        result = json.loads(server_module.start_chapter_draft("book-c", "01-mid"))
 
         assert result["success"] is True
         assert result["chapter_status_before"] == "Draft"
@@ -176,16 +169,12 @@ class TestStartChapterDraft:
         meta = yaml.safe_load((ch / "chapter.yaml").read_text(encoding="utf-8"))
         assert meta["status"] == "Draft"
 
-    def test_noop_when_review_status_does_not_regress(
-        self, server_module, content_root: Path
-    ):
+    def test_noop_when_review_status_does_not_regress(self, server_module, content_root: Path):
         # User's lowercase "review" must not get reset to Draft.
         book = _write_book(content_root, "book-d")
         ch = _write_chapter_with_yaml(book, "01-reviewed", status="review")
 
-        result = json.loads(
-            server_module.start_chapter_draft("book-d", "01-reviewed")
-        )
+        result = json.loads(server_module.start_chapter_draft("book-d", "01-reviewed"))
 
         assert result["chapter_updated"] is False
         meta = yaml.safe_load((ch / "chapter.yaml").read_text(encoding="utf-8"))
@@ -195,37 +184,25 @@ class TestStartChapterDraft:
         book = _write_book(content_root, "book-e")
         ch = _write_chapter_with_yaml(book, "01-done", status="Final")
 
-        result = json.loads(
-            server_module.start_chapter_draft("book-e", "01-done")
-        )
+        result = json.loads(server_module.start_chapter_draft("book-e", "01-done"))
 
         assert result["chapter_updated"] is False
         meta = yaml.safe_load((ch / "chapter.yaml").read_text(encoding="utf-8"))
         assert meta["status"] == "Final"
 
-    def test_error_when_chapter_not_found(
-        self, server_module, content_root: Path
-    ):
+    def test_error_when_chapter_not_found(self, server_module, content_root: Path):
         _write_book(content_root, "book-f")
 
-        result = json.loads(
-            server_module.start_chapter_draft("book-f", "99-missing")
-        )
+        result = json.loads(server_module.start_chapter_draft("book-f", "99-missing"))
 
         assert "error" in result
 
-    def test_error_when_book_not_found(
-        self, server_module, content_root: Path
-    ):
-        result = json.loads(
-            server_module.start_chapter_draft("nope", "01-chapter")
-        )
+    def test_error_when_book_not_found(self, server_module, content_root: Path):
+        result = json.loads(server_module.start_chapter_draft("nope", "01-chapter"))
 
         assert "error" in result
 
-    def test_preserves_other_chapter_yaml_fields(
-        self, server_module, content_root: Path
-    ):
+    def test_preserves_other_chapter_yaml_fields(self, server_module, content_root: Path):
         # Make sure updating status doesn't drop other fields.
         book = _write_book(content_root, "book-g")
         ch = book / "chapters" / "01-rich"
@@ -253,9 +230,7 @@ class TestStartChapterDraft:
         assert meta["word_count_target"] == 3500
         assert meta["act"] == 1
 
-    def test_get_book_progress_reflects_flip_immediately(
-        self, server_module, content_root: Path
-    ):
+    def test_get_book_progress_reflects_flip_immediately(self, server_module, content_root: Path):
         # End-to-end: after start_chapter_draft, the book auto-escalates
         # to Drafting tier via the #21 indexer derivation.
         book = _write_book(content_root, "book-h")

@@ -86,9 +86,7 @@ def render_report(scan_result: dict[str, Any]) -> str:
         if cat not in summary:
             continue
         s = summary[cat]
-        lines.append(
-            f"| {CATEGORY_LABELS[cat]} | {s.get('high', 0)} | {s.get('medium', 0)} |"
-        )
+        lines.append(f"| {CATEGORY_LABELS[cat]} | {s.get('high', 0)} | {s.get('medium', 0)} |")
     lines.append("")
 
     by_category: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -129,7 +127,7 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
         )
     if cat == "cliche":
         return (
-            f"_Recommendation:_ \"{finding['phrase']}\" is a worn-out fiction "
+            f'_Recommendation:_ "{finding["phrase"]}" is a worn-out fiction '
             f"cliché. Replace every occurrence with imagery specific to this "
             f"scene's POV, stakes, and sensory palette. If you must keep one, "
             f"make it ironic or subvert it."
@@ -142,7 +140,7 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             "question mark — most dialogue wants this. **(B)** keep the "
             "period and pair it with a narrative beat that tells the reader "
             "the delivery is deliberate, e.g.:\n\n"
-            "> \"Who?\"\n"
+            '> "Who?"\n'
             "> It was a demand, not a question.\n\n"
             "Pick (A) as the default. Reserve (B) for moments where the "
             "flatness is load-bearing."
@@ -150,8 +148,8 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
     if cat == "filter_word":
         return (
             "_Recommendation:_ Filter words mediate sensation through the POV "
-            "character's head — \"she felt the cold\" instead of \"the cold "
-            "bit through her coat\". In close-third, they weaken immersion. "
+            'character\'s head — "she felt the cold" instead of "the cold '
+            'bit through her coat". In close-third, they weaken immersion. '
             "Rewrite most hits by dropping the filter verb and letting the "
             "sensation act directly on the scene. Some are load-bearing "
             "(internal realisation, dream logic); keep those."
@@ -159,8 +157,8 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
     if cat == "adverb_density":
         return (
             "_Recommendation:_ Heavy `-ly` adverb use usually signals weak "
-            "verb choice: \"walked slowly\" → \"trudged\", \"said quietly\" → "
-            "\"murmured\". Not every adverb is wrong — but when density is "
+            'verb choice: "walked slowly" → "trudged", "said quietly" → '
+            '"murmured". Not every adverb is wrong — but when density is '
             "this high, at least half are propping up verbs that could stand "
             "on their own. Strip them and see what survives."
         )
@@ -264,10 +262,7 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             "only, or the full pseudonym) and apply it consistently throughout. "
             "Inconsistency confuses readers and can partially undermine anonymization."
         )
-    return (
-        f"_Recommendation:_ Decide which occurrence is most necessary; cut or "
-        f"rewrite the other {count - 1}."
-    )
+    return f"_Recommendation:_ Decide which occurrence is most necessary; cut or rewrite the other {count - 1}."
 
 
 __all__ = ["CATEGORY_LABELS", "CATEGORY_ORDER", "render_report"]

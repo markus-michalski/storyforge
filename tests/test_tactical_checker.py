@@ -47,10 +47,7 @@ class TestIsTacticalScene:
         assert is_tactical_scene(text) is True
 
     def test_quiet_dialogue_scene_does_not_trigger(self):
-        text = (
-            "Theo and Miriel sit at the kitchen table. Miriel kneads bread. "
-            "They talk about the past."
-        )
+        text = "Theo and Miriel sit at the kitchen table. Miriel kneads bread. They talk about the past."
         assert is_tactical_scene(text) is False
 
     def test_empty_text_does_not_trigger(self):
@@ -172,7 +169,8 @@ class TestDetectPositions:
     def test_flanked_keyword_yields_middle(self):
         text = "Theo walked flanked by Kael at point and Viktor at the rear."
         positions = detect_positions(
-            text, character_names=["Theo", "Kael", "Viktor"],
+            text,
+            character_names=["Theo", "Kael", "Viktor"],
         )
         assert positions["Theo"] == "middle"
         assert positions["Kael"] == "lead"
@@ -192,10 +190,13 @@ class TestDetectPositions:
 
 def _theo() -> TacticalProfile:
     return TacticalProfile(
-        name="Theo", slug="theo",
-        protector_role=False, protected_role=True,
+        name="Theo",
+        slug="theo",
+        protector_role=False,
+        protected_role=True,
         combat_skill="none",
-        movement_lead=False, movement_rear=False,
+        movement_lead=False,
+        movement_rear=False,
         vulnerable_to=("daylight", "silver"),
         carries=(),
         has_tactical_data=True,
@@ -204,10 +205,13 @@ def _theo() -> TacticalProfile:
 
 def _kael() -> TacticalProfile:
     return TacticalProfile(
-        name="Kael", slug="kael",
-        protector_role=True, protected_role=False,
+        name="Kael",
+        slug="kael",
+        protector_role=True,
+        protected_role=False,
         combat_skill="high",
-        movement_lead=True, movement_rear=False,
+        movement_lead=True,
+        movement_rear=False,
         vulnerable_to=("daylight",),
         carries=("knife", "backup_blade"),
         has_tactical_data=True,
@@ -216,10 +220,13 @@ def _kael() -> TacticalProfile:
 
 def _viktor() -> TacticalProfile:
     return TacticalProfile(
-        name="Viktor", slug="viktor",
-        protector_role=True, protected_role=False,
+        name="Viktor",
+        slug="viktor",
+        protector_role=True,
+        protected_role=False,
         combat_skill="elite",
-        movement_lead=False, movement_rear=True,
+        movement_lead=False,
+        movement_rear=True,
         vulnerable_to=("daylight",),
         carries=("blade",),
         has_tactical_data=True,
@@ -228,10 +235,13 @@ def _viktor() -> TacticalProfile:
 
 def _dom() -> TacticalProfile:
     return TacticalProfile(
-        name="Dom", slug="dom",
-        protector_role=True, protected_role=False,
+        name="Dom",
+        slug="dom",
+        protector_role=True,
+        protected_role=False,
         combat_skill="high",
-        movement_lead=False, movement_rear=False,
+        movement_lead=False,
+        movement_rear=False,
         vulnerable_to=("daylight",),
         carries=(),
         has_tactical_data=True,
@@ -242,25 +252,18 @@ class TestAnalyzeTacticalSetup:
     def test_protected_at_rear_warns(self):
         # Acceptance: Theo at the rear of a Kael/Viktor/Dom protector
         # team triggers a warning.
-        scene_text = (
-            "Theo walked at the back of the formation. "
-            "Kael led the way, Viktor and Dom flanked the middle."
-        )
+        scene_text = "Theo walked at the back of the formation. Kael led the way, Viktor and Dom flanked the middle."
         analysis = analyze_tactical_setup(
             scene_text,
             profiles=[_theo(), _kael(), _viktor(), _dom()],
         )
         assert analysis.passes is False
-        assert any(
-            "Theo" in w.message and "rear" in w.message.lower()
-            for w in analysis.warnings
-        )
+        assert any("Theo" in w.message and "rear" in w.message.lower() for w in analysis.warnings)
 
     def test_protected_flanked_passes(self):
         # Acceptance: Theo flanked by Kael (point) and Viktor (rear) passes.
         scene_text = (
-            "Theo walked flanked by Kael at point and Viktor at the rear. "
-            "They moved single-file toward the trailhead."
+            "Theo walked flanked by Kael at point and Viktor at the rear. They moved single-file toward the trailhead."
         )
         analysis = analyze_tactical_setup(
             scene_text,
@@ -268,24 +271,20 @@ class TestAnalyzeTacticalSetup:
         )
         assert analysis.passes is True
         # No "Theo at rear" warnings.
-        assert not any(
-            "Theo" in w.message and "rear" in w.message.lower()
-            for w in analysis.warnings
-        )
+        assert not any("Theo" in w.message and "rear" in w.message.lower() for w in analysis.warnings)
 
     def test_returns_at_least_three_questions(self):
         # Acceptance: tool returns at least 3 tactical questions for
         # any combat/travel scene.
         scene_text = "They walk through the woods toward the cabin."
         analysis = analyze_tactical_setup(
-            scene_text, profiles=[_theo(), _kael()],
+            scene_text,
+            profiles=[_theo(), _kael()],
         )
         assert len(analysis.questions_for_writer) >= 3
 
     def test_questions_returned_even_when_passes(self):
-        scene_text = (
-            "Theo walked flanked by Kael at point and Viktor at the rear."
-        )
+        scene_text = "Theo walked flanked by Kael at point and Viktor at the rear."
         analysis = analyze_tactical_setup(
             scene_text,
             profiles=[_theo(), _kael(), _viktor()],
@@ -296,24 +295,27 @@ class TestAnalyzeTacticalSetup:
     def test_no_tactical_data_degrades_gracefully(self):
         # Acceptance: graceful degrade when characters lack tactical data.
         no_data_theo = TacticalProfile(
-            name="Theo", slug="theo",
-            protector_role=False, protected_role=False,
+            name="Theo",
+            slug="theo",
+            protector_role=False,
+            protected_role=False,
             combat_skill="unknown",
-            movement_lead=False, movement_rear=False,
-            vulnerable_to=(), carries=(),
+            movement_lead=False,
+            movement_rear=False,
+            vulnerable_to=(),
+            carries=(),
             has_tactical_data=False,
         )
         scene_text = "Theo walked at the back of the line."
         analysis = analyze_tactical_setup(
-            scene_text, profiles=[no_data_theo],
+            scene_text,
+            profiles=[no_data_theo],
         )
         # No crash; passes (we can't validate without data) but a
         # warning notes the missing tactical profile.
         assert analysis.passes is True
         assert any(
-            "tactical profile" in w.message.lower()
-            or "no tactical" in w.message.lower()
-            for w in analysis.warnings
+            "tactical profile" in w.message.lower() or "no tactical" in w.message.lower() for w in analysis.warnings
         )
         assert len(analysis.questions_for_writer) >= 3
 
@@ -333,7 +335,8 @@ class TestLoadTacticalProfiles:
         _write_char(chars, "random", CHARACTER_NO_TACTICAL_MD)
 
         profiles = load_tactical_profiles(
-            tmp_path / "book", slugs=["theo", "kael"],
+            tmp_path / "book",
+            slugs=["theo", "kael"],
         )
         assert {p.slug for p in profiles} == {"theo", "kael"}
 
@@ -343,7 +346,8 @@ class TestLoadTacticalProfiles:
         _write_char(chars, "theo", THEO_MD)
 
         profiles = load_tactical_profiles(
-            tmp_path / "book", slugs=["theo", "ghost"],
+            tmp_path / "book",
+            slugs=["theo", "ghost"],
         )
         # Only Theo loaded; ghost is not on disk so it's dropped.
         assert {p.slug for p in profiles} == {"theo"}
@@ -360,7 +364,10 @@ class TestVerifyTacticalSetup:
         chars.mkdir(parents=True)
         _write_char(chars, "theo", THEO_MD)
         _write_char(chars, "kael", KAEL_MD)
-        _write_char(chars, "viktor", """---
+        _write_char(
+            chars,
+            "viktor",
+            """---
 name: "Viktor"
 tactical:
   protector_role: true
@@ -371,14 +378,12 @@ tactical:
 ---
 
 # Viktor
-""")
+""",
+        )
 
         result = verify_tactical_setup(
             tmp_path / "book",
-            scene_outline_text=(
-                "Theo walks at the back of the formation. "
-                "Kael leads, Viktor walks in the middle."
-            ),
+            scene_outline_text=("Theo walks at the back of the formation. Kael leads, Viktor walks in the middle."),
             characters_present=["theo", "kael", "viktor"],
         )
         assert result["passes"] is False

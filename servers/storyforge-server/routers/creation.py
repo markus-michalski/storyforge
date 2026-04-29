@@ -48,12 +48,7 @@ def create_book_structure(
     """
     if book_category not in _ALLOWED_BOOK_CATEGORIES:
         allowed = ", ".join(_ALLOWED_BOOK_CATEGORIES)
-        return json.dumps({
-            "error": (
-                f"Invalid book_category '{book_category}'. "
-                f"Allowed values: {allowed}."
-            )
-        })
+        return json.dumps({"error": (f"Invalid book_category '{book_category}'. Allowed values: {allowed}.")})
 
     config = _app.load_config()
     slug = slugify(title)
@@ -111,12 +106,19 @@ updated: "{today}"
 """
 
     (project_dir / "README.md").write_text(readme, encoding="utf-8")
-    (project_dir / "synopsis.md").write_text(f"# {title} — Synopsis\n\n*To be written after plot is outlined.*\n", encoding="utf-8")
+    (project_dir / "synopsis.md").write_text(
+        f"# {title} — Synopsis\n\n*To be written after plot is outlined.*\n", encoding="utf-8"
+    )
 
     # Plot files. Memoir uses structure-types instead of three-act / character
     # arcs; fiction keeps the existing scaffold.
-    (project_dir / "plot" / "timeline.md").write_text(f"# {title} — Timeline\n\n*Chronological events.*\n", encoding="utf-8")
-    (project_dir / "plot" / "tone.md").write_text(f"# {title} — Tonal Document\n\n*Use /storyforge:plot-architect to develop after plot outline is complete.*\n", encoding="utf-8")
+    (project_dir / "plot" / "timeline.md").write_text(
+        f"# {title} — Timeline\n\n*Chronological events.*\n", encoding="utf-8"
+    )
+    (project_dir / "plot" / "tone.md").write_text(
+        f"# {title} — Tonal Document\n\n*Use /storyforge:plot-architect to develop after plot outline is complete.*\n",
+        encoding="utf-8",
+    )
     if is_memoir:
         (project_dir / "plot" / "outline.md").write_text(
             f"# {title} — Narrative Arc\n\n"
@@ -137,9 +139,16 @@ updated: "{today}"
             encoding="utf-8",
         )
     else:
-        (project_dir / "plot" / "outline.md").write_text(f"# {title} — Plot Outline\n\n## Act 1: Setup\n\n## Act 2: Confrontation\n\n## Act 3: Resolution\n", encoding="utf-8")
-        (project_dir / "plot" / "acts.md").write_text(f"# {title} — Act Structure\n\n*Use /storyforge:plot-architect to develop.*\n", encoding="utf-8")
-        (project_dir / "plot" / "arcs.md").write_text(f"# {title} — Character Arcs\n\n*Use /storyforge:character-creator to develop.*\n", encoding="utf-8")
+        (project_dir / "plot" / "outline.md").write_text(
+            f"# {title} — Plot Outline\n\n## Act 1: Setup\n\n## Act 2: Confrontation\n\n## Act 3: Resolution\n",
+            encoding="utf-8",
+        )
+        (project_dir / "plot" / "acts.md").write_text(
+            f"# {title} — Act Structure\n\n*Use /storyforge:plot-architect to develop.*\n", encoding="utf-8"
+        )
+        (project_dir / "plot" / "arcs.md").write_text(
+            f"# {title} — Character Arcs\n\n*Use /storyforge:character-creator to develop.*\n", encoding="utf-8"
+        )
 
     # Characters / People
     if is_memoir:
@@ -155,33 +164,56 @@ updated: "{today}"
             encoding="utf-8",
         )
     else:
-        (project_dir / "characters" / "INDEX.md").write_text(f"# {title} — Characters\n\n## Protagonists\n\n## Antagonists\n\n## Supporting\n", encoding="utf-8")
+        (project_dir / "characters" / "INDEX.md").write_text(
+            f"# {title} — Characters\n\n## Protagonists\n\n## Antagonists\n\n## Supporting\n", encoding="utf-8"
+        )
 
     # World — fiction only. Memoir documents real settings via research.
     if not is_memoir:
-        (project_dir / "world" / "setting.md").write_text(f"# {title} — Setting\n\n*Where and when does the story take place?*\n", encoding="utf-8")
-        (project_dir / "world" / "rules.md").write_text(f"# {title} — Rules\n\n*Magic system, physics, society rules.*\n", encoding="utf-8")
-        (project_dir / "world" / "history.md").write_text(f"# {title} — History\n\n*Background history of the world.*\n", encoding="utf-8")
-        (project_dir / "world" / "glossary.md").write_text(f"# {title} — Glossary\n\n*Terms, places, concepts.*\n", encoding="utf-8")
+        (project_dir / "world" / "setting.md").write_text(
+            f"# {title} — Setting\n\n*Where and when does the story take place?*\n", encoding="utf-8"
+        )
+        (project_dir / "world" / "rules.md").write_text(
+            f"# {title} — Rules\n\n*Magic system, physics, society rules.*\n", encoding="utf-8"
+        )
+        (project_dir / "world" / "history.md").write_text(
+            f"# {title} — History\n\n*Background history of the world.*\n", encoding="utf-8"
+        )
+        (project_dir / "world" / "glossary.md").write_text(
+            f"# {title} — Glossary\n\n*Terms, places, concepts.*\n", encoding="utf-8"
+        )
 
     # Research
-    (project_dir / "research" / "sources.md").write_text(f"# {title} — Sources\n\n*Research materials and references.*\n", encoding="utf-8")
+    (project_dir / "research" / "sources.md").write_text(
+        f"# {title} — Sources\n\n*Research materials and references.*\n", encoding="utf-8"
+    )
 
     # Cover
-    (project_dir / "cover" / "brief.md").write_text(f"# {title} — Cover Brief\n\n*Use /storyforge:cover-artist to develop.*\n", encoding="utf-8")
-    (project_dir / "cover" / "prompts.md").write_text(f"# {title} — Cover Prompts\n\n*AI art prompts will go here.*\n", encoding="utf-8")
+    (project_dir / "cover" / "brief.md").write_text(
+        f"# {title} — Cover Brief\n\n*Use /storyforge:cover-artist to develop.*\n", encoding="utf-8"
+    )
+    (project_dir / "cover" / "prompts.md").write_text(
+        f"# {title} — Cover Prompts\n\n*AI art prompts will go here.*\n", encoding="utf-8"
+    )
 
     # Export
-    (project_dir / "export" / "front-matter.md").write_text(f"---\ntitle: \"{title}\"\nauthor: \"\"\ncopyright_year: {date.today().year}\n---\n\n# {title}\n\n*by [Author Name]*\n\nCopyright {date.today().year}\n\nAll rights reserved.\n", encoding="utf-8")
-    (project_dir / "export" / "back-matter.md").write_text("# About the Author\n\n*Author bio.*\n\n# Also by [Author Name]\n\n*Other books.*\n", encoding="utf-8")
+    (project_dir / "export" / "front-matter.md").write_text(
+        f'---\ntitle: "{title}"\nauthor: ""\ncopyright_year: {date.today().year}\n---\n\n# {title}\n\n*by [Author Name]*\n\nCopyright {date.today().year}\n\nAll rights reserved.\n',
+        encoding="utf-8",
+    )
+    (project_dir / "export" / "back-matter.md").write_text(
+        "# About the Author\n\n*Author bio.*\n\n# Also by [Author Name]\n\n*Other books.*\n", encoding="utf-8"
+    )
 
     _cache.invalidate()
-    return json.dumps({
-        "success": True,
-        "slug": slug,
-        "path": str(project_dir),
-        "message": f"Book '{title}' created at {project_dir}",
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "slug": slug,
+            "path": str(project_dir),
+            "message": f"Book '{title}' created at {project_dir}",
+        }
+    )
 
 
 @mcp.tool()
@@ -239,12 +271,14 @@ word_count_target: 3000
     (ch_dir / "chapter.yaml").write_text(chapter_yaml, encoding="utf-8")
 
     _cache.invalidate()
-    return json.dumps({
-        "success": True,
-        "slug": slug,
-        "path": str(ch_dir),
-        "message": f"Chapter {number}: '{title}' created",
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "slug": slug,
+            "path": str(ch_dir),
+            "message": f"Chapter {number}: '{title}' created",
+        }
+    )
 
 
 @mcp.tool()
@@ -320,9 +354,11 @@ description: "{description}"
     char_path.write_text(char_file, encoding="utf-8")
 
     _cache.invalidate()
-    return json.dumps({
-        "success": True,
-        "slug": slug,
-        "path": str(char_path),
-        "message": f"Character '{name}' created",
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "slug": slug,
+            "path": str(char_path),
+            "message": f"Character '{name}' created",
+        }
+    )

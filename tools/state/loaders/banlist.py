@@ -17,7 +17,10 @@ from pathlib import Path
 
 
 def collect_banned_phrases(
-    book_root: Path, plugin_root: Path, *, cap: int = 50,
+    book_root: Path,
+    plugin_root: Path,
+    *,
+    cap: int = 50,
 ) -> list[dict[str, str]]:
     """Return up to ``cap`` deduplicated banned-phrase entries.
 
@@ -46,11 +49,13 @@ def collect_banned_phrases(
             if key in seen:
                 continue
             seen.add(key)
-            out.append({
-                "phrase": label,
-                "source": "book CLAUDE.md ## Rules",
-                "severity": "block",
-            })
+            out.append(
+                {
+                    "phrase": label,
+                    "source": "book CLAUDE.md ## Rules",
+                    "severity": "block",
+                }
+            )
 
     author_slug = author_slug_from_book(book_root)
     if author_slug:
@@ -66,11 +71,13 @@ def collect_banned_phrases(
             if key in seen:
                 continue
             seen.add(key)
-            out.append({
-                "phrase": p.label,
-                "source": "author vocabulary.md",
-                "severity": p.severity,
-            })
+            out.append(
+                {
+                    "phrase": p.label,
+                    "source": "author vocabulary.md",
+                    "severity": p.severity,
+                }
+            )
 
     try:
         global_tells = load_global_ai_tells(plugin_root)
@@ -81,11 +88,13 @@ def collect_banned_phrases(
         if key in seen:
             continue
         seen.add(key)
-        out.append({
-            "phrase": p.label,
-            "source": "anti-ai-patterns.md",
-            "severity": p.severity,
-        })
+        out.append(
+            {
+                "phrase": p.label,
+                "source": "anti-ai-patterns.md",
+                "severity": p.severity,
+            }
+        )
         if len(out) >= cap:
             break
     return out

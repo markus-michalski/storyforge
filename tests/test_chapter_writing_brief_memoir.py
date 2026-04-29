@@ -65,14 +65,7 @@ def _make_chapter(
     chapter.mkdir(parents=True)
     pov_line = f'pov_character: "{pov}"\n' if pov else ""
     (chapter / "README.md").write_text(
-        "---\n"
-        f'title: "{title}"\n'
-        f"number: {number}\n"
-        f'status: "Draft"\n'
-        f"{pov_line}"
-        "---\n\n"
-        f"# {title}\n\n"
-        f"{body}\n",
+        f'---\ntitle: "{title}"\nnumber: {number}\nstatus: "Draft"\n{pov_line}---\n\n# {title}\n\n{body}\n',
         encoding="utf-8",
     )
 
@@ -107,13 +100,7 @@ def _make_character(
     name: str,
     role: str = "supporting",
 ) -> None:
-    text = (
-        "---\n"
-        f'name: "{name}"\n'
-        f'role: "{role}"\n'
-        "---\n\n"
-        f"# {name}\n"
-    )
+    text = f'---\nname: "{name}"\nrole: "{role}"\n---\n\n# {name}\n'
     (book / "characters" / f"{slug}.md").write_text(text, encoding="utf-8")
 
 
@@ -157,9 +144,7 @@ class TestBookCategoryExposure:
         (book / "characters").mkdir()
         (book / "plot").mkdir()
         (book / "world").mkdir()
-        (book / "README.md").write_text(
-            '---\ntitle: "Legacy"\n---\n\n# Legacy\n', encoding="utf-8"
-        )
+        (book / "README.md").write_text('---\ntitle: "Legacy"\n---\n\n# Legacy\n', encoding="utf-8")
         _make_chapter(book, "01-opening", number=1, title="Opening")
 
         brief = build_chapter_writing_brief(
@@ -415,7 +400,11 @@ class TestConsentStatusWarnings:
         book, plugin_root = _make_fiction_book(tmp_path)
         _make_character(book, "alex", name="Alex", role="protagonist")
         _make_chapter(
-            book, "01-opening", number=1, title="Opening", pov="Alex",
+            book,
+            "01-opening",
+            number=1,
+            title="Opening",
+            pov="Alex",
             body="Alex stood at the door.",
         )
 

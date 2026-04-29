@@ -107,7 +107,12 @@ class TestDialogRatio:
 
 class TestParagraphUniformity:
     def test_varied_paragraphs(self):
-        text = "Short.\n\n" + ("Long paragraph with many words. " * 10) + "\n\nMedium length paragraph here.\n\n" + ("Another very long one. " * 15)
+        text = (
+            "Short.\n\n"
+            + ("Long paragraph with many words. " * 10)
+            + "\n\nMedium length paragraph here.\n\n"
+            + ("Another very long one. " * 15)
+        )
         result = check_paragraph_uniformity(text)
         assert "uniform" not in result["uniformity_rating"].lower() or "human" in result["uniformity_rating"].lower()
 

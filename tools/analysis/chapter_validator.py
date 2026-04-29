@@ -36,9 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-PLUGIN_ROOT = Path(
-    os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent.parent))
-)
+PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent.parent)))
 
 # Make tools package importable when this module is loaded standalone
 # (covers hook invocation and test harnesses).
@@ -63,10 +61,27 @@ DEFAULT_MODE = "strict"
 # cannot be parsed. The loader in ``tools.banlist_loader`` is the canonical
 # source. Severity stays warn for both paths to preserve #70's behavior.
 _AI_TELL_FALLBACK: tuple[str, ...] = (
-    "delve", "tapestry", "nuanced", "vibrant", "embark", "resonate",
-    "pivotal", "multifaceted", "realm", "testament", "intricate",
-    "myriad", "unprecedented", "foster", "beacon", "juxtaposition",
-    "paradigm", "synergy", "interplay", "ever-evolving", "navigate",
+    "delve",
+    "tapestry",
+    "nuanced",
+    "vibrant",
+    "embark",
+    "resonate",
+    "pivotal",
+    "multifaceted",
+    "realm",
+    "testament",
+    "intricate",
+    "myriad",
+    "unprecedented",
+    "foster",
+    "beacon",
+    "juxtaposition",
+    "paradigm",
+    "synergy",
+    "interplay",
+    "ever-evolving",
+    "navigate",
     "uncover",
 )
 
@@ -182,9 +197,7 @@ class ValidationResult:
             lines.append(f"Plus {len(self.warnings)} non-blocking warning{suffix}:")
             for f in self.warnings[:warning_cap]:
                 location = f" line {f.line}" if f.line else ""
-                lines.append(
-                    f"  [{f.severity.upper()}] {path.name}{location}: {f.message}"
-                )
+                lines.append(f"  [{f.severity.upper()}] {path.name}{location}: {f.message}")
         lines.append(
             "Fix the blocking issues and try again. "
             "Set `linter_mode: warn` in the book's CLAUDE.md frontmatter to override."
@@ -386,9 +399,7 @@ def _chapter_target_words(draft_path: Path) -> int:
     return target if target > 0 else DEFAULT_CHAPTER_TARGET_WORDS
 
 
-def _scaled_scene_limit(
-    chapter_limit: int, current_words: int, target_words: int
-) -> int:
+def _scaled_scene_limit(chapter_limit: int, current_words: int, target_words: int) -> int:
     if chapter_limit <= 0:
         return 0
     if target_words <= 0:
@@ -481,10 +492,7 @@ def _scan_meta_narrative(text: str) -> list[Finding]:
                 Finding(
                     severity=SEVERITY_BLOCK,
                     category="meta_narrative",
-                    message=(
-                        f"meta-narrative phrase '{snippet}' ({label}) — "
-                        f"{suggestion}"
-                    ),
+                    message=(f"meta-narrative phrase '{snippet}' ({label}) — {suggestion}"),
                     line=line_num,
                 )
             )
@@ -516,10 +524,7 @@ def _scan_ai_tells(text: str) -> list[Finding]:
                 Finding(
                     severity=SEVERITY_WARN,
                     category="ai_tell",
-                    message=(
-                        f"AI-tell '{banned.label}' found "
-                        f"({len(matches)} occurrence{suffix})"
-                    ),
+                    message=(f"AI-tell '{banned.label}' found ({len(matches)} occurrence{suffix})"),
                     line=line_num,
                 )
             )
@@ -537,9 +542,7 @@ def _scan_ai_tells(text: str) -> list[Finding]:
             Finding(
                 severity=SEVERITY_WARN,
                 category="ai_tell",
-                message=(
-                    f"AI-tell word '{word}' found ({len(matches)} occurrence{suffix})"
-                ),
+                message=(f"AI-tell word '{word}' found ({len(matches)} occurrence{suffix})"),
                 line=line_num,
             )
         )
@@ -612,7 +615,9 @@ def _scan_time_anchor(text: str, draft_path: Path) -> list[Finding]:
 
 
 def _scan_pov_boundary(
-    text: str, draft_path: Path, book_root: Path,
+    text: str,
+    draft_path: Path,
+    book_root: Path,
 ) -> list[Finding]:
     findings: list[Finding] = []
     try:
@@ -650,17 +655,19 @@ def _scan_pov_boundary(
         return findings
 
     for hit in scan_pov_boundary(text, pov_knowledge, domain_vocab):
-        findings.append(Finding(
-            severity=SEVERITY_WARN,
-            category="pov_boundary",
-            message=(
-                f"POV BOUNDARY: '{hit.phrase}' (domain: {hit.domain}, "
-                f"{pov_knowledge.name} knowledge: {hit.knowledge_level}). "
-                "Move into dialog by an expert, reframe as lay observation, "
-                "or cut."
-            ),
-            line=hit.line,
-        ))
+        findings.append(
+            Finding(
+                severity=SEVERITY_WARN,
+                category="pov_boundary",
+                message=(
+                    f"POV BOUNDARY: '{hit.phrase}' (domain: {hit.domain}, "
+                    f"{pov_knowledge.name} knowledge: {hit.knowledge_level}). "
+                    "Move into dialog by an expert, reframe as lay observation, "
+                    "or cut."
+                ),
+                line=hit.line,
+            )
+        )
     return findings
 
 
@@ -687,10 +694,7 @@ def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
             Finding(
                 severity=SEVERITY_BLOCK,
                 category="author_vocab_violation",
-                message=(
-                    f"Banned by author voice ({banned.source}): "
-                    f"'{banned.label}'"
-                ),
+                message=(f"Banned by author voice ({banned.source}): '{banned.label}'"),
                 line=line_num,
             )
         )
@@ -721,9 +725,7 @@ def _scan_sentence_variance(text: str) -> list[Finding]:
     ]
 
 
-def _format_occurrences(
-    text: str, matches: list[re.Match[str]], cap: int = 5
-) -> str:
+def _format_occurrences(text: str, matches: list[re.Match[str]], cap: int = 5) -> str:
     parts: list[str] = []
     for match in matches[:cap]:
         line = _line_for_offset(text, match.start())
@@ -736,9 +738,7 @@ def _format_occurrences(
     return "; ".join(parts)
 
 
-def _scan_book_banlist(
-    text: str, book_root: Path, draft_path: Path
-) -> list[Finding]:
+def _scan_book_banlist(text: str, book_root: Path, draft_path: Path) -> list[Finding]:
     findings: list[Finding] = []
     target_words = _chapter_target_words(draft_path)
     current_words = max(len(text.split()), 1)
@@ -749,9 +749,7 @@ def _scan_book_banlist(
             continue
 
         if chapter_limit > 0:
-            scene_limit = _scaled_scene_limit(
-                chapter_limit, current_words, target_words
-            )
+            scene_limit = _scaled_scene_limit(chapter_limit, current_words, target_words)
             if len(matches) <= scene_limit:
                 continue
             line_num = _line_for_offset(text, matches[0].start())

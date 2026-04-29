@@ -61,18 +61,12 @@ def _classify(phrase: str, occurrences: list[Occurrence]) -> str:
 
     # Similes first — they're the most distinctive.
     if "like" in token_set or "as" in token_set:
-        if (
-            _SIMILE_HINT_RE.search(contexts)
-            or _AS_X_AS_RE.search(contexts)
-            or "like" in tokens[:2]
-        ):
+        if _SIMILE_HINT_RE.search(contexts) or _AS_X_AS_RE.search(contexts) or "like" in tokens[:2]:
             return "simile"
 
     # Blocking tic: physical micro-action between dialog beats.
     if token_set & BLOCKING_VERBS:
-        if _BLOCKING_PUNCT_RE.search(contexts) or any(
-            t in token_set for t in ("opened", "closed", "shut")
-        ):
+        if _BLOCKING_PUNCT_RE.search(contexts) or any(t in token_set for t in ("opened", "closed", "shut")):
             return "blocking_tic"
 
     # Character tell: repeated body-part description.

@@ -205,9 +205,7 @@ def parse_plot_timeline(book_path: Path) -> TimelineCalendar | None:
             heading = stripped.lstrip("#").strip().lower()
             if heading.startswith("anchor"):
                 section = "anchor"
-            elif heading.startswith("event calendar") or heading.startswith(
-                "events"
-            ):
+            elif heading.startswith("event calendar") or heading.startswith("events"):
                 section = "events"
             else:
                 section = None
@@ -398,9 +396,7 @@ def _detect_drift(
     threshold_days: int = 0,
 ) -> list[TimelineFinding]:
     """Flag matches whose implied date diverges from the chapter's event."""
-    chapter_events = [
-        e for e in calendar.events if e.chapter_slug == chapter_slug
-    ]
+    chapter_events = [e for e in calendar.events if e.chapter_slug == chapter_slug]
     if not chapter_events:
         return []
     # If multiple events for the same chapter exist, prefer the one whose

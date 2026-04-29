@@ -40,9 +40,7 @@ def derive_from_manuscript_scan(result: Mapping[str, Any]) -> GateResult:
     """
     findings_raw = list(result.get("findings") or [])
 
-    rule_violations = [
-        f for f in findings_raw if f.get("category") == "book_rule_violation"
-    ]
+    rule_violations = [f for f in findings_raw if f.get("category") == "book_rule_violation"]
 
     metadata = {
         "chapters_scanned": result.get("chapters_scanned", 0),
@@ -152,9 +150,7 @@ def derive_from_timeline_validation(result: Mapping[str, Any]) -> GateResult:
         )
 
     return GateResult.warned(
-        reasons=[
-            f"{len(missing)} chapter(s) missing a parseable Chapter Timeline anchor."
-        ],
+        reasons=[f"{len(missing)} chapter(s) missing a parseable Chapter Timeline anchor."],
         findings=findings,
         metadata=metadata,
     )

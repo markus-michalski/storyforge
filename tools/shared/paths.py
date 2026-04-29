@@ -23,14 +23,9 @@ def _validate_slug(slug: str, name: str = "slug") -> str:
     """
     if not slug:
         return slug
-    if (
-        any(ch in slug for ch in _UNSAFE_SLUG_CHARS)
-        or ".." in slug
-        or slug.startswith(".")
-    ):
+    if any(ch in slug for ch in _UNSAFE_SLUG_CHARS) or ".." in slug or slug.startswith("."):
         raise ValueError(
-            f"Invalid {name} '{slug}': must not contain path separators, "
-            f"'..', null bytes, or start with '.'"
+            f"Invalid {name} '{slug}': must not contain path separators, '..', null bytes, or start with '.'"
         )
     return slug
 
@@ -50,9 +45,7 @@ def resolve_project_path(config: dict[str, Any], book_slug: str) -> Path:
     return Path(config["paths"]["content_root"]) / "projects" / book_slug
 
 
-def resolve_chapter_path(
-    config: dict[str, Any], book_slug: str, chapter_slug: str
-) -> Path:
+def resolve_chapter_path(config: dict[str, Any], book_slug: str, chapter_slug: str) -> Path:
     """Resolve path for a chapter within a book."""
     _validate_slug(chapter_slug, "chapter_slug")
     return resolve_project_path(config, book_slug) / "chapters" / chapter_slug
@@ -79,9 +72,7 @@ def resolve_world_dir(project_dir: Path) -> Path | None:
     return None
 
 
-def resolve_character_path(
-    config: dict[str, Any], book_slug: str, character_slug: str
-) -> Path:
+def resolve_character_path(config: dict[str, Any], book_slug: str, character_slug: str) -> Path:
     """Resolve path for a character file within a book."""
     _validate_slug(character_slug, "character_slug")
     return resolve_project_path(config, book_slug) / "characters" / f"{character_slug}.md"
@@ -128,9 +119,7 @@ def resolve_person_path(
     ``characters/{slug}.md``.
     """
     _validate_slug(person_slug, "person_slug")
-    return resolve_people_dir(
-        resolve_project_path(config, book_slug), book_category
-    ) / f"{person_slug}.md"
+    return resolve_people_dir(resolve_project_path(config, book_slug), book_category) / f"{person_slug}.md"
 
 
 def resolve_series_path(config: dict[str, Any], series_slug: str) -> Path:
@@ -150,9 +139,7 @@ def find_projects(config: dict[str, Any]) -> list[Path]:
     root = Path(config["paths"]["content_root"]) / "projects"
     if not root.exists():
         return []
-    return sorted(
-        p for p in root.iterdir() if p.is_dir() and (p / "README.md").exists()
-    )
+    return sorted(p for p in root.iterdir() if p.is_dir() and (p / "README.md").exists())
 
 
 def find_chapters(config: dict[str, Any], book_slug: str) -> list[Path]:
@@ -160,9 +147,7 @@ def find_chapters(config: dict[str, Any], book_slug: str) -> list[Path]:
     chapters_dir = resolve_project_path(config, book_slug) / "chapters"
     if not chapters_dir.exists():
         return []
-    return sorted(
-        p for p in chapters_dir.iterdir() if p.is_dir() and (p / "README.md").exists()
-    )
+    return sorted(p for p in chapters_dir.iterdir() if p.is_dir() and (p / "README.md").exists())
 
 
 def find_authors(config: dict[str, Any]) -> list[Path]:
@@ -170,9 +155,7 @@ def find_authors(config: dict[str, Any]) -> list[Path]:
     root = Path(config["paths"]["authors_root"])
     if not root.exists():
         return []
-    return sorted(
-        p for p in root.iterdir() if p.is_dir() and (p / "profile.md").exists()
-    )
+    return sorted(p for p in root.iterdir() if p.is_dir() and (p / "profile.md").exists())
 
 
 def find_series(config: dict[str, Any]) -> list[Path]:
@@ -180,6 +163,4 @@ def find_series(config: dict[str, Any]) -> list[Path]:
     root = Path(config["paths"]["content_root"]) / "series"
     if not root.exists():
         return []
-    return sorted(
-        p for p in root.iterdir() if p.is_dir() and (p / "README.md").exists()
-    )
+    return sorted(p for p in root.iterdir() if p.is_dir() and (p / "README.md").exists())

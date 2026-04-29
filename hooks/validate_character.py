@@ -54,10 +54,7 @@ def validate_character(file_path: str) -> list[str]:
     valid_roles = {"protagonist", "antagonist", "supporting", "minor"}
     role = meta.get("role", "").lower()
     if role and role not in valid_roles:
-        issues.append(
-            f"WARN: {path.name} — Unknown role '{role}'. "
-            f"Valid: {', '.join(sorted(valid_roles))}"
-        )
+        issues.append(f"WARN: {path.name} — Unknown role '{role}'. Valid: {', '.join(sorted(valid_roles))}")
 
     # For non-minor characters, check required sections
     if role != "minor":

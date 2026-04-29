@@ -31,31 +31,19 @@ CH22_README = (
     "**End:** Wed Dec 25 ~07:00 (trailhead, engine cut)\n"
 )
 
-CH4_NO_TIME = (
-    "## Chapter Timeline\n\n"
-    "**Start:** Mon Oct 21\n"
-    "**End:** Mon Oct 21\n"
-)
+CH4_NO_TIME = "## Chapter Timeline\n\n**Start:** Mon Oct 21\n**End:** Mon Oct 21\n"
 
 
 class TestParseChapterTimeline:
     def test_parses_start_and_end(self):
         start, end = parse_chapter_timeline(CH22_README)
-        assert start == TimePoint(
-            day_of_week="Tue", month="Dec", day=24, time="19:30"
-        )
-        assert end == TimePoint(
-            day_of_week="Wed", month="Dec", day=25, time="07:00"
-        )
+        assert start == TimePoint(day_of_week="Tue", month="Dec", day=24, time="19:30")
+        assert end == TimePoint(day_of_week="Wed", month="Dec", day=25, time="07:00")
 
     def test_optional_time(self):
         start, end = parse_chapter_timeline(CH4_NO_TIME)
-        assert start == TimePoint(
-            day_of_week="Mon", month="Oct", day=21, time=None
-        )
-        assert end == TimePoint(
-            day_of_week="Mon", month="Oct", day=21, time=None
-        )
+        assert start == TimePoint(day_of_week="Mon", month="Oct", day=21, time=None)
+        assert end == TimePoint(day_of_week="Mon", month="Oct", day=21, time=None)
 
     def test_empty_returns_none(self):
         start, end = parse_chapter_timeline("# Chapter 1\n\nNo timeline.\n")
@@ -69,14 +57,9 @@ class TestParseChapterTimeline:
         assert end is None
 
     def test_handles_extra_whitespace(self):
-        text = (
-            "## Chapter Timeline\n\n"
-            "**Start:**     Tue Dec 24    ~19:30 (anything)\n"
-        )
+        text = "## Chapter Timeline\n\n**Start:**     Tue Dec 24    ~19:30 (anything)\n"
         start, _ = parse_chapter_timeline(text)
-        assert start == TimePoint(
-            day_of_week="Tue", month="Dec", day=24, time="19:30"
-        )
+        assert start == TimePoint(day_of_week="Tue", month="Dec", day=24, time="19:30")
 
 
 # ---------------------------------------------------------------------------
@@ -106,9 +89,7 @@ class TestGetChapterAnchor:
         assert get_chapter_anchor(empty) is None
 
     def test_returns_none_for_readme_without_timeline(self, tmp_path):
-        ch = _make_chapter(
-            tmp_path, "01-x", "# Ch\n\nNo timeline section.\n"
-        )
+        ch = _make_chapter(tmp_path, "01-x", "# Ch\n\nNo timeline section.\n")
         assert get_chapter_anchor(ch) is None
 
 
@@ -227,11 +208,7 @@ def _make_book_with_chapters(tmp_path: Path) -> Path:
     _make_chapter(
         chapters,
         "21-i-forbid-it",
-        (
-            "## Chapter Timeline\n\n"
-            "**Start:** Tue Dec 24 ~14:45\n"
-            "**End:** Tue Dec 24 ~17:30\n"
-        ),
+        ("## Chapter Timeline\n\n**Start:** Tue Dec 24 ~14:45\n**End:** Tue Dec 24 ~17:30\n"),
     )
     _make_chapter(chapters, "22-the-night-before", CH22_README)
     return book
@@ -252,25 +229,17 @@ class TestGetStoryAnchor:
         # Anchor is Tue Dec 24 19:30 → "yesterday" = Mon Dec 23.
         assert "Mon Dec 23" in story.relative_phrase_mapping["yesterday"]
 
-    def test_falls_back_to_prev_end_if_current_lacks_timeline(
-        self, tmp_path
-    ):
+    def test_falls_back_to_prev_end_if_current_lacks_timeline(self, tmp_path):
         book = tmp_path / "book"
         chapters = book / "chapters"
         chapters.mkdir(parents=True)
         _make_chapter(
             chapters,
             "01-prev",
-            (
-                "## Chapter Timeline\n\n"
-                "**Start:** Mon Oct 21 ~08:00\n"
-                "**End:** Mon Oct 21 ~17:00\n"
-            ),
+            ("## Chapter Timeline\n\n**Start:** Mon Oct 21 ~08:00\n**End:** Mon Oct 21 ~17:00\n"),
         )
         # Current chapter has no Chapter Timeline yet (still drafting).
-        _make_chapter(
-            chapters, "02-current", "# Chapter 2\n\nNo timeline yet.\n"
-        )
+        _make_chapter(chapters, "02-current", "# Chapter 2\n\nNo timeline yet.\n")
 
         story = get_story_anchor(book, "02-current")
         assert story.current is None

@@ -232,9 +232,7 @@ class TestScanBookRules:
         }
         book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
         findings = _scan_book_rules(book)
-        clocked_finding = next(
-            f for f in findings if "clocked" in f.phrase.lower()
-        )
+        clocked_finding = next(f for f in findings if "clocked" in f.phrase.lower())
         assert clocked_finding.source_rule is not None
         assert "clocked" in clocked_finding.source_rule.lower()
 
@@ -340,12 +338,10 @@ def _prose_body(words: int = 400, filler: str = "the wind moved through the tree
 
 class TestStripDialogue:
     def test_removes_straight_quoted_span(self) -> None:
-        assert "She felt nothing." not in _strip_dialogue(
-            'He said "She felt nothing." and walked on.'
-        )
+        assert "She felt nothing." not in _strip_dialogue('He said "She felt nothing." and walked on.')
 
     def test_removes_curly_quoted_span(self) -> None:
-        line = "He said \u201CShe felt nothing.\u201D and walked on."
+        line = "He said \u201cShe felt nothing.\u201d and walked on."
         out = _strip_dialogue(line)
         assert "She felt nothing" not in out
 
@@ -464,11 +460,7 @@ class TestScanCliches:
 
     def test_detects_multiple_cliches(self, tmp_path: Path) -> None:
         chapters = {
-            "01-open": (
-                "# Ch 1\n\n"
-                "Her heart skipped a beat. Time stood still. "
-                "Her eyes widened in horror.\n"
-            ),
+            "01-open": ("# Ch 1\n\nHer heart skipped a beat. Time stood still. Her eyes widened in horror.\n"),
         }
         book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
         findings = _scan_cliches(book)
@@ -555,7 +547,7 @@ class TestScanQuestionAsStatement:
 
     def test_detects_curly_quotes(self, tmp_path: Path) -> None:
         chapters = {
-            "01-open": "# Ch 1\n\n\u201CWho did this.\u201D\n",
+            "01-open": "# Ch 1\n\n\u201cWho did this.\u201d\n",
         }
         book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
         findings = _scan_question_as_statement(book)
@@ -617,9 +609,7 @@ class TestClicheBanlistLoader:
     def test_each_entry_has_severity(self) -> None:
         phrases = _load_cliche_banlist(PLUGIN_ROOT)
         for phrase, severity in phrases:
-            assert severity in ("high", "medium"), (
-                f"unexpected severity {severity!r} for {phrase!r}"
-            )
+            assert severity in ("high", "medium"), f"unexpected severity {severity!r} for {phrase!r}"
 
     def test_missing_file_falls_back_to_legacy_constant(self, tmp_path: Path) -> None:
         phrases = _load_cliche_banlist(tmp_path)
@@ -658,9 +648,7 @@ class TestClicheBanlistLoader:
     def test_multi_genre_merges_all_files(self, tmp_path: Path) -> None:
         ref = tmp_path / "reference" / "craft"
         ref.mkdir(parents=True)
-        (ref / "cliche-banlist.md").write_text(
-            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
-        )
+        (ref / "cliche-banlist.md").write_text("## Base\n- blood ran cold (severity: high)\n", encoding="utf-8")
         (ref / "cliche-banlist-romance.md").write_text(
             "## Romance\n- star-crossed lovers (severity: medium)\n", encoding="utf-8"
         )
@@ -676,9 +664,7 @@ class TestClicheBanlistLoader:
     def test_unknown_genre_silently_skipped(self, tmp_path: Path) -> None:
         ref = tmp_path / "reference" / "craft"
         ref.mkdir(parents=True)
-        (ref / "cliche-banlist.md").write_text(
-            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
-        )
+        (ref / "cliche-banlist.md").write_text("## Base\n- blood ran cold (severity: high)\n", encoding="utf-8")
         # No cliche-banlist-nonexistent.md — should not raise
         phrases = _load_cliche_banlist(tmp_path, genres=["nonexistent"])
         assert any(p[0] == "blood ran cold" for p in phrases)
@@ -686,9 +672,7 @@ class TestClicheBanlistLoader:
     def test_no_genre_deduplication_across_files(self, tmp_path: Path) -> None:
         ref = tmp_path / "reference" / "craft"
         ref.mkdir(parents=True)
-        (ref / "cliche-banlist.md").write_text(
-            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
-        )
+        (ref / "cliche-banlist.md").write_text("## Base\n- blood ran cold (severity: high)\n", encoding="utf-8")
         (ref / "cliche-banlist-romance.md").write_text(
             "## Romance\n- blood ran cold (severity: high)\n", encoding="utf-8"
         )
@@ -700,9 +684,7 @@ class TestClicheBanlistLoader:
         chapters = {"01-open": "# Ch 1\n\nShe began to walk toward the door.\n"}
         book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
         findings = _scan_cliches(book)
-        assert any("began to" in f.phrase for f in findings), (
-            "expected 'began to' from file-loaded banlist"
-        )
+        assert any("began to" in f.phrase for f in findings), "expected 'began to' from file-loaded banlist"
 
     def test_scan_cliches_severity_respected(self, tmp_path: Path) -> None:
         ref = tmp_path / "reference" / "craft"
@@ -768,9 +750,7 @@ class TestReadBookGenres:
         # Integration: genre phrases loaded automatically from README genres field
         ref = tmp_path / "reference" / "craft"
         ref.mkdir(parents=True)
-        (ref / "cliche-banlist.md").write_text(
-            "## Base\n- blood ran cold (severity: high)\n", encoding="utf-8"
-        )
+        (ref / "cliche-banlist.md").write_text("## Base\n- blood ran cold (severity: high)\n", encoding="utf-8")
         (ref / "cliche-banlist-thriller.md").write_text(
             "## Thriller\n- adrenaline surged (severity: high)\n", encoding="utf-8"
         )
@@ -780,9 +760,7 @@ class TestReadBookGenres:
         _write_readme(book, 'genres: ["thriller"]')
         chapters_dir = book / "chapters" / "01-open"
         chapters_dir.mkdir(parents=True)
-        (chapters_dir / "draft.md").write_text(
-            "# Ch 1\n\nAdrenaline surged through her veins.\n", encoding="utf-8"
-        )
+        (chapters_dir / "draft.md").write_text("# Ch 1\n\nAdrenaline surged through her veins.\n", encoding="utf-8")
         result = scan_repetitions(book, plugin_root=ref.parent.parent)
         categories_phrases = [f["phrase"] for f in result["findings"]]
         assert any("adrenaline surged" in p for p in categories_phrases)
@@ -792,9 +770,7 @@ class TestReadBookGenres:
 # #82 — Sentence-level repetition detector (8-15 word n-grams)
 # ---------------------------------------------------------------------------
 
-_LONG_REPEATED = (
-    "his heart hammered against his ribs as he forced himself to breathe"
-)
+_LONG_REPEATED = "his heart hammered against his ribs as he forced himself to breathe"
 
 
 class TestScanSentenceRepetitions:
@@ -868,11 +844,7 @@ class TestScanSentenceRepetitions:
 
 class TestReadAllowedRepetitions:
     def test_parses_allowed_section(self, tmp_path: Path) -> None:
-        claudemd = (
-            "# Book\n\n## Allowed Repetitions\n"
-            "- his heart hammered against his ribs\n"
-            "- the way the light fell\n"
-        )
+        claudemd = "# Book\n\n## Allowed Repetitions\n- his heart hammered against his ribs\n- the way the light fell\n"
         book = _write_book(tmp_path, claudemd, {})
         allowed = _read_allowed_repetitions(book)
         assert "his heart hammered against his ribs" in allowed

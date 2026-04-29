@@ -53,13 +53,19 @@ class TestParseScenes:
         scenes = parse_scenes(CH21_BODY)
         assert len(scenes) == 3
         assert scenes[0] == ChapterScene(
-            name="Christmas Eve", start_time="14:45", end_time="15:50",
+            name="Christmas Eve",
+            start_time="14:45",
+            end_time="15:50",
         )
         assert scenes[1] == ChapterScene(
-            name="The Library", start_time="15:50", end_time="16:00",
+            name="The Library",
+            start_time="15:50",
+            end_time="16:00",
         )
         assert scenes[2] == ChapterScene(
-            name="The Meeting", start_time="16:00", end_time="16:50",
+            name="The Meeting",
+            start_time="16:00",
+            end_time="16:50",
         )
 
     def test_parses_two_scenes(self):
@@ -69,11 +75,7 @@ class TestParseScenes:
         assert scenes[1].name == "Who She Was"
 
     def test_no_scene_headers_returns_empty(self):
-        text = (
-            "## Chapter Timeline\n\n"
-            "**Start:** Tue Dec 24 ~14:45\n"
-            "**End:** Tue Dec 24 ~17:30\n"
-        )
+        text = "## Chapter Timeline\n\n**Start:** Tue Dec 24 ~14:45\n**End:** Tue Dec 24 ~17:30\n"
         assert parse_scenes(text) == []
 
     def test_accepts_english_scene_keyword(self):
@@ -110,7 +112,7 @@ def _make_chapter(
     extracted_number = int(slug.split("-", 1)[0])
     frontmatter = "---\n"
     if title is not None:
-        frontmatter += f"title: \"{title}\"\n"
+        frontmatter += f'title: "{title}"\n'
     frontmatter += f"number: {number if number is not None else extracted_number}\n"
     frontmatter += f"status: {status}\n"
     frontmatter += "---\n\n"
@@ -121,8 +123,11 @@ def _make_chapter(
 class TestParseChapterTimelineGrid:
     def test_loads_full_grid(self, tmp_path):
         ch = _make_chapter(
-            tmp_path, "21-i-forbid-it", CH21_BODY,
-            status="review", title="I Forbid It",
+            tmp_path,
+            "21-i-forbid-it",
+            CH21_BODY,
+            status="review",
+            title="I Forbid It",
         )
         grid = parse_chapter_timeline_grid(ch)
         assert grid is not None
@@ -141,8 +146,11 @@ class TestParseChapterTimelineGrid:
 
     def test_chapter_with_only_date_marker_still_parses_scenes(self, tmp_path):
         ch = _make_chapter(
-            tmp_path, "19-seras-ghost", CH19_BODY,
-            status="review", title="Sera's Ghost",
+            tmp_path,
+            "19-seras-ghost",
+            CH19_BODY,
+            status="review",
+            title="Sera's Ghost",
         )
         grid = parse_chapter_timeline_grid(ch)
         assert grid is not None
@@ -155,8 +163,11 @@ class TestParseChapterTimelineGrid:
 
     def test_serializes_to_dict(self, tmp_path):
         ch = _make_chapter(
-            tmp_path, "21-i-forbid-it", CH21_BODY,
-            status="review", title="I Forbid It",
+            tmp_path,
+            "21-i-forbid-it",
+            CH21_BODY,
+            status="review",
+            title="I Forbid It",
         )
         grid = parse_chapter_timeline_grid(ch)
         assert grid is not None
@@ -166,15 +177,23 @@ class TestParseChapterTimelineGrid:
         assert payload["title"] == "I Forbid It"
         assert payload["status"] == "review"
         assert payload["start"] == {
-            "day_of_week": "Tue", "month": "Dec", "day": 24, "time": "14:45",
+            "day_of_week": "Tue",
+            "month": "Dec",
+            "day": 24,
+            "time": "14:45",
         }
         assert payload["scenes"][0] == {
-            "name": "Christmas Eve", "start_time": "14:45", "end_time": "15:50",
+            "name": "Christmas Eve",
+            "start_time": "14:45",
+            "end_time": "15:50",
         }
 
     def test_grid_is_json_serializable(self, tmp_path):
         ch = _make_chapter(
-            tmp_path, "21-i-forbid-it", CH21_BODY, status="review",
+            tmp_path,
+            "21-i-forbid-it",
+            CH21_BODY,
+            status="review",
         )
         grid = parse_chapter_timeline_grid(ch)
         assert grid is not None
@@ -199,8 +218,12 @@ class TestGetRecentChapterTimelines:
         chapters = book / "chapters"
         for n in range(19, 23):  # 19, 20, 21, 22
             _make_chapter(
-                chapters, f"{n:02d}-ch{n}", CH21_BODY,
-                status="review", title=f"Chapter {n}", number=n,
+                chapters,
+                f"{n:02d}-ch{n}",
+                CH21_BODY,
+                status="review",
+                title=f"Chapter {n}",
+                number=n,
             )
 
         result = get_recent_chapter_timelines(book, n=3)
@@ -213,8 +236,12 @@ class TestGetRecentChapterTimelines:
         book = _make_book(tmp_path)
         chapters = book / "chapters"
         _make_chapter(
-            chapters, "01-only", CH21_BODY,
-            status="review", title="Only One", number=1,
+            chapters,
+            "01-only",
+            CH21_BODY,
+            status="review",
+            title="Only One",
+            number=1,
         )
 
         result = get_recent_chapter_timelines(book, n=3)
@@ -230,12 +257,20 @@ class TestGetRecentChapterTimelines:
         book = _make_book(tmp_path)
         chapters = book / "chapters"
         _make_chapter(
-            chapters, "01-draft-only", CH21_BODY,
-            status="draft", title="Just A Draft", number=1,
+            chapters,
+            "01-draft-only",
+            CH21_BODY,
+            status="draft",
+            title="Just A Draft",
+            number=1,
         )
         _make_chapter(
-            chapters, "02-outline", CH21_BODY,
-            status="outline", title="Just An Outline", number=2,
+            chapters,
+            "02-outline",
+            CH21_BODY,
+            status="outline",
+            title="Just An Outline",
+            number=2,
         )
 
         result = get_recent_chapter_timelines(book, n=3)
@@ -269,17 +304,17 @@ class TestGetRecentChapterTimelines:
         # "final" → "Final".
         assert [g.status for g in result] == ["review", "Polished", "Final"]
 
-    def test_chapter_with_malformed_timeline_table_is_skipped_gracefully(
-        self, tmp_path
-    ):
+    def test_chapter_with_malformed_timeline_table_is_skipped_gracefully(self, tmp_path):
         book = _make_book(tmp_path)
         chapters = book / "chapters"
         _make_chapter(chapters, "01-good", CH21_BODY, status="review", number=1)
         # Malformed: review status, but no Chapter Timeline section at all.
         _make_chapter(
-            chapters, "02-no-timeline",
+            chapters,
+            "02-no-timeline",
             "# Chapter 2\n\nProse without timeline.\n",
-            status="review", number=2,
+            status="review",
+            number=2,
         )
         _make_chapter(chapters, "03-good", CH21_BODY, status="review", number=3)
 
@@ -297,8 +332,11 @@ class TestGetRecentChapterTimelines:
         chapters = book / "chapters"
         for n in range(1, 6):
             _make_chapter(
-                chapters, f"{n:02d}-ch{n}", CH21_BODY,
-                status="review", number=n,
+                chapters,
+                f"{n:02d}-ch{n}",
+                CH21_BODY,
+                status="review",
+                number=n,
             )
         result = get_recent_chapter_timelines(book)
         assert len(result) == 3

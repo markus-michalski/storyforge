@@ -83,18 +83,18 @@ def get_current_story_anchor(book_slug: str, chapter_slug: str = "") -> str:
         session = state.get("session", {}) or {}
         chapter_slug = session.get("last_chapter") or ""
     if not chapter_slug:
-        return json.dumps({
-            "error": (
-                "chapter_slug not provided and no last_chapter in session. "
-                "Pass chapter_slug explicitly or call update_session first."
-            )
-        })
+        return json.dumps(
+            {
+                "error": (
+                    "chapter_slug not provided and no last_chapter in session. "
+                    "Pass chapter_slug explicitly or call update_session first."
+                )
+            }
+        )
 
     book_root = resolve_project_path(_app.load_config(), book_slug)
     if not book_root.is_dir():
-        return json.dumps({
-            "error": f"Book directory missing on disk: {book_root}"
-        })
+        return json.dumps({"error": f"Book directory missing on disk: {book_root}"})
 
     anchor = get_story_anchor(book_root, chapter_slug)
     return json.dumps(anchor.to_dict())
@@ -126,9 +126,7 @@ def get_recent_chapter_timelines(book_slug: str, n: int = 3) -> str:
     """
     book_root = resolve_project_path(_app.load_config(), book_slug)
     if not book_root.is_dir():
-        return json.dumps({
-            "error": f"Book directory missing on disk: {book_root}"
-        })
+        return json.dumps({"error": f"Book directory missing on disk: {book_root}"})
 
     grids = _get_recent_chapter_timelines_impl(book_root, n=n)
     return json.dumps({"chapters": [g.to_dict() for g in grids]})
@@ -169,9 +167,7 @@ def verify_tactical_setup(
     """
     book_root = resolve_project_path(_app.load_config(), book_slug)
     if not book_root.is_dir():
-        return json.dumps({
-            "error": f"Book directory missing on disk: {book_root}"
-        })
+        return json.dumps({"error": f"Book directory missing on disk: {book_root}"})
 
     result = _verify_tactical_setup_impl(
         book_root,
@@ -225,9 +221,7 @@ def get_chapter_writing_brief(book_slug: str, chapter_slug: str) -> str:
     """
     book_root = resolve_project_path(_app.load_config(), book_slug)
     if not book_root.is_dir():
-        return json.dumps({
-            "error": f"Book directory missing on disk: {book_root}"
-        })
+        return json.dumps({"error": f"Book directory missing on disk: {book_root}"})
 
     plugin_root = Path(
         os.environ.get(
@@ -238,13 +232,15 @@ def get_chapter_writing_brief(book_slug: str, chapter_slug: str) -> str:
     config = _app.load_config()
     review_handle = _app.get_review_handle(config) or "Markus"
 
-    return json.dumps(_build_chapter_writing_brief_impl(
-        book_root=book_root,
-        book_slug=book_slug,
-        chapter_slug=chapter_slug,
-        plugin_root=plugin_root,
-        review_handle=review_handle,
-    ))
+    return json.dumps(
+        _build_chapter_writing_brief_impl(
+            book_root=book_root,
+            book_slug=book_slug,
+            chapter_slug=chapter_slug,
+            plugin_root=plugin_root,
+            review_handle=review_handle,
+        )
+    )
 
 
 @mcp.tool()
@@ -278,11 +274,13 @@ def get_review_brief(book_slug: str, chapter_slug: str) -> str:
     if not book_root.is_dir():
         return json.dumps({"error": f"Book directory missing on disk: {book_root}"})
 
-    return json.dumps(_build_review_brief_impl(
-        book_root=book_root,
-        book_slug=book_slug,
-        chapter_slug=chapter_slug,
-    ))
+    return json.dumps(
+        _build_review_brief_impl(
+            book_root=book_root,
+            book_slug=book_slug,
+            chapter_slug=chapter_slug,
+        )
+    )
 
 
 @mcp.tool()
@@ -311,10 +309,12 @@ def get_continuity_brief(book_slug: str) -> str:
     if not book_root.is_dir():
         return json.dumps({"error": f"Book directory missing on disk: {book_root}"})
 
-    return json.dumps(_build_continuity_brief_impl(
-        book_root=book_root,
-        book_slug=book_slug,
-    ))
+    return json.dumps(
+        _build_continuity_brief_impl(
+            book_root=book_root,
+            book_slug=book_slug,
+        )
+    )
 
 
 @mcp.tool()
@@ -344,9 +344,7 @@ def start_chapter_draft(book_slug: str, chapter_slug: str) -> str:
     ch_dir = resolve_chapter_path(config, book_slug, chapter_slug)
 
     if not ch_dir.exists():
-        return json.dumps({
-            "error": f"Chapter '{chapter_slug}' not found in book '{book_slug}'"
-        })
+        return json.dumps({"error": f"Chapter '{chapter_slug}' not found in book '{book_slug}'"})
 
     # Respect the Issue #16 convention: chapter.yaml is the preferred source
     # of truth. parse_chapter_readme already merges yaml + README frontmatter.
@@ -355,15 +353,17 @@ def start_chapter_draft(book_slug: str, chapter_slug: str) -> str:
 
     # No-op if the chapter has already moved past Outline — we never regress.
     if is_chapter_drafted(current_status):
-        return json.dumps({
-            "success": True,
-            "book_slug": book_slug,
-            "chapter_slug": chapter_slug,
-            "chapter_status_before": current_status,
-            "chapter_status_after": current_status,
-            "chapter_updated": False,
-            "message": f"Chapter already at '{current_status}' — no change.",
-        })
+        return json.dumps(
+            {
+                "success": True,
+                "book_slug": book_slug,
+                "chapter_slug": chapter_slug,
+                "chapter_status_before": current_status,
+                "chapter_status_after": current_status,
+                "chapter_updated": False,
+                "message": f"Chapter already at '{current_status}' — no change.",
+            }
+        )
 
     # Flip Outline → Draft. Prefer chapter.yaml; migrate from README
     # frontmatter to chapter.yaml on first touch (canonical source of
@@ -399,12 +399,14 @@ def start_chapter_draft(book_slug: str, chapter_slug: str) -> str:
         migrated = True
 
     _cache.invalidate()
-    return json.dumps({
-        "success": True,
-        "book_slug": book_slug,
-        "chapter_slug": chapter_slug,
-        "chapter_status_before": current_status,
-        "chapter_status_after": "Draft",
-        "chapter_updated": True,
-        "migrated_to_chapter_yaml": migrated,
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "book_slug": book_slug,
+            "chapter_slug": chapter_slug,
+            "chapter_status_before": current_status,
+            "chapter_status_after": "Draft",
+            "chapter_updated": True,
+            "migrated_to_chapter_yaml": migrated,
+        }
+    )

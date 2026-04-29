@@ -87,9 +87,7 @@ class TestParsePlotTimeline:
         book = make_book(tmp_path, [])
         assert parse_plot_timeline(book) is None
 
-    def test_parse_plot_timeline_extracts_anchor_and_events(
-        self, tmp_path: Path
-    ):
+    def test_parse_plot_timeline_extracts_anchor_and_events(self, tmp_path: Path):
         book = make_book(tmp_path, [])
         write_timeline_md(book, MINIMAL_TIMELINE_MD)
         calendar = parse_plot_timeline(book)
@@ -152,11 +150,7 @@ class TestFindPhraseMatches:
         assert matches == []
 
     def test_match_records_line_number_and_snippet(self):
-        draft = (
-            "Line one.\n"
-            "Line two with yesterday in it.\n"
-            "Line three.\n"
-        )
+        draft = "Line one.\nLine two with yesterday in it.\nLine three.\n"
         phrase_map = {"yesterday": date(2025, 12, 24)}
         matches = _find_phrase_matches("01-test", draft, phrase_map)
         assert len(matches) == 1
@@ -181,9 +175,7 @@ class TestResolvePhraseDates:
         # Anchor at Thu Dec 25 → yesterday=Dec 24, tomorrow=Dec 26.
         anchor = ChapterAnchor(
             chapter_slug="01-test",
-            start=TimePoint(
-                day_of_week="Thu", month="Dec", day=25, time="08:00"
-            ),
+            start=TimePoint(day_of_week="Thu", month="Dec", day=25, time="08:00"),
         )
         phrase_dates = _resolve_phrase_dates(anchor)
         assert phrase_dates.get("yesterday") == date(2025, 12, 24)
@@ -315,16 +307,9 @@ class TestValidateTimeline:
             "Confrontation | Theo |\n"
         )
         chapter_readme = (
-            "# Chapter 22\n\n"
-            "## Chapter Timeline\n\n"
-            "**Start:** Wed Dec 24 ~18:00\n"
-            "**End:** Wed Dec 24 ~22:00\n"
+            "# Chapter 22\n\n## Chapter Timeline\n\n**Start:** Wed Dec 24 ~18:00\n**End:** Wed Dec 24 ~22:00\n"
         )
-        chapter_draft = (
-            "Theo paced.\n"
-            "He had not slept since yesterday.\n"
-            "The hallway felt long.\n"
-        )
+        chapter_draft = "Theo paced.\nHe had not slept since yesterday.\nThe hallway felt long.\n"
         book = make_book(
             tmp_path,
             [

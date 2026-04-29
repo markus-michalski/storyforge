@@ -54,11 +54,13 @@ def mock_config(content_root: Path):
     # collide with the user's real ~/.storyforge/cache/state.json.
     fake_state_path = content_root / "_cache" / "state.json"
 
-    with patch.object(server_mod, "load_config", return_value=fake_config), \
-         patch.object(server_mod, "get_content_root", return_value=content_root), \
-         patch.object(indexer_mod, "load_config", return_value=fake_config), \
-         patch.object(indexer_mod, "STATE_PATH", fake_state_path), \
-         patch.object(indexer_mod, "CACHE_DIR", fake_state_path.parent):
+    with (
+        patch.object(server_mod, "load_config", return_value=fake_config),
+        patch.object(server_mod, "get_content_root", return_value=content_root),
+        patch.object(indexer_mod, "load_config", return_value=fake_config),
+        patch.object(indexer_mod, "STATE_PATH", fake_state_path),
+        patch.object(indexer_mod, "CACHE_DIR", fake_state_path.parent),
+    ):
         server_mod._cache.invalidate()
         yield fake_config
 
@@ -66,6 +68,7 @@ def mock_config(content_root: Path):
 @pytest.fixture
 def server_module(mock_config):  # noqa: F811
     import server as server_mod
+
     return server_mod
 
 
@@ -73,8 +76,7 @@ def _write_book(content_root: Path, slug: str, status: str = "Idea") -> Path:
     project = content_root / "projects" / slug
     project.mkdir(parents=True)
     (project / "README.md").write_text(
-        f'---\ntitle: "Test"\nslug: "{slug}"\nstatus: "{status}"\n'
-        f'target_word_count: 30000\n---\n# Test\n',
+        f'---\ntitle: "Test"\nslug: "{slug}"\nstatus: "{status}"\ntarget_word_count: 30000\n---\n# Test\n',
         encoding="utf-8",
     )
     (project / "chapters").mkdir()
@@ -85,9 +87,7 @@ def _write_chapter(book_dir: Path, slug: str, status: str, words: int = 0) -> Pa
     ch_dir = book_dir / "chapters" / slug
     ch_dir.mkdir(parents=True)
     (ch_dir / "README.md").write_text("# Body\n", encoding="utf-8")
-    (ch_dir / "chapter.yaml").write_text(
-        f'title: "{slug}"\nstatus: "{status}"\n', encoding="utf-8"
-    )
+    (ch_dir / "chapter.yaml").write_text(f'title: "{slug}"\nstatus: "{status}"\n', encoding="utf-8")
     if words:
         (ch_dir / "draft.md").write_text(" ".join(["word"] * words), encoding="utf-8")
     return ch_dir
@@ -235,9 +235,7 @@ class TestDeriveBookStatus:
 
 
 class TestGetBookProgress:
-    def test_drafted_count_includes_lowercase_review(
-        self, server_module, content_root: Path
-    ):
+    def test_drafted_count_includes_lowercase_review(self, server_module, content_root: Path):
         # Reproduces the issue exactly: chapter.yaml status: review
         project = _write_book(content_root, "review-book")
         for n in range(1, 4):
@@ -247,13 +245,9 @@ class TestGetBookProgress:
         result = json.loads(server_module.get_book_progress("review-book"))
 
         assert result["chapters_total"] == 4
-        assert result["chapters_drafted"] == 3, (
-            "Bug #19: 'review' chapters must count toward chapters_drafted"
-        )
+        assert result["chapters_drafted"] == 3, "Bug #19: 'review' chapters must count toward chapters_drafted"
 
-    def test_drafted_count_includes_canonical_statuses(
-        self, server_module, content_root: Path
-    ):
+    def test_drafted_count_includes_canonical_statuses(self, server_module, content_root: Path):
         project = _write_book(content_root, "canon-book")
         _write_chapter(project, "01-a", status="Draft")
         _write_chapter(project, "02-b", status="Revision")
@@ -266,9 +260,7 @@ class TestGetBookProgress:
         assert result["chapters_drafted"] == 4
         assert result["chapters_final"] == 1
 
-    def test_completion_percent_uses_drafted_not_final(
-        self, server_module, content_root: Path
-    ):
+    def test_completion_percent_uses_drafted_not_final(self, server_module, content_root: Path):
         # Bug #19: 17 of 34 reviewed should be ~50%, not 0%.
         project = _write_book(content_root, "halfway")
         for n in range(1, 18):
@@ -283,9 +275,7 @@ class TestGetBookProgress:
         assert result["chapters_final"] == 0
         assert result["completion_percent"] == 50
 
-    def test_status_derived_from_chapter_state(
-        self, server_module, content_root: Path
-    ):
+    def test_status_derived_from_chapter_state(self, server_module, content_root: Path):
         # Bug #19: book disk-status "Idea" + drafted chapters → effective "Drafting".
         project = _write_book(content_root, "stuck-on-idea", status="Idea")
         _write_chapter(project, "01-c", status="review", words=3000)
@@ -297,9 +287,7 @@ class TestGetBookProgress:
             "Bug #19: status must reflect chapter-derived progress, not stale frontmatter"
         )
 
-    def test_status_does_not_regress_when_book_past_drafting(
-        self, server_module, content_root: Path
-    ):
+    def test_status_does_not_regress_when_book_past_drafting(self, server_module, content_root: Path):
         project = _write_book(content_root, "in-revision", status="Revision")
         _write_chapter(project, "01-c", status="Draft")  # backward chapter state
 
@@ -307,9 +295,7 @@ class TestGetBookProgress:
 
         assert result["status"] == "Revision"
 
-    def test_status_unchanged_when_no_chapters_drafted(
-        self, server_module, content_root: Path
-    ):
+    def test_status_unchanged_when_no_chapters_drafted(self, server_module, content_root: Path):
         project = _write_book(content_root, "still-planning", status="Plot Outlined")
         _write_chapter(project, "01-c", status="Outline")
         _write_chapter(project, "02-c", status="Outline")
@@ -325,9 +311,7 @@ class TestGetBookProgress:
 
 
 class TestIndexerDerivedStatus:
-    def test_list_books_reflects_derived_status(
-        self, server_module, content_root: Path
-    ):
+    def test_list_books_reflects_derived_status(self, server_module, content_root: Path):
         # One drafted chapter + one still Outline → Drafting tier
         # (blocks Revision because not all chapters are at Revision rank).
         project = _write_book(content_root, "indexed-book", status="Idea")
@@ -337,13 +321,9 @@ class TestIndexerDerivedStatus:
         result = json.loads(server_module.list_books())
         book = next(b for b in result["books"] if b["slug"] == "indexed-book")
 
-        assert book["status"] == "Drafting", (
-            "Bug #19: list_books must reflect derived status from chapter state"
-        )
+        assert book["status"] == "Drafting", "Bug #19: list_books must reflect derived status from chapter state"
 
-    def test_list_books_reflects_revision_tier(
-        self, server_module, content_root: Path
-    ):
+    def test_list_books_reflects_revision_tier(self, server_module, content_root: Path):
         # Issue #21: all chapters at review-rank → book auto-escalates to Revision.
         project = _write_book(content_root, "all-reviewed", status="Idea")
         _write_chapter(project, "01-c", status="review", words=2000)

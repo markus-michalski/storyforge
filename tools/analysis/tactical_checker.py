@@ -264,11 +264,7 @@ _POSITION_CLASSES: tuple[tuple[str, tuple[str, ...]], ...] = (
 # before their substrings (e.g. "at the back" wins over "back").
 _FLAT_POSITION_KEYWORDS: tuple[tuple[str, str], ...] = tuple(
     sorted(
-        (
-            (kw, label)
-            for label, keywords in _POSITION_CLASSES
-            for kw in keywords
-        ),
+        ((kw, label) for label, keywords in _POSITION_CLASSES for kw in keywords),
         key=lambda item: -len(item[0]),
     )
 )
@@ -394,9 +390,7 @@ _BASE_QUESTIONS: tuple[str, ...] = (
 )
 
 _PROTECTED_QUESTION_TEMPLATE = "Who is closest to {name} at all times?"
-_VULNERABLE_QUESTION_TEMPLATE = (
-    "{name} is most vulnerable — who is covering them?"
-)
+_VULNERABLE_QUESTION_TEMPLATE = "{name} is most vulnerable — who is covering them?"
 
 
 def _build_questions(profiles: list[TacticalProfile]) -> list[str]:
@@ -406,14 +400,10 @@ def _build_questions(profiles: list[TacticalProfile]) -> list[str]:
         # One specialized question per protected character (cap at 2 to
         # keep the brief readable).
         for p in protected[:2]:
-            questions.append(
-                _PROTECTED_QUESTION_TEMPLATE.format(name=p.name)
-            )
+            questions.append(_PROTECTED_QUESTION_TEMPLATE.format(name=p.name))
     most_vulnerable = _pick_most_vulnerable(profiles)
     if most_vulnerable is not None and not protected:
-        questions.append(
-            _VULNERABLE_QUESTION_TEMPLATE.format(name=most_vulnerable.name)
-        )
+        questions.append(_VULNERABLE_QUESTION_TEMPLATE.format(name=most_vulnerable.name))
     # Backfill from the base list until we have at least 3 questions.
     for q in _BASE_QUESTIONS:
         if len(questions) >= 5:
@@ -460,7 +450,8 @@ def analyze_tactical_setup(
     """
     warnings: list[TacticalWarning] = []
     positions = detect_positions(
-        scene_text, character_names=[p.name for p in profiles],
+        scene_text,
+        character_names=[p.name for p in profiles],
     )
 
     protectors = [p for p in profiles if p.protector_role]
@@ -472,53 +463,59 @@ def analyze_tactical_setup(
     missing_data = [p for p in profiles if not p.has_tactical_data]
     if missing_data and not protectors and not protected:
         names = ", ".join(p.name for p in missing_data)
-        warnings.append(TacticalWarning(
-            severity="info",
-            message=(
-                f"No tactical profile for: {names}. "
-                "Add a `tactical` block to each character's frontmatter "
-                "for richer formation checks."
-            ),
-        ))
+        warnings.append(
+            TacticalWarning(
+                severity="info",
+                message=(
+                    f"No tactical profile for: {names}. "
+                    "Add a `tactical` block to each character's frontmatter "
+                    "for richer formation checks."
+                ),
+            )
+        )
 
     # R1: protected character at rear.
     for p in protected:
         if positions.get(p.name) == "rear" and protectors:
             others = ", ".join(pr.name for pr in protectors)
-            warnings.append(TacticalWarning(
-                severity="warn",
-                message=(
-                    f"{p.name} (protected_role: true, "
-                    f"combat_skill: {p.combat_skill}) is in rear position. "
-                    f"Protectors ({others}) should flank or trail."
-                ),
-            ))
+            warnings.append(
+                TacticalWarning(
+                    severity="warn",
+                    message=(
+                        f"{p.name} (protected_role: true, "
+                        f"combat_skill: {p.combat_skill}) is in rear position. "
+                        f"Protectors ({others}) should flank or trail."
+                    ),
+                )
+            )
 
     # R2: protected character at lead.
     for p in protected:
         if positions.get(p.name) == "lead":
-            warnings.append(TacticalWarning(
-                severity="warn",
-                message=(
-                    f"{p.name} (protected_role: true) is at the lead. "
-                    "Scouts/protectors take point — not the protected character."
-                ),
-            ))
+            warnings.append(
+                TacticalWarning(
+                    severity="warn",
+                    message=(
+                        f"{p.name} (protected_role: true) is at the lead. "
+                        "Scouts/protectors take point — not the protected character."
+                    ),
+                )
+            )
 
     # R3: protected present but no protector covers a forward or rear
     # position.
     if protected and protectors:
-        protector_positions = {
-            positions.get(pr.name, "unknown") for pr in protectors
-        }
+        protector_positions = {positions.get(pr.name, "unknown") for pr in protectors}
         if not (protector_positions & {"lead", "rear", "middle"}):
-            warnings.append(TacticalWarning(
-                severity="warn",
-                message=(
-                    "Protected character present but no protector has a "
-                    "detectable position. Spell out who covers lead and rear."
-                ),
-            ))
+            warnings.append(
+                TacticalWarning(
+                    severity="warn",
+                    message=(
+                        "Protected character present but no protector has a "
+                        "detectable position. Spell out who covers lead and rear."
+                    ),
+                )
+            )
 
     # R4: lead position should match `movement_lead: true` when known.
     for name, pos in positions.items():
@@ -528,14 +525,16 @@ def analyze_tactical_setup(
         if profile is None or not profile.has_tactical_data:
             continue
         if not profile.movement_lead and not profile.protector_role:
-            warnings.append(TacticalWarning(
-                severity="warn",
-                message=(
-                    f"{name} is taking the lead but their profile has "
-                    "movement_lead: false and protector_role: false. "
-                    "Confirm this is intentional."
-                ),
-            ))
+            warnings.append(
+                TacticalWarning(
+                    severity="warn",
+                    message=(
+                        f"{name} is taking the lead but their profile has "
+                        "movement_lead: false and protector_role: false. "
+                        "Confirm this is intentional."
+                    ),
+                )
+            )
 
     passes = not any(w.severity == "warn" for w in warnings)
     return TacticalAnalysis(

@@ -28,17 +28,11 @@ def extract_text_from_file(file_path: Path) -> str:
     # Check file size
     size = file_path.stat().st_size
     if size > MAX_FILE_SIZE_BYTES:
-        raise ValueError(
-            f"File too large: {size / 1024 / 1024:.1f} MB "
-            f"(max {MAX_FILE_SIZE_MB} MB)"
-        )
+        raise ValueError(f"File too large: {size / 1024 / 1024:.1f} MB (max {MAX_FILE_SIZE_MB} MB)")
 
     suffix = file_path.suffix.lower()
     if suffix not in SUPPORTED_FORMATS:
-        raise ValueError(
-            f"Unsupported format: {suffix}. "
-            f"Supported: {', '.join(sorted(SUPPORTED_FORMATS))}"
-        )
+        raise ValueError(f"Unsupported format: {suffix}. Supported: {', '.join(sorted(SUPPORTED_FORMATS))}")
 
     if suffix == ".pdf":
         text = _extract_from_pdf(file_path)
@@ -62,10 +56,7 @@ def _extract_from_pdf(pdf_path: Path) -> str:
     try:
         import fitz  # PyMuPDF
     except ImportError:
-        raise ImportError(
-            "PyMuPDF is required for PDF extraction. "
-            "Install with: pip install pymupdf"
-        )
+        raise ImportError("PyMuPDF is required for PDF extraction. Install with: pip install pymupdf")
 
     doc = fitz.open(str(pdf_path))
     pages = []
@@ -102,10 +93,7 @@ def _extract_from_docx(docx_path: Path) -> str:
     try:
         from docx import Document
     except ImportError:
-        raise ImportError(
-            "python-docx is required for DOCX extraction. "
-            "Install with: pip install python-docx"
-        )
+        raise ImportError("python-docx is required for DOCX extraction. Install with: pip install python-docx")
 
     doc = Document(str(docx_path))
     paragraphs = []

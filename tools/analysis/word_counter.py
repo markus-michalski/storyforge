@@ -61,7 +61,7 @@ def analyze_sentence_lengths(text: str) -> dict:
     text = re.sub(r"^#+\s+.*$", "", text, flags=re.MULTILINE)
 
     # Split into sentences (rough but functional)
-    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
     sentences = [s for s in sentences if len(s.split()) > 0]
 
     if not sentences:
@@ -70,7 +70,7 @@ def analyze_sentence_lengths(text: str) -> dict:
     lengths = [len(s.split()) for s in sentences]
     mean = sum(lengths) / len(lengths)
     variance = sum((n - mean) ** 2 for n in lengths) / len(lengths)
-    std_dev = variance ** 0.5
+    std_dev = variance**0.5
 
     # Human writing typically has std_dev > 8
     # AI writing typically has std_dev < 5

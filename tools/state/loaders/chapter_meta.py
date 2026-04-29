@@ -44,9 +44,7 @@ def parse_overview_table(readme_text: str) -> dict[str, str]:
     return cells
 
 
-def load_chapter_meta(
-    chapter_readme: Path, chapter_slug: str
-) -> tuple[dict[str, Any], str, dict[str, str]]:
+def load_chapter_meta(chapter_readme: Path, chapter_slug: str) -> tuple[dict[str, Any], str, dict[str, str]]:
     """Load chapter frontmatter + overview-table fallback.
 
     Returns ``(meta, pov_character, overview)`` where:
@@ -63,9 +61,7 @@ def load_chapter_meta(
     if chapter_readme.is_file():
         meta = parse_chapter_readme(chapter_readme)
         try:
-            overview = parse_overview_table(
-                chapter_readme.read_text(encoding="utf-8")
-            )
+            overview = parse_overview_table(chapter_readme.read_text(encoding="utf-8"))
         except OSError:
             overview = {}
 
@@ -92,8 +88,13 @@ def serialize_chapter_meta(meta: dict[str, Any]) -> dict[str, Any]:
         return {}
     out: dict[str, Any] = {}
     for key in (
-        "slug", "title", "number", "status", "pov_character",
-        "summary", "word_count_target",
+        "slug",
+        "title",
+        "number",
+        "status",
+        "pov_character",
+        "summary",
+        "word_count_target",
     ):
         if key in meta:
             value = meta[key]

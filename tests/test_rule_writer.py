@@ -102,6 +102,7 @@ def anti_ai_file(tmp_path: Path) -> Path:
 # write_book_rule
 # ---------------------------------------------------------------------------
 
+
 class TestWriteBookRule:
     def test_writes_phrase_to_claudemd(self, book_config, tmp_path):
         written, msg = write_book_rule(
@@ -141,6 +142,7 @@ class TestWriteBookRule:
 # ---------------------------------------------------------------------------
 # write_author_rule
 # ---------------------------------------------------------------------------
+
 
 class TestWriteAuthorRule:
     def test_writes_phrase_to_absolutely_forbidden(self, author_vocab):
@@ -193,6 +195,7 @@ class TestWriteAuthorRule:
 # write_global_rule
 # ---------------------------------------------------------------------------
 
+
 class TestWriteGlobalRule:
     def test_writes_numbered_entry(self, anti_ai_file):
         written, msg = write_global_rule(
@@ -235,6 +238,7 @@ class TestWriteGlobalRule:
 # ---------------------------------------------------------------------------
 # promote_rule
 # ---------------------------------------------------------------------------
+
 
 class TestPromoteRule:
     def test_book_to_author_writes_and_removes(self, book_config, author_vocab):
@@ -293,15 +297,22 @@ class TestPromoteRule:
 
     def test_rejects_same_scope(self, book_config):
         success, msg = promote_rule(
-            "phrase", "reason", SCOPE_BOOK, SCOPE_BOOK,
-            config=book_config, book_slug="my-book",
+            "phrase",
+            "reason",
+            SCOPE_BOOK,
+            SCOPE_BOOK,
+            config=book_config,
+            book_slug="my-book",
         )
         assert success is False
         assert "higher" in msg.lower()
 
     def test_rejects_downgrade(self, anti_ai_file, author_vocab):
         success, msg = promote_rule(
-            "phrase", "reason", SCOPE_GLOBAL, SCOPE_AUTHOR,
+            "phrase",
+            "reason",
+            SCOPE_GLOBAL,
+            SCOPE_AUTHOR,
             author_slug="test-author",
             plugin_root=anti_ai_file,
             storyforge_home=author_vocab,

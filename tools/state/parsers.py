@@ -26,7 +26,7 @@ def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
     except yaml.YAMLError:
         meta = {}
 
-    body = text[match.end():]
+    body = text[match.end() :]
     return meta, body
 
 
@@ -356,7 +356,7 @@ _CHAPTER_RANK: dict[str, int] = {
     "draft": 1,
     "drafting": 1,
     "revision": 2,
-    "review": 2,     # user-friendly alias: "Erstentwurf fertig, wartet auf Revision"
+    "review": 2,  # user-friendly alias: "Erstentwurf fertig, wartet auf Revision"
     "reviewed": 2,
     "polished": 3,
     "polishing": 3,
@@ -398,13 +398,13 @@ def derive_book_status(current: str, chapters: dict[str, Any]) -> str:
     min_rank = min(ranks)
     max_rank = max(ranks)
 
-    if min_rank >= 4:           # all Final
+    if min_rank >= 4:  # all Final
         derived = "Proofread"
-    elif min_rank >= 2:         # all Revision-rank or higher (review, Polished, Final)
+    elif min_rank >= 2:  # all Revision-rank or higher (review, Polished, Final)
         derived = "Revision"
-    elif max_rank >= 1:         # any non-Outline
+    elif max_rank >= 1:  # any non-Outline
         derived = "Drafting"
-    else:                       # all Outline
+    else:  # all Outline
         return current
 
     if _book_status_rank(current) < _book_status_rank(derived):

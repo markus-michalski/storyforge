@@ -26,17 +26,19 @@ def list_books() -> str:
 
     result = []
     for slug, book in books.items():
-        result.append({
-            "slug": slug,
-            "title": book.get("title", slug),
-            "status": book.get("status", "Idea"),
-            "genres": book.get("genres", []),
-            "author": book.get("author", ""),
-            "book_type": book.get("book_type", "novel"),
-            "book_category": book.get("book_category", "fiction"),
-            "chapter_count": book.get("chapter_count", 0),
-            "total_words": book.get("total_words", 0),
-        })
+        result.append(
+            {
+                "slug": slug,
+                "title": book.get("title", slug),
+                "status": book.get("status", "Idea"),
+                "genres": book.get("genres", []),
+                "author": book.get("author", ""),
+                "book_type": book.get("book_type", "novel"),
+                "book_category": book.get("book_category", "fiction"),
+                "chapter_count": book.get("chapter_count", 0),
+                "total_words": book.get("total_words", 0),
+            }
+        )
     return json.dumps({"books": result, "count": len(result)})
 
 
@@ -92,26 +94,27 @@ def get_book_progress(slug: str) -> str:
     total_words = book.get("total_words", 0)
     target = book.get("target_word_count", 0)
 
-    return json.dumps({
-        "slug": slug,
-        "title": book.get("title", slug),
-        # Indexer already derived this from chapter state (Issue #19).
-        "status": book.get("status", "Idea"),
-        "status_disk": book.get("status_disk", book.get("status", "Idea")),
-        "book_category": book.get("book_category", "fiction"),
-        "chapters_total": total,
-        "chapters_drafted": drafted,
-        "chapters_final": final,
-        # Issue #19: completion tracks forward progress (drafted), not sign-off (final).
-        "completion_percent": round(drafted / total * 100) if total else 0,
-        "total_words": total_words,
-        "target_words": target,
-        "word_progress_percent": round(total_words / target * 100) if target else 0,
-        "chapters": {
-            slug: {"status": ch.get("status"), "words": ch.get("word_count", 0)}
-            for slug, ch in chapters.items()
-        },
-    })
+    return json.dumps(
+        {
+            "slug": slug,
+            "title": book.get("title", slug),
+            # Indexer already derived this from chapter state (Issue #19).
+            "status": book.get("status", "Idea"),
+            "status_disk": book.get("status_disk", book.get("status", "Idea")),
+            "book_category": book.get("book_category", "fiction"),
+            "chapters_total": total,
+            "chapters_drafted": drafted,
+            "chapters_final": final,
+            # Issue #19: completion tracks forward progress (drafted), not sign-off (final).
+            "completion_percent": round(drafted / total * 100) if total else 0,
+            "total_words": total_words,
+            "target_words": target,
+            "word_progress_percent": round(total_words / target * 100) if target else 0,
+            "chapters": {
+                slug: {"status": ch.get("status"), "words": ch.get("word_count", 0)} for slug, ch in chapters.items()
+            },
+        }
+    )
 
 
 @mcp.tool()
@@ -124,8 +127,13 @@ def list_chapters(book_slug: str) -> str:
 
     chapters = book.get("chapters_data", {})
     result = [
-        {"slug": slug, "number": ch.get("number", 0), "title": ch.get("title", slug),
-         "status": ch.get("status", "Outline"), "words": ch.get("word_count", 0)}
+        {
+            "slug": slug,
+            "number": ch.get("number", 0),
+            "title": ch.get("title", slug),
+            "status": ch.get("status", "Outline"),
+            "words": ch.get("word_count", 0),
+        }
         for slug, ch in sorted(chapters.items(), key=lambda x: x[1].get("number", 0))
     ]
     return json.dumps({"chapters": result, "count": len(result)})
@@ -149,14 +157,13 @@ def count_words(book_slug: str, chapter_slug: str = "") -> str:
 
     total = book.get("total_words", 0)
     target = book.get("target_word_count", 0)
-    chapters = {
-        slug: ch.get("word_count", 0)
-        for slug, ch in book.get("chapters_data", {}).items()
-    }
-    return json.dumps({
-        "book": book_slug,
-        "total_words": total,
-        "target_words": target,
-        "progress_percent": round(total / target * 100) if target else 0,
-        "per_chapter": chapters,
-    })
+    chapters = {slug: ch.get("word_count", 0) for slug, ch in book.get("chapters_data", {}).items()}
+    return json.dumps(
+        {
+            "book": book_slug,
+            "total_words": total,
+            "target_words": target,
+            "progress_percent": round(total / target * 100) if target else 0,
+            "per_chapter": chapters,
+        }
+    )

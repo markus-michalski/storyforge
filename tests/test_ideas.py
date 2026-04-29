@@ -47,8 +47,10 @@ def mock_config(content_root: Path):
 
     import routers._app as server_mod
 
-    with patch.object(server_mod, "load_config", return_value=fake_config), \
-         patch.object(server_mod, "get_content_root", return_value=content_root):
+    with (
+        patch.object(server_mod, "load_config", return_value=fake_config),
+        patch.object(server_mod, "get_content_root", return_value=content_root),
+    ):
         server_mod._cache.invalidate()
         yield fake_config
 
@@ -57,6 +59,7 @@ def mock_config(content_root: Path):
 def server_module(mock_config):  # noqa: F811
     """Return the storyforge server module with config mocked."""
     import server as server_mod
+
     return server_mod
 
 
@@ -208,8 +211,11 @@ class TestGetIdea:
     def test_returns_full_idea(self, server_module, content_root: Path):
         ideas_dir = content_root / "ideas"
         _write_idea_file(
-            ideas_dir, "clockmaker", "The Clockmaker",
-            status="explored", genres=["fantasy"],
+            ideas_dir,
+            "clockmaker",
+            "The Clockmaker",
+            status="explored",
+            genres=["fantasy"],
             logline="Clocks predict deaths.",
             body="A rich body describing the concept.",
         )
@@ -240,9 +246,7 @@ class TestUpdateIdea:
         result = json.loads(server_module.update_idea("x", "status", "explored"))
         assert result["success"] is True
 
-        meta, _ = parse_frontmatter(
-            (ideas_dir / "x.md").read_text(encoding="utf-8")
-        )
+        meta, _ = parse_frontmatter((ideas_dir / "x.md").read_text(encoding="utf-8"))
         assert meta["status"] == "explored"
 
     def test_updates_logline(self, server_module, content_root: Path):
@@ -250,9 +254,7 @@ class TestUpdateIdea:
         _write_idea_file(ideas_dir, "x", "X", logline="old")
 
         server_module.update_idea("x", "logline", "new logline")
-        meta, _ = parse_frontmatter(
-            (ideas_dir / "x.md").read_text(encoding="utf-8")
-        )
+        meta, _ = parse_frontmatter((ideas_dir / "x.md").read_text(encoding="utf-8"))
         assert meta["logline"] == "new logline"
 
     def test_preserves_body(self, server_module, content_root: Path):
@@ -281,9 +283,7 @@ class TestPromoteIdea:
         result = json.loads(server_module.promote_idea("seed", "my-book"))
         assert result["success"] is True
 
-        meta, _ = parse_frontmatter(
-            (ideas_dir / "seed.md").read_text(encoding="utf-8")
-        )
+        meta, _ = parse_frontmatter((ideas_dir / "seed.md").read_text(encoding="utf-8"))
         assert meta["status"] == "promoted"
         assert meta["promoted_to"] == "my-book"
 

@@ -155,19 +155,25 @@ class TestReadPeopleProfiles:
 # ---------------------------------------------------------------------------
 
 
-TIMELINE_VAGUE_PROSE = """
+TIMELINE_VAGUE_PROSE = (
+    """
 I got on the bus. At some point, I arrived. Eventually I found the house.
 Years later, it all made sense. One day I would understand. Back then I was naive.
 Around that time, things shifted. Before long, everything changed.
 The summer was long and hot and full of waiting.
-""" * 15  # repeat to exceed density threshold
+"""
+    * 15
+)  # repeat to exceed density threshold
 
 
-TIMELINE_CLEAN_PROSE = """
+TIMELINE_CLEAN_PROSE = (
+    """
 On the morning of June 14th, 1987, I woke at five to the smell of rain.
 By nine o'clock I was on the bus. At noon I sat across from my father.
 That Tuesday felt like the longest day of my life.
-""" * 15
+"""
+    * 15
+)
 
 
 class TestScanTimelineAmbiguity:
@@ -208,19 +214,25 @@ class TestScanTimelineAmbiguity:
 # ---------------------------------------------------------------------------
 
 
-PLATITUDE_PROSE = """
+PLATITUDE_PROSE = (
+    """
 Looking back, I realize how blind I was. In retrospect, I should have known.
 What I learned that day has stayed with me forever.
 I now understand why she did it. I came to realize the truth only years later.
 In hindsight, the signs were obvious. It taught me that nothing lasts.
-""" * 5
+"""
+    * 5
+)
 
 
-PLATITUDE_CLEAN_PROSE = """
+PLATITUDE_CLEAN_PROSE = (
+    """
 She slammed the door. The glass rattled in the frame.
 I stood in the hall not moving, listening to the silence settle.
 The smell of coffee came from the kitchen, and I had nowhere to go.
-""" * 20
+"""
+    * 20
+)
 
 
 class TestScanReflectivePlatitudes:
@@ -409,13 +421,14 @@ class TestScanRepetitionsMemoirMode:
         _add_chapter(book, "01-ch", "Maria Schmidt walked in. " * 20)
         result = scan_repetitions(book)
         memoir_cats = {
-            "anonymization_leak", "tidy_lesson_ending",
-            "reflective_platitude", "timeline_ambiguity", "real_people_consistency",
+            "anonymization_leak",
+            "tidy_lesson_ending",
+            "reflective_platitude",
+            "timeline_ambiguity",
+            "real_people_consistency",
         }
         found_cats = {f["category"] for f in result["findings"]}
-        assert memoir_cats.isdisjoint(found_cats), (
-            f"Memoir checks ran on fiction book: {memoir_cats & found_cats}"
-        )
+        assert memoir_cats.isdisjoint(found_cats), f"Memoir checks ran on fiction book: {memoir_cats & found_cats}"
 
     def test_anonymization_leak_is_high_priority_in_sort(self, tmp_path):
         """anonymization_leak findings must appear before clichés in the output."""
@@ -430,9 +443,5 @@ class TestScanRepetitionsMemoirMode:
         result = scan_repetitions(book)
         cats_in_order = [f["category"] for f in result["findings"]]
         leak_idx = next(i for i, c in enumerate(cats_in_order) if c == "anonymization_leak")
-        cliche_idx = next(
-            (i for i, c in enumerate(cats_in_order) if c == "cliche"), len(cats_in_order)
-        )
-        assert leak_idx < cliche_idx, (
-            f"anonymization_leak (pos {leak_idx}) should be before cliche (pos {cliche_idx})"
-        )
+        cliche_idx = next((i for i, c in enumerate(cats_in_order) if c == "cliche"), len(cats_in_order))
+        assert leak_idx < cliche_idx, f"anonymization_leak (pos {leak_idx}) should be before cliche (pos {cliche_idx})"

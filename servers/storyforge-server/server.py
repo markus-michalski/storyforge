@@ -14,9 +14,7 @@ import sys
 from pathlib import Path
 
 # Ensure plugin root is on path so `tools` can be imported as a package.
-plugin_root = os.environ.get(
-    "CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent.parent)
-)
+plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent.parent))
 if plugin_root not in sys.path:
     sys.path.insert(0, plugin_root)
 

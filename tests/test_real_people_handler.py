@@ -52,9 +52,7 @@ class TestResolvePeopleDir:
         result = resolve_people_dir(project, "memoir")
         assert result == project / "people"
 
-    def test_memoir_falls_back_to_characters_when_only_legacy_exists(
-        self, tmp_path: Path
-    ):
+    def test_memoir_falls_back_to_characters_when_only_legacy_exists(self, tmp_path: Path):
         # A memoir book scaffolded before #63 may have characters/ but no
         # people/ — the resolver must find the existing dir, not return a
         # phantom path.
@@ -136,9 +134,7 @@ class TestSchemaValidators:
     def test_invalid_consent_statuses_rejected(self, value: str):
         assert not is_valid_consent_status(value)
 
-    @pytest.mark.parametrize(
-        "value", ["none", "partial", "pseudonym", "composite"]
-    )
+    @pytest.mark.parametrize("value", ["none", "partial", "pseudonym", "composite"])
     def test_valid_anonymization_accepted(self, value: str):
         assert is_valid_anonymization(value)
 
@@ -201,11 +197,7 @@ class TestParsePersonFile:
         # values for the user.
         path = tmp_path / "bad.md"
         path.write_text(
-            "---\n"
-            'name: "Bad"\n'
-            'relationship: "?"\n'
-            'person_category: "neighbor"\n'
-            "---\n# Bad\n",
+            '---\nname: "Bad"\nrelationship: "?"\nperson_category: "neighbor"\n---\n# Bad\n',
             encoding="utf-8",
         )
         result = parse_person_file(path)
@@ -241,9 +233,11 @@ def mock_config(content_root: Path):
     import routers._app as server_mod
     from tools.state import indexer as indexer_mod  # noqa: WPS433
 
-    with patch.object(server_mod, "load_config", return_value=fake_config), \
-         patch.object(server_mod, "get_content_root", return_value=content_root), \
-         patch.object(indexer_mod, "load_config", return_value=fake_config):
+    with (
+        patch.object(server_mod, "load_config", return_value=fake_config),
+        patch.object(server_mod, "get_content_root", return_value=content_root),
+        patch.object(indexer_mod, "load_config", return_value=fake_config),
+    ):
         server_mod._cache.invalidate()
         yield fake_config
 
@@ -251,6 +245,7 @@ def mock_config(content_root: Path):
 @pytest.fixture
 def server_module(mock_config):  # noqa: F811
     import server as server_mod
+
     return server_mod
 
 
@@ -259,11 +254,7 @@ class TestCreatePersonValidation:
 
     def test_relationship_required(self, server_module, content_root: Path):
         # Set up a memoir book so we get past the book-existence check.
-        json.loads(
-            server_module.create_book_structure(
-                title="Test Memoir", book_category="memoir"
-            )
-        )
+        json.loads(server_module.create_book_structure(title="Test Memoir", book_category="memoir"))
 
         result = json.loads(
             server_module.create_person(
@@ -276,14 +267,8 @@ class TestCreatePersonValidation:
         assert "error" in result
         assert "relationship" in result["error"].lower()
 
-    def test_invalid_person_category_rejected(
-        self, server_module, content_root: Path
-    ):
-        json.loads(
-            server_module.create_book_structure(
-                title="Memoir Two", book_category="memoir"
-            )
-        )
+    def test_invalid_person_category_rejected(self, server_module, content_root: Path):
+        json.loads(server_module.create_book_structure(title="Memoir Two", book_category="memoir"))
 
         result = json.loads(
             server_module.create_person(
@@ -296,14 +281,8 @@ class TestCreatePersonValidation:
         assert "error" in result
         assert "person_category" in result["error"]
 
-    def test_invalid_consent_status_rejected(
-        self, server_module, content_root: Path
-    ):
-        json.loads(
-            server_module.create_book_structure(
-                title="Memoir Three", book_category="memoir"
-            )
-        )
+    def test_invalid_consent_status_rejected(self, server_module, content_root: Path):
+        json.loads(server_module.create_book_structure(title="Memoir Three", book_category="memoir"))
 
         result = json.loads(
             server_module.create_person(
@@ -317,14 +296,8 @@ class TestCreatePersonValidation:
         assert "error" in result
         assert "consent_status" in result["error"]
 
-    def test_invalid_anonymization_rejected(
-        self, server_module, content_root: Path
-    ):
-        json.loads(
-            server_module.create_book_structure(
-                title="Memoir Four", book_category="memoir"
-            )
-        )
+    def test_invalid_anonymization_rejected(self, server_module, content_root: Path):
+        json.loads(server_module.create_book_structure(title="Memoir Four", book_category="memoir"))
 
         result = json.loads(
             server_module.create_person(
@@ -343,11 +316,7 @@ class TestCreatePersonMemoirGate:
     """create_person rejects fiction books — schema mismatch."""
 
     def test_rejects_fiction_book(self, server_module, content_root: Path):
-        json.loads(
-            server_module.create_book_structure(
-                title="Fiction Book", book_category="fiction"
-            )
-        )
+        json.loads(server_module.create_book_structure(title="Fiction Book", book_category="fiction"))
         server_module._cache.invalidate()
 
         result = json.loads(
@@ -377,14 +346,8 @@ class TestCreatePersonMemoirGate:
 class TestCreatePersonFileLayout:
     """Successful create_person writes to people/{slug}.md with the schema."""
 
-    def test_writes_to_people_dir_with_frontmatter(
-        self, server_module, content_root: Path
-    ):
-        json.loads(
-            server_module.create_book_structure(
-                title="Year of Glass", book_category="memoir"
-            )
-        )
+    def test_writes_to_people_dir_with_frontmatter(self, server_module, content_root: Path):
+        json.loads(server_module.create_book_structure(title="Year of Glass", book_category="memoir"))
 
         result = json.loads(
             server_module.create_person(
@@ -400,14 +363,10 @@ class TestCreatePersonFileLayout:
         assert result.get("success") is True
         assert result["slug"] == "maria"
 
-        person_file = (
-            content_root / "projects" / "year-of-glass" / "people" / "maria.md"
-        )
+        person_file = content_root / "projects" / "year-of-glass" / "people" / "maria.md"
         assert person_file.exists()
         # No phantom characters/maria.md.
-        assert not (
-            content_root / "projects" / "year-of-glass" / "characters" / "maria.md"
-        ).exists()
+        assert not (content_root / "projects" / "year-of-glass" / "characters" / "maria.md").exists()
 
         text = person_file.read_text(encoding="utf-8")
         assert 'relationship: "sister"' in text
@@ -415,14 +374,8 @@ class TestCreatePersonFileLayout:
         assert 'consent_status: "pending"' in text
         assert 'anonymization: "none"' in text
 
-    def test_pseudonymized_person_persists_real_name(
-        self, server_module, content_root: Path
-    ):
-        json.loads(
-            server_module.create_book_structure(
-                title="The Diagnosis", book_category="memoir"
-            )
-        )
+    def test_pseudonymized_person_persists_real_name(self, server_module, content_root: Path):
+        json.loads(server_module.create_book_structure(title="The Diagnosis", book_category="memoir"))
 
         json.loads(
             server_module.create_person(
@@ -436,19 +389,13 @@ class TestCreatePersonFileLayout:
             )
         )
 
-        person_file = (
-            content_root / "projects" / "the-diagnosis" / "people" / "the-doctor.md"
-        )
+        person_file = content_root / "projects" / "the-diagnosis" / "people" / "the-doctor.md"
         assert person_file.exists()
         text = person_file.read_text(encoding="utf-8")
         assert 'real_name: "Dr. Henrik Lassen"' in text
 
     def test_duplicate_person_rejected(self, server_module, content_root: Path):
-        json.loads(
-            server_module.create_book_structure(
-                title="Duplicate Memoir", book_category="memoir"
-            )
-        )
+        json.loads(server_module.create_book_structure(title="Duplicate Memoir", book_category="memoir"))
 
         first = json.loads(
             server_module.create_person(
@@ -480,14 +427,8 @@ class TestCreatePersonFileLayout:
 class TestIndexerScansPeopleForMemoir:
     """The indexer populates book['people'] for memoir, characters for fiction."""
 
-    def test_memoir_book_exposes_people_count(
-        self, server_module, content_root: Path
-    ):
-        json.loads(
-            server_module.create_book_structure(
-                title="Indexer Memoir", book_category="memoir"
-            )
-        )
+    def test_memoir_book_exposes_people_count(self, server_module, content_root: Path):
+        json.loads(server_module.create_book_structure(title="Indexer Memoir", book_category="memoir"))
         json.loads(
             server_module.create_person(
                 book_slug="indexer-memoir",
@@ -516,14 +457,8 @@ class TestIndexerScansPeopleForMemoir:
         # characters/ stays empty for memoir.
         assert result["character_count"] == 0
 
-    def test_fiction_book_does_not_populate_people(
-        self, server_module, content_root: Path
-    ):
-        json.loads(
-            server_module.create_book_structure(
-                title="Indexer Fiction", book_category="fiction"
-            )
-        )
+    def test_fiction_book_does_not_populate_people(self, server_module, content_root: Path):
+        json.loads(server_module.create_book_structure(title="Indexer Fiction", book_category="fiction"))
         json.loads(
             server_module.create_character(
                 book_slug="indexer-fiction",

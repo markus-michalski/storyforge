@@ -14,9 +14,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-PLUGIN_ROOT = Path(
-    os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent))
-)
+PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent)))
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
@@ -83,9 +81,7 @@ def main() -> int:
         if len(sys.argv) > 1:
             file_path = sys.argv[1]
         else:
-            file_path = os.environ.get("CLAUDE_FILE_PATH", "") or os.environ.get(
-                "CLAUDE_TOOL_ARG_FILE_PATH", ""
-            )
+            file_path = os.environ.get("CLAUDE_FILE_PATH", "") or os.environ.get("CLAUDE_TOOL_ARG_FILE_PATH", "")
 
     if not file_path:
         return 0

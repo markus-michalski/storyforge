@@ -30,13 +30,54 @@ _EXPECTED_RETURN_RE = re.compile(r"expected\s+return\s+by\s+Ch\s+(\d+)", re.IGNO
 _MUST_NOT_FORGET_RE = re.compile(r"_\(must not be forgotten\)_", re.IGNORECASE)
 _ADDED_DATE_RE = re.compile(r"\s*_\(added \d{4}-\d{2}-\d{2}\)_")
 
-_STOPWORDS = frozenset([
-    "the", "a", "an", "of", "in", "on", "at", "to", "for", "with",
-    "and", "or", "but", "is", "are", "was", "were", "be", "been",
-    "have", "has", "had", "do", "does", "did", "not", "no", "so",
-    "his", "her", "its", "their", "our", "your", "my", "by", "as",
-    "from", "that", "this", "these", "those", "which", "who",
-])
+_STOPWORDS = frozenset(
+    [
+        "the",
+        "a",
+        "an",
+        "of",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "with",
+        "and",
+        "or",
+        "but",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "not",
+        "no",
+        "so",
+        "his",
+        "her",
+        "its",
+        "their",
+        "our",
+        "your",
+        "my",
+        "by",
+        "as",
+        "from",
+        "that",
+        "this",
+        "these",
+        "those",
+        "which",
+        "who",
+    ]
+)
 
 # Chapters silent for longer than this threshold trigger deferred/dropped
 _SILENCE_THRESHOLD = 10
@@ -120,13 +161,15 @@ def parse_callback_register(claudemd_text: str) -> list[CallbackEntry]:
 
         must_forget = bool(_MUST_NOT_FORGET_RE.search(line_clean))
 
-        entries.append(CallbackEntry(
-            name=name,
-            search_terms=_extract_search_terms(name),
-            expected_return_ch=expected_ch,
-            must_not_forget=must_forget,
-            raw_line=raw_line,
-        ))
+        entries.append(
+            CallbackEntry(
+                name=name,
+                search_terms=_extract_search_terms(name),
+                expected_return_ch=expected_ch,
+                must_not_forget=must_forget,
+                raw_line=raw_line,
+            )
+        )
 
     return entries
 
@@ -181,10 +224,7 @@ def verify_callbacks(book_path: Path, claudemd_text: str) -> dict:
     potentially_dropped: list[dict] = []
 
     for entry in entries:
-        appears_in: list[int] = [
-            ch_num for ch_num, draft in drafted
-            if _draft_contains_any(draft, entry.search_terms)
-        ]
+        appears_in: list[int] = [ch_num for ch_num, draft in drafted if _draft_contains_any(draft, entry.search_terms)]
 
         last_ch = appears_in[-1] if appears_in else None
 
@@ -212,36 +252,41 @@ def verify_callbacks(book_path: Path, claudemd_text: str) -> dict:
                 f"expected return by Ch {entry.expected_return_ch}"
                 f" — {'never appeared' if not appears_in else f'last seen Ch {last_ch}, deadline passed'}"
             )
-            potentially_dropped.append({
-                **base,
-                "chapters_since": chapters_silent,
-                "warning": warning,
-            })
+            potentially_dropped.append(
+                {
+                    **base,
+                    "chapters_since": chapters_silent,
+                    "warning": warning,
+                }
+            )
         elif not appears_in:
             # Never appeared at all
-            deferred.append({
-                **base,
-                "registered_in_ch": None,
-                "chapters_since": total_drafted,
-                "status": "pending",
-            })
-        elif chapters_silent > _SILENCE_THRESHOLD and entry.must_not_forget:
-            warning = (
-                f"register entry says 'must not be forgotten'"
-                f" — {chapters_silent} chapters of silence"
+            deferred.append(
+                {
+                    **base,
+                    "registered_in_ch": None,
+                    "chapters_since": total_drafted,
+                    "status": "pending",
+                }
             )
-            potentially_dropped.append({
-                **base,
-                "chapters_since": chapters_silent,
-                "warning": warning,
-            })
+        elif chapters_silent > _SILENCE_THRESHOLD and entry.must_not_forget:
+            warning = f"register entry says 'must not be forgotten' — {chapters_silent} chapters of silence"
+            potentially_dropped.append(
+                {
+                    **base,
+                    "chapters_since": chapters_silent,
+                    "warning": warning,
+                }
+            )
         elif chapters_silent > _SILENCE_THRESHOLD:
-            deferred.append({
-                **base,
-                "registered_in_ch": None,
-                "chapters_since": chapters_silent,
-                "status": "long_silence",
-            })
+            deferred.append(
+                {
+                    **base,
+                    "registered_in_ch": None,
+                    "chapters_since": chapters_silent,
+                    "status": "long_silence",
+                }
+            )
         else:
             satisfied.append(base)
 

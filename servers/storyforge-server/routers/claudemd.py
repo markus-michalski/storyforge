@@ -67,9 +67,7 @@ def init_book_claudemd(
         "writing_mode": writing_mode,
     }
     try:
-        path = _init_claudemd_impl(
-            config, _plugin_root(), book_slug, facts=facts, overwrite=overwrite
-        )
+        path = _init_claudemd_impl(config, _plugin_root(), book_slug, facts=facts, overwrite=overwrite)
     except FileExistsError as exc:
         return json.dumps({"error": str(exc)})
     except FileNotFoundError as exc:

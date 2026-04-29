@@ -49,8 +49,10 @@ def mock_config(content_root: Path):
 
     import routers._app as server_mod
 
-    with patch.object(server_mod, "load_config", return_value=fake_config), \
-         patch.object(server_mod, "get_content_root", return_value=content_root):
+    with (
+        patch.object(server_mod, "load_config", return_value=fake_config),
+        patch.object(server_mod, "get_content_root", return_value=content_root),
+    ):
         server_mod._cache.invalidate()
         yield fake_config
 
@@ -58,6 +60,7 @@ def mock_config(content_root: Path):
 @pytest.fixture
 def server_module(mock_config):  # noqa: F811
     import server as server_mod
+
     return server_mod
 
 
@@ -94,20 +97,14 @@ class TestChapterYamlFallback:
             encoding="utf-8",
         )
         (ch_dir / "chapter.yaml").write_text(
-            'title: "Invisible"\n'
-            "status: review\n"
-            "words: 4047\n"
-            'pov: "Theo Wilkons"\n'
-            "act: 1\n",
+            'title: "Invisible"\nstatus: review\nwords: 4047\npov: "Theo Wilkons"\nact: 1\n',
             encoding="utf-8",
         )
 
         result = parse_chapter_readme(ch_dir / "README.md")
 
         # Status from chapter.yaml — normalized to canonical form ("review" → "Revision")
-        assert result["status"] != "Outline", (
-            "Bug #16: status must come from chapter.yaml, not the README default"
-        )
+        assert result["status"] != "Outline", "Bug #16: status must come from chapter.yaml, not the README default"
         assert result["title"] == "Invisible"
 
     def test_chapter_yaml_takes_precedence_over_readme_default(self, tmp_path: Path):
@@ -159,9 +156,7 @@ class TestChapterYamlFallback:
         ch_dir = chapters_dir / "01-invisible"
         ch_dir.mkdir(parents=True)
         (ch_dir / "README.md").write_text("# Chapter 1\n\nPlain prose.\n", encoding="utf-8")
-        (ch_dir / "chapter.yaml").write_text(
-            'title: "Invisible"\nstatus: review\n', encoding="utf-8"
-        )
+        (ch_dir / "chapter.yaml").write_text('title: "Invisible"\nstatus: review\n', encoding="utf-8")
 
         result = _scan_chapters(chapters_dir)
 
@@ -172,9 +167,7 @@ class TestChapterYamlFallback:
 class TestCreateChapterWritesBoth:
     """create_chapter must also write chapter.yaml so future reads stay consistent."""
 
-    def test_create_chapter_writes_chapter_yaml_alongside_readme(
-        self, server_module, content_root: Path
-    ):
+    def test_create_chapter_writes_chapter_yaml_alongside_readme(self, server_module, content_root: Path):
         _write_book_skeleton(content_root)
 
         result = json.loads(
@@ -190,11 +183,10 @@ class TestCreateChapterWritesBoth:
         assert result.get("success") is True
         ch_dir = content_root / "projects" / "test-book" / "chapters" / "01-opening"
         assert (ch_dir / "README.md").exists()
-        assert (ch_dir / "chapter.yaml").exists(), (
-            "Bug #16 fix: chapter.yaml must be created alongside README.md"
-        )
+        assert (ch_dir / "chapter.yaml").exists(), "Bug #16 fix: chapter.yaml must be created alongside README.md"
 
         import yaml
+
         meta = yaml.safe_load((ch_dir / "chapter.yaml").read_text(encoding="utf-8"))
         assert meta["title"] == "Opening"
         assert meta["status"] == "Outline"
@@ -243,9 +235,7 @@ class TestResolveWorldDir:
 class TestResolvePathWorldAlias:
     """server.resolve_path(component='world') must accept worldbuilding/."""
 
-    def test_resolves_to_worldbuilding_when_only_alias_exists(
-        self, server_module, content_root: Path
-    ):
+    def test_resolves_to_worldbuilding_when_only_alias_exists(self, server_module, content_root: Path):
         project = _write_book_skeleton(content_root, slug="alt-book")
         # Remove the canonical scaffold-created world/ if any (none in skeleton helper)
         # and add the alias instead.
@@ -254,14 +244,10 @@ class TestResolvePathWorldAlias:
 
         result = json.loads(server_module.resolve_path("alt-book", component="world"))
 
-        assert result["exists"] is True, (
-            "Bug #17 fix: resolve_path('world') must find worldbuilding/ as fallback"
-        )
+        assert result["exists"] is True, "Bug #17 fix: resolve_path('world') must find worldbuilding/ as fallback"
         assert result["path"].endswith("worldbuilding")
 
-    def test_resolves_to_world_when_canonical_exists(
-        self, server_module, content_root: Path
-    ):
+    def test_resolves_to_world_when_canonical_exists(self, server_module, content_root: Path):
         project = _write_book_skeleton(content_root, slug="canon-book")
         (project / "world").mkdir()
         (project / "world" / "setting.md").write_text("# Setting\n", encoding="utf-8")
@@ -287,9 +273,7 @@ class TestValidateBookStructureWorldAlias:
             None,
         )
         assert world_check is not None, "validate_book_structure must include a world-setting check"
-        assert world_check["status"] == "PASS", (
-            "Bug #17 fix: world-setting check must accept worldbuilding/ as alias"
-        )
+        assert world_check["status"] == "PASS", "Bug #17 fix: world-setting check must accept worldbuilding/ as alias"
 
     def test_validates_with_canonical_world(self, server_module, content_root: Path):
         project = _write_book_skeleton(content_root, slug="canon-book")

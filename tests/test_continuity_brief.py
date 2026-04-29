@@ -49,13 +49,10 @@ def _add_chapter(
     chapter = book / "chapters" / slug
     chapter.mkdir(parents=True)
     (chapter / "README.md").write_text(
-        f'---\ntitle: "Chapter {number}"\nnumber: {number}\n'
-        f'status: "{status}"\n---\n\n# Chapter {number}\n',
+        f'---\ntitle: "Chapter {number}"\nnumber: {number}\nstatus: "{status}"\n---\n\n# Chapter {number}\n',
         encoding="utf-8",
     )
-    (chapter / "draft.md").write_text(
-        f"Draft content for chapter {number}.", encoding="utf-8"
-    )
+    (chapter / "draft.md").write_text(f"Draft content for chapter {number}.", encoding="utf-8")
     return chapter
 
 
@@ -99,9 +96,7 @@ def test_build_character_index_correct_fields(tmp_path):
 def test_build_character_index_skips_index_md(tmp_path):
     book, _ = _make_book(tmp_path)
     _add_character(book, "marcus", name="Marcus", role="protagonist")
-    (book / "characters" / "INDEX.md").write_text(
-        "# Characters Index\n", encoding="utf-8"
-    )
+    (book / "characters" / "INDEX.md").write_text("# Characters Index\n", encoding="utf-8")
 
     result = _build_character_index(book)
     slugs = [c["slug"] for c in result]

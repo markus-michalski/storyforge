@@ -43,20 +43,13 @@ from tools.state.loaders.recent_chapters import (
 
 class TestParseOverviewTable:
     def test_extracts_lowercase_keys(self) -> None:
-        text = (
-            "## Overview\n\n"
-            "| Title | The Storm |\n"
-            "| POV | Lena |\n"
-        )
+        text = "## Overview\n\n| Title | The Storm |\n| POV | Lena |\n"
         cells = parse_overview_table(text)
         assert cells["title"] == "The Storm"
         assert cells["pov"] == "Lena"
 
     def test_skips_dash_only_values(self) -> None:
-        text = (
-            "| Title | - |\n"
-            "| POV | Lena |\n"
-        )
+        text = "| Title | - |\n| POV | Lena |\n"
         cells = parse_overview_table(text)
         assert "title" not in cells
         assert cells["pov"] == "Lena"
@@ -71,11 +64,7 @@ class TestLoadChapterMeta:
         chapter_dir.mkdir(parents=True)
         readme = chapter_dir / "README.md"
         readme.write_text(
-            "## Overview\n\n"
-            "| Field | Value |\n"
-            "|---|---|\n"
-            "| Title | The Storm |\n"
-            "| POV | Lena |\n",
+            "## Overview\n\n| Field | Value |\n|---|---|\n| Title | The Storm |\n| POV | Lena |\n",
             encoding="utf-8",
         )
         meta, pov, overview = load_chapter_meta(readme, "01-storm")
@@ -85,9 +74,7 @@ class TestLoadChapterMeta:
         assert overview["pov"] == "Lena"
 
     def test_missing_readme_returns_empty(self, tmp_path: Path) -> None:
-        meta, pov, overview = load_chapter_meta(
-            tmp_path / "nope.md", "01-storm"
-        )
+        meta, pov, overview = load_chapter_meta(tmp_path / "nope.md", "01-storm")
         assert meta == {}
         assert pov == ""
         assert overview == {}
@@ -95,10 +82,14 @@ class TestLoadChapterMeta:
 
 class TestSerializeChapterMeta:
     def test_passes_through_safe_keys(self) -> None:
-        out = serialize_chapter_meta({
-            "slug": "01", "title": "Opening", "number": 1,
-            "extra_key": "ignored",
-        })
+        out = serialize_chapter_meta(
+            {
+                "slug": "01",
+                "title": "Opening",
+                "number": 1,
+                "extra_key": "ignored",
+            }
+        )
         assert out == {"slug": "01", "title": "Opening", "number": 1}
 
     def test_coerces_non_scalars_to_str(self) -> None:
@@ -219,21 +210,15 @@ class TestScanForNamedCharacters:
     def test_finds_by_name_not_slug(self, tmp_path: Path) -> None:
         chars_dir = tmp_path / "characters"
         chars_dir.mkdir()
-        (chars_dir / "lena.md").write_text(
-            "---\nname: Lena\n---\n\n# Lena\n", encoding="utf-8"
-        )
-        (chars_dir / "bystander.md").write_text(
-            "---\nname: Otto\n---\n\n# Otto\n", encoding="utf-8"
-        )
+        (chars_dir / "lena.md").write_text("---\nname: Lena\n---\n\n# Lena\n", encoding="utf-8")
+        (chars_dir / "bystander.md").write_text("---\nname: Otto\n---\n\n# Otto\n", encoding="utf-8")
         outline = "Lena confronts the antagonist."
         assert scan_for_named_characters(outline, chars_dir) == ["lena"]
 
     def test_skips_index(self, tmp_path: Path) -> None:
         chars_dir = tmp_path / "characters"
         chars_dir.mkdir()
-        (chars_dir / "INDEX.md").write_text(
-            "---\nname: Lena\n---\n", encoding="utf-8"
-        )
+        (chars_dir / "INDEX.md").write_text("---\nname: Lena\n---\n", encoding="utf-8")
         assert scan_for_named_characters("Lena fights.", chars_dir) == []
 
 
@@ -247,11 +232,15 @@ class TestConsentStatusWarnings:
         ],
     )
     def test_warns_on_unsafe_status(
-        self, consent_status: str, expected_tier: str,
+        self,
+        consent_status: str,
+        expected_tier: str,
     ) -> None:
-        warnings = consent_status_warnings([
-            {"name": "Bob", "consent_status": consent_status},
-        ])
+        warnings = consent_status_warnings(
+            [
+                {"name": "Bob", "consent_status": consent_status},
+            ]
+        )
         assert len(warnings) == 1
         assert warnings[0]["tier"] == expected_tier
 
@@ -260,9 +249,14 @@ class TestConsentStatusWarnings:
         ["confirmed-consent", "not-required", "not-asking"],
     )
     def test_silent_on_safe_status(self, consent_status: str) -> None:
-        assert consent_status_warnings([
-            {"name": "Bob", "consent_status": consent_status},
-        ]) == []
+        assert (
+            consent_status_warnings(
+                [
+                    {"name": "Bob", "consent_status": consent_status},
+                ]
+            )
+            == []
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -279,8 +273,7 @@ class TestRecentChapters:
     def test_count_similes_strips_frontmatter(self, tmp_path: Path) -> None:
         draft = tmp_path / "draft.md"
         draft.write_text(
-            "---\nlike a thief: front-matter only\n---\n\n"
-            "She moved like a shadow. The wind howled like a wolf.\n",
+            "---\nlike a thief: front-matter only\n---\n\nShe moved like a shadow. The wind howled like a wolf.\n",
             encoding="utf-8",
         )
         # Two simile markers in body; the frontmatter line ignored.
@@ -293,7 +286,8 @@ class TestRecentChapters:
         assert last_paragraph(draft).endswith("...")
 
     def test_collect_recent_chapters_orders_numerically(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         chapters = tmp_path / "chapters"
         for slug in ("01-a", "02-b", "03-c", "10-j"):

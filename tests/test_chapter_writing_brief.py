@@ -50,16 +50,7 @@ def _make_chapter(
     chapter = book / "chapters" / slug
     chapter.mkdir(parents=True)
     pov_line = f'pov_character: "{pov}"\n' if pov else ""
-    readme = (
-        "---\n"
-        f'title: "{title}"\n'
-        f"number: {number}\n"
-        f'status: "{status}"\n'
-        f"{pov_line}"
-        "---\n\n"
-        "# " + title + "\n\n"
-        + body
-    )
+    readme = f'---\ntitle: "{title}"\nnumber: {number}\nstatus: "{status}"\n{pov_line}---\n\n# ' + title + "\n\n" + body
     (chapter / "README.md").write_text(readme, encoding="utf-8")
     return chapter
 
@@ -72,7 +63,7 @@ def _add_character(
     role: str = "protagonist",
     knowledge: dict | None = None,
 ) -> Path:
-    body = "---\n" f'name: "{name}"\n' f'role: "{role}"\n'
+    body = f'---\nname: "{name}"\nrole: "{role}"\n'
     if knowledge:
         body += "knowledge:\n"
         for tier, terms in knowledge.items():
@@ -84,7 +75,10 @@ def _add_character(
 
 
 def _add_claudemd(
-    book: Path, *, rules: list[str] | None = None, callbacks: list[str] | None = None,
+    book: Path,
+    *,
+    rules: list[str] | None = None,
+    callbacks: list[str] | None = None,
 ) -> Path:
     rules_block = "\n".join(f"- {r}" for r in (rules or []))
     callbacks_block = "\n".join(f"- {c}" for c in (callbacks or []))
@@ -116,33 +110,50 @@ class TestBriefAssemblyMinimal:
         _add_character(book, "theo", name="Theo")
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
 
         assert isinstance(brief, dict)
         for key in (
-            "book_slug", "chapter_slug", "chapter", "pov_character",
-            "story_anchor", "recent_chapter_timelines",
-            "recent_chapter_endings", "characters_present",
-            "rules_to_honor", "callbacks_in_register",
-            "banned_phrases", "recent_simile_count_per_chapter",
-            "tone_litmus_questions", "review_handle",
-            "tactical_constraints", "errors",
+            "book_slug",
+            "chapter_slug",
+            "chapter",
+            "pov_character",
+            "story_anchor",
+            "recent_chapter_timelines",
+            "recent_chapter_endings",
+            "characters_present",
+            "rules_to_honor",
+            "callbacks_in_register",
+            "banned_phrases",
+            "recent_simile_count_per_chapter",
+            "tone_litmus_questions",
+            "review_handle",
+            "tactical_constraints",
+            "errors",
         ):
             assert key in brief, f"missing key: {key}"
 
     def test_chapter_metadata_populated(self, tmp_path):
         book, plugin_root = _setup_book(tmp_path)
         _make_chapter(
-            book, "05-the-bet", number=5, title="The Bet",
-            status="Draft", pov="Theo Wilkons",
+            book,
+            "05-the-bet",
+            number=5,
+            title="The Bet",
+            status="Draft",
+            pov="Theo Wilkons",
         )
         _add_character(book, "theo-wilkons", name="Theo Wilkons")
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="05-the-bet", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="05-the-bet",
+            plugin_root=plugin_root,
         )
 
         assert brief["chapter"]["number"] == 5
@@ -152,19 +163,30 @@ class TestBriefAssemblyMinimal:
     def test_characters_present_includes_pov_profile(self, tmp_path):
         book, plugin_root = _setup_book(tmp_path)
         _make_chapter(
-            book, "01-intro", number=1, title="Intro", pov="Theo Wilkons",
+            book,
+            "01-intro",
+            number=1,
+            title="Intro",
+            pov="Theo Wilkons",
         )
         _add_character(
-            book, "theo-wilkons", name="Theo Wilkons", role="protagonist",
+            book,
+            "theo-wilkons",
+            name="Theo Wilkons",
+            role="protagonist",
             knowledge={
-                "expert": ["it"], "competent": [], "layperson": [],
+                "expert": ["it"],
+                "competent": [],
+                "layperson": [],
                 "none": ["forensics"],
             },
         )
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
         chars = brief["characters_present"]
         assert any(c["slug"] == "theo-wilkons" for c in chars)
@@ -182,7 +204,7 @@ class TestBriefAssemblyMinimal:
             book,
             rules=[
                 "Avoid passive voice",
-                'Banned phrase: `the kind of X that Y` — max 2 per chapter',
+                "Banned phrase: `the kind of X that Y` — max 2 per chapter",
             ],
             callbacks=[
                 "Gary the cat — last seen Ch 9, weave back in",
@@ -191,8 +213,10 @@ class TestBriefAssemblyMinimal:
         )
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
 
         rules = brief["rules_to_honor"]
@@ -221,8 +245,10 @@ class TestBriefAssemblyMinimal:
             )
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="04-current", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="04-current",
+            plugin_root=plugin_root,
         )
         endings = brief["recent_chapter_endings"]
         assert len(endings) == 3
@@ -247,8 +273,10 @@ class TestBriefAssemblyMinimal:
         )
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="02-current", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="02-current",
+            plugin_root=plugin_root,
         )
         counts = brief["recent_simile_count_per_chapter"]
         # "like a", "as if", "as ___ as" — three similes detected.
@@ -269,8 +297,10 @@ class TestBriefAssemblyMinimal:
         )
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
         questions = brief["tone_litmus_questions"]
         assert len(questions) == 3
@@ -289,8 +319,10 @@ class TestBriefGracefulDegrade:
         _add_character(book, "theo", name="Theo")
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
         assert brief["rules_to_honor"] == []
         assert brief["callbacks_in_register"] == []
@@ -301,8 +333,10 @@ class TestBriefGracefulDegrade:
         _add_character(book, "theo", name="Theo")
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
         assert brief["tone_litmus_questions"] == []
 
@@ -312,8 +346,10 @@ class TestBriefGracefulDegrade:
         _add_character(book, "theo", name="Theo")
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-current", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-current",
+            plugin_root=plugin_root,
         )
         assert brief["recent_chapter_endings"] == []
         assert brief["recent_simile_count_per_chapter"] == {}
@@ -324,8 +360,10 @@ class TestBriefGracefulDegrade:
         _make_chapter(book, "01-intro", number=1, title="Intro", pov="Ghost")
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
         # Brief still returns; the missing-character is captured in errors
         # OR characters_present is just empty for that name.
@@ -336,14 +374,14 @@ class TestBriefGracefulDegrade:
         book, plugin_root = _setup_book(tmp_path)
         # No chapter dir created.
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="99-ghost", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="99-ghost",
+            plugin_root=plugin_root,
         )
         # Brief returns with an error rather than raising.
         assert isinstance(brief, dict)
-        assert any(
-            e["component"] == "chapter" for e in brief["errors"]
-        )
+        assert any(e["component"] == "chapter" for e in brief["errors"])
 
 
 # ---------------------------------------------------------------------------
@@ -359,8 +397,10 @@ class TestBriefDeterminism:
         _add_claudemd(book, rules=["Be terse"], callbacks=["Gary the cat"])
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
         # No datetime, Path, or non-JSON values may leak into the brief.
         json.dumps(brief)
@@ -372,12 +412,16 @@ class TestBriefDeterminism:
         _add_claudemd(book, rules=["Be terse"], callbacks=["Gary"])
 
         brief_a = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
         brief_b = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
         # `errors` list ordering must also be stable between calls.
         assert brief_a == brief_b
@@ -396,26 +440,30 @@ class TestTacticalConstraints:
         _add_character(book, "theo", name="Theo")
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-intro", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
         )
         assert brief["tactical_constraints"] is None
 
     def test_combat_outline_populates_tactical_constraints(self, tmp_path):
         book, plugin_root = _setup_book(tmp_path)
         _make_chapter(
-            book, "01-fight", number=1, title="Fight", pov="Theo",
-            body=(
-                "## Outline\n\n"
-                "Theo, Kael, and Viktor walk into the warehouse "
-                "and attack the team waiting inside.\n"
-            ),
+            book,
+            "01-fight",
+            number=1,
+            title="Fight",
+            pov="Theo",
+            body=("## Outline\n\nTheo, Kael, and Viktor walk into the warehouse and attack the team waiting inside.\n"),
         )
         _add_character(book, "theo", name="Theo")
 
         brief = build_chapter_writing_brief(
-            book_root=book, book_slug="test-book",
-            chapter_slug="01-fight", plugin_root=plugin_root,
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-fight",
+            plugin_root=plugin_root,
         )
         assert brief["tactical_constraints"] is not None
         assert "questions_for_writer" in brief["tactical_constraints"]

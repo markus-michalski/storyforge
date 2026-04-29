@@ -80,12 +80,14 @@ def create_scene_list(
     scenes_path.write_text(content, encoding="utf-8")
     _cache.invalidate()
 
-    return json.dumps({
-        "success": True,
-        "path": str(scenes_path),
-        "scene_count": len(scenes),
-        "message": f"Scene list created with {len(scenes)} scenes at {scenes_path}",
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "path": str(scenes_path),
+            "scene_count": len(scenes),
+            "message": f"Scene list created with {len(scenes)} scenes at {scenes_path}",
+        }
+    )
 
 
 @mcp.tool()
@@ -134,8 +136,7 @@ def update_scene(
             new_est_words = est_words if est_words else cells[4]
             new_status = status if status else cells[5]
             lines[i] = (
-                f"| {scene_number} | {new_chapter} | {new_pov} | "
-                f"{new_summary} | {new_est_words} | {new_status} |\n"
+                f"| {scene_number} | {new_chapter} | {new_pov} | {new_summary} | {new_est_words} | {new_status} |\n"
             )
             updated = True
             break
@@ -146,9 +147,11 @@ def update_scene(
     scenes_path.write_text("".join(lines), encoding="utf-8")
     _cache.invalidate()
 
-    return json.dumps({
-        "success": True,
-        "scene_number": scene_number,
-        "path": str(scenes_path),
-        "message": f"Scene #{scene_number} updated",
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "scene_number": scene_number,
+            "path": str(scenes_path),
+            "message": f"Scene #{scene_number} updated",
+        }
+    )

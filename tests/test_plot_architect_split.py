@@ -51,7 +51,7 @@ def _read_frontmatter(path: Path) -> dict[str, str]:
 def _read_body(path: Path) -> str:
     text = path.read_text(encoding="utf-8")
     m = FRONTMATTER_RE.match(text)
-    return text[m.end():] if m else text
+    return text[m.end() :] if m else text
 
 
 # ---------------------------------------------------------------------------
@@ -97,9 +97,7 @@ class TestCrossRouting:
 
     def test_memoir_refuses_fiction_and_routes(self) -> None:
         body = _read_body(SKILL_MEMOIR)
-        assert "/storyforge:plot-architect" in body, (
-            "Memoir skill must route fiction books to plot-architect"
-        )
+        assert "/storyforge:plot-architect" in body, "Memoir skill must route fiction books to plot-architect"
         assert "book_category" in body
 
 
@@ -123,7 +121,8 @@ class TestCatalogIsolation:
 
     @pytest.mark.parametrize("structure_type", MEMOIR_STRUCTURE_TYPES)
     def test_fiction_skill_does_not_carry_memoir_types(
-        self, structure_type: str,
+        self,
+        structure_type: str,
     ) -> None:
         body = _read_body(SKILL_FICTION)
         # The fiction skill is allowed to mention memoir terms only in the

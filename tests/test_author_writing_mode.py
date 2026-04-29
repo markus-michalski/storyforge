@@ -25,8 +25,8 @@ def _make_profile(tmp_path: Path, extra_frontmatter: str = "") -> Path:
     profile.write_text(
         f'---\nname: "Test Author"\nslug: "test-author"\n'
         f'narrative_voice: "third-limited"\ntense: "past"\n'
-        f'{extra_frontmatter}'
-        f'---\n\n# Test Author\n',
+        f"{extra_frontmatter}"
+        f"---\n\n# Test Author\n",
         encoding="utf-8",
     )
     return profile
@@ -86,8 +86,8 @@ def _make_book_readme(tmp_path: Path, extra_frontmatter: str = "") -> Path:
     readme.write_text(
         f'---\ntitle: "My Book"\nauthor: "test-author"\n'
         f'genres: ["horror"]\nbook_type: "novel"\nstatus: "Idea"\n'
-        f'{extra_frontmatter}'
-        f'---\n\n# My Book\n',
+        f"{extra_frontmatter}"
+        f"---\n\n# My Book\n",
         encoding="utf-8",
     )
     return readme

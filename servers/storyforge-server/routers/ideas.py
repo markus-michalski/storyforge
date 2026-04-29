@@ -47,6 +47,7 @@ def _write_idea(path: Path, meta: dict, body: str) -> None:
 def _slugify(text: str) -> str:
     """Local slugify wrapper — kept module-private to match historical behavior."""
     from tools.shared.paths import slugify
+
     return slugify(text)
 
 
@@ -119,16 +120,18 @@ def list_ideas(status: str = "", genre: str = "") -> str:
         if genre and genre not in idea_genres:
             continue
 
-        ideas.append({
-            "slug": meta.get("slug", md_file.stem),
-            "title": meta.get("title", md_file.stem),
-            "status": idea_status,
-            "genres": idea_genres,
-            "logline": meta.get("logline", ""),
-            "created": str(meta.get("created", "")),
-            "last_touched": str(meta.get("last_touched", "")),
-            "promoted_to": meta.get("promoted_to"),
-        })
+        ideas.append(
+            {
+                "slug": meta.get("slug", md_file.stem),
+                "title": meta.get("title", md_file.stem),
+                "status": idea_status,
+                "genres": idea_genres,
+                "logline": meta.get("logline", ""),
+                "created": str(meta.get("created", "")),
+                "last_touched": str(meta.get("last_touched", "")),
+                "promoted_to": meta.get("promoted_to"),
+            }
+        )
 
     return json.dumps({"ideas": ideas, "count": len(ideas)})
 
@@ -148,17 +151,19 @@ def get_idea(slug: str) -> str:
         return json.dumps({"error": f"Idea '{slug}' not found"})
 
     meta, body = result
-    return json.dumps({
-        "slug": meta.get("slug", slug),
-        "title": meta.get("title", slug),
-        "status": meta.get("status", "raw"),
-        "genres": meta.get("genres", []),
-        "logline": meta.get("logline", ""),
-        "created": str(meta.get("created", "")),
-        "last_touched": str(meta.get("last_touched", "")),
-        "promoted_to": meta.get("promoted_to"),
-        "body": body.strip(),
-    })
+    return json.dumps(
+        {
+            "slug": meta.get("slug", slug),
+            "title": meta.get("title", slug),
+            "status": meta.get("status", "raw"),
+            "genres": meta.get("genres", []),
+            "logline": meta.get("logline", ""),
+            "created": str(meta.get("created", "")),
+            "last_touched": str(meta.get("last_touched", "")),
+            "promoted_to": meta.get("promoted_to"),
+            "body": body.strip(),
+        }
+    )
 
 
 @mcp.tool()

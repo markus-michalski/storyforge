@@ -152,9 +152,7 @@ class TestSlugValidation:
 
     def test_resolve_person_rejects_traversal(self):
         with pytest.raises(ValueError):
-            resolve_person_path(
-                self.CONFIG_CONTENT, "valid-book", "../jane", book_category="memoir"
-            )
+            resolve_person_path(self.CONFIG_CONTENT, "valid-book", "../jane", book_category="memoir")
 
     def test_resolve_series_rejects_traversal(self):
         with pytest.raises(ValueError):
@@ -170,9 +168,7 @@ class TestSlugValidation:
         assert result == Path("/home/user/books/projects/my-book-23")
 
         result = resolve_chapter_path(self.CONFIG_CONTENT, "blood-and-binary", "20-bruises")
-        assert result == Path(
-            "/home/user/books/projects/blood-and-binary/chapters/20-bruises"
-        )
+        assert result == Path("/home/user/books/projects/blood-and-binary/chapters/20-bruises")
 
     def test_empty_slug_does_not_crash(self):
         # Empty slug isn't a traversal and shouldn't raise — caller may use

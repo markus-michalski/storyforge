@@ -55,9 +55,7 @@ class TestPdfEngineAllowlist:
     @pytest.mark.parametrize("engine", ["xelatex", "lualatex", "pdflatex", "tectonic"])
     def test_accepts_known_engine(self, engine, mock_subprocess, tmp_path: Path):
         mock_run, output = mock_subprocess
-        result = pandoc.generate_pdf(
-            tmp_path / "in.md", output, "T", "A", pdf_engine=engine
-        )
+        result = pandoc.generate_pdf(tmp_path / "in.md", output, "T", "A", pdf_engine=engine)
         assert result["success"] is True
         # The engine flag must be passed verbatim
         cmd = mock_run.call_args[0][0]
@@ -74,13 +72,9 @@ class TestPdfEngineAllowlist:
             "fake_engine",
         ],
     )
-    def test_rejects_unknown_or_unsafe_engine(
-        self, evil_engine, mock_subprocess, tmp_path: Path
-    ):
+    def test_rejects_unknown_or_unsafe_engine(self, evil_engine, mock_subprocess, tmp_path: Path):
         mock_run, output = mock_subprocess
-        result = pandoc.generate_pdf(
-            tmp_path / "in.md", output, "T", "A", pdf_engine=evil_engine
-        )
+        result = pandoc.generate_pdf(tmp_path / "in.md", output, "T", "A", pdf_engine=evil_engine)
         assert result["success"] is False
         assert "error" in result
         # subprocess must never have been called
@@ -108,9 +102,7 @@ class TestFontValidation:
     )
     def test_accepts_legitimate_font(self, font, mock_subprocess, tmp_path: Path):
         mock_run, output = mock_subprocess
-        result = pandoc.generate_pdf(
-            tmp_path / "in.md", output, "T", "A", font=font
-        )
+        result = pandoc.generate_pdf(tmp_path / "in.md", output, "T", "A", font=font)
         assert result["success"] is True
 
     @pytest.mark.parametrize(
@@ -128,9 +120,7 @@ class TestFontValidation:
     )
     def test_rejects_unsafe_font(self, evil_font, mock_subprocess, tmp_path: Path):
         mock_run, output = mock_subprocess
-        result = pandoc.generate_pdf(
-            tmp_path / "in.md", output, "T", "A", font=evil_font
-        )
+        result = pandoc.generate_pdf(tmp_path / "in.md", output, "T", "A", font=evil_font)
         assert result["success"] is False
         assert "error" in result
         mock_run.assert_not_called()
@@ -145,9 +135,7 @@ class TestFontSizeValidation:
     @pytest.mark.parametrize("size", ["10pt", "11pt", "12pt", "9pt", "14pt"])
     def test_accepts_valid_size(self, size, mock_subprocess, tmp_path: Path):
         mock_run, output = mock_subprocess
-        result = pandoc.generate_pdf(
-            tmp_path / "in.md", output, "T", "A", font_size=size
-        )
+        result = pandoc.generate_pdf(tmp_path / "in.md", output, "T", "A", font_size=size)
         assert result["success"] is True
 
     @pytest.mark.parametrize(
@@ -163,22 +151,16 @@ class TestFontSizeValidation:
     )
     def test_rejects_unsafe_size(self, evil_size, mock_subprocess, tmp_path: Path):
         mock_run, output = mock_subprocess
-        result = pandoc.generate_pdf(
-            tmp_path / "in.md", output, "T", "A", font_size=evil_size
-        )
+        result = pandoc.generate_pdf(tmp_path / "in.md", output, "T", "A", font_size=evil_size)
         assert result["success"] is False
         mock_run.assert_not_called()
 
 
 class TestMarginValidation:
-    @pytest.mark.parametrize(
-        "margin", ["1in", "2.5cm", "20mm", "0.5in", "1.25in", "30mm"]
-    )
+    @pytest.mark.parametrize("margin", ["1in", "2.5cm", "20mm", "0.5in", "1.25in", "30mm"])
     def test_accepts_valid_margin(self, margin, mock_subprocess, tmp_path: Path):
         mock_run, output = mock_subprocess
-        result = pandoc.generate_pdf(
-            tmp_path / "in.md", output, "T", "A", margin=margin
-        )
+        result = pandoc.generate_pdf(tmp_path / "in.md", output, "T", "A", margin=margin)
         assert result["success"] is True
 
     @pytest.mark.parametrize(
@@ -194,9 +176,7 @@ class TestMarginValidation:
     )
     def test_rejects_unsafe_margin(self, evil_margin, mock_subprocess, tmp_path: Path):
         mock_run, output = mock_subprocess
-        result = pandoc.generate_pdf(
-            tmp_path / "in.md", output, "T", "A", margin=evil_margin
-        )
+        result = pandoc.generate_pdf(tmp_path / "in.md", output, "T", "A", margin=evil_margin)
         assert result["success"] is False
         mock_run.assert_not_called()
 
