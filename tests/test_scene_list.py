@@ -35,7 +35,7 @@ def mock_config(content_root: Path):
         "defaults": {"language": "en", "book_type": "novel"},
     }
 
-    import server as server_mod
+    import routers._app as server_mod
     from tools.state import indexer as indexer_mod
 
     fake_state_path = content_root / "_cache" / "state.json"
@@ -52,7 +52,7 @@ def mock_config(content_root: Path):
 
 
 @pytest.fixture
-def server_module(mock_config):
+def server_module(mock_config):  # noqa: F811
     import server as server_mod
     return server_mod
 

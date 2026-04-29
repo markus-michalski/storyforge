@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-import server
+import routers._app as _app
+from routers.claudemd import get_character
 
 
 @pytest.fixture
@@ -36,25 +37,25 @@ def config_legacy_layout(config: dict, tmp_path: Path) -> dict:
 
 class TestGetCharacter:
     def test_hit_returns_content(self, config_with_character: dict, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(server, "load_config", lambda: config_with_character)
-        result = json.loads(server.get_character("my-book", "jane-doe"))
+        monkeypatch.setattr(_app, "load_config", lambda: config_with_character)
+        result = json.loads(get_character("my-book", "jane-doe"))
         assert "content" in result
         assert "Jane Doe" in result["content"]
 
     def test_miss_bad_book(self, config: dict, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(server, "load_config", lambda: config)
-        result = json.loads(server.get_character("nonexistent-book", "jane-doe"))
+        monkeypatch.setattr(_app, "load_config", lambda: config)
+        result = json.loads(get_character("nonexistent-book", "jane-doe"))
         assert "error" in result
         assert "nonexistent-book" in result["error"]
 
     def test_miss_bad_character(self, config_with_character: dict, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(server, "load_config", lambda: config_with_character)
-        result = json.loads(server.get_character("my-book", "nobody"))
+        monkeypatch.setattr(_app, "load_config", lambda: config_with_character)
+        result = json.loads(get_character("my-book", "nobody"))
         assert "error" in result
         assert "nobody" in result["error"]
 
     def test_legacy_layout_fallback(self, config_legacy_layout: dict, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(server, "load_config", lambda: config_legacy_layout)
-        result = json.loads(server.get_character("my-book", "old-hero"))
+        monkeypatch.setattr(_app, "load_config", lambda: config_legacy_layout)
+        result = json.loads(get_character("my-book", "old-hero"))
         assert "content" in result
         assert "Legacy character" in result["content"]
