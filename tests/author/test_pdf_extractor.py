@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tools.author import pdf_extractor
 from tools.author.pdf_extractor import (
     MAX_FILE_SIZE_BYTES,
     _sample_text,
