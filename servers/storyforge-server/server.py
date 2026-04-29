@@ -40,7 +40,7 @@ if _server_dir not in sys.path:
     sys.path.insert(0, _server_dir)
 
 # Shared FastMCP instance + cache.
-from routers._app import _cache, mcp  # noqa: E402
+from routers._app import _cache, mcp  # noqa: E402,F401
 
 # Side-effect import — every router module registers its @mcp.tool()
 # handlers on `mcp` as a side effect of being imported.
@@ -56,12 +56,12 @@ import routers  # noqa: E402, F401
 # shared config helpers.
 
 from tools.shared.config import (  # noqa: E402
-    get_book_categories_dir,
-    get_content_root,
-    get_genres_dir,
-    get_reference_dir,
-    get_review_handle,
-    load_config,
+    get_book_categories_dir,  # noqa: F401
+    get_content_root,  # noqa: F401
+    get_genres_dir,  # noqa: F401
+    get_reference_dir,  # noqa: F401
+    get_review_handle,  # noqa: F401
+    load_config,  # noqa: F401
 )
 
 from routers.authors import (  # noqa: E402, F401
