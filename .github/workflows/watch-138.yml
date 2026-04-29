@@ -1,0 +1,64 @@
+name: Watcher — issue #138 split trigger
+
+on:
+  schedule:
+    - cron: "17 9 * * 2"  # Every Tuesday 09:17 UTC
+  workflow_dispatch:        # Manual run for testing
+
+jobs:
+  check-triggers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check LOC trigger
+        id: loc
+        run: |
+          LOC=$(wc -l < skills/manuscript-checker/SKILL.md)
+          echo "loc=$LOC" >> "$GITHUB_OUTPUT"
+          if [ "$LOC" -ge 400 ]; then
+            echo "fired=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fired=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check memoir-category trigger
+        id: memoir
+        run: |
+          # Count distinct memoir-specific pass category identifiers
+          COUNT=$(grep -oE 'anonymization_leak|tidy_lesson_ending|reflective_platitude|timeline_ambiguity|real_people_consistency|[a-z_]+_memoir_[a-z_]+' \
+            skills/manuscript-checker/SKILL.md | sort -u | wc -l)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          if [ "$COUNT" -ge 6 ]; then
+            echo "fired=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fired=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post trigger comment
+        if: steps.loc.outputs.fired == 'true' || steps.memoir.outputs.fired == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LOC="${{ steps.loc.outputs.loc }}"
+          MEMOIR_COUNT="${{ steps.memoir.outputs.count }}"
+          BODY="## Watcher: split trigger fired\n\n"
+
+          if [ "${{ steps.loc.outputs.fired }}" = "true" ]; then
+            BODY+="- **LOC trigger**: \`skills/manuscript-checker/SKILL.md\` is at **${LOC} LOC** (threshold: 400)\n"
+          fi
+
+          if [ "${{ steps.memoir.outputs.fired }}" = "true" ]; then
+            BODY+="- **Memoir category trigger**: memoir-specific pass list has **${MEMOIR_COUNT} categories** (threshold: 6)\n"
+          fi
+
+          BODY+="\nTime to do the fiction/memoir split as specified in this issue."
+
+          gh issue comment 138 --body "$(printf '%b' "$BODY")"
+
+      - name: Status summary (no trigger)
+        if: steps.loc.outputs.fired == 'false' && steps.memoir.outputs.fired == 'false'
+        run: |
+          echo "No trigger fired."
+          echo "  LOC: ${{ steps.loc.outputs.loc }}/400"
+          echo "  Memoir categories: ${{ steps.memoir.outputs.count }}/6"
