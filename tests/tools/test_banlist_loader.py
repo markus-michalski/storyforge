@@ -16,7 +16,7 @@ from tools.banlist_loader import (
     load_global_ai_tells,
 )
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 # ---------------------------------------------------------------------------

@@ -253,7 +253,7 @@ class TestRunQualityGates:
 # Skill alignment with the gate contract
 # ---------------------------------------------------------------------------
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # Skills that call an MCP tool which already emits the gate envelope: the
 # SKILL.md must reference the envelope so the skill author surfaces it.

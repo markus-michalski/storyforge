@@ -138,7 +138,7 @@ class TestMigrateSubprocess:
         book.mkdir()
         (book / "CLAUDE.md").write_text(SAMPLE_CLAUDEMD, encoding="utf-8")
 
-        repo_root = Path(__file__).resolve().parent.parent
+        repo_root = Path(__file__).resolve().parent.parent.parent
         result = subprocess.run(
             [
                 sys.executable,

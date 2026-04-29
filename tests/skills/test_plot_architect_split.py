@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 SKILL_FICTION = PLUGIN_ROOT / "skills" / "plot-architect" / "SKILL.md"
 SKILL_MEMOIR = PLUGIN_ROOT / "skills" / "plot-architect-memoir" / "SKILL.md"
 CLAUDEMD = PLUGIN_ROOT / "CLAUDE.md"
