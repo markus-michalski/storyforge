@@ -46,9 +46,7 @@ def _write_draft(book: Path, text: str, chapter_slug: str = "01-opening") -> Pat
     chapter.mkdir(parents=True, exist_ok=True)
     draft = chapter / "draft.md"
     draft.write_text(text, encoding="utf-8")
-    (chapter / "README.md").write_text(
-        "# Chapter 1\n\n## Chapter Timeline\n\n", encoding="utf-8"
-    )
+    (chapter / "README.md").write_text("# Chapter 1\n\n## Chapter Timeline\n\n", encoding="utf-8")
     return draft
 
 
@@ -77,9 +75,8 @@ class TestValidationResultEnvelope:
     def test_blocking_finding_in_strict_fails(self, tmp_path: Path) -> None:
         book = _write_book(tmp_path)
         # Meta-narrative trigger + enough words.
-        prose = (
-            "The flame is a callback to last winter, but he never lit it himself.\n"
-            + ("The river ran cold past the camp. " * 30)
+        prose = "The flame is a callback to last winter, but he never lit it himself.\n" + (
+            "The river ran cold past the camp. " * 30
         )
         draft = _write_draft(book, prose)
 
@@ -93,9 +90,8 @@ class TestValidationResultEnvelope:
 
     def test_warn_mode_demotes_blocking_to_warn(self, tmp_path: Path) -> None:
         book = _write_book(tmp_path, frontmatter_mode="warn")
-        prose = (
-            "The flame is a callback to last winter, but he never lit it himself.\n"
-            + ("The river ran cold past the camp. " * 30)
+        prose = "The flame is a callback to last winter, but he never lit it himself.\n" + (
+            "The river ran cold past the camp. " * 30
         )
         draft = _write_draft(book, prose)
 
@@ -118,10 +114,8 @@ class TestValidationResultEnvelope:
             file_path="/tmp/chapters/01/draft.md",
             mode="strict",
             findings=[
-                Finding(severity=SEVERITY_BLOCK, category="meta_narrative",
-                        message="callback found", line=12),
-                Finding(severity=SEVERITY_WARN, category="ai_tell",
-                        message="word found", line=4),
+                Finding(severity=SEVERITY_BLOCK, category="meta_narrative", message="callback found", line=12),
+                Finding(severity=SEVERITY_WARN, category="ai_tell", message="word found", line=4),
             ],
         )
         report = result.render_block_report()
@@ -134,9 +128,7 @@ class TestValidationResultEnvelope:
             file_path="/tmp/chapters/01/draft.md",
             mode="warn",
             findings=[
-                Finding(severity=SEVERITY_WARN, category="ai_tell",
-                        message=f"hit {i}", line=i)
-                for i in range(15)
+                Finding(severity=SEVERITY_WARN, category="ai_tell", message=f"hit {i}", line=i) for i in range(15)
             ],
         )
         diag = result.render_diagnostics(cap=5)
@@ -147,8 +139,7 @@ class TestValidationResultEnvelope:
             file_path=str(tmp_path / "draft.md"),
             mode="strict",
             findings=[
-                Finding(severity=SEVERITY_BLOCK, category="meta_narrative",
-                        message="callback found", line=3),
+                Finding(severity=SEVERITY_BLOCK, category="meta_narrative", message="callback found", line=3),
             ],
         )
         payload = json.dumps(result.to_json_dict())

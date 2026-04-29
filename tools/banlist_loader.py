@@ -99,9 +99,7 @@ def _strip_parenthetical(text: str) -> str:
     return re.sub(r"\s*\([^)]+\)\s*", " ", text).strip()
 
 
-def _author_vocab_path(
-    author_slug: str, storyforge_home: Path | None = None
-) -> Path:
+def _author_vocab_path(author_slug: str, storyforge_home: Path | None = None) -> Path:
     home = storyforge_home or (Path.home() / ".storyforge")
     return home / "authors" / author_slug / "vocabulary.md"
 
@@ -133,15 +131,9 @@ def load_author_vocab(
     for index, match in enumerate(sections):
         section_name = re.sub(r"\s+", " ", match.group(1)).strip().title()
         body_start = match.end()
-        body_end = (
-            sections[index + 1].start()
-            if index + 1 < len(sections)
-            else len(text)
-        )
+        body_end = sections[index + 1].start() if index + 1 < len(sections) else len(text)
         # Stop early if we hit a higher-level (## or # only) heading.
-        higher_heading = re.search(
-            r"^##\s+\S", text[body_start:body_end], re.MULTILINE
-        )
+        higher_heading = re.search(r"^##\s+\S", text[body_start:body_end], re.MULTILINE)
         if higher_heading:
             body_end = body_start + higher_heading.start()
 
@@ -232,7 +224,7 @@ def load_global_ai_tells(plugin_root: Path) -> list[BannedPattern]:
     section_match = _ANTI_AI_SECTION_RE.search(text)
     if not section_match:
         return []
-    section_text = text[section_match.end():]
+    section_text = text[section_match.end() :]
     next_section = re.search(r"^##+\s+\S", section_text, re.MULTILINE)
     if next_section:
         section_text = section_text[: next_section.start()]

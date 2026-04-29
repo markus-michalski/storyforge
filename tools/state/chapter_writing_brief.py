@@ -66,10 +66,12 @@ class _Recorder:
         try:
             return fn()
         except Exception as exc:  # pylint: disable=broad-except
-            self.errors.append({
-                "component": component,
-                "error": f"{type(exc).__name__}: {exc}",
-            })
+            self.errors.append(
+                {
+                    "component": component,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
             return default
 
 
@@ -82,10 +84,7 @@ def _gather_characters(
     recorder: _Recorder,
 ) -> list[dict[str, Any]]:
     """POV first, then any other named characters mentioned in the outline."""
-    chars_dir = (
-        resolve_people_dir(book_root, "memoir") if is_memoir
-        else book_root / "characters"
-    )
+    chars_dir = resolve_people_dir(book_root, "memoir") if is_memoir else book_root / "characters"
     payload_loader = person_payload if is_memoir else character_payload
     characters: list[dict[str, Any]] = []
     pov_added = False
@@ -132,7 +131,10 @@ def _gather_characters(
 
 
 def _gather_recent(
-    book_root: Path, chapter_slug: str, *, recorder: _Recorder,
+    book_root: Path,
+    chapter_slug: str,
+    *,
+    recorder: _Recorder,
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """Last-paragraph + simile-count for the three chapters before this one."""
     recent_endings: list[dict[str, Any]] = []
@@ -148,10 +150,12 @@ def _gather_recent(
             "",
         )
         if ending:
-            recent_endings.append({
-                "chapter": ch.name,
-                "last_paragraph": ending,
-            })
+            recent_endings.append(
+                {
+                    "chapter": ch.name,
+                    "last_paragraph": ending,
+                }
+            )
         count = recorder.run(
             f"similes.{ch.name}",
             lambda d=draft: count_similes(d),
@@ -162,7 +166,9 @@ def _gather_recent(
 
 
 def _gather_claudemd(
-    book_root: Path, *, recorder: _Recorder,
+    book_root: Path,
+    *,
+    recorder: _Recorder,
 ) -> tuple[list[dict[str, str]], list[str]]:
     """Rules (with severity) and callbacks from the book CLAUDE.md."""
     rules_to_honor: list[dict[str, str]] = []
@@ -180,16 +186,20 @@ def _gather_claudemd(
         return rules_to_honor, callbacks_in_register
 
     for rule_text in rule_bullets(claudemd_text):
-        rules_to_honor.append({
-            "text": rule_text,
-            "severity": classify_rule(rule_text),
-        })
+        rules_to_honor.append(
+            {
+                "text": rule_text,
+                "severity": classify_rule(rule_text),
+            }
+        )
     callbacks_in_register = callback_register_bullets(claudemd_text)
     return rules_to_honor, callbacks_in_register
 
 
 def _gather_tone(
-    book_root: Path, *, recorder: _Recorder,
+    book_root: Path,
+    *,
+    recorder: _Recorder,
 ) -> list[str]:
     tone_path = book_root / "plot" / "tone.md"
     if not tone_path.is_file():
@@ -249,10 +259,12 @@ def build_chapter_writing_brief(
         ({}, "", {}),
     )
     if not chapter_readme.is_file():
-        recorder.errors.append({
-            "component": "chapter",
-            "error": f"chapter README missing: {chapter_readme}",
-        })
+        recorder.errors.append(
+            {
+                "component": "chapter",
+                "error": f"chapter README missing: {chapter_readme}",
+            }
+        )
 
     book_category = recorder.run(
         "book.read",
@@ -262,8 +274,11 @@ def build_chapter_writing_brief(
     is_memoir = book_category == "memoir"
 
     characters = _gather_characters(
-        book_root, chapter_readme, pov_character,
-        is_memoir=is_memoir, recorder=recorder,
+        book_root,
+        chapter_readme,
+        pov_character,
+        is_memoir=is_memoir,
+        recorder=recorder,
     )
 
     consent_warnings: list[dict[str, str]] = []
@@ -287,11 +302,14 @@ def build_chapter_writing_brief(
     )
 
     recent_endings, simile_counts = _gather_recent(
-        book_root, chapter_slug, recorder=recorder,
+        book_root,
+        chapter_slug,
+        recorder=recorder,
     )
 
     rules_to_honor, callbacks_in_register = _gather_claudemd(
-        book_root, recorder=recorder,
+        book_root,
+        recorder=recorder,
     )
 
     banned_phrases = recorder.run(
@@ -309,7 +327,10 @@ def build_chapter_writing_brief(
         except OSError:
             outline_text = ""
     tactical = _gather_tactical(
-        book_root, outline_text, characters, recorder=recorder,
+        book_root,
+        outline_text,
+        characters,
+        recorder=recorder,
     )
 
     return {

@@ -123,7 +123,8 @@ class TestLoadDomainVocabularies:
         domain_dir.mkdir()
         (domain_dir / "forensics.md").write_text(FORENSICS_VOCAB, encoding="utf-8")
         (domain_dir / "tactical_combat.md").write_text(
-            TACTICAL_COMBAT_VOCAB, encoding="utf-8",
+            TACTICAL_COMBAT_VOCAB,
+            encoding="utf-8",
         )
 
         vocab = load_domain_vocabularies(domain_dir)
@@ -177,10 +178,7 @@ class TestStripDialog:
         assert stripped.strip() == text.strip()
 
     def test_handles_multiline_quotes(self):
-        text = (
-            'Theo waited. "Sometimes blood spatter\n'
-            'tells more than the body itself," Kael said.'
-        )
+        text = 'Theo waited. "Sometimes blood spatter\ntells more than the body itself," Kael said.'
         stripped = strip_dialog(text)
         assert "blood spatter" not in stripped.lower()
 
@@ -192,7 +190,8 @@ class TestStripDialog:
 
 def _theo() -> CharacterKnowledge:
     return CharacterKnowledge(
-        name="Theo Wilkons", slug="theo-wilkons",
+        name="Theo Wilkons",
+        slug="theo-wilkons",
         expert=("it", "programming"),
         competent=("photography",),
         layperson=("psychology",),
@@ -203,7 +202,8 @@ def _theo() -> CharacterKnowledge:
 
 def _kael() -> CharacterKnowledge:
     return CharacterKnowledge(
-        name="Kael", slug="kael",
+        name="Kael",
+        slug="kael",
         expert=("tactical_combat", "ballistics", "forensics"),
         competent=("medicine",),
         layperson=(),
@@ -229,20 +229,14 @@ class TestScanPovBoundary:
             "ground for a while in cold air, and this was older."
         )
         hits = scan_pov_boundary(text, _theo(), _DOMAIN_VOCAB)
-        assert any(
-            h.domain == "forensics" and "blood smells when" in h.phrase.lower()
-            for h in hits
-        )
+        assert any(h.domain == "forensics" and "blood smells when" in h.phrase.lower() for h in hits)
         # Severity stays warn — POV calls are nuanced.
         assert all(h.severity == "warn" for h in hits)
 
     def test_does_not_flag_for_competent_or_expert_pov(self):
         # Acceptance: same sentence in Kael POV (forensics: expert)
         # does not flag.
-        text = (
-            "Kael crouched. The blood smells when it has been on the "
-            "ground for a while in cold air."
-        )
+        text = "Kael crouched. The blood smells when it has been on the ground for a while in cold air."
         hits = scan_pov_boundary(text, _kael(), _DOMAIN_VOCAB)
         assert not any(h.domain == "forensics" for h in hits)
 
@@ -250,8 +244,7 @@ class TestScanPovBoundary:
         # Acceptance: same phrase in dialog by another character
         # does not flag.
         text = (
-            'Kael nodded at the floor. "Blood smells when it has been '
-            'on the ground for a while in cold air," he said.'
+            'Kael nodded at the floor. "Blood smells when it has been on the ground for a while in cold air," he said.'
         )
         hits = scan_pov_boundary(text, _theo(), _DOMAIN_VOCAB)
         assert not any(h.domain == "forensics" for h in hits)
@@ -259,24 +252,24 @@ class TestScanPovBoundary:
     def test_layperson_knowledge_still_flags(self):
         # Layperson is below the threshold for technical terms — flag.
         theo_layperson_forensics = CharacterKnowledge(
-            name="Theo", slug="theo",
-            expert=(), competent=(), layperson=("forensics",),
-            none=(), has_knowledge_data=True,
+            name="Theo",
+            slug="theo",
+            expert=(),
+            competent=(),
+            layperson=("forensics",),
+            none=(),
+            has_knowledge_data=True,
         )
         text = "He noted the lividity in the corpse's lower back."
         hits = scan_pov_boundary(
-            text, theo_layperson_forensics, _DOMAIN_VOCAB,
+            text,
+            theo_layperson_forensics,
+            _DOMAIN_VOCAB,
         )
-        assert any(
-            h.domain == "forensics" and h.knowledge_level == "layperson"
-            for h in hits
-        )
+        assert any(h.domain == "forensics" and h.knowledge_level == "layperson" for h in hits)
 
     def test_no_hit_when_no_domain_keywords_present(self):
-        text = (
-            "Theo opened the laptop. The terminal blinked. He typed a "
-            "command and waited."
-        )
+        text = "Theo opened the laptop. The terminal blinked. He typed a command and waited."
         hits = scan_pov_boundary(text, _theo(), _DOMAIN_VOCAB)
         assert hits == []
 
@@ -292,9 +285,13 @@ class TestScanPovBoundary:
 
     def test_no_knowledge_data_skips_scan(self):
         no_data = CharacterKnowledge(
-            name="Theo", slug="theo",
-            expert=(), competent=(), layperson=(),
-            none=(), has_knowledge_data=False,
+            name="Theo",
+            slug="theo",
+            expert=(),
+            competent=(),
+            layperson=(),
+            none=(),
+            has_knowledge_data=False,
         )
         text = "He noted the lividity."
         hits = scan_pov_boundary(text, no_data, _DOMAIN_VOCAB)
@@ -307,11 +304,7 @@ class TestScanPovBoundary:
         assert all(isinstance(h, PovBoundaryHit) for h in hits)
 
     def test_hit_records_line_number(self):
-        text = (
-            "Theo entered.\n"
-            "The room was dark.\n"
-            "He noted the lividity in the body.\n"
-        )
+        text = "Theo entered.\nThe room was dark.\nHe noted the lividity in the body.\n"
         hits = scan_pov_boundary(text, _theo(), _DOMAIN_VOCAB)
         assert hits
         assert hits[0].line == 3
@@ -320,10 +313,7 @@ class TestScanPovBoundary:
         # Smoke-tested regression: "pea" (medical abbreviation for
         # pulseless electrical activity) must NOT match inside
         # "appeared", "speak", "ahead", etc.
-        text = (
-            "Theo crouched. A bowl appeared on the sideboard. He could "
-            "speak now. The path lay ahead."
-        )
+        text = "Theo crouched. A bowl appeared on the sideboard. He could speak now. The path lay ahead."
         vocab = {"medicine": ["pea", "pulseless electrical activity"]}
         hits = scan_pov_boundary(text, _theo(), vocab)
         assert hits == []
@@ -339,10 +329,7 @@ class TestScanPovBoundary:
         # If the same phrase appears multiple times near each other,
         # don't flood with duplicate hits — one finding per phrase
         # per paragraph is enough for the writer to act on.
-        text = (
-            "He saw the lividity. He photographed the lividity. "
-            "Then he turned away from the lividity."
-        )
+        text = "He saw the lividity. He photographed the lividity. Then he turned away from the lividity."
         hits = scan_pov_boundary(text, _theo(), _DOMAIN_VOCAB)
         forensics_hits = [h for h in hits if h.domain == "forensics"]
         assert len(forensics_hits) == 1

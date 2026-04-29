@@ -20,9 +20,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-PLUGIN_ROOT = Path(
-    os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent))
-)
+PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent)))
 
 # Make tools package importable when the hook runs standalone.
 if str(PLUGIN_ROOT) not in sys.path:

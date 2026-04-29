@@ -21,24 +21,18 @@ class TestExtractPatternsFromRule:
         assert compiled.search("the synergy here") is not None
 
     def test_backtick_with_regex_metachars(self) -> None:
-        patterns = _extract_patterns_from_rule(
-            "Limit `(very|really)\\s+\\w+` adverb pile-ups."
-        )
+        patterns = _extract_patterns_from_rule("Limit `(very|really)\\s+\\w+` adverb pile-ups.")
         assert len(patterns) == 1
         _label, compiled = patterns[0]
         assert compiled.search("very tired") is not None
 
     def test_quoted_with_ban_cue_extracts(self) -> None:
-        patterns = _extract_patterns_from_rule(
-            'Banned phrase: "the worn-out construction".'
-        )
+        patterns = _extract_patterns_from_rule('Banned phrase: "the worn-out construction".')
         assert any("worn-out" in label for label, _ in patterns)
 
     def test_quoted_without_ban_cue_skipped(self) -> None:
         # No ban cue → quoted phrase treated as example, not pattern.
-        patterns = _extract_patterns_from_rule(
-            'Use "fresh imagery" instead of stale phrasing.'
-        )
+        patterns = _extract_patterns_from_rule('Use "fresh imagery" instead of stale phrasing.')
         assert patterns == []
 
     def test_short_backtick_skipped(self) -> None:
@@ -90,9 +84,7 @@ class TestScanBookRules:
             f"## Rules\n\n- {rule_text}\n",
             encoding="utf-8",
         )
-        (book / "chapters" / "01-opening" / "draft.md").write_text(
-            draft_text, encoding="utf-8"
-        )
+        (book / "chapters" / "01-opening" / "draft.md").write_text(draft_text, encoding="utf-8")
         return book
 
     def test_finds_rule_violation(self, tmp_path: Path) -> None:

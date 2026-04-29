@@ -33,9 +33,7 @@ def _build_book(content_root: Path, slug: str = "demo-book") -> Path:
 def _write_draft(book: Path, text: str, chapter_slug: str = "01-opening") -> None:
     chapter = book / "chapters" / chapter_slug
     (chapter / "draft.md").write_text(text, encoding="utf-8")
-    (chapter / "README.md").write_text(
-        "# Chapter 1\n\n## Chapter Timeline\n\n", encoding="utf-8"
-    )
+    (chapter / "README.md").write_text("# Chapter 1\n\n## Chapter Timeline\n\n", encoding="utf-8")
 
 
 @pytest.fixture
@@ -71,14 +69,9 @@ class TestValidateChapterMcp:
         assert "metadata" in gate and gate["metadata"]["mode"] == "strict"
         assert result["blocking_count"] == 0
 
-    def test_blocking_meta_narrative_yields_fail(
-        self, config: dict, tmp_path: Path
-    ) -> None:
+    def test_blocking_meta_narrative_yields_fail(self, config: dict, tmp_path: Path) -> None:
         # Replace the draft with one that triggers a meta-narrative block.
-        draft = (
-            tmp_path / "content" / "projects" / "demo-book"
-            / "chapters" / "01-opening" / "draft.md"
-        )
+        draft = tmp_path / "content" / "projects" / "demo-book" / "chapters" / "01-opening" / "draft.md"
         draft.write_text(
             "The flame is a callback to last winter, but he never lit it himself.\n"
             + ("The river ran cold past the camp. " * 30),

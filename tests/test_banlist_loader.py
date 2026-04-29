@@ -41,9 +41,7 @@ class TestAuthorSlugFromBook:
         assert author_slug_from_book(book) == "ethan-cole"
 
     def test_author_with_parenthetical(self, tmp_path):
-        book = _make_book_with_author(
-            tmp_path, "- **Author:** Ethan Cole (Eddings-humor with Twilight-stakes)"
-        )
+        book = _make_book_with_author(tmp_path, "- **Author:** Ethan Cole (Eddings-humor with Twilight-stakes)")
         assert author_slug_from_book(book) == "ethan-cole"
 
     def test_no_author_line(self, tmp_path):
@@ -65,9 +63,7 @@ class TestAuthorSlugFromBook:
 # ---------------------------------------------------------------------------
 
 
-def _make_vocab(
-    storyforge_home: Path, author_slug: str, body: str
-) -> Path:
+def _make_vocab(storyforge_home: Path, author_slug: str, body: str) -> Path:
     """Write a vocabulary.md under a fake storyforge home."""
     vocab_dir = storyforge_home / "authors" / author_slug
     vocab_dir.mkdir(parents=True, exist_ok=True)
@@ -100,12 +96,7 @@ class TestLoadAuthorVocab:
         assert all("author-vocab" in p.source for p in patterns)
 
     def test_splits_aliases_on_slash(self, tmp_path):
-        body = (
-            "## Banned Words\n\n"
-            "### Absolutely Forbidden\n"
-            "- delve / delve into\n"
-            "- embark / embark on\n"
-        )
+        body = "## Banned Words\n\n### Absolutely Forbidden\n- delve / delve into\n- embark / embark on\n"
         _make_vocab(tmp_path, "bob", body)
         patterns = load_author_vocab("bob", storyforge_home=tmp_path)
         labels = [p.label for p in patterns]
@@ -115,12 +106,7 @@ class TestLoadAuthorVocab:
         assert "embark on" in labels
 
     def test_strips_parenthetical_clarifications(self, tmp_path):
-        body = (
-            "## Banned Words\n\n"
-            "### Absolutely Forbidden\n"
-            "- tapestry (metaphorical)\n"
-            "- landscape (metaphorical)\n"
-        )
+        body = "## Banned Words\n\n### Absolutely Forbidden\n- tapestry (metaphorical)\n- landscape (metaphorical)\n"
         _make_vocab(tmp_path, "carol", body)
         patterns = load_author_vocab("carol", storyforge_home=tmp_path)
         labels = [p.label for p in patterns]
@@ -146,23 +132,14 @@ class TestLoadAuthorVocab:
         assert "in essence" in labels
 
     def test_dedupes_across_sections(self, tmp_path):
-        body = (
-            "## Banned\n\n"
-            "### Absolutely Forbidden\n- delve\n\n"
-            "### Forbidden Hedging Phrases\n- delve\n"
-        )
+        body = "## Banned\n\n### Absolutely Forbidden\n- delve\n\n### Forbidden Hedging Phrases\n- delve\n"
         _make_vocab(tmp_path, "eve", body)
         patterns = load_author_vocab("eve", storyforge_home=tmp_path)
         delves = [p for p in patterns if p.label == "delve"]
         assert len(delves) == 1
 
     def test_skips_short_entries(self, tmp_path):
-        body = (
-            "## Banned\n\n"
-            "### Absolutely Forbidden\n"
-            "- a\n"
-            "- delve\n"
-        )
+        body = "## Banned\n\n### Absolutely Forbidden\n- a\n- delve\n"
         _make_vocab(tmp_path, "frank", body)
         patterns = load_author_vocab("frank", storyforge_home=tmp_path)
         labels = [p.label for p in patterns]
@@ -191,25 +168,14 @@ class TestLoadAuthorVocab:
         body = "## Banned\n\n### Forbidden Hedging Phrases\n- it's worth noting that\n"
         _make_vocab(tmp_path, "henrietta", body)
         patterns = load_author_vocab("henrietta", storyforge_home=tmp_path)
-        phrase = next(
-            p for p in patterns if p.label == "it's worth noting that"
-        )
-        assert phrase.pattern.search(
-            "Now it's worth noting that we tried."
-        ) is not None
+        phrase = next(p for p in patterns if p.label == "it's worth noting that")
+        assert phrase.pattern.search("Now it's worth noting that we tried.") is not None
         # Same phrase mid-sentence still works
-        assert phrase.pattern.search(
-            "Look — it's worth noting that this fails."
-        ) is not None
+        assert phrase.pattern.search("Look — it's worth noting that this fails.") is not None
 
     def test_higher_heading_terminates_section(self, tmp_path):
         """A `##`-level heading after a `###` Forbidden block stops parsing."""
-        body = (
-            "## Banned Words\n\n"
-            "### Absolutely Forbidden\n- delve\n\n"
-            "## Preferred Vocabulary\n\n"
-            "- said\n- went\n"
-        )
+        body = "## Banned Words\n\n### Absolutely Forbidden\n- delve\n\n## Preferred Vocabulary\n\n- said\n- went\n"
         _make_vocab(tmp_path, "henry", body)
         patterns = load_author_vocab("henry", storyforge_home=tmp_path)
         labels = [p.label for p in patterns]
@@ -270,8 +236,7 @@ class TestLoadGlobalAITells:
         ref.mkdir(parents=True)
         long_expl = "Lorem ipsum " * 20
         (ref / "anti-ai-patterns.md").write_text(
-            "### Heavily Flagged Words and Phrases (X)\n\n"
-            f"1. **Delve** — {long_expl}\n",
+            f"### Heavily Flagged Words and Phrases (X)\n\n1. **Delve** — {long_expl}\n",
             encoding="utf-8",
         )
         patterns = load_global_ai_tells(tmp_path)

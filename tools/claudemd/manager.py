@@ -37,6 +37,7 @@ def _render_template(template: str, facts: dict[str, str]) -> str:
 
     Missing keys are replaced with an em-dash so the output stays readable.
     """
+
     def replace(match: re.Match[str]) -> str:
         key = match.group(1).strip()
         return facts.get(key, "—")
@@ -120,7 +121,7 @@ def _normalize_banned_phrase(text: str) -> str:
     between = match.group("between")
     phrase = match.group("phrase")
     replacement = f"{cue}{between}`{phrase}`"
-    return text[: match.start()] + replacement + text[match.end():]
+    return text[: match.start()] + replacement + text[match.end() :]
 
 
 def _append_entry(
@@ -139,9 +140,7 @@ def _append_entry(
 
     path = resolve_claudemd_path(config, book_slug)
     if not path.exists():
-        raise FileNotFoundError(
-            f"CLAUDE.md not found for book '{book_slug}'. Call init_claudemd first."
-        )
+        raise FileNotFoundError(f"CLAUDE.md not found for book '{book_slug}'. Call init_claudemd first.")
 
     _, end_marker = SECTION_MARKERS[kind]
     content = path.read_text(encoding="utf-8")

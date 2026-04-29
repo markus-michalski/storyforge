@@ -55,8 +55,12 @@ description: ""
 """
     (series_dir / "README.md").write_text(readme, encoding="utf-8")
     (series_dir / "series-arc.md").write_text(f"# {title} — Series Arc\n\n*The big picture.*\n", encoding="utf-8")
-    (series_dir / "timeline.md").write_text(f"# {title} — Timeline\n\n*Chronology across all books.*\n", encoding="utf-8")
-    (series_dir / "world" / "canon.md").write_text(f"# {title} — Canon\n\n*Established facts that cannot be contradicted.*\n", encoding="utf-8")
+    (series_dir / "timeline.md").write_text(
+        f"# {title} — Timeline\n\n*Chronology across all books.*\n", encoding="utf-8"
+    )
+    (series_dir / "world" / "canon.md").write_text(
+        f"# {title} — Canon\n\n*Established facts that cannot be contradicted.*\n", encoding="utf-8"
+    )
 
     _cache.invalidate()
     return json.dumps({"success": True, "slug": slug, "path": str(series_dir)})

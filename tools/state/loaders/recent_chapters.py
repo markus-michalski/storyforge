@@ -56,7 +56,10 @@ def last_paragraph(draft_path: Path, *, max_length: int = 600) -> str:
 
 
 def collect_recent_chapters(
-    chapters_dir: Path, current_slug: str, *, n: int = 3,
+    chapters_dir: Path,
+    current_slug: str,
+    *,
+    n: int = 3,
 ) -> list[Path]:
     """Return up to ``n`` chapter directories strictly before ``current_slug``.
 

@@ -61,11 +61,13 @@ def check_character_consistency(project_dir: Path) -> list[dict[str, Any]]:
 
     for name in character_names:
         if name not in all_mentioned:
-            issues.append({
-                "type": "unused_character",
-                "severity": "warning",
-                "message": f"Character '{name}' has a profile but is never mentioned in any chapter",
-            })
+            issues.append(
+                {
+                    "type": "unused_character",
+                    "severity": "warning",
+                    "message": f"Character '{name}' has a profile but is never mentioned in any chapter",
+                }
+            )
 
     return issues
 
@@ -76,10 +78,12 @@ def check_timeline(project_dir: Path) -> list[dict[str, Any]]:
 
     timeline_file = project_dir / "plot" / "timeline.md"
     if not timeline_file.exists():
-        issues.append({
-            "type": "missing_timeline",
-            "severity": "info",
-            "message": "No timeline.md found — consider creating one for continuity tracking",
-        })
+        issues.append(
+            {
+                "type": "missing_timeline",
+                "severity": "info",
+                "message": "No timeline.md found — consider creating one for continuity tracking",
+            }
+        )
 
     return issues

@@ -46,21 +46,21 @@ _PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 # ---------------------------------------------------------------------------
 
 FILTER_WORD_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("felt",        re.compile(r"\b(?:felt)\b", re.IGNORECASE)),
-    ("noticed",     re.compile(r"\bnoticed\b", re.IGNORECASE)),
-    ("saw that",    re.compile(r"\bsaw\s+(?:that|how|the\s+way)\b", re.IGNORECASE)),
-    ("heard that",  re.compile(r"\bheard\s+(?:that|how|the)\b", re.IGNORECASE)),
-    ("seemed",      re.compile(r"\bseemed\b", re.IGNORECASE)),
-    ("appeared",    re.compile(r"\bappeared\s+to\b", re.IGNORECASE)),
-    ("realized",    re.compile(r"\brealized\b", re.IGNORECASE)),
-    ("wondered",    re.compile(r"\bwondered\b", re.IGNORECASE)),
-    ("watched",     re.compile(r"\bwatched\b", re.IGNORECASE)),
-    ("observed",    re.compile(r"\bobserved\b", re.IGNORECASE)),
+    ("felt", re.compile(r"\b(?:felt)\b", re.IGNORECASE)),
+    ("noticed", re.compile(r"\bnoticed\b", re.IGNORECASE)),
+    ("saw that", re.compile(r"\bsaw\s+(?:that|how|the\s+way)\b", re.IGNORECASE)),
+    ("heard that", re.compile(r"\bheard\s+(?:that|how|the)\b", re.IGNORECASE)),
+    ("seemed", re.compile(r"\bseemed\b", re.IGNORECASE)),
+    ("appeared", re.compile(r"\bappeared\s+to\b", re.IGNORECASE)),
+    ("realized", re.compile(r"\brealized\b", re.IGNORECASE)),
+    ("wondered", re.compile(r"\bwondered\b", re.IGNORECASE)),
+    ("watched", re.compile(r"\bwatched\b", re.IGNORECASE)),
+    ("observed", re.compile(r"\bobserved\b", re.IGNORECASE)),
     ("thought that", re.compile(r"\bthought\s+(?:that|of)\b", re.IGNORECASE)),
-    ("decided",     re.compile(r"\bdecided\b", re.IGNORECASE)),
-    ("knew that",   re.compile(r"\bknew\s+(?:that|how)\b", re.IGNORECASE)),
-    ("remembered",  re.compile(r"\bremembered\b", re.IGNORECASE)),
-    ("sensed",      re.compile(r"\bsensed\b", re.IGNORECASE)),
+    ("decided", re.compile(r"\bdecided\b", re.IGNORECASE)),
+    ("knew that", re.compile(r"\bknew\s+(?:that|how)\b", re.IGNORECASE)),
+    ("remembered", re.compile(r"\bremembered\b", re.IGNORECASE)),
+    ("sensed", re.compile(r"\bsensed\b", re.IGNORECASE)),
 )
 
 
@@ -232,9 +232,7 @@ def _load_cliche_banlist(
     if genres:
         seen = {p for p, _ in base}
         for genre_slug in genres:
-            for phrase, severity in _parse_file(
-                craft_dir / f"cliche-banlist-{genre_slug}.md"
-            ):
+            for phrase, severity in _parse_file(craft_dir / f"cliche-banlist-{genre_slug}.md"):
                 if phrase not in seen:
                     base.append((phrase, severity))
                     seen.add(phrase)
@@ -255,8 +253,7 @@ def _scan_cliches(
     root = plugin_root if plugin_root is not None else _PLUGIN_ROOT
     banlist = _load_cliche_banlist(root, genres=genres)
     patterns = [
-        (phrase, severity, re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE))
-        for phrase, severity in banlist
+        (phrase, severity, re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE)) for phrase, severity in banlist
     ]
 
     findings: list[Finding] = []
@@ -475,11 +472,7 @@ def _scan_snapshots(
             paragraphs.append((para_start, " ".join(para_lines)))
 
         for para_start_line, para_text in paragraphs:
-            sentences = [
-                s.strip()
-                for s in _SENTENCE_SPLIT_RE.split(para_text)
-                if s.strip()
-            ]
+            sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(para_text) if s.strip()]
             if len(sentences) < threshold:
                 continue
 
@@ -542,13 +535,15 @@ def _scan_callbacks(book_path: Path) -> list[Finding]:
     for entry in result.get("potentially_dropped", []):
         warning = entry.get("warning", "no appearance found")
         occ = Occurrence(chapter="CLAUDE.md", line=0, snippet=warning)
-        findings.append(Finding(
-            phrase=entry["name"],
-            category="callback_dropped",
-            severity="high",
-            count=entry.get("chapters_since", 0),
-            occurrences=[occ],
-        ))
+        findings.append(
+            Finding(
+                phrase=entry["name"],
+                category="callback_dropped",
+                severity="high",
+                count=entry.get("chapters_since", 0),
+                occurrences=[occ],
+            )
+        )
 
     for entry in result.get("deferred", []):
         chapters_since = entry.get("chapters_since", 0)
@@ -556,13 +551,15 @@ def _scan_callbacks(book_path: Path) -> list[Finding]:
             continue
         snippet = f"not appeared in {chapters_since} drafted chapters"
         occ = Occurrence(chapter="CLAUDE.md", line=0, snippet=snippet)
-        findings.append(Finding(
-            phrase=entry["name"],
-            category="callback_deferred",
-            severity="medium",
-            count=chapters_since,
-            occurrences=[occ],
-        ))
+        findings.append(
+            Finding(
+                phrase=entry["name"],
+                category="callback_deferred",
+                severity="medium",
+                count=chapters_since,
+                occurrences=[occ],
+            )
+        )
 
     return findings
 

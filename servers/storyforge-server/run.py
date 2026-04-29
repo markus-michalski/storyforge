@@ -15,9 +15,7 @@ VENV_PATH = Path.home() / ".storyforge" / "venv"
 def main() -> None:
     """Find venv python and launch server."""
     # Set plugin root for template/reference resolution
-    plugin_root = os.environ.get(
-        "CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent.parent)
-    )
+    plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT", str(Path(__file__).resolve().parent.parent.parent))
     os.environ["CLAUDE_PLUGIN_ROOT"] = plugin_root
 
     # Add plugin root to Python path so `tools` can be imported as a package
@@ -25,9 +23,7 @@ def main() -> None:
         sys.path.insert(0, plugin_root)
     # Also propagate via PYTHONPATH so it survives os.execv below
     os.environ["PYTHONPATH"] = (
-        plugin_root + os.pathsep + os.environ["PYTHONPATH"]
-        if os.environ.get("PYTHONPATH")
-        else plugin_root
+        plugin_root + os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else plugin_root
     )
 
     venv_python = VENV_PATH / "bin" / "python3"

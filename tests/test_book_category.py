@@ -68,9 +68,7 @@ class TestParseBookCategory:
         book_dir = tmp_path / "memoir-novella"
         book_dir.mkdir()
         (book_dir / "README.md").write_text(
-            '---\ntitle: "Short Memoir"\n'
-            'book_type: "novella"\n'
-            'book_category: "memoir"\n---\n# X\n',
+            '---\ntitle: "Short Memoir"\nbook_type: "novella"\nbook_category: "memoir"\n---\n# X\n',
             encoding="utf-8",
         )
 
@@ -110,9 +108,11 @@ def mock_config(content_root: Path):
 
     # Patch both server_mod (create_book_structure path) and indexer_mod
     # (cache rebuild path) so the cache scan sees the test content_root.
-    with patch.object(server_mod, "load_config", return_value=fake_config), \
-         patch.object(server_mod, "get_content_root", return_value=content_root), \
-         patch.object(indexer_mod, "load_config", return_value=fake_config):
+    with (
+        patch.object(server_mod, "load_config", return_value=fake_config),
+        patch.object(server_mod, "get_content_root", return_value=content_root),
+        patch.object(indexer_mod, "load_config", return_value=fake_config),
+    ):
         server_mod._cache.invalidate()
         yield fake_config
 
@@ -120,11 +120,13 @@ def mock_config(content_root: Path):
 @pytest.fixture
 def server_module(mock_config):  # noqa: F811
     import server as server_mod
+
     return server_mod
 
 
 def _read_book_frontmatter(content_root: Path, slug: str) -> dict:
     import yaml
+
     readme = content_root / "projects" / slug / "README.md"
     text = readme.read_text(encoding="utf-8")
     # naive frontmatter extraction: text between first two "---" lines
@@ -136,21 +138,15 @@ def _read_book_frontmatter(content_root: Path, slug: str) -> dict:
 class TestCreateBookStructureBookCategory:
     """create_book_structure must accept and persist book_category."""
 
-    def test_default_book_category_is_fiction(
-        self, server_module, content_root: Path
-    ):
+    def test_default_book_category_is_fiction(self, server_module, content_root: Path):
         # No book_category param → default "fiction" lands in README.
-        result = json.loads(
-            server_module.create_book_structure(title="Default Cat Book")
-        )
+        result = json.loads(server_module.create_book_structure(title="Default Cat Book"))
         assert result.get("success") is True
 
         meta = _read_book_frontmatter(content_root, "default-cat-book")
         assert meta["book_category"] == "fiction"
 
-    def test_explicit_memoir_category_persisted(
-        self, server_module, content_root: Path
-    ):
+    def test_explicit_memoir_category_persisted(self, server_module, content_root: Path):
         result = json.loads(
             server_module.create_book_structure(
                 title="My Memoir Project",
@@ -162,9 +158,7 @@ class TestCreateBookStructureBookCategory:
         meta = _read_book_frontmatter(content_root, "my-memoir-project")
         assert meta["book_category"] == "memoir"
 
-    def test_invalid_book_category_rejected(
-        self, server_module, content_root: Path
-    ):
+    def test_invalid_book_category_rejected(self, server_module, content_root: Path):
         # Phase 1 only supports fiction|memoir. Other non-fiction subtypes
         # (biography, how-to, academic, history) are explicitly out of scope
         # per #49 / #97.
@@ -180,9 +174,7 @@ class TestCreateBookStructureBookCategory:
         # No directory must be created on rejection.
         assert not (content_root / "projects" / "biography-attempt").exists()
 
-    def test_book_category_orthogonal_to_book_type(
-        self, server_module, content_root: Path
-    ):
+    def test_book_category_orthogonal_to_book_type(self, server_module, content_root: Path):
         # Memoir + novella length is a valid combo.
         result = json.loads(
             server_module.create_book_structure(
@@ -206,16 +198,10 @@ class TestCreateBookStructureBookCategory:
 class TestListBooksBookCategory:
     """list_books MCP tool must expose book_category in each entry."""
 
-    def test_list_books_includes_book_category(
-        self, server_module, content_root: Path
-    ):
+    def test_list_books_includes_book_category(self, server_module, content_root: Path):
         # Create one fiction, one memoir.
         json.loads(server_module.create_book_structure(title="Fiction One"))
-        json.loads(
-            server_module.create_book_structure(
-                title="Memoir One", book_category="memoir"
-            )
-        )
+        json.loads(server_module.create_book_structure(title="Memoir One", book_category="memoir"))
 
         # Force cache rebuild so list_books sees fresh state.
         server_module._cache.invalidate()
@@ -235,12 +221,8 @@ class TestListBooksBookCategory:
 class TestScaffoldFictionLayout:
     """Fiction scaffold preserves the historical layout (regression guard)."""
 
-    def test_fiction_creates_characters_and_world(
-        self, server_module, content_root: Path
-    ):
-        result = json.loads(
-            server_module.create_book_structure(title="Fiction Layout")
-        )
+    def test_fiction_creates_characters_and_world(self, server_module, content_root: Path):
+        result = json.loads(server_module.create_book_structure(title="Fiction Layout"))
         assert result.get("success") is True
 
         project = content_root / "projects" / "fiction-layout"
@@ -253,14 +235,10 @@ class TestScaffoldFictionLayout:
         assert (project / "world" / "glossary.md").is_file()
         assert not (project / "people").exists()
 
-    def test_fiction_plot_files_are_three_act(
-        self, server_module, content_root: Path
-    ):
+    def test_fiction_plot_files_are_three_act(self, server_module, content_root: Path):
         json.loads(server_module.create_book_structure(title="Fiction Plot"))
 
-        outline = (content_root / "projects" / "fiction-plot" / "plot" / "outline.md").read_text(
-            encoding="utf-8"
-        )
+        outline = (content_root / "projects" / "fiction-plot" / "plot" / "outline.md").read_text(encoding="utf-8")
         assert "Act 1: Setup" in outline
         assert "Act 2: Confrontation" in outline
         assert "Act 3: Resolution" in outline
@@ -275,14 +253,8 @@ class TestScaffoldFictionLayout:
 class TestScaffoldMemoirLayout:
     """Memoir scaffold swaps characters→people, drops world/, drops plot/arcs."""
 
-    def test_memoir_creates_people_not_characters(
-        self, server_module, content_root: Path
-    ):
-        result = json.loads(
-            server_module.create_book_structure(
-                title="Memoir Layout", book_category="memoir"
-            )
-        )
+    def test_memoir_creates_people_not_characters(self, server_module, content_root: Path):
+        result = json.loads(server_module.create_book_structure(title="Memoir Layout", book_category="memoir"))
         assert result.get("success") is True
 
         project = content_root / "projects" / "memoir-layout"
@@ -291,50 +263,28 @@ class TestScaffoldMemoirLayout:
         # No fiction-shaped characters/ scaffolded for memoir.
         assert not (project / "characters").exists()
 
-    def test_memoir_skips_world_directory(
-        self, server_module, content_root: Path
-    ):
+    def test_memoir_skips_world_directory(self, server_module, content_root: Path):
         # Memoir documents real settings via research, not invented worlds.
-        json.loads(
-            server_module.create_book_structure(
-                title="No World Memoir", book_category="memoir"
-            )
-        )
+        json.loads(server_module.create_book_structure(title="No World Memoir", book_category="memoir"))
 
         project = content_root / "projects" / "no-world-memoir"
-        assert not (project / "world").exists(), (
-            "Memoir scaffold must skip world/ entirely (#63 spec)"
-        )
+        assert not (project / "world").exists(), "Memoir scaffold must skip world/ entirely (#63 spec)"
 
-    def test_memoir_people_index_mentions_consent(
-        self, server_module, content_root: Path
-    ):
+    def test_memoir_people_index_mentions_consent(self, server_module, content_root: Path):
         # The INDEX must hint at memoir-specific concerns
         # (consent, anonymization) so users know real-people ethics applies.
-        json.loads(
-            server_module.create_book_structure(
-                title="Consent Memoir", book_category="memoir"
-            )
-        )
+        json.loads(server_module.create_book_structure(title="Consent Memoir", book_category="memoir"))
 
-        index = (content_root / "projects" / "consent-memoir" / "people" / "INDEX.md").read_text(
-            encoding="utf-8"
-        )
+        index = (content_root / "projects" / "consent-memoir" / "people" / "INDEX.md").read_text(encoding="utf-8")
         assert "consent" in index.lower() or "anonymization" in index.lower()
         # Sections should be people-shaped, not character-shaped.
         assert "Protagonists" not in index
         assert "Antagonists" not in index
 
-    def test_memoir_plot_uses_structure_types_not_acts(
-        self, server_module, content_root: Path
-    ):
+    def test_memoir_plot_uses_structure_types_not_acts(self, server_module, content_root: Path):
         # Memoir's outline.md must point at structure types
         # (chronological/thematic/braided/vignette), not three-act structure.
-        json.loads(
-            server_module.create_book_structure(
-                title="Structure Memoir", book_category="memoir"
-            )
-        )
+        json.loads(server_module.create_book_structure(title="Structure Memoir", book_category="memoir"))
 
         plot_dir = content_root / "projects" / "structure-memoir" / "plot"
         outline = (plot_dir / "outline.md").read_text(encoding="utf-8")
@@ -348,16 +298,10 @@ class TestScaffoldMemoirLayout:
         assert not (plot_dir / "arcs.md").exists()
         assert not (plot_dir / "acts.md").exists()
 
-    def test_memoir_keeps_shared_dirs(
-        self, server_module, content_root: Path
-    ):
+    def test_memoir_keeps_shared_dirs(self, server_module, content_root: Path):
         # Shared infrastructure (chapters/, research/, cover/, export/, plot/timeline+tone)
         # must remain identical across categories.
-        json.loads(
-            server_module.create_book_structure(
-                title="Shared Dirs Memoir", book_category="memoir"
-            )
-        )
+        json.loads(server_module.create_book_structure(title="Shared Dirs Memoir", book_category="memoir"))
 
         project = content_root / "projects" / "shared-dirs-memoir"
         assert (project / "chapters").is_dir()
@@ -377,23 +321,15 @@ class TestScaffoldMemoirLayout:
 class TestGetBookProgressBookCategory:
     """get_book_progress must expose book_category so book-dashboard can render it."""
 
-    def test_progress_includes_book_category_for_fiction(
-        self, server_module, content_root: Path
-    ):
+    def test_progress_includes_book_category_for_fiction(self, server_module, content_root: Path):
         json.loads(server_module.create_book_structure(title="Progress Fiction"))
         server_module._cache.invalidate()
 
         result = json.loads(server_module.get_book_progress("progress-fiction"))
         assert result["book_category"] == "fiction"
 
-    def test_progress_includes_book_category_for_memoir(
-        self, server_module, content_root: Path
-    ):
-        json.loads(
-            server_module.create_book_structure(
-                title="Progress Memoir", book_category="memoir"
-            )
-        )
+    def test_progress_includes_book_category_for_memoir(self, server_module, content_root: Path):
+        json.loads(server_module.create_book_structure(title="Progress Memoir", book_category="memoir"))
         server_module._cache.invalidate()
 
         result = json.loads(server_module.get_book_progress("progress-memoir"))

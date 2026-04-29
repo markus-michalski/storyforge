@@ -19,17 +19,13 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _write_transcript(path: Path, entries: list[dict]) -> None:
-    path.write_text(
-        "\n".join(json.dumps(e) for e in entries) + "\n", encoding="utf-8"
-    )
+    path.write_text("\n".join(json.dumps(e) for e in entries) + "\n", encoding="utf-8")
 
 
 class TestReadTranscript:
     def test_reads_jsonl(self, tmp_path):
         path = tmp_path / "t.jsonl"
-        _write_transcript(
-            path, [{"type": "user", "message": {"content": "hi"}}, {"type": "assistant"}]
-        )
+        _write_transcript(path, [{"type": "user", "message": {"content": "hi"}}, {"type": "assistant"}])
         entries = _read_transcript(path)
         assert len(entries) == 2
 
@@ -54,9 +50,7 @@ class TestExtractUserText:
         entries = [
             {
                 "type": "user",
-                "message": {
-                    "content": [{"type": "text", "text": "Callback: Gary"}]
-                },
+                "message": {"content": [{"type": "text", "text": "Callback: Gary"}]},
             }
         ]
         assert _extract_user_text(entries) == "Callback: Gary"
@@ -97,10 +91,9 @@ class TestRun:
             ],
         )
 
-        with patch(
-            "tools.shared.config.STATE_PATH", book_setup["state_path"]
-        ), patch(
-            "tools.shared.config.load_config", return_value=book_setup["config"]
+        with (
+            patch("tools.shared.config.STATE_PATH", book_setup["state_path"]),
+            patch("tools.shared.config.load_config", return_value=book_setup["config"]),
         ):
             result = run({"transcript_path": str(transcript)})
 

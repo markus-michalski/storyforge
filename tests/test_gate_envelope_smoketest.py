@@ -35,19 +35,13 @@ def _assert_gate_envelope(payload: dict, *, name: str) -> dict:
     """Common assertions for a tool that returns a wrap_legacy() envelope."""
     assert "gate" in payload, f"{name}: missing 'gate' envelope"
     gate = payload["gate"]
-    assert REQUIRED_GATE_KEYS.issubset(gate.keys()), (
-        f"{name}: gate keys = {sorted(gate.keys())}"
-    )
-    assert gate["status"] in ALLOWED_STATUSES, (
-        f"{name}: bad status {gate['status']!r}"
-    )
+    assert REQUIRED_GATE_KEYS.issubset(gate.keys()), f"{name}: gate keys = {sorted(gate.keys())}"
+    assert gate["status"] in ALLOWED_STATUSES, f"{name}: bad status {gate['status']!r}"
     assert isinstance(gate["reasons"], list)
     assert isinstance(gate["findings"], list)
     assert isinstance(gate["metadata"], dict)
     for f in gate["findings"]:
-        assert {"code", "message", "severity"}.issubset(f.keys()), (
-            f"{name}: finding shape = {sorted(f.keys())}"
-        )
+        assert {"code", "message", "severity"}.issubset(f.keys()), f"{name}: finding shape = {sorted(f.keys())}"
         assert f["severity"] in ALLOWED_STATUSES
     return gate
 
@@ -70,9 +64,7 @@ def _write_fiction_book(content_root: Path, slug: str = "demo-book") -> Path:
         "---\nslug: demo-book\nbook_category: fiction\n---\n\n# Demo Book\n",
         encoding="utf-8",
     )
-    (book / "synopsis.md").write_text(
-        "Synopsis: a hero faces a choice.\n", encoding="utf-8"
-    )
+    (book / "synopsis.md").write_text("Synopsis: a hero faces a choice.\n", encoding="utf-8")
     (book / "plot" / "outline.md").write_text("# Outline\n", encoding="utf-8")
     (book / "plot" / "timeline.md").write_text(
         "| Day | Chapter | Event |\n|---|---|---|\n| Day 1 | 1 | Opening scene |\n",
@@ -94,10 +86,7 @@ def _write_fiction_book(content_root: Path, slug: str = "demo-book") -> Path:
     )
 
     (book / "CLAUDE.md").write_text(
-        "# Book CLAUDE.md\n\n"
-        "## Rules\n\n"
-        "## Callback Register\n\n"
-        "_No callbacks yet._\n",
+        "# Book CLAUDE.md\n\n## Rules\n\n## Callback Register\n\n_No callbacks yet._\n",
         encoding="utf-8",
     )
     return book
@@ -123,9 +112,7 @@ def _write_memoir_book(content_root: Path, slug: str = "demo-memoir") -> Path:
     (book / "chapters" / "01-childhood" / "draft.md").write_text(
         "I was eight. The kitchen smelled of bread.\n", encoding="utf-8"
     )
-    (book / "chapters" / "01-childhood" / "README.md").write_text(
-        "# Ch 1\n", encoding="utf-8"
-    )
+    (book / "chapters" / "01-childhood" / "README.md").write_text("# Ch 1\n", encoding="utf-8")
 
     # Two people: one with consent OK, one refused → expected FAIL gate
     (book / "people" / "alice.md").write_text(
@@ -202,9 +189,7 @@ class TestGateEnvelopePerChecker:
         assert gate["status"] in {"PASS", "WARN", "FAIL"}
         assert "checks" in result and "verdict" in result
 
-    def test_check_memoir_consent_envelope_pass(
-        self, memoir_config: dict, tmp_path: Path
-    ) -> None:
+    def test_check_memoir_consent_envelope_pass(self, memoir_config: dict, tmp_path: Path) -> None:
         # memoir-consent on a memoir book with one refused person → FAIL
         result = json.loads(check_memoir_consent("demo-memoir"))
         gate = _assert_gate_envelope(result, name="check_memoir_consent")
@@ -212,9 +197,7 @@ class TestGateEnvelopePerChecker:
         assert any(f["code"] == "CONSENT_FAIL" for f in gate["findings"])
         assert result["overall"] == "FAIL"  # legacy key still set
 
-    def test_check_memoir_consent_rejects_fiction(
-        self, fiction_config: dict
-    ) -> None:
+    def test_check_memoir_consent_rejects_fiction(self, fiction_config: dict) -> None:
         result = json.loads(check_memoir_consent("demo-book"))
         # Fiction book → tool returns error, no gate is emitted by design.
         assert "error" in result

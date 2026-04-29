@@ -28,9 +28,7 @@ _GENRES_INLINE_RE = re.compile(r"^\s*genres:\s*\[([^\]]*)\]", re.MULTILINE)
 _GENRES_KEY_RE = re.compile(r"^\s*genres:\s*$", re.MULTILINE)
 _GENRES_ITEM_RE = re.compile(r"^[ \t]+-[ \t]+['\"]?([^'\"#\n]+?)['\"]?\s*$")
 
-_BOOK_CATEGORY_RE = re.compile(
-    r"^\s*book_category:\s*['\"]?(\w+)['\"]?\s*$", re.MULTILINE
-)
+_BOOK_CATEGORY_RE = re.compile(r"^\s*book_category:\s*['\"]?(\w+)['\"]?\s*$", re.MULTILINE)
 
 
 def _read_book_genres(book_path: Path) -> list[str]:
@@ -52,11 +50,7 @@ def _read_book_genres(book_path: Path) -> list[str]:
     inline = _GENRES_INLINE_RE.search(frontmatter)
     if inline:
         raw = inline.group(1)
-        return [
-            g.strip().strip("\"'")
-            for g in raw.split(",")
-            if g.strip().strip("\"'")
-        ]
+        return [g.strip().strip("\"'") for g in raw.split(",") if g.strip().strip("\"'")]
 
     if _GENRES_KEY_RE.search(frontmatter):
         genres: list[str] = []
@@ -93,15 +87,9 @@ def _read_book_category(book_path: Path) -> str:
 # People profiles (memoir)
 # ---------------------------------------------------------------------------
 
-_PERSON_NAME_RE = re.compile(
-    r"^\s*name:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", re.MULTILINE
-)
-_PERSON_ANONYMIZATION_RE = re.compile(
-    r"^\s*anonymization:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", re.MULTILINE
-)
-_PERSON_REAL_NAME_RE = re.compile(
-    r"^\s*real_name:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", re.MULTILINE
-)
+_PERSON_NAME_RE = re.compile(r"^\s*name:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", re.MULTILINE)
+_PERSON_ANONYMIZATION_RE = re.compile(r"^\s*anonymization:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", re.MULTILINE)
+_PERSON_REAL_NAME_RE = re.compile(r"^\s*real_name:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", re.MULTILINE)
 
 
 def _read_people_profiles(book_path: Path) -> list[dict[str, str]]:
@@ -128,12 +116,14 @@ def _read_people_profiles(book_path: Path) -> list[dict[str, str]]:
         name_m = _PERSON_NAME_RE.search(fm)
         anon_m = _PERSON_ANONYMIZATION_RE.search(fm)
         real_m = _PERSON_REAL_NAME_RE.search(fm)
-        people.append({
-            "slug": person_file.stem,
-            "name": name_m.group(1).strip() if name_m else person_file.stem,
-            "anonymization": anon_m.group(1).strip() if anon_m else "none",
-            "real_name": real_m.group(1).strip() if real_m else "",
-        })
+        people.append(
+            {
+                "slug": person_file.stem,
+                "name": name_m.group(1).strip() if name_m else person_file.stem,
+                "anonymization": anon_m.group(1).strip() if anon_m else "none",
+                "real_name": real_m.group(1).strip() if real_m else "",
+            }
+        )
     return people
 
 
@@ -142,9 +132,7 @@ def _read_people_profiles(book_path: Path) -> list[dict[str, str]]:
 # ---------------------------------------------------------------------------
 
 _ALLOWED_REPS_RE = re.compile(r"^##\s+Allowed Repetitions\s*$", re.IGNORECASE)
-_SNAPSHOT_THRESHOLD_RE = re.compile(
-    r"^\s*-\s+snapshot_threshold:\s*(\d+)", re.MULTILINE
-)
+_SNAPSHOT_THRESHOLD_RE = re.compile(r"^\s*-\s+snapshot_threshold:\s*(\d+)", re.MULTILINE)
 _LINTER_CONFIG_RE = re.compile(r"^##\s+Linter Config\s*$", re.MULTILINE)
 
 
@@ -184,7 +172,7 @@ def _read_snapshot_threshold(book_path: Path) -> int:
     lc = _LINTER_CONFIG_RE.search(text)
     if not lc:
         return SNAPSHOT_THRESHOLD_DEFAULT
-    section = text[lc.start():]
+    section = text[lc.start() :]
     next_heading = re.search(r"^##\s", section[3:], re.MULTILINE)
     if next_heading:
         section = section[: next_heading.start() + 3]

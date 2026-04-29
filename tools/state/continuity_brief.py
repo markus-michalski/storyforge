@@ -50,12 +50,14 @@ def _build_character_index(book_root: Path) -> list[dict[str, str]]:
         except OSError:
             continue
         meta, _body = parse_frontmatter(text)
-        index.append({
-            "slug": path.stem,
-            "name": str(meta.get("name", path.stem)),
-            "role": str(meta.get("role", "supporting")),
-            "description": str(meta.get("description", "")),
-        })
+        index.append(
+            {
+                "slug": path.stem,
+                "name": str(meta.get("name", path.stem)),
+                "role": str(meta.get("role", "supporting")),
+                "description": str(meta.get("description", "")),
+            }
+        )
 
     return index
 

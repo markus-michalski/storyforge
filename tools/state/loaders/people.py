@@ -106,33 +106,38 @@ def consent_status_warnings(
     for person in people:
         status = str(person.get("consent_status", "")).strip()
         if not status:
-            warnings.append({
-                "person": person.get("name", person.get("slug", "")),
-                "tier": "missing",
-                "message": (
-                    "consent_status is unset — decide before drafting any "
-                    "scene with this person on the page."
-                ),
-            })
+            warnings.append(
+                {
+                    "person": person.get("name", person.get("slug", "")),
+                    "tier": "missing",
+                    "message": (
+                        "consent_status is unset — decide before drafting any scene with this person on the page."
+                    ),
+                }
+            )
         elif status == "pending":
-            warnings.append({
-                "person": person.get("name", person.get("slug", "")),
-                "tier": "pending",
-                "message": (
-                    "consent_status is pending — drafting is allowed, "
-                    "but the request must happen before publication."
-                ),
-            })
+            warnings.append(
+                {
+                    "person": person.get("name", person.get("slug", "")),
+                    "tier": "pending",
+                    "message": (
+                        "consent_status is pending — drafting is allowed, "
+                        "but the request must happen before publication."
+                    ),
+                }
+            )
         elif status == "refused":
-            warnings.append({
-                "person": person.get("name", person.get("slug", "")),
-                "tier": "refused",
-                "message": (
-                    "consent_status is refused — cut the scene, "
-                    "anonymize the portrayal, or re-frame from a different "
-                    "angle before drafting."
-                ),
-            })
+            warnings.append(
+                {
+                    "person": person.get("name", person.get("slug", "")),
+                    "tier": "refused",
+                    "message": (
+                        "consent_status is refused — cut the scene, "
+                        "anonymize the portrayal, or re-frame from a different "
+                        "angle before drafting."
+                    ),
+                }
+            )
     return warnings
 
 

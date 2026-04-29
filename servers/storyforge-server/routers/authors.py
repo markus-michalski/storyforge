@@ -20,9 +20,12 @@ def list_authors() -> str:
     state = _cache.get()
     authors = state.get("authors", {})
     result = [
-        {"slug": slug, "name": a.get("name", slug),
-         "genres": a.get("primary_genres", []),
-         "studied_works": a.get("studied_works_count", 0)}
+        {
+            "slug": slug,
+            "name": a.get("name", slug),
+            "genres": a.get("primary_genres", []),
+            "studied_works": a.get("studied_works_count", 0),
+        }
         for slug, a in authors.items()
     ]
     return json.dumps({"authors": result, "count": len(result)})
@@ -46,7 +49,9 @@ def get_author(slug: str) -> str:
 
 
 @mcp.tool()
-def create_author(name: str, genres: str = "", tone: str = "", voice: str = "third-limited", tense: str = "past") -> str:
+def create_author(
+    name: str, genres: str = "", tone: str = "", voice: str = "third-limited", tense: str = "past"
+) -> str:
     """Create a new author profile directory with template files.
 
     Args:
@@ -111,12 +116,14 @@ avoid: ["purple-prose", "info-dumps", "deus-ex-machina"]
     )
 
     _cache.invalidate()
-    return json.dumps({
-        "success": True,
-        "slug": slug,
-        "path": str(author_dir),
-        "message": f"Author profile '{name}' created at {author_dir}",
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "slug": slug,
+            "path": str(author_dir),
+            "message": f"Author profile '{name}' created at {author_dir}",
+        }
+    )
 
 
 @mcp.tool()

@@ -43,6 +43,7 @@ VALID_SCOPES: tuple[Scope, ...] = (SCOPE_BOOK, SCOPE_AUTHOR, SCOPE_GLOBAL)
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _today() -> str:
     return date.today().isoformat()
 
@@ -60,6 +61,7 @@ def _phrase_already_present(text: str, phrase: str) -> bool:
 # Book-scoped writer
 # ---------------------------------------------------------------------------
 
+
 def write_book_rule(
     phrase: str,
     reason: str,
@@ -76,12 +78,13 @@ def write_book_rule(
         Avoid ``{phrase}`` — {reason} {metadata}
     """
     from tools.claudemd.manager import resolve_claudemd_path
+
     path = resolve_claudemd_path(config, book_slug)
     if path.exists() and _phrase_already_present(path.read_text(encoding="utf-8"), phrase):
         return False, f"Rule already present in book CLAUDE.md (skipped): {phrase}"
 
     tag = _metadata_tag(source_context)
-    text = f'Avoid `{phrase}` — {reason} {tag}'
+    text = f"Avoid `{phrase}` — {reason} {tag}"
     _claudemd_append_rule(config, book_slug, text)
     return True, f"Rule written to book CLAUDE.md: {path}"
 
@@ -200,11 +203,7 @@ def write_global_rule(
     if next_sec:
         insert_at = section_start + next_sec.start()
         # Ensure a blank line before next section.
-        updated = (
-            content[:insert_at].rstrip("\n")
-            + f"\n{new_entry}\n\n"
-            + content[insert_at:]
-        )
+        updated = content[:insert_at].rstrip("\n") + f"\n{new_entry}\n\n" + content[insert_at:]
     else:
         # Append to the end of the file.
         updated = content.rstrip("\n") + f"\n{new_entry}\n"
@@ -216,6 +215,7 @@ def write_global_rule(
 # ---------------------------------------------------------------------------
 # Promote rule
 # ---------------------------------------------------------------------------
+
 
 def promote_rule(
     phrase: str,
@@ -316,6 +316,7 @@ def _remove_from_scope(
             if not config or not book_slug:
                 return
             from tools.claudemd.manager import resolve_claudemd_path
+
             path = resolve_claudemd_path(config, book_slug)
         elif scope == SCOPE_AUTHOR:
             if not author_slug:
@@ -333,10 +334,7 @@ def _remove_from_scope(
         # Remove lines that contain the phrase (case-insensitive).
         phrase_lower = phrase.lower()
         lines = content.splitlines(keepends=True)
-        filtered = [
-            line for line in lines
-            if phrase_lower not in line.lower()
-        ]
+        filtered = [line for line in lines if phrase_lower not in line.lower()]
         path.write_text("".join(filtered), encoding="utf-8")
     except Exception:
         pass

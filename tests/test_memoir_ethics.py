@@ -108,9 +108,7 @@ class TestReadPeopleForEthics:
 
     def test_handles_missing_frontmatter_fields(self, tmp_path):
         book = _make_book(tmp_path)
-        (book / "people" / "unknown.md").write_text(
-            "---\nname: Unknown\n---\nNo category here.\n", encoding="utf-8"
-        )
+        (book / "people" / "unknown.md").write_text("---\nname: Unknown\n---\nNo category here.\n", encoding="utf-8")
         result = read_people_for_ethics(book)
         assert len(result) == 1
         p = result[0]
@@ -210,9 +208,7 @@ class TestCheckConsentOverallVerdict:
     def test_all_pass_gives_overall_pass(self, tmp_path):
         book = _make_book(tmp_path)
         _add_person(book, "alice", "Alice", consent_status="confirmed-consent")
-        _add_person(
-            book, "bob", "Bob", person_category="deceased", consent_status="not-required"
-        )
+        _add_person(book, "bob", "Bob", person_category="deceased", consent_status="not-required")
         result = check_consent(book)
         assert result["overall"] == "PASS"
 

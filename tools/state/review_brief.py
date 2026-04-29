@@ -36,10 +36,12 @@ class _Recorder:
         try:
             return fn()
         except Exception as exc:  # pylint: disable=broad-except
-            self.errors.append({
-                "component": component,
-                "error": f"{type(exc).__name__}: {exc}",
-            })
+            self.errors.append(
+                {
+                    "component": component,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
             return default
 
 
@@ -96,16 +98,11 @@ def _parse_travel_matrix(setting_text: str) -> list[dict[str, str]]:
         if not cells:
             continue
         if header is None:
-            header = [
-                re.sub(r"\s+", "_", c.lower()) for c in cells
-            ]
+            header = [re.sub(r"\s+", "_", c.lower()) for c in cells]
             continue
         if _is_placeholder_row(cells):
             continue
-        row: dict[str, str] = {
-            header[i]: cells[i] if i < len(cells) else ""
-            for i in range(len(header))
-        }
+        row: dict[str, str] = {header[i]: cells[i] if i < len(cells) else "" for i in range(len(header))}
         rows.append(row)
 
     return rows
@@ -156,13 +153,15 @@ def _parse_canon_log_facts(canon_text: str) -> list[dict[str, str]]:
             continue
         if cells[0].startswith("*"):
             continue
-        facts.append({
-            "fact": cells[0],
-            "established_in": cells[1] if len(cells) > 1 else "",
-            "status": cells[2] if len(cells) > 2 else "ACTIVE",
-            "notes": cells[3] if len(cells) > 3 else "",
-            "domain": current_domain,
-        })
+        facts.append(
+            {
+                "fact": cells[0],
+                "established_in": cells[1] if len(cells) > 1 else "",
+                "status": cells[2] if len(cells) > 2 else "ACTIVE",
+                "notes": cells[3] if len(cells) > 3 else "",
+                "domain": current_domain,
+            }
+        )
 
     return facts
 
@@ -482,9 +481,7 @@ def build_review_brief(
             )
 
     # ----- rules + callbacks from book CLAUDE.md ----------------------------
-    active_rules, active_callbacks = _load_book_rules_and_callbacks(
-        book_root, recorder
-    )
+    active_rules, active_callbacks = _load_book_rules_and_callbacks(book_root, recorder)
 
     return {
         "book_slug": book_slug,

@@ -184,9 +184,7 @@ def _scan_book_rules(book_path: Path) -> list[Finding]:
                             continue
                         seen_positions.add(key)
                         snippet = _make_snippet(stripped, m.group(0).lower())
-                        occurrences.append(
-                            Occurrence(chapter=chapter_slug, line=line_no, snippet=snippet)
-                        )
+                        occurrences.append(Occurrence(chapter=chapter_slug, line=line_no, snippet=snippet))
                         pattern_hit = True
             if pattern_hit:
                 matched_labels[display] = None

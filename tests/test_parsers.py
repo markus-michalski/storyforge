@@ -38,7 +38,7 @@ class TestParseFrontmatter:
         assert meta == {}
 
     def test_frontmatter_with_lists(self):
-        text = '---\ngenres:\n  - horror\n  - fantasy\ntone:\n  - sarcastic\n---\n\nBody.'
+        text = "---\ngenres:\n  - horror\n  - fantasy\ntone:\n  - sarcastic\n---\n\nBody."
         meta, body = parse_frontmatter(text)
         assert meta["genres"] == ["horror", "fantasy"]
         assert meta["tone"] == ["sarcastic"]
@@ -73,7 +73,7 @@ class TestParseBookReadme:
             '---\ntitle: "My Book"\nauthor: "test-author"\n'
             'genres: ["horror", "fantasy"]\nbook_type: "novel"\n'
             'status: "Drafting"\nlanguage: "en"\n'
-            'target_word_count: 80000\n---\n\n# My Book\n',
+            "target_word_count: 80000\n---\n\n# My Book\n",
             encoding="utf-8",
         )
 
@@ -92,8 +92,7 @@ class TestParseChapterReadme:
         ch_dir.mkdir()
         readme = ch_dir / "README.md"
         readme.write_text(
-            '---\ntitle: "The Beginning"\nnumber: 1\n'
-            'status: "Draft"\npov_character: "Alex"\n---\n\n# Chapter 1\n',
+            '---\ntitle: "The Beginning"\nnumber: 1\nstatus: "Draft"\npov_character: "Alex"\n---\n\n# Chapter 1\n',
             encoding="utf-8",
         )
 
@@ -109,8 +108,7 @@ class TestParseCharacterFile:
     def test_parse_character(self, tmp_path):
         char_file = tmp_path / "alex.md"
         char_file.write_text(
-            '---\nname: "Alex"\nrole: "protagonist"\n'
-            'status: "Arc Defined"\nage: "28"\n---\n\n# Alex\n',
+            '---\nname: "Alex"\nrole: "protagonist"\nstatus: "Arc Defined"\nage: "28"\n---\n\n# Alex\n',
             encoding="utf-8",
         )
 

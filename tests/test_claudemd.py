@@ -77,13 +77,7 @@ class TestParser:
         assert parse_prefixed_entry("The rule here is important") is None
 
     def test_extract_from_multiline(self):
-        text = (
-            "Normal line.\n"
-            "Regel: stay tight\n"
-            "Another normal line.\n"
-            "Callback: Gary\n"
-            "Workflow: scene-by-scene\n"
-        )
+        text = "Normal line.\nRegel: stay tight\nAnother normal line.\nCallback: Gary\nWorkflow: scene-by-scene\n"
         result = extract_prefixed_lines(text)
         assert result == [
             ("rule", "stay tight"),
@@ -226,9 +220,7 @@ class TestAppendRuleNormalization:
 
     def test_do_not_use_quoted_phrase(self, book_config):
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")
-        append_rule(
-            book_config, "my-book", 'Do not use "began to" as a verb opener'
-        )
+        append_rule(book_config, "my-book", 'Do not use "began to" as a verb opener')
         content = get_claudemd(book_config, "my-book")
         assert "Do not use `began to`" in content
 
@@ -265,9 +257,7 @@ class TestAppendRuleNormalization:
 
     def test_no_ban_cue_leaves_quotes_intact(self, book_config):
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")
-        append_rule(
-            book_config, "my-book", 'Use "felt like" sparingly in dialog'
-        )
+        append_rule(book_config, "my-book", 'Use "felt like" sparingly in dialog')
         content = get_claudemd(book_config, "my-book")
         assert '"felt like"' in content
         assert "`felt like`" not in content
@@ -282,18 +272,14 @@ class TestAppendRuleNormalization:
     def test_workflow_not_normalized(self, book_config):
         """Normalization only applies to rules, not workflows."""
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")
-        append_workflow(
-            book_config, "my-book", 'Avoid "branching" in commit names'
-        )
+        append_workflow(book_config, "my-book", 'Avoid "branching" in commit names')
         content = get_claudemd(book_config, "my-book")
         assert '"branching"' in content
         assert "`branching`" not in content
 
     def test_callback_not_normalized(self, book_config):
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")
-        append_callback(
-            book_config, "my-book", 'Avoid "Gary" as a name in next book'
-        )
+        append_callback(book_config, "my-book", 'Avoid "Gary" as a name in next book')
         content = get_claudemd(book_config, "my-book")
         assert '"Gary"' in content
 
@@ -334,9 +320,7 @@ class TestUpdateBookFacts:
             "my-book",
             facts={"writing_mode": "chapter"},
         )
-        update_book_facts(
-            book_config, "my-book", {"writing_mode": "scene-by-scene"}
-        )
+        update_book_facts(book_config, "my-book", {"writing_mode": "scene-by-scene"})
         content = get_claudemd(book_config, "my-book")
         assert "**Writing Mode:** scene-by-scene" in content
         # Header bullet should not retain old value.

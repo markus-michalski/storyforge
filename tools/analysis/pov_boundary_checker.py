@@ -213,8 +213,7 @@ def _build_options(
     character who would know, reframe as a lay observation, or cut.
     """
     return [
-        f"(a) Move into dialog by a character who would know "
-        f"({domain} expert).",
+        f"(a) Move into dialog by a character who would know ({domain} expert).",
         f"(b) Reframe as {pov_name}'s lay observation — what would they "
         "actually notice without the technical vocabulary?",
         "(c) Cut entirely if it does not earn its place.",
@@ -262,17 +261,22 @@ def scan_pov_boundary(
                 if key in seen_in_paragraph:
                     continue
                 seen_in_paragraph.add(key)
-                hits.append(PovBoundaryHit(
-                    severity="warn",
-                    domain=domain,
-                    knowledge_level=level,
-                    phrase=term,
-                    pov_character=pov_knowledge.name,
-                    line=_line_for_offset(text, _map_to_original(text, narration, match.start())),
-                    options=_build_options(
-                        term, domain, level, pov_knowledge.name,
-                    ),
-                ))
+                hits.append(
+                    PovBoundaryHit(
+                        severity="warn",
+                        domain=domain,
+                        knowledge_level=level,
+                        phrase=term,
+                        pov_character=pov_knowledge.name,
+                        line=_line_for_offset(text, _map_to_original(text, narration, match.start())),
+                        options=_build_options(
+                            term,
+                            domain,
+                            level,
+                            pov_knowledge.name,
+                        ),
+                    )
+                )
     hits.sort(key=lambda h: h.line)
     return hits
 
@@ -300,7 +304,9 @@ def _paragraph_index(offset: int, spans: list[tuple[int, int]]) -> int:
 
 
 def _map_to_original(
-    original: str, narration: str, narration_offset: int,
+    original: str,
+    narration: str,
+    narration_offset: int,
 ) -> int:
     """Map a narration offset back into the original text.
 

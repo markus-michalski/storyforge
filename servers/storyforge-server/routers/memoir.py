@@ -67,36 +67,19 @@ def create_person(
     # Required field — memoir person profiles without a relationship are
     # ambiguous (is this the protagonist? a stranger? a public figure?).
     if not relationship.strip():
-        return json.dumps({
-            "error": "relationship is required for memoir person profiles"
-        })
+        return json.dumps({"error": "relationship is required for memoir person profiles"})
 
     if not is_valid_person_category(person_category):
         allowed = ", ".join(_ALLOWED_PERSON_CATEGORIES)
-        return json.dumps({
-            "error": (
-                f"Invalid person_category '{person_category}'. "
-                f"Allowed values: {allowed}."
-            )
-        })
+        return json.dumps({"error": (f"Invalid person_category '{person_category}'. Allowed values: {allowed}.")})
 
     if not is_valid_consent_status(consent_status):
         allowed = ", ".join(_ALLOWED_CONSENT_STATUSES)
-        return json.dumps({
-            "error": (
-                f"Invalid consent_status '{consent_status}'. "
-                f"Allowed values: {allowed}."
-            )
-        })
+        return json.dumps({"error": (f"Invalid consent_status '{consent_status}'. Allowed values: {allowed}.")})
 
     if not is_valid_anonymization(anonymization):
         allowed = ", ".join(_ALLOWED_ANONYMIZATION_LEVELS)
-        return json.dumps({
-            "error": (
-                f"Invalid anonymization '{anonymization}'. "
-                f"Allowed values: {allowed}."
-            )
-        })
+        return json.dumps({"error": (f"Invalid anonymization '{anonymization}'. Allowed values: {allowed}.")})
 
     # Verify book exists and is memoir. Reading from cache; if the book
     # was just created this session, fall back to disk lookup so the
@@ -111,13 +94,15 @@ def create_person(
     if not book:
         return json.dumps({"error": f"Book '{book_slug}' not found"})
     if book.get("book_category") != "memoir":
-        return json.dumps({
-            "error": (
-                f"Book '{book_slug}' is not a memoir "
-                f"(book_category: {book.get('book_category', 'fiction')}). "
-                "Use create_character for fiction books."
-            )
-        })
+        return json.dumps(
+            {
+                "error": (
+                    f"Book '{book_slug}' is not a memoir "
+                    f"(book_category: {book.get('book_category', 'fiction')}). "
+                    "Use create_character for fiction books."
+                )
+            }
+        )
 
     config = _app.load_config()
     slug = slugify(name)
@@ -170,12 +155,14 @@ description: {json.dumps(description)}
     person_path.write_text(person_file, encoding="utf-8")
 
     _cache.invalidate()
-    return json.dumps({
-        "success": True,
-        "slug": slug,
-        "path": str(person_path),
-        "message": f"Person '{name}' created",
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "slug": slug,
+            "path": str(person_path),
+            "message": f"Person '{name}' created",
+        }
+    )
 
 
 @mcp.tool()
@@ -200,12 +187,7 @@ def set_memoir_structure_type(book_slug: str, structure_type: str) -> str:
     """
     if not is_valid_memoir_structure_type(structure_type):
         allowed = ", ".join(_ALLOWED_MEMOIR_STRUCTURE_TYPES)
-        return json.dumps({
-            "error": (
-                f"Invalid structure_type '{structure_type}'. "
-                f"Allowed values: {allowed}."
-            )
-        })
+        return json.dumps({"error": (f"Invalid structure_type '{structure_type}'. Allowed values: {allowed}.")})
 
     # Memoir-only gate — same pattern as create_person.
     state = _cache.get()
@@ -217,13 +199,15 @@ def set_memoir_structure_type(book_slug: str, structure_type: str) -> str:
     if not book:
         return json.dumps({"error": f"Book '{book_slug}' not found"})
     if book.get("book_category") != "memoir":
-        return json.dumps({
-            "error": (
-                f"Book '{book_slug}' is not a memoir "
-                f"(book_category: {book.get('book_category', 'fiction')}). "
-                "Memoir structure types only apply to book_category: memoir."
-            )
-        })
+        return json.dumps(
+            {
+                "error": (
+                    f"Book '{book_slug}' is not a memoir "
+                    f"(book_category: {book.get('book_category', 'fiction')}). "
+                    "Memoir structure types only apply to book_category: memoir."
+                )
+            }
+        )
 
     config = _app.load_config()
     project_dir = resolve_project_path(config, book_slug)
@@ -238,8 +222,7 @@ def set_memoir_structure_type(book_slug: str, structure_type: str) -> str:
         meta["structure_type"] = structure_type
         # YAML round-trip via inline strings so the file stays diff-friendly
         # for the user's editor.
-        fm = "\n".join(f'{k}: "{v}"' if isinstance(v, str) else f"{k}: {v}"
-                       for k, v in meta.items())
+        fm = "\n".join(f'{k}: "{v}"' if isinstance(v, str) else f"{k}: {v}" for k, v in meta.items())
         new_text = f"---\n{fm}\n---\n{body if body else ''}"
         if not body:
             # Existing file had no frontmatter and no body — write a stub.
@@ -261,9 +244,11 @@ def set_memoir_structure_type(book_slug: str, structure_type: str) -> str:
     structure_path.write_text(new_text, encoding="utf-8")
     _cache.invalidate()
 
-    return json.dumps({
-        "success": True,
-        "book_slug": book_slug,
-        "structure_type": structure_type,
-        "path": str(structure_path),
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "book_slug": book_slug,
+            "structure_type": structure_type,
+            "path": str(structure_path),
+        }
+    )

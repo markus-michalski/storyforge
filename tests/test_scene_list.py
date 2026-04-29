@@ -54,6 +54,7 @@ def mock_config(content_root: Path):
 @pytest.fixture
 def server_module(mock_config):  # noqa: F811
     import server as server_mod
+
     return server_mod
 
 
@@ -77,8 +78,22 @@ def book_dir(content_root: Path) -> Path:
 class TestCreateSceneList:
     def test_creates_scenes_file(self, server_module, book_dir):
         scenes = [
-            {"number": 1, "chapter": "Ch. 01", "pov": "Elena", "summary": "Opens at the market", "est_words": 1200, "status": "Planned"},
-            {"number": 2, "chapter": "Ch. 01", "pov": "Elena", "summary": "Confrontation with merchant", "est_words": 900, "status": "Planned"},
+            {
+                "number": 1,
+                "chapter": "Ch. 01",
+                "pov": "Elena",
+                "summary": "Opens at the market",
+                "est_words": 1200,
+                "status": "Planned",
+            },
+            {
+                "number": 2,
+                "chapter": "Ch. 01",
+                "pov": "Elena",
+                "summary": "Confrontation with merchant",
+                "est_words": 900,
+                "status": "Planned",
+            },
         ]
         result = json.loads(server_module.create_scene_list("test-book", scenes))
 
@@ -89,8 +104,22 @@ class TestCreateSceneList:
 
     def test_file_contains_all_scenes(self, server_module, book_dir):
         scenes = [
-            {"number": 1, "chapter": "Ch. 01", "pov": "Elena", "summary": "Opens at the market", "est_words": 1200, "status": "Planned"},
-            {"number": 2, "chapter": "Ch. 02", "pov": "Marcus", "summary": "Battle at the gate", "est_words": 2000, "status": "Planned"},
+            {
+                "number": 1,
+                "chapter": "Ch. 01",
+                "pov": "Elena",
+                "summary": "Opens at the market",
+                "est_words": 1200,
+                "status": "Planned",
+            },
+            {
+                "number": 2,
+                "chapter": "Ch. 02",
+                "pov": "Marcus",
+                "summary": "Battle at the gate",
+                "est_words": 2000,
+                "status": "Planned",
+            },
         ]
         server_module.create_scene_list("test-book", scenes)
 
@@ -99,9 +128,19 @@ class TestCreateSceneList:
         assert "| 2 | Ch. 02 | Marcus | Battle at the gate | 2000 | Planned |" in content
 
     def test_file_contains_header_and_footer(self, server_module, book_dir):
-        server_module.create_scene_list("test-book", [
-            {"number": 1, "chapter": "Ch. 01", "pov": "Elena", "summary": "Intro scene", "est_words": 800, "status": "Planned"},
-        ])
+        server_module.create_scene_list(
+            "test-book",
+            [
+                {
+                    "number": 1,
+                    "chapter": "Ch. 01",
+                    "pov": "Elena",
+                    "summary": "Intro scene",
+                    "est_words": 800,
+                    "status": "Planned",
+                },
+            ],
+        )
         content = (book_dir / "plot" / "scenes.md").read_text(encoding="utf-8")
         assert "# Scene List: Test Book" in content
         assert "## Scene Index" in content
@@ -115,7 +154,16 @@ class TestCreateSceneList:
 
     def test_overwrites_existing_scenes_file(self, server_module, book_dir):
         (book_dir / "plot" / "scenes.md").write_text("old content", encoding="utf-8")
-        scenes = [{"number": 1, "chapter": "Ch. 01", "pov": "Elena", "summary": "New scene", "est_words": 500, "status": "Planned"}]
+        scenes = [
+            {
+                "number": 1,
+                "chapter": "Ch. 01",
+                "pov": "Elena",
+                "summary": "New scene",
+                "est_words": 500,
+                "status": "Planned",
+            }
+        ]
         server_module.create_scene_list("test-book", scenes)
         content = (book_dir / "plot" / "scenes.md").read_text(encoding="utf-8")
         assert "old content" not in content
@@ -143,9 +191,30 @@ class TestUpdateScene:
     @pytest.fixture
     def book_with_scenes(self, server_module, book_dir):
         scenes = [
-            {"number": 1, "chapter": "Ch. 01", "pov": "Elena", "summary": "Opens at the market", "est_words": 1200, "status": "Planned"},
-            {"number": 2, "chapter": "Ch. 01", "pov": "Marcus", "summary": "Confrontation scene", "est_words": 900, "status": "Planned"},
-            {"number": 3, "chapter": "Ch. 02", "pov": "Elena", "summary": "Discovery in the vault", "est_words": 1500, "status": "Planned"},
+            {
+                "number": 1,
+                "chapter": "Ch. 01",
+                "pov": "Elena",
+                "summary": "Opens at the market",
+                "est_words": 1200,
+                "status": "Planned",
+            },
+            {
+                "number": 2,
+                "chapter": "Ch. 01",
+                "pov": "Marcus",
+                "summary": "Confrontation scene",
+                "est_words": 900,
+                "status": "Planned",
+            },
+            {
+                "number": 3,
+                "chapter": "Ch. 02",
+                "pov": "Elena",
+                "summary": "Discovery in the vault",
+                "est_words": 1500,
+                "status": "Planned",
+            },
         ]
         server_module.create_scene_list("test-book", scenes)
         return book_dir

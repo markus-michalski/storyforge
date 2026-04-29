@@ -160,9 +160,11 @@ def verify_callbacks(book_slug: str) -> str:
 
     claudemd_path = book_path / "CLAUDE.md"
     if not claudemd_path.exists():
-        return json.dumps({
-            "error": f"No CLAUDE.md found for '{book_slug}'. Run init_book_claudemd first.",
-        })
+        return json.dumps(
+            {
+                "error": f"No CLAUDE.md found for '{book_slug}'. Run init_book_claudemd first.",
+            }
+        )
 
     claudemd_text = claudemd_path.read_text(encoding="utf-8")
     result = _verify_callbacks_impl(book_path, claudemd_text)
@@ -241,11 +243,13 @@ def validate_chapter(book_slug: str, chapter_slug: str) -> str:
 
     draft_path = book_path / "chapters" / chapter_slug / "draft.md"
     if not draft_path.is_file():
-        return json.dumps({
-            "error": f"Chapter draft not found at {draft_path}",
-            "book_slug": book_slug,
-            "chapter_slug": chapter_slug,
-        })
+        return json.dumps(
+            {
+                "error": f"Chapter draft not found at {draft_path}",
+                "book_slug": book_slug,
+                "chapter_slug": chapter_slug,
+            }
+        )
 
     result = _validate_chapter_path_impl(str(draft_path))
     payload = result.to_json_dict()
@@ -282,20 +286,24 @@ def validate_book_structure(book_slug: str) -> str:
 
     # Chapter checks
     chapters = find_chapters(config, book_slug)
-    checks.append({
-        "check": "Has chapters",
-        "status": "PASS" if chapters else "WARN",
-        "detail": f"{len(chapters)} chapters found",
-    })
+    checks.append(
+        {
+            "check": "Has chapters",
+            "status": "PASS" if chapters else "WARN",
+            "detail": f"{len(chapters)} chapters found",
+        }
+    )
 
     # Character checks
     chars = list((project_dir / "characters").glob("*.md"))
     char_count = len([c for c in chars if c.name != "INDEX.md"])
-    checks.append({
-        "check": "Has characters",
-        "status": "PASS" if char_count > 0 else "WARN",
-        "detail": f"{char_count} characters found",
-    })
+    checks.append(
+        {
+            "check": "Has characters",
+            "status": "PASS" if char_count > 0 else "WARN",
+            "detail": f"{char_count} characters found",
+        }
+    )
 
     passed = sum(1 for c in checks if c["status"] == "PASS")
     total = len(checks)
@@ -324,42 +332,50 @@ def run_pre_export_gates(book_slug: str) -> str:
     # All chapters must be Final
     chapters = book.get("chapters_data", {})
     non_final = [s for s, c in chapters.items() if c.get("status") != "Final"]
-    gates.append({
-        "gate": "All chapters Final",
-        "status": "FAIL" if non_final else "PASS",
-        "blocking": True,
-        "detail": f"Not final: {', '.join(non_final)}" if non_final else "All final",
-    })
+    gates.append(
+        {
+            "gate": "All chapters Final",
+            "status": "FAIL" if non_final else "PASS",
+            "blocking": True,
+            "detail": f"Not final: {', '.join(non_final)}" if non_final else "All final",
+        }
+    )
 
     # Has at least one chapter
-    gates.append({
-        "gate": "Has chapters",
-        "status": "PASS" if chapters else "FAIL",
-        "blocking": True,
-        "detail": f"{len(chapters)} chapters",
-    })
+    gates.append(
+        {
+            "gate": "Has chapters",
+            "status": "PASS" if chapters else "FAIL",
+            "blocking": True,
+            "detail": f"{len(chapters)} chapters",
+        }
+    )
 
     # Word count check
     total_words = book.get("total_words", 0)
     target = book.get("target_word_count", 0)
     word_ok = total_words >= target * 0.8 if target else total_words > 0
-    gates.append({
-        "gate": "Word count target",
-        "status": "PASS" if word_ok else "WARN",
-        "blocking": False,
-        "detail": f"{total_words}/{target} words ({round(total_words/target*100) if target else 0}%)",
-    })
+    gates.append(
+        {
+            "gate": "Word count target",
+            "status": "PASS" if word_ok else "WARN",
+            "blocking": False,
+            "detail": f"{total_words}/{target} words ({round(total_words / target * 100) if target else 0}%)",
+        }
+    )
 
     # Has synopsis
     config = _app.load_config()
     synopsis = resolve_project_path(config, book_slug) / "synopsis.md"
     synopsis_words = count_words_in_file(synopsis) if synopsis.exists() else 0
-    gates.append({
-        "gate": "Synopsis written",
-        "status": "PASS" if synopsis_words > 50 else "WARN",
-        "blocking": False,
-        "detail": f"{synopsis_words} words",
-    })
+    gates.append(
+        {
+            "gate": "Synopsis written",
+            "status": "PASS" if synopsis_words > 50 else "WARN",
+            "blocking": False,
+            "detail": f"{synopsis_words} words",
+        }
+    )
 
     blocking_fails = [g for g in gates if g["blocking"] and g["status"] == "FAIL"]
     verdict = "BLOCKED" if blocking_fails else "READY"
@@ -461,9 +477,7 @@ def run_quality_gates(book_slug: str) -> str:
     claudemd_path = book_path / "CLAUDE.md"
     if claudemd_path.exists():
         try:
-            cb_result = _verify_callbacks_impl(
-                book_path, claudemd_path.read_text(encoding="utf-8")
-            )
+            cb_result = _verify_callbacks_impl(book_path, claudemd_path.read_text(encoding="utf-8"))
             cb_gate = derive_from_callback_verification(cb_result)
             per_gate["callbacks"] = cb_gate.to_json_dict()
             gates.append(cb_gate)
@@ -499,9 +513,11 @@ def run_quality_gates(book_slug: str) -> str:
         },
     )
 
-    return json.dumps({
-        "book_slug": book_slug,
-        "book_category": book_category,
-        "results": per_gate,
-        "gate": aggregated.to_json_dict(),
-    })
+    return json.dumps(
+        {
+            "book_slug": book_slug,
+            "book_category": book_category,
+            "results": per_gate,
+            "gate": aggregated.to_json_dict(),
+        }
+    )

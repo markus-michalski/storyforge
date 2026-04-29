@@ -27,15 +27,36 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 DAY_NAMES_SHORT: tuple[str, ...] = (
-    "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+    "Sun",
 )
 DAY_NAMES_FULL: tuple[str, ...] = (
-    "Monday", "Tuesday", "Wednesday", "Thursday",
-    "Friday", "Saturday", "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
 )
 MONTH_NAMES_SHORT: tuple[str, ...] = (
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
 )
 
 _DAY_FULL_BY_SHORT = dict(zip(DAY_NAMES_SHORT, DAY_NAMES_FULL))
@@ -339,9 +360,7 @@ def _list_chapter_dirs(book_root: Path) -> list[tuple[int, Path]]:
     return out
 
 
-def _previous_chapter_dir(
-    book_root: Path, current_slug: str
-) -> Path | None:
+def _previous_chapter_dir(book_root: Path, current_slug: str) -> Path | None:
     chapters = _list_chapter_dirs(book_root)
     prev: Path | None = None
     for _, chapter_dir in chapters:
@@ -351,9 +370,7 @@ def _previous_chapter_dir(
     return None
 
 
-def get_story_anchor(
-    book_root: Path, current_chapter_slug: str
-) -> StoryAnchor:
+def get_story_anchor(book_root: Path, current_chapter_slug: str) -> StoryAnchor:
     """Load current + previous chapter anchors and compute the relative
     phrase mapping.
 
@@ -363,9 +380,7 @@ def get_story_anchor(
     """
     chapters_dir = book_root / "chapters"
     current_dir = chapters_dir / current_chapter_slug
-    current = (
-        get_chapter_anchor(current_dir) if current_dir.is_dir() else None
-    )
+    current = get_chapter_anchor(current_dir) if current_dir.is_dir() else None
 
     prev_dir = _previous_chapter_dir(book_root, current_chapter_slug)
     previous = get_chapter_anchor(prev_dir) if prev_dir is not None else None

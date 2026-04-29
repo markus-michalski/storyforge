@@ -49,11 +49,13 @@ def mock_config(content_root: Path):
 
     fake_state_path = content_root / "_cache" / "state.json"
 
-    with patch.object(server_mod, "load_config", return_value=fake_config), \
-         patch.object(server_mod, "get_content_root", return_value=content_root), \
-         patch.object(indexer_mod, "load_config", return_value=fake_config), \
-         patch.object(indexer_mod, "STATE_PATH", fake_state_path), \
-         patch.object(indexer_mod, "CACHE_DIR", fake_state_path.parent):
+    with (
+        patch.object(server_mod, "load_config", return_value=fake_config),
+        patch.object(server_mod, "get_content_root", return_value=content_root),
+        patch.object(indexer_mod, "load_config", return_value=fake_config),
+        patch.object(indexer_mod, "STATE_PATH", fake_state_path),
+        patch.object(indexer_mod, "CACHE_DIR", fake_state_path.parent),
+    ):
         server_mod._cache.invalidate()
         yield fake_config
 
@@ -61,17 +63,16 @@ def mock_config(content_root: Path):
 @pytest.fixture
 def server_module(mock_config):  # noqa: F811
     import server as server_mod
+
     return server_mod
 
 
-def _write_book_with_frontmatter(
-    content_root: Path, slug: str, disk_status: str, extra_fields: str = ""
-) -> Path:
+def _write_book_with_frontmatter(content_root: Path, slug: str, disk_status: str, extra_fields: str = "") -> Path:
     project = content_root / "projects" / slug
     project.mkdir(parents=True)
     (project / "README.md").write_text(
         f'---\ntitle: "Test"\nslug: "{slug}"\nstatus: "{disk_status}"\n'
-        f'target_word_count: 30000\n{extra_fields}---\n\n# {slug}\n\nBody stays intact.\n',
+        f"target_word_count: 30000\n{extra_fields}---\n\n# {slug}\n\nBody stays intact.\n",
         encoding="utf-8",
     )
     (project / "chapters").mkdir()
@@ -94,9 +95,7 @@ def _write_chapter(book: Path, slug: str, status: str) -> Path:
     ch = book / "chapters" / slug
     ch.mkdir(parents=True)
     (ch / "README.md").write_text("# Body\n", encoding="utf-8")
-    (ch / "chapter.yaml").write_text(
-        f'title: "{slug}"\nstatus: "{status}"\n', encoding="utf-8"
-    )
+    (ch / "chapter.yaml").write_text(f'title: "{slug}"\nstatus: "{status}"\n', encoding="utf-8")
     return ch
 
 
@@ -112,9 +111,7 @@ def _read_readme_status(project: Path) -> str:
 
 
 class TestAutoSyncForward:
-    def test_syncs_idea_to_drafting_when_chapter_started(
-        self, server_module, content_root: Path
-    ):
+    def test_syncs_idea_to_drafting_when_chapter_started(self, server_module, content_root: Path):
         project = _write_book_with_frontmatter(content_root, "book-a", "Idea")
         _write_chapter(project, "01-c", status="Draft")
 
@@ -122,9 +119,7 @@ class TestAutoSyncForward:
 
         assert _read_readme_status(project) == "Drafting"
 
-    def test_syncs_idea_to_revision_when_all_chapters_reviewed(
-        self, server_module, content_root: Path
-    ):
+    def test_syncs_idea_to_revision_when_all_chapters_reviewed(self, server_module, content_root: Path):
         # Bug scenario from #25: blood-and-binary book with lots of "review" chapters.
         project = _write_book_with_frontmatter(content_root, "book-b", "Idea")
         _write_chapter(project, "01-c", status="review")
@@ -144,9 +139,7 @@ class TestAutoSyncForward:
 
         assert _read_readme_status(project) == "Revision"
 
-    def test_syncs_idea_to_proofread_when_all_final(
-        self, server_module, content_root: Path
-    ):
+    def test_syncs_idea_to_proofread_when_all_final(self, server_module, content_root: Path):
         project = _write_book_with_frontmatter(content_root, "book-d", "Idea")
         _write_chapter(project, "01-c", status="Final")
         _write_chapter(project, "02-c", status="Final")
@@ -162,9 +155,7 @@ class TestAutoSyncForward:
 
 
 class TestFloorRule:
-    def test_export_ready_not_downgraded_by_drafting_chapters(
-        self, server_module, content_root: Path
-    ):
+    def test_export_ready_not_downgraded_by_drafting_chapters(self, server_module, content_root: Path):
         # User explicitly marked the book as Export Ready. Draft chapters
         # (derived: Drafting) must NOT pull it back.
         project = _write_book_with_frontmatter(content_root, "book-e", "Export Ready")
@@ -174,9 +165,7 @@ class TestFloorRule:
 
         assert _read_readme_status(project) == "Export Ready"
 
-    def test_published_not_touched_by_any_chapter_state(
-        self, server_module, content_root: Path
-    ):
+    def test_published_not_touched_by_any_chapter_state(self, server_module, content_root: Path):
         project = _write_book_with_frontmatter(content_root, "book-f", "Published")
         _write_chapter(project, "01-c", status="Outline")
         _write_chapter(project, "02-c", status="Final")
@@ -185,9 +174,7 @@ class TestFloorRule:
 
         assert _read_readme_status(project) == "Published"
 
-    def test_no_change_when_disk_already_matches_derived(
-        self, server_module, content_root: Path
-    ):
+    def test_no_change_when_disk_already_matches_derived(self, server_module, content_root: Path):
         project = _write_book_with_frontmatter(content_root, "book-g", "Drafting")
         _write_chapter(project, "01-c", status="Draft")
         _write_chapter(project, "02-c", status="Outline")
@@ -195,10 +182,12 @@ class TestFloorRule:
         # Capture mtime before
         readme = project / "README.md"
         import os
+
         mtime_before = os.path.getmtime(readme)
 
         # Sleep tiny bit to ensure mtime resolution catches any write
         import time
+
         time.sleep(0.01)
 
         server_module.rebuild_state()
@@ -213,9 +202,7 @@ class TestFloorRule:
 
 
 class TestNoFrontmatterEdgeCase:
-    def test_creates_frontmatter_when_missing(
-        self, server_module, content_root: Path
-    ):
+    def test_creates_frontmatter_when_missing(self, server_module, content_root: Path):
         # Legacy book with no frontmatter at all. The indexer should add one.
         project = _write_book_without_frontmatter(content_root, "book-h")
         _write_chapter(project, "01-c", status="review")
@@ -237,9 +224,7 @@ class TestNoFrontmatterEdgeCase:
 
 
 class TestPreservesOtherContent:
-    def test_other_frontmatter_fields_intact(
-        self, server_module, content_root: Path
-    ):
+    def test_other_frontmatter_fields_intact(self, server_module, content_root: Path):
         project = _write_book_with_frontmatter(
             content_root,
             "book-i",
@@ -279,9 +264,7 @@ class TestPreservesOtherContent:
 
 
 class TestRebuildStateResponse:
-    def test_response_includes_updated_books_log(
-        self, server_module, content_root: Path
-    ):
+    def test_response_includes_updated_books_log(self, server_module, content_root: Path):
         project = _write_book_with_frontmatter(content_root, "book-k", "Idea")
         _write_chapter(project, "01-c", status="Draft")
 
@@ -289,15 +272,11 @@ class TestRebuildStateResponse:
 
         assert "synced" in result
         assert any(
-            s.get("book") == "book-k"
-            and s.get("from") == "Idea"
-            and s.get("to") == "Drafting"
+            s.get("book") == "book-k" and s.get("from") == "Idea" and s.get("to") == "Drafting"
             for s in result["synced"]
         )
 
-    def test_response_empty_sync_log_when_nothing_to_update(
-        self, server_module, content_root: Path
-    ):
+    def test_response_empty_sync_log_when_nothing_to_update(self, server_module, content_root: Path):
         project = _write_book_with_frontmatter(content_root, "book-l", "Drafting")
         _write_chapter(project, "01-c", status="Draft")
 

@@ -227,10 +227,10 @@ def _make_chapter(
     chapter = book / "chapters" / slug
     chapter.mkdir(parents=True)
     timeline_section = (
-        "\n\n## Chapter Timeline\n\n"
-        "**Start:** Day 5 (Dec 25, 2025) — 14:30\n"
-        "**End:** Day 5 (Dec 25, 2025) — 17:00\n"
-    ) if has_timeline else ""
+        ("\n\n## Chapter Timeline\n\n**Start:** Day 5 (Dec 25, 2025) — 14:30\n**End:** Day 5 (Dec 25, 2025) — 17:00\n")
+        if has_timeline
+        else ""
+    )
     (chapter / "README.md").write_text(
         f'---\ntitle: "Chapter {number}"\nnumber: {number}\n'
         f'status: "{status}"\n---\n\n# Chapter {number}\n{timeline_section}',

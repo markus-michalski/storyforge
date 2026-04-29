@@ -10,16 +10,18 @@ from typing import Any
 # Audit M1 (#117): pandoc forwards LaTeX, and xelatex respects
 # ``-shell-escape``. Without an allowlist these args could carry
 # ``\input{/etc/passwd}``, ``\write18{...}``, or shell-escape pivots.
-_ALLOWED_PDF_ENGINES = frozenset({
-    "xelatex",
-    "lualatex",
-    "pdflatex",
-    "context",
-    "tectonic",
-    "wkhtmltopdf",
-    "weasyprint",
-    "prince",
-})
+_ALLOWED_PDF_ENGINES = frozenset(
+    {
+        "xelatex",
+        "lualatex",
+        "pdflatex",
+        "context",
+        "tectonic",
+        "wkhtmltopdf",
+        "weasyprint",
+        "prince",
+    }
+)
 
 # Fonts: alphanumerics, spaces, hyphens, dots, underscores. Excludes the
 # shell metacharacters and LaTeX command introducers (``\``, ``{``, ``}``,
@@ -33,29 +35,17 @@ _FONT_SIZE_PATTERN = re.compile(r"^\d{1,2}(pt|em)$")
 _MARGIN_PATTERN = re.compile(r"^\d{1,2}(\.\d+)?(cm|mm|in|em|pt)$")
 
 
-def _validate_pdf_args(
-    pdf_engine: str, font: str, font_size: str, margin: str
-) -> str | None:
+def _validate_pdf_args(pdf_engine: str, font: str, font_size: str, margin: str) -> str | None:
     """Return None if all args are safe, else an error message."""
     if pdf_engine not in _ALLOWED_PDF_ENGINES:
         allowed = ", ".join(sorted(_ALLOWED_PDF_ENGINES))
-        return (
-            f"Unsupported pdf_engine '{pdf_engine}'. "
-            f"Allowed: {allowed}"
-        )
+        return f"Unsupported pdf_engine '{pdf_engine}'. Allowed: {allowed}"
     if not _FONT_PATTERN.match(font):
-        return (
-            f"Invalid font '{font}': must match "
-            f"[A-Za-z0-9][A-Za-z0-9 \\-_.]{{0,63}} (no LaTeX or shell metachars)"
-        )
+        return f"Invalid font '{font}': must match [A-Za-z0-9][A-Za-z0-9 \\-_.]{{0,63}} (no LaTeX or shell metachars)"
     if not _FONT_SIZE_PATTERN.match(font_size):
-        return (
-            f"Invalid font_size '{font_size}': must match \\d{{1,2}}(pt|em)"
-        )
+        return f"Invalid font_size '{font_size}': must match \\d{{1,2}}(pt|em)"
     if not _MARGIN_PATTERN.match(margin):
-        return (
-            f"Invalid margin '{margin}': must match \\d{{1,2}}(\\.\\d+)?(cm|mm|in|em|pt)"
-        )
+        return f"Invalid margin '{margin}': must match \\d{{1,2}}(\\.\\d+)?(cm|mm|in|em|pt)"
     return None
 
 
@@ -64,7 +54,9 @@ def check_pandoc() -> dict[str, Any]:
     try:
         result = subprocess.run(
             ["pandoc", "--version"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         version = result.stdout.splitlines()[0] if result.stdout else "unknown"
         return {"installed": True, "version": version}
@@ -77,7 +69,9 @@ def check_calibre() -> dict[str, Any]:
     try:
         result = subprocess.run(
             ["ebook-convert", "--version"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         version = result.stdout.strip() if result.stdout else "unknown"
         return {"installed": True, "version": version}
@@ -96,12 +90,18 @@ def generate_epub(
 ) -> dict[str, Any]:
     """Generate EPUB from a Markdown manuscript."""
     cmd = [
-        "pandoc", str(manuscript_path),
-        "-o", str(output_path),
-        "--metadata", f"title={title}",
-        "--metadata", f"author={author}",
-        "--metadata", f"lang={language}",
-        "--toc", "--toc-depth=1",
+        "pandoc",
+        str(manuscript_path),
+        "-o",
+        str(output_path),
+        "--metadata",
+        f"title={title}",
+        "--metadata",
+        f"author={author}",
+        "--metadata",
+        f"lang={language}",
+        "--toc",
+        "--toc-depth=1",
         "--epub-chapter-level=1",
     ]
 
@@ -141,16 +141,24 @@ def generate_pdf(
         return {"success": False, "error": error}
 
     cmd = [
-        "pandoc", str(manuscript_path),
-        "-o", str(output_path),
+        "pandoc",
+        str(manuscript_path),
+        "-o",
+        str(output_path),
         f"--pdf-engine={pdf_engine}",
-        "--metadata", f"title={title}",
-        "--metadata", f"author={author}",
+        "--metadata",
+        f"title={title}",
+        "--metadata",
+        f"author={author}",
         "--toc",
-        "-V", f"geometry:margin={margin}",
-        "-V", f"fontsize={font_size}",
-        "-V", f"mainfont={font}",
-        "-V", "documentclass=book",
+        "-V",
+        f"geometry:margin={margin}",
+        "-V",
+        f"fontsize={font_size}",
+        "-V",
+        f"mainfont={font}",
+        "-V",
+        "documentclass=book",
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
@@ -203,6 +211,7 @@ def assemble_manuscript(
         text = front.read_text(encoding="utf-8")
         # Remove frontmatter from front-matter file
         import re
+
         text = re.sub(r"^---\s*\n.*?\n---\s*\n", "", text, flags=re.DOTALL)
         parts.append(text)
         parts.append("\n\\newpage\n")
@@ -216,6 +225,7 @@ def assemble_manuscript(
                 content = draft.read_text(encoding="utf-8")
                 # Remove any frontmatter from draft
                 import re
+
                 content = re.sub(r"^---\s*\n.*?\n---\s*\n", "", content, flags=re.DOTALL)
                 parts.append(content)
                 parts.append("\n\\newpage\n")
@@ -233,10 +243,13 @@ def assemble_manuscript(
     return {
         "path": str(output_path),
         "word_count": word_count,
-        "chapters_included": len([
-            d for d in (chapters_dir.iterdir() if chapters_dir.exists() else [])
-            if d.is_dir() and (d / "draft.md").exists()
-        ]),
+        "chapters_included": len(
+            [
+                d
+                for d in (chapters_dir.iterdir() if chapters_dir.exists() else [])
+                if d.is_dir() and (d / "draft.md").exists()
+            ]
+        ),
     }
 
 

@@ -51,6 +51,7 @@ def update_session(
 
     state["session"] = session
     from tools.state.indexer import _write_state
+
     _write_state(state)
     _cache.invalidate()
 
@@ -88,13 +89,15 @@ def rebuild_state() -> str:
     msg = f"Rebuilt state: {books_count} books, {authors_count} authors"
     if synced:
         msg += f"; synced {len(synced)} book status(es) to disk"
-    return json.dumps({
-        "success": True,
-        "books": books_count,
-        "authors": authors_count,
-        "synced": synced,
-        "message": msg,
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "books": books_count,
+            "authors": authors_count,
+            "synced": synced,
+            "message": msg,
+        }
+    )
 
 
 @mcp.tool()
@@ -120,12 +123,7 @@ def update_field(file_path: str, field: str, value: str) -> str:
         return json.dumps({"error": f"Invalid file_path: {exc}"})
 
     if not any(resolved.is_relative_to(root) for root in allowed_roots):
-        return json.dumps({
-            "error": (
-                f"file_path must be within content_root or authors_root "
-                f"(got: {file_path})"
-            )
-        })
+        return json.dumps({"error": (f"file_path must be within content_root or authors_root (got: {file_path})")})
 
     path = Path(file_path)
     if not path.exists():
@@ -190,12 +188,9 @@ def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str
         return json.dumps({"error": f"Invalid path components: {exc}"})
 
     if not resolved.is_relative_to(content_root):
-        return json.dumps({
-            "error": (
-                f"Resolved path escapes content_root "
-                f"(component='{component}', sub_path='{sub_path}')"
-            )
-        })
+        return json.dumps(
+            {"error": (f"Resolved path escapes content_root (component='{component}', sub_path='{sub_path}')")}
+        )
 
     return json.dumps({"path": str(base), "exists": base.exists()})
 
@@ -215,16 +210,13 @@ def get_book_category_dir(category: str) -> str:
     """
     if category not in _ALLOWED_BOOK_CATEGORIES:
         allowed = ", ".join(_ALLOWED_BOOK_CATEGORIES)
-        return json.dumps({
-            "error": (
-                f"Unknown book_category '{category}'. "
-                f"Allowed: {allowed}."
-            )
-        })
+        return json.dumps({"error": (f"Unknown book_category '{category}'. Allowed: {allowed}.")})
 
     base = _app.get_book_categories_dir() / category
-    return json.dumps({
-        "category": category,
-        "path": str(base),
-        "exists": base.exists(),
-    })
+    return json.dumps(
+        {
+            "category": category,
+            "path": str(base),
+            "exists": base.exists(),
+        }
+    )

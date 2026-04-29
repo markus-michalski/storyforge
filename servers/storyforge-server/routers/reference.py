@@ -19,10 +19,7 @@ def list_genres() -> str:
     if not genres_dir.exists():
         return json.dumps({"genres": [], "count": 0})
 
-    genres = sorted(
-        d.name for d in genres_dir.iterdir()
-        if d.is_dir() and (d / "README.md").exists()
-    )
+    genres = sorted(d.name for d in genres_dir.iterdir() if d.is_dir() and (d / "README.md").exists())
     return json.dumps({"genres": genres, "count": len(genres)})
 
 

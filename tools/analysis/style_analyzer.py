@@ -9,25 +9,79 @@ from typing import Any
 
 # Common AI-tell words — the banned list
 AI_TELL_WORDS = {
-    "delve", "tapestry", "nuanced", "vibrant", "landscape", "embark",
-    "resonate", "pivotal", "multifaceted", "realm", "testament",
-    "intricate", "myriad", "unprecedented", "foster", "navigate",
-    "uncover", "ever-evolving", "beacon", "juxtaposition", "paradigm",
-    "synergy", "interplay", "aforementioned", "groundbreaking",
-    "spearhead", "leverage", "underpin", "underscore", "overarching",
-    "holistic", "robust", "streamline", "cutting-edge", "game-changer",
-    "deep-dive", "utilize", "facilitate", "endeavor", "comprehensive",
-    "furthermore", "moreover", "henceforth", "notwithstanding",
-    "bustling", "piercing", "riveting", "captivating", "mesmerizing",
+    "delve",
+    "tapestry",
+    "nuanced",
+    "vibrant",
+    "landscape",
+    "embark",
+    "resonate",
+    "pivotal",
+    "multifaceted",
+    "realm",
+    "testament",
+    "intricate",
+    "myriad",
+    "unprecedented",
+    "foster",
+    "navigate",
+    "uncover",
+    "ever-evolving",
+    "beacon",
+    "juxtaposition",
+    "paradigm",
+    "synergy",
+    "interplay",
+    "aforementioned",
+    "groundbreaking",
+    "spearhead",
+    "leverage",
+    "underpin",
+    "underscore",
+    "overarching",
+    "holistic",
+    "robust",
+    "streamline",
+    "cutting-edge",
+    "game-changer",
+    "deep-dive",
+    "utilize",
+    "facilitate",
+    "endeavor",
+    "comprehensive",
+    "furthermore",
+    "moreover",
+    "henceforth",
+    "notwithstanding",
+    "bustling",
+    "piercing",
+    "riveting",
+    "captivating",
+    "mesmerizing",
 }
 
 # Common filter words that indicate telling instead of showing
 FILTER_WORDS = {
-    "she saw", "he saw", "she heard", "he heard",
-    "she felt", "he felt", "she thought", "he thought",
-    "she noticed", "he noticed", "she realized", "he realized",
-    "she wondered", "he wondered", "she knew", "he knew",
-    "she watched", "he watched", "she observed", "he observed",
+    "she saw",
+    "he saw",
+    "she heard",
+    "he heard",
+    "she felt",
+    "he felt",
+    "she thought",
+    "he thought",
+    "she noticed",
+    "he noticed",
+    "she realized",
+    "he realized",
+    "she wondered",
+    "he wondered",
+    "she knew",
+    "he knew",
+    "she watched",
+    "he watched",
+    "she observed",
+    "he observed",
 }
 
 
@@ -40,16 +94,18 @@ def scan_ai_tells(text: str) -> list[dict[str, Any]]:
         line_lower = line.lower()
         for word in AI_TELL_WORDS:
             # Match whole word
-            pattern = rf'\b{re.escape(word)}\b'
+            pattern = rf"\b{re.escape(word)}\b"
             for match in re.finditer(pattern, line_lower):
                 start = max(0, match.start() - 30)
                 end = min(len(line), match.end() + 30)
                 context = line[start:end].strip()
-                findings.append({
-                    "word": word,
-                    "line": i,
-                    "context": f"...{context}...",
-                })
+                findings.append(
+                    {
+                        "word": word,
+                        "line": i,
+                        "context": f"...{context}...",
+                    }
+                )
 
     return findings
 
@@ -63,11 +119,13 @@ def scan_filter_words(text: str) -> list[dict[str, Any]]:
         line_lower = line.lower()
         for phrase in FILTER_WORDS:
             if phrase in line_lower:
-                findings.append({
-                    "phrase": phrase,
-                    "line": i,
-                    "context": line.strip()[:80],
-                })
+                findings.append(
+                    {
+                        "phrase": phrase,
+                        "line": i,
+                        "context": line.strip()[:80],
+                    }
+                )
 
     return findings
 
@@ -77,7 +135,7 @@ def analyze_vocabulary_complexity(text: str) -> dict[str, Any]:
     # Remove frontmatter
     text = re.sub(r"^---\s*\n.*?\n---\s*\n", "", text, flags=re.DOTALL)
 
-    words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
+    words = re.findall(r"\b[a-zA-Z]+\b", text.lower())
     if not words:
         return {"total_words": 0}
 
@@ -137,7 +195,7 @@ def check_paragraph_uniformity(text: str) -> dict[str, Any]:
     lengths = [len(p.split()) for p in paragraphs]
     mean = sum(lengths) / len(lengths)
     variance = sum((n - mean) ** 2 for n in lengths) / len(lengths)
-    std_dev = variance ** 0.5
+    std_dev = variance**0.5
 
     # Human paragraphs vary a LOT
     # AI paragraphs tend to be uniform

@@ -28,9 +28,7 @@ def _make_book(tmp_path: Path, claudemd_body: str | None = None) -> Path:
     return book
 
 
-def _install_author_vocab(
-    tmp_path: Path, author_slug: str, banned_words: list[str]
-) -> Path:
+def _install_author_vocab(tmp_path: Path, author_slug: str, banned_words: list[str]) -> Path:
     """Place a fake ~/.storyforge/authors/{slug}/vocabulary.md and patch
     the loader to read from this temp home for the duration of the test."""
     home = tmp_path / "_storyforge_home"
@@ -57,13 +55,7 @@ def _write_chapter_readme(
     """Write a chapter README with a Target Words cell. Accepts int (3200)
     or string ("~3,200") to test parser tolerance."""
     readme = book / "chapters" / chapter / "README.md"
-    body = (
-        f"# Chapter\n\n"
-        f"## Overview\n"
-        f"| Field | Value |\n"
-        f"|-------|-------|\n"
-        f"| Target Words | {target_words} |\n"
-    )
+    body = f"# Chapter\n\n## Overview\n| Field | Value |\n|-------|-------|\n| Target Words | {target_words} |\n"
     readme.write_text(body, encoding="utf-8")
     return readme
 
@@ -158,11 +150,7 @@ class TestValidateChapter:
     def test_clean_prose_with_book_claudemd_passes(self, tmp_path):
         book = _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Blood & Binary\n\n"
-                "## Rules\n"
-                "- Do not use `clocked` as a verb.\n"
-            ),
+            claudemd_body=("# Blood & Binary\n\n## Rules\n- Do not use `clocked` as a verb.\n"),
         )
         draft = _write_draft(
             book,
@@ -185,10 +173,7 @@ class TestValidateChapter:
         book = _make_book(
             tmp_path,
             claudemd_body=(
-                "# Book\n\n"
-                "## Rules\n"
-                "- Avoid \"clocked\" as a verb. Replace with "
-                "\"noticed\" or \"registered\".\n"
+                '# Book\n\n## Rules\n- Avoid "clocked" as a verb. Replace with "noticed" or "registered".\n'
             ),
         )
         draft = _write_draft(
@@ -209,20 +194,12 @@ class TestValidateChapter:
         """Backticks containing regex metacharacters compile as regex."""
         book = _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Book\n\n"
-                "## Rules\n"
-                "- Avoid `the (specific|particular|certain) [a-z]+ that` "
-                "as filler.\n"
-            ),
+            claudemd_body=("# Book\n\n## Rules\n- Avoid `the (specific|particular|certain) [a-z]+ that` as filler.\n"),
         )
         draft = _write_draft(
             book,
             "# Chapter 1\n\n"
-            + (
-                "She noticed the specific quietude that follows a slammed "
-                "door. The room held its breath. " * 5
-            ),
+            + ("She noticed the specific quietude that follows a slammed door. The room held its breath. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
         blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
@@ -249,10 +226,7 @@ class TestValidateChapter:
         draft = _write_draft(
             book,
             "# Chapter 4\n\n"
-            + (
-                "The lamp on the table foreshadowed the long night ahead. "
-                "She watched it without thinking. " * 5
-            ),
+            + ("The lamp on the table foreshadowed the long night ahead. She watched it without thinking. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
         meta = [f for f in findings if f.category == "meta_narrative"]
@@ -263,10 +237,7 @@ class TestValidateChapter:
         draft = _write_draft(
             book,
             "# Chapter 6\n\n"
-            + (
-                "The smell of pine calls back to the cabin scene in chapter "
-                "three. He felt his shoulders drop. " * 5
-            ),
+            + ("The smell of pine calls back to the cabin scene in chapter three. He felt his shoulders drop. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
         meta = [f for f in findings if f.category == "meta_narrative"]
@@ -277,10 +248,7 @@ class TestValidateChapter:
         draft = _write_draft(
             book,
             "# Chapter 7\n\n"
-            + (
-                "Her hand on the door parallels her earlier reluctance, "
-                "the one she had carried into the cottage. " * 5
-            ),
+            + ("Her hand on the door parallels her earlier reluctance, the one she had carried into the cottage. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
         meta = [f for f in findings if f.category == "meta_narrative"]
@@ -294,10 +262,7 @@ class TestValidateChapter:
             book,
             "# Chapter 5\n\n"
             "<!-- Ch 4 callback: the cabin pine smell. Foreshadow the trail. -->\n\n"
-            + (
-                "He stepped into the corridor. The wallpaper smelled like "
-                "rain on cedar. She had not slept. " * 5
-            ),
+            + ("He stepped into the corridor. The wallpaper smelled like rain on cedar. She had not slept. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
         meta = [f for f in findings if f.category == "meta_narrative"]
@@ -313,10 +278,7 @@ class TestValidateChapter:
             "<!--\n"
             "Ch 6 callback: the deferred-beer deal.\n"
             "-->\n\n"
-            + (
-                "The Ch 6 callback was funny in retrospect. He turned "
-                "the page. The book smelled like dust. " * 5
-            ),
+            + ("The Ch 6 callback was funny in retrospect. He turned the page. The book smelled like dust. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
         meta = [f for f in findings if f.category == "meta_narrative"]
@@ -377,12 +339,7 @@ class TestValidateChapter:
     def test_backtick_regex_does_not_match_unrelated_text(self, tmp_path):
         book = _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Book\n\n"
-                "## Rules\n"
-                "- Avoid `the (specific|particular|certain) [a-z]+ that` "
-                "as filler.\n"
-            ),
+            claudemd_body=("# Book\n\n## Rules\n- Avoid `the (specific|particular|certain) [a-z]+ that` as filler.\n"),
         )
         draft = _write_draft(
             book,
@@ -411,35 +368,23 @@ class TestAuthorVocabBanlist:
         monkeypatch.setattr(
             banlist_loader,
             "_author_vocab_path",
-            lambda slug, storyforge_home=None: (
-                fake_home / "authors" / slug / "vocabulary.md"
-            ),
+            lambda slug, storyforge_home=None: fake_home / "authors" / slug / "vocabulary.md",
         )
 
     def test_author_vocab_word_blocks_write(self, tmp_path, monkeypatch):
         book = _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Book\n\n## Book Facts\n\n- **Author:** Alice Author\n"
-            ),
+            claudemd_body=("# Book\n\n## Book Facts\n\n- **Author:** Alice Author\n"),
         )
-        home = _install_author_vocab(
-            tmp_path, "alice-author", ["delve", "tapestry"]
-        )
+        home = _install_author_vocab(tmp_path, "alice-author", ["delve", "tapestry"])
         self._patch_storyforge_home(monkeypatch, home)
 
         draft = _write_draft(
             book,
-            "# Chapter 1\n\n"
-            + (
-                "She delved into the tapestry of memory. The room was warm. "
-                "She had not slept. " * 5
-            ),
+            "# Chapter 1\n\n" + ("She delved into the tapestry of memory. The room was warm. She had not slept. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
-        author_blocks = [
-            f for f in findings if f.category == "author_vocab_violation"
-        ]
+        author_blocks = [f for f in findings if f.category == "author_vocab_violation"]
         assert len(author_blocks) >= 2
         assert all(f.severity == vc.SEVERITY_BLOCK for f in author_blocks)
         labels = " ".join(f.message for f in author_blocks)
@@ -448,9 +393,7 @@ class TestAuthorVocabBanlist:
     def test_author_vocab_clean_prose_passes(self, tmp_path, monkeypatch):
         book = _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Book\n\n## Book Facts\n\n- **Author:** Alice Author\n"
-            ),
+            claudemd_body=("# Book\n\n## Book Facts\n\n- **Author:** Alice Author\n"),
         )
         home = _install_author_vocab(tmp_path, "alice-author", ["delve"])
         self._patch_storyforge_home(monkeypatch, home)
@@ -458,15 +401,10 @@ class TestAuthorVocabBanlist:
         draft = _write_draft(
             book,
             "# Chapter 1\n\n"
-            + (
-                "She investigated the box. The room was warm. The kettle "
-                "had cooled. She had not slept. " * 5
-            ),
+            + ("She investigated the box. The room was warm. The kettle had cooled. She had not slept. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
-        author_blocks = [
-            f for f in findings if f.category == "author_vocab_violation"
-        ]
+        author_blocks = [f for f in findings if f.category == "author_vocab_violation"]
         assert author_blocks == []
 
     def test_no_author_in_book_skips_check(self, tmp_path, monkeypatch):
@@ -481,25 +419,16 @@ class TestAuthorVocabBanlist:
 
         draft = _write_draft(
             book,
-            "# Chapter 1\n\n"
-            + (
-                "She delved into the tapestry. " * 30
-            ),
+            "# Chapter 1\n\n" + ("She delved into the tapestry. " * 30),
         )
         findings = vc.validate_chapter(str(draft))
-        author_blocks = [
-            f for f in findings if f.category == "author_vocab_violation"
-        ]
+        author_blocks = [f for f in findings if f.category == "author_vocab_violation"]
         assert author_blocks == []
 
-    def test_author_without_vocab_file_does_not_error(
-        self, tmp_path, monkeypatch
-    ):
+    def test_author_without_vocab_file_does_not_error(self, tmp_path, monkeypatch):
         book = _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Book\n\n## Book Facts\n\n- **Author:** Bob Bookwright\n"
-            ),
+            claudemd_body=("# Book\n\n## Book Facts\n\n- **Author:** Bob Bookwright\n"),
         )
         # No vocab.md installed for bob-bookwright. Loader should return [].
         home = tmp_path / "_storyforge_home"
@@ -511,17 +440,13 @@ class TestAuthorVocabBanlist:
             "# Chapter 1\n\n" + ("She delved into the tapestry. " * 30),
         )
         findings = vc.validate_chapter(str(draft))
-        author_blocks = [
-            f for f in findings if f.category == "author_vocab_violation"
-        ]
+        author_blocks = [f for f in findings if f.category == "author_vocab_violation"]
         assert author_blocks == []
 
     def test_block_message_attributes_source(self, tmp_path, monkeypatch):
         book = _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Book\n\n## Book Facts\n\n- **Author:** Alice Author\n"
-            ),
+            claudemd_body=("# Book\n\n## Book Facts\n\n- **Author:** Alice Author\n"),
         )
         home = _install_author_vocab(tmp_path, "alice-author", ["delve"])
         self._patch_storyforge_home(monkeypatch, home)
@@ -531,9 +456,7 @@ class TestAuthorVocabBanlist:
             "# Chapter 1\n\n" + ("She delved into the box. " * 30),
         )
         findings = vc.validate_chapter(str(draft))
-        author_blocks = [
-            f for f in findings if f.category == "author_vocab_violation"
-        ]
+        author_blocks = [f for f in findings if f.category == "author_vocab_violation"]
         assert author_blocks
         assert "author voice" in author_blocks[0].message.lower()
         assert "author-vocab" in author_blocks[0].message.lower()
@@ -587,10 +510,7 @@ class TestTimeAnchorScanner:
         draft = _write_draft(
             book,
             "# Chapter 22\n\n"
-            + (
-                "An hour ago he had still believed the message would come. "
-                "Now the silence had its own gravity. " * 5
-            ),
+            + ("An hour ago he had still believed the message would come. Now the silence had its own gravity. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
         time_warns = [f for f in findings if f.category == "time_anchor"]
@@ -601,11 +521,7 @@ class TestTimeAnchorScanner:
         # No README written for the chapter → scanner has no anchor.
         draft = _write_draft(
             book,
-            "# Chapter 1\n\n"
-            + (
-                "Yesterday felt distant. He sat at the window and watched. "
-                "The room was cold. " * 5
-            ),
+            "# Chapter 1\n\n" + ("Yesterday felt distant. He sat at the window and watched. The room was cold. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
         time_warns = [f for f in findings if f.category == "time_anchor"]
@@ -633,10 +549,7 @@ class TestTimeAnchorScanner:
         draft = _write_draft(
             book,
             "# Chapter 22\n\n"
-            + (
-                "Yesterday already felt like a different country. He sat "
-                "at the window and watched the snow. " * 5
-            ),
+            + ("Yesterday already felt like a different country. He sat at the window and watched the snow. " * 5),
         )
         payload = {
             "tool_name": "Write",
@@ -651,37 +564,29 @@ class TestPovBoundaryHookIntegration:
     """Wire-up test for the POV-boundary scan in validate_chapter (#76)."""
 
     def _setup(
-        self, tmp_path: Path, *, pov_name: str, pov_knowledge: dict[str, list[str]],
+        self,
+        tmp_path: Path,
+        *,
+        pov_name: str,
+        pov_knowledge: dict[str, list[str]],
     ) -> Path:
         book = _make_book(tmp_path)
         chapter_dir = book / "chapters" / "01-intro"
         # chapter README must carry the POV character.
         readme_body = (
-            "---\n"
-            f'title: "Intro"\n'
-            "number: 1\n"
-            'status: "draft"\n'
-            f'pov_character: "{pov_name}"\n'
-            "---\n"
-            "# Chapter 1\n"
+            f'---\ntitle: "Intro"\nnumber: 1\nstatus: "draft"\npov_character: "{pov_name}"\n---\n# Chapter 1\n'
         )
         (chapter_dir / "README.md").write_text(readme_body, encoding="utf-8")
         # Character file with knowledge profile.
         chars = book / "characters"
         chars.mkdir(parents=True, exist_ok=True)
         from tools.shared.paths import slugify
+
         slug = slugify(pov_name)
         knowledge_lines = ""
         for tier, terms in pov_knowledge.items():
             knowledge_lines += f"  {tier}: {terms}\n"
-        char_body = (
-            "---\n"
-            f'name: "{pov_name}"\n'
-            "knowledge:\n"
-            f"{knowledge_lines}"
-            "---\n"
-            f"# {pov_name}\n"
-        )
+        char_body = f'---\nname: "{pov_name}"\nknowledge:\n{knowledge_lines}---\n# {pov_name}\n'
         (chars / f"{slug}.md").write_text(char_body, encoding="utf-8")
         return book
 
@@ -690,7 +595,9 @@ class TestPovBoundaryHookIntegration:
             tmp_path,
             pov_name="Theo Wilkons",
             pov_knowledge={
-                "expert": ["it"], "competent": [], "layperson": [],
+                "expert": ["it"],
+                "competent": [],
+                "layperson": [],
                 "none": ["forensics"],
             },
         )
@@ -713,7 +620,9 @@ class TestPovBoundaryHookIntegration:
             tmp_path,
             pov_name="Kael",
             pov_knowledge={
-                "expert": ["forensics"], "competent": [], "layperson": [],
+                "expert": ["forensics"],
+                "competent": [],
+                "layperson": [],
                 "none": [],
             },
         )
@@ -734,7 +643,9 @@ class TestPovBoundaryHookIntegration:
             tmp_path,
             pov_name="Theo Wilkons",
             pov_knowledge={
-                "expert": ["it"], "competent": [], "layperson": [],
+                "expert": ["it"],
+                "competent": [],
+                "layperson": [],
                 "none": ["forensics"],
             },
         )
@@ -762,10 +673,7 @@ class TestGlobalAITellsLoading:
         draft = _write_draft(
             book,
             "# Chapter 1\n\n"
-            + (
-                "She delved into the tapestry of vibrant memory. The room "
-                "was warm. The kettle had cooled. " * 5
-            ),
+            + ("She delved into the tapestry of vibrant memory. The room was warm. The kettle had cooled. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
         ai_tells = [f for f in findings if f.category == "ai_tell"]
@@ -793,10 +701,7 @@ class TestExtractChapterLimit:
         assert vc._extract_chapter_limit(rule) == 3
 
     def test_max_range_takes_upper_bound(self):
-        rule = (
-            "Limit the `specific kind of X that Y` construction — "
-            "max 2-3 per chapter."
-        )
+        rule = "Limit the `specific kind of X that Y` construction — max 2-3 per chapter."
         assert vc._extract_chapter_limit(rule) == 3
 
     def test_maximum_word(self):
@@ -904,12 +809,7 @@ class TestPerSceneCounter:
         # etc.
         return _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Book\n\n"
-                "## Rules\n"
-                "- Limit the `kind of \\w+ that` construction — "
-                "max 3 per chapter.\n"
-            ),
+            claudemd_body=("# Book\n\n## Rules\n- Limit the `kind of \\w+ that` construction — max 3 per chapter.\n"),
         )
 
     def test_no_limit_pattern_still_blocks_on_first_hit(self, tmp_path):
@@ -917,17 +817,11 @@ class TestPerSceneCounter:
         block-on-first-hit behavior."""
         book = _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"
-            ),
+            claudemd_body=("# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"),
         )
         draft = _write_draft(
             book,
-            "# Chapter 1\n\n"
-            + (
-                "Theo clocked the room. The bag slid off the bench. "
-                "He counted three breaths. " * 5
-            ),
+            "# Chapter 1\n\n" + ("Theo clocked the room. The bag slid off the bench. He counted three breaths. " * 5),
         )
         findings = vc.validate_chapter(str(draft))
         blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
@@ -944,9 +838,7 @@ class TestPerSceneCounter:
         body += "The door was open. She walked inside. " * 175
         draft = _write_draft(book, body)
         findings = vc.validate_chapter(str(draft))
-        violations = [
-            f for f in findings if f.category == "book_rule_violation"
-        ]
+        violations = [f for f in findings if f.category == "book_rule_violation"]
         assert violations == []
 
     def test_five_hits_in_short_scene_blocks(self, tmp_path):
@@ -965,9 +857,7 @@ class TestPerSceneCounter:
         body += "The room was warm. The kettle had cooled. " * 175
         draft = _write_draft(book, body)
         findings = vc.validate_chapter(str(draft))
-        violations = [
-            f for f in findings if f.category == "book_rule_violation"
-        ]
+        violations = [f for f in findings if f.category == "book_rule_violation"]
         assert len(violations) >= 1
         msg = violations[0].message
         assert "5 times" in msg or "appears 5" in msg
@@ -988,9 +878,7 @@ class TestPerSceneCounter:
         body += "The room was warm. The kettle had cooled. " * 600
         draft = _write_draft(book, body)
         findings = vc.validate_chapter(str(draft))
-        violations = [
-            f for f in findings if f.category == "book_rule_violation"
-        ]
+        violations = [f for f in findings if f.category == "book_rule_violation"]
         assert violations == []
 
     def test_four_hits_at_full_chapter_blocks(self, tmp_path):
@@ -1006,9 +894,7 @@ class TestPerSceneCounter:
         body += "The room was warm. The kettle had cooled. " * 600
         draft = _write_draft(book, body)
         findings = vc.validate_chapter(str(draft))
-        violations = [
-            f for f in findings if f.category == "book_rule_violation"
-        ]
+        violations = [f for f in findings if f.category == "book_rule_violation"]
         assert len(violations) >= 1
 
     def test_message_includes_occurrence_lines(self, tmp_path):
@@ -1024,9 +910,7 @@ class TestPerSceneCounter:
         body += "The room was warm. The kettle had cooled. " * 175
         draft = _write_draft(book, body)
         findings = vc.validate_chapter(str(draft))
-        violations = [
-            f for f in findings if f.category == "book_rule_violation"
-        ]
+        violations = [f for f in findings if f.category == "book_rule_violation"]
         assert violations, "expected at least one violation"
         msg = violations[0].message
         assert "line 3" in msg
@@ -1055,12 +939,7 @@ class TestResolveMode:
         assert vc._resolve_mode(draft) == "strict"
 
     def test_warn_mode_via_frontmatter(self, tmp_path):
-        body = (
-            "---\n"
-            "linter_mode: warn\n"
-            "---\n\n"
-            "# Book\n\n## Rules\n- Avoid `clocked`.\n"
-        )
+        body = "---\nlinter_mode: warn\n---\n\n# Book\n\n## Rules\n- Avoid `clocked`.\n"
         book = _make_book(tmp_path, claudemd_body=body)
         draft = _write_draft(book, "# x\n")
         assert vc._resolve_mode(draft) == "warn"
@@ -1123,9 +1002,7 @@ class TestMainEntryPoint:
     def test_block_exit_2_in_strict_mode(self, tmp_path, monkeypatch, capsys):
         book = _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"
-            ),
+            claudemd_body=("# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"),
         )
         draft = _write_draft(
             book,
@@ -1147,10 +1024,7 @@ class TestMainEntryPoint:
         assert "clocked" in captured.err
 
     def test_warn_mode_does_not_block(self, tmp_path, monkeypatch, capsys):
-        body = (
-            "---\nlinter_mode: warn\n---\n\n"
-            "# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"
-        )
+        body = "---\nlinter_mode: warn\n---\n\n# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"
         book = _make_book(tmp_path, claudemd_body=body)
         draft = _write_draft(
             book,
@@ -1202,9 +1076,7 @@ class TestHookSubprocess:
     def test_strict_block_via_subprocess(self, tmp_path):
         book = _make_book(
             tmp_path,
-            claudemd_body=(
-                "# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"
-            ),
+            claudemd_body=("# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"),
         )
         draft = _write_draft(
             book,
@@ -1215,9 +1087,7 @@ class TestHookSubprocess:
                 "before he turned to face the door. " * 5
             ),
         )
-        payload = json.dumps(
-            {"tool_name": "Write", "tool_input": {"file_path": str(draft)}}
-        )
+        payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(draft)}})
         result = subprocess.run(
             [sys.executable, str(self._hook_path())],
             input=payload,
@@ -1229,9 +1099,7 @@ class TestHookSubprocess:
         assert "clocked" in result.stderr
 
     def test_unwatched_tool_subprocess(self, tmp_path):
-        payload = json.dumps(
-            {"tool_name": "Read", "tool_input": {"file_path": "/x/draft.md"}}
-        )
+        payload = json.dumps({"tool_name": "Read", "tool_input": {"file_path": "/x/draft.md"}})
         result = subprocess.run(
             [sys.executable, str(self._hook_path())],
             input=payload,
@@ -1279,8 +1147,7 @@ class TestValidateCharacter:
         chars_dir.mkdir(parents=True)
         char_file = chars_dir / "alex.md"
         char_file.write_text(
-            '---\nname: "Alex"\nrole: "protagonist"\nstatus: "Concept"\n---\n\n'
-            "# Alex\n\nNo required sections.\n",
+            '---\nname: "Alex"\nrole: "protagonist"\nstatus: "Concept"\n---\n\n# Alex\n\nNo required sections.\n',
             encoding="utf-8",
         )
         issues = validate_character(str(char_file))
@@ -1292,8 +1159,7 @@ class TestValidateCharacter:
         chars_dir.mkdir(parents=True)
         char_file = chars_dir / "barista.md"
         char_file.write_text(
-            '---\nname: "Barista"\nrole: "minor"\nstatus: "Concept"\n---\n\n'
-            "# Barista\n\nJust a minor character.\n",
+            '---\nname: "Barista"\nrole: "minor"\nstatus: "Concept"\n---\n\n# Barista\n\nJust a minor character.\n',
             encoding="utf-8",
         )
         issues = validate_character(str(char_file))

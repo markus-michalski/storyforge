@@ -23,9 +23,7 @@ _TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z'’]*")
 
 # Matches text inside straight or curly double-quoted spans. Non-greedy;
 # must have at least 2 chars of content.
-_DIALOGUE_RE = re.compile(
-    r'(?:"([^"\n]{2,}?)"|“([^“”\n]{2,}?)”)'
-)
+_DIALOGUE_RE = re.compile(r'(?:"([^"\n]{2,}?)"|“([^“”\n]{2,}?)”)')
 
 
 def _strip_markdown(text: str) -> str:
@@ -69,9 +67,7 @@ def _make_snippet(line: str, ngram_text: str, max_len: int = 140) -> str:
     return snippet
 
 
-def _ngrams_in_line(
-    tokens: list[str], sizes: Iterable[int]
-) -> list[tuple[int, int, str]]:
+def _ngrams_in_line(tokens: list[str], sizes: Iterable[int]) -> list[tuple[int, int, str]]:
     """Yield (size, start_index, joined_phrase) for every n-gram in the line.
 
     Skips n-grams that are 100% stop-words — they're noise like "of the and a".

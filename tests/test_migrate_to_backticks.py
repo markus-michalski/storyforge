@@ -31,7 +31,7 @@ class TestMigrateText:
     def test_converts_avoid_quoted_phrase(self):
         new, changes = _migrate_text(SAMPLE_CLAUDEMD)
         assert "Avoid `clocked` as a verb" in new
-        assert "Avoid \"clocked\"" not in new
+        assert 'Avoid "clocked"' not in new
         assert any("clocked" in after for _, _, after in changes)
 
     def test_converts_do_not_use(self):
@@ -41,7 +41,7 @@ class TestMigrateText:
     def test_advisory_quotes_stay(self):
         new, _ = _migrate_text(SAMPLE_CLAUDEMD)
         # No ban cue → should remain quoted.
-        assert "Use \"felt like\" sparingly" in new
+        assert 'Use "felt like" sparingly' in new
 
     def test_already_backticked_unchanged(self):
         new, _ = _migrate_text(SAMPLE_CLAUDEMD)
@@ -64,21 +64,18 @@ class TestMigrateText:
         assert changes == []
 
     def test_preserves_trailing_newline(self):
-        text_with = "- Avoid \"x\" please.\n"
+        text_with = '- Avoid "x" please.\n'
         new, _ = _migrate_text(text_with)
         assert new.endswith("\n")
 
-        text_without = "- Avoid \"x\" please."
+        text_without = '- Avoid "x" please.'
         new_wo, _ = _migrate_text(text_without)
         assert not new_wo.endswith("\n")
 
     def test_non_bullet_lines_untouched(self):
-        text = (
-            "Some narrative paragraph mentioning \"clocked\" and avoid it.\n"
-            "- Avoid \"clocked\" as a verb.\n"
-        )
+        text = 'Some narrative paragraph mentioning "clocked" and avoid it.\n- Avoid "clocked" as a verb.\n'
         new, changes = _migrate_text(text)
-        assert "narrative paragraph mentioning \"clocked\"" in new
+        assert 'narrative paragraph mentioning "clocked"' in new
         assert "Avoid `clocked`" in new
         assert len(changes) == 1
 
@@ -115,9 +112,7 @@ class TestMigrateCLI:
         assert rc == 0
         assert "No changes needed" in capsys.readouterr().out
 
-    def test_apply_writes_with_yes_confirmation(
-        self, tmp_path, capsys, monkeypatch
-    ):
+    def test_apply_writes_with_yes_confirmation(self, tmp_path, capsys, monkeypatch):
         book = self._write_book(tmp_path, SAMPLE_CLAUDEMD)
         monkeypatch.setattr("builtins.input", lambda _: "y")
         rc = main([str(book), "--apply"])
@@ -159,6 +154,4 @@ class TestMigrateSubprocess:
         assert result.returncode == 0, result.stderr
         assert "Avoid `clocked`" in result.stdout
         # File unchanged in dry-run.
-        assert "Avoid \"clocked\"" in (book / "CLAUDE.md").read_text(
-            encoding="utf-8"
-        )
+        assert 'Avoid "clocked"' in (book / "CLAUDE.md").read_text(encoding="utf-8")

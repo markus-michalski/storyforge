@@ -134,9 +134,7 @@ def scan_repetitions(
                 continue
             for _size, _i, phrase in _ngrams_in_line(tokens, sizes):
                 snippet = _make_snippet(stripped, phrase)
-                index[phrase].append(
-                    Occurrence(chapter=chapter_slug, line=line_no, snippet=snippet)
-                )
+                index[phrase].append(Occurrence(chapter=chapter_slug, line=line_no, snippet=snippet))
 
     # Per-length thresholds. Shorter n-grams need MORE occurrences to be
     # considered noteworthy, otherwise the report drowns in 4-grams that are
@@ -163,10 +161,7 @@ def scan_repetitions(
             continue
         # Skip if a longer accepted phrase fully contains this one with a
         # comparable occurrence count (within +/- 1).
-        if any(
-            phrase in longer and abs(len(occs) - longer_count) <= 1
-            for longer, longer_count in seen_long
-        ):
+        if any(phrase in longer and abs(len(occs) - longer_count) <= 1 for longer, longer_count in seen_long):
             continue
         category = _classify(phrase, occs)
         severity = "high" if len(occs) >= 4 else "medium"

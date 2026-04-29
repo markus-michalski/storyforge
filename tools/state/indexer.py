@@ -170,9 +170,7 @@ def rebuild(preserve_session: bool = True) -> dict[str, Any]:
 # --- Scanners ---
 
 
-def _scan_books(
-    projects_dir: Path, sync_log: list[dict[str, str]] | None = None
-) -> dict[str, Any]:
+def _scan_books(projects_dir: Path, sync_log: list[dict[str, str]] | None = None) -> dict[str, Any]:
     """Scan all book project directories.
 
     When ``sync_log`` is provided (Issue #25), each book's README frontmatter
@@ -195,9 +193,7 @@ def _scan_books(
         if chapters_dir.exists():
             book["chapters_data"] = _scan_chapters(chapters_dir)
             book["chapter_count"] = len(book["chapters_data"])
-            book["total_words"] = sum(
-                ch.get("word_count", 0) for ch in book["chapters_data"].values()
-            )
+            book["total_words"] = sum(ch.get("word_count", 0) for ch in book["chapters_data"].values())
         else:
             book["chapters_data"] = {}
             book["chapter_count"] = 0
@@ -252,9 +248,7 @@ def _scan_books(
     return books
 
 
-def _sync_book_status_to_disk(
-    project_dir: Path, disk_status: str, derived_status: str
-) -> dict[str, str] | None:
+def _sync_book_status_to_disk(project_dir: Path, disk_status: str, derived_status: str) -> dict[str, str] | None:
     """Write derived book status back to README frontmatter (Issue #25).
 
     Only writes when ``derived_status`` is a strictly forward move from
@@ -395,16 +389,18 @@ def _scan_ideas_dir(ideas_dir: Path) -> list[dict]:
             continue
         if not meta:
             continue
-        ideas.append({
-            "slug": meta.get("slug", md_file.stem),
-            "title": meta.get("title", md_file.stem),
-            "status": meta.get("status", "raw"),
-            "genres": meta.get("genres", []),
-            "logline": meta.get("logline", ""),
-            "created": str(meta.get("created", "")),
-            "last_touched": str(meta.get("last_touched", "")),
-            "promoted_to": meta.get("promoted_to"),
-        })
+        ideas.append(
+            {
+                "slug": meta.get("slug", md_file.stem),
+                "title": meta.get("title", md_file.stem),
+                "status": meta.get("status", "raw"),
+                "genres": meta.get("genres", []),
+                "logline": meta.get("logline", ""),
+                "created": str(meta.get("created", "")),
+                "last_touched": str(meta.get("last_touched", "")),
+                "promoted_to": meta.get("promoted_to"),
+            }
+        )
 
     return ideas
 

@@ -77,9 +77,7 @@ def _add_chapter(book: Path, slug: str, *, number: int) -> None:
         f'---\ntitle: "Chapter {number}"\nnumber: {number}\nstatus: "Draft"\n---\n\n# Chapter {number}\n',
         encoding="utf-8",
     )
-    (chapter / "draft.md").write_text(
-        f"Draft content for chapter {number}.", encoding="utf-8"
-    )
+    (chapter / "draft.md").write_text(f"Draft content for chapter {number}.", encoding="utf-8")
 
 
 def _add_person(
@@ -170,9 +168,7 @@ class TestReviewBriefMemoirMode:
         book = _make_memoir_book(tmp_path)
         _add_chapter(book, "01-start", number=1)
 
-        result = build_review_brief(
-            book_root=book, book_slug="test-memoir", chapter_slug="01-start"
-        )
+        result = build_review_brief(book_root=book, book_slug="test-memoir", chapter_slug="01-start")
 
         assert result["travel_matrix"] == []
 
@@ -180,9 +176,7 @@ class TestReviewBriefMemoirMode:
         book = _make_memoir_book(tmp_path)
         _add_chapter(book, "01-start", number=1)
 
-        result = build_review_brief(
-            book_root=book, book_slug="test-memoir", chapter_slug="01-start"
-        )
+        result = build_review_brief(book_root=book, book_slug="test-memoir", chapter_slug="01-start")
 
         assert result["canon_log_facts"] == []
 
@@ -190,9 +184,7 @@ class TestReviewBriefMemoirMode:
         book = _make_memoir_book(tmp_path)
         _add_chapter(book, "01-start", number=1)
 
-        result = build_review_brief(
-            book_root=book, book_slug="test-memoir", chapter_slug="01-start"
-        )
+        result = build_review_brief(book_root=book, book_slug="test-memoir", chapter_slug="01-start")
 
         assert result["errors"] == []
 
@@ -200,9 +192,7 @@ class TestReviewBriefMemoirMode:
         book = _make_memoir_book(tmp_path)
         _add_chapter(book, "01-start", number=1)
 
-        result = build_review_brief(
-            book_root=book, book_slug="test-memoir", chapter_slug="01-start"
-        )
+        result = build_review_brief(book_root=book, book_slug="test-memoir", chapter_slug="01-start")
 
         for key in ("travel_matrix", "canon_log_facts", "tonal_rules", "errors"):
             assert key in result
@@ -324,9 +314,7 @@ class TestFictionRegressionAfterPhase4:
         (book / "world" / "setting.md").write_text(_TRAVEL_MATRIX, encoding="utf-8")
         _add_chapter(book, "01-opening", number=1)
 
-        result = build_review_brief(
-            book_root=book, book_slug="test-fiction", chapter_slug="01-opening"
-        )
+        result = build_review_brief(book_root=book, book_slug="test-fiction", chapter_slug="01-opening")
 
         assert len(result["travel_matrix"]) == 1
 
@@ -335,9 +323,7 @@ class TestFictionRegressionAfterPhase4:
         (book / "plot" / "canon-log.md").write_text(_CANON_LOG, encoding="utf-8")
         _add_chapter(book, "01-opening", number=1)
 
-        result = build_review_brief(
-            book_root=book, book_slug="test-fiction", chapter_slug="01-opening"
-        )
+        result = build_review_brief(book_root=book, book_slug="test-fiction", chapter_slug="01-opening")
 
         assert len(result["canon_log_facts"]) == 1
 

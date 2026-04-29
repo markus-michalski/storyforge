@@ -35,25 +35,25 @@ from tools.analysis.manuscript.vocabularies import (
 # ---------------------------------------------------------------------------
 
 _TEMPORAL_VAGUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("some time later",  re.compile(r"\bsome\s+time\s+later\b", re.IGNORECASE)),
-    ("at some point",    re.compile(r"\bat\s+some\s+point\b", re.IGNORECASE)),
-    ("one day",          re.compile(r"\bone\s+day\b", re.IGNORECASE)),
-    ("one night",        re.compile(r"\bone\s+night\b", re.IGNORECASE)),
-    ("eventually",       re.compile(r"\beventually\b", re.IGNORECASE)),
-    ("after a while",    re.compile(r"\bafter\s+a\s+while\b", re.IGNORECASE)),
-    ("a while later",    re.compile(r"\ba\s+while\s+later\b", re.IGNORECASE)),
-    ("years later",      re.compile(r"\byears\s+later\b", re.IGNORECASE)),
-    ("years earlier",    re.compile(r"\byears\s+earlier\b", re.IGNORECASE)),
-    ("years before",     re.compile(r"\byears\s+before\b", re.IGNORECASE)),
-    ("years ago",        re.compile(r"\byears\s+ago\b", re.IGNORECASE)),
-    ("a long time ago",  re.compile(r"\ba\s+long\s+time\s+ago\b", re.IGNORECASE)),
-    ("back then",        re.compile(r"\bback\s+then\b", re.IGNORECASE)),
-    ("in those days",    re.compile(r"\bin\s+those\s+days\b", re.IGNORECASE)),
-    ("at that time",     re.compile(r"\bat\s+that\s+time\b", re.IGNORECASE)),
+    ("some time later", re.compile(r"\bsome\s+time\s+later\b", re.IGNORECASE)),
+    ("at some point", re.compile(r"\bat\s+some\s+point\b", re.IGNORECASE)),
+    ("one day", re.compile(r"\bone\s+day\b", re.IGNORECASE)),
+    ("one night", re.compile(r"\bone\s+night\b", re.IGNORECASE)),
+    ("eventually", re.compile(r"\beventually\b", re.IGNORECASE)),
+    ("after a while", re.compile(r"\bafter\s+a\s+while\b", re.IGNORECASE)),
+    ("a while later", re.compile(r"\ba\s+while\s+later\b", re.IGNORECASE)),
+    ("years later", re.compile(r"\byears\s+later\b", re.IGNORECASE)),
+    ("years earlier", re.compile(r"\byears\s+earlier\b", re.IGNORECASE)),
+    ("years before", re.compile(r"\byears\s+before\b", re.IGNORECASE)),
+    ("years ago", re.compile(r"\byears\s+ago\b", re.IGNORECASE)),
+    ("a long time ago", re.compile(r"\ba\s+long\s+time\s+ago\b", re.IGNORECASE)),
+    ("back then", re.compile(r"\bback\s+then\b", re.IGNORECASE)),
+    ("in those days", re.compile(r"\bin\s+those\s+days\b", re.IGNORECASE)),
+    ("at that time", re.compile(r"\bat\s+that\s+time\b", re.IGNORECASE)),
     ("around that time", re.compile(r"\baround\s+that\s+time\b", re.IGNORECASE)),
-    ("sometime later",   re.compile(r"\bsometime\s+later\b", re.IGNORECASE)),
-    ("not long after",   re.compile(r"\bnot\s+long\s+after\b", re.IGNORECASE)),
-    ("before long",      re.compile(r"\bbefore\s+long\b", re.IGNORECASE)),
+    ("sometime later", re.compile(r"\bsometime\s+later\b", re.IGNORECASE)),
+    ("not long after", re.compile(r"\bnot\s+long\s+after\b", re.IGNORECASE)),
+    ("before long", re.compile(r"\bbefore\s+long\b", re.IGNORECASE)),
 )
 
 
@@ -117,23 +117,23 @@ def _scan_timeline_ambiguity(book_path: Path) -> list[Finding]:
 # ---------------------------------------------------------------------------
 
 _REFLECTIVE_PLATITUDE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("looking back",         re.compile(r"\blooking\s+back\b", re.IGNORECASE)),
-    ("in retrospect",        re.compile(r"\bin\s+retrospect\b", re.IGNORECASE)),
-    ("in hindsight",         re.compile(r"\bin\s+hindsight\b", re.IGNORECASE)),
-    ("with hindsight",       re.compile(r"\bwith\s+hindsight\b", re.IGNORECASE)),
-    ("I now realize",        re.compile(r"\bI\s+now\s+realiz", re.IGNORECASE)),
-    ("I now understand",     re.compile(r"\bI\s+now\s+understand\b", re.IGNORECASE)),
-    ("I now know",           re.compile(r"\bI\s+now\s+know\b", re.IGNORECASE)),
-    ("I realize now",        re.compile(r"\bI\s+realiz\w*\s+now\b", re.IGNORECASE)),
-    ("I understand now",     re.compile(r"\bI\s+understand\s+now\b", re.IGNORECASE)),
-    ("what I learned",       re.compile(r"\bwhat\s+I\s+learned\b", re.IGNORECASE)),
-    ("I came to realize",    re.compile(r"\bI\s+came\s+to\s+realiz", re.IGNORECASE)),
+    ("looking back", re.compile(r"\blooking\s+back\b", re.IGNORECASE)),
+    ("in retrospect", re.compile(r"\bin\s+retrospect\b", re.IGNORECASE)),
+    ("in hindsight", re.compile(r"\bin\s+hindsight\b", re.IGNORECASE)),
+    ("with hindsight", re.compile(r"\bwith\s+hindsight\b", re.IGNORECASE)),
+    ("I now realize", re.compile(r"\bI\s+now\s+realiz", re.IGNORECASE)),
+    ("I now understand", re.compile(r"\bI\s+now\s+understand\b", re.IGNORECASE)),
+    ("I now know", re.compile(r"\bI\s+now\s+know\b", re.IGNORECASE)),
+    ("I realize now", re.compile(r"\bI\s+realiz\w*\s+now\b", re.IGNORECASE)),
+    ("I understand now", re.compile(r"\bI\s+understand\s+now\b", re.IGNORECASE)),
+    ("what I learned", re.compile(r"\bwhat\s+I\s+learned\b", re.IGNORECASE)),
+    ("I came to realize", re.compile(r"\bI\s+came\s+to\s+realiz", re.IGNORECASE)),
     ("I came to understand", re.compile(r"\bI\s+came\s+to\s+understand\b", re.IGNORECASE)),
-    ("I would later",        re.compile(r"\bI\s+would\s+later\b", re.IGNORECASE)),
-    ("it taught me",         re.compile(r"\bit\s+taught\s+me\b", re.IGNORECASE)),
-    ("taught me that",       re.compile(r"\btaught\s+me\s+that\b", re.IGNORECASE)),
-    ("I had come to",        re.compile(r"\bI\s+had\s+come\s+to\b", re.IGNORECASE)),
-    ("the lesson was",       re.compile(r"\bthe\s+lesson\s+was\b", re.IGNORECASE)),
+    ("I would later", re.compile(r"\bI\s+would\s+later\b", re.IGNORECASE)),
+    ("it taught me", re.compile(r"\bit\s+taught\s+me\b", re.IGNORECASE)),
+    ("taught me that", re.compile(r"\btaught\s+me\s+that\b", re.IGNORECASE)),
+    ("I had come to", re.compile(r"\bI\s+had\s+come\s+to\b", re.IGNORECASE)),
+    ("the lesson was", re.compile(r"\bthe\s+lesson\s+was\b", re.IGNORECASE)),
 )
 
 
@@ -243,9 +243,7 @@ def _scan_tidy_lesson_endings(book_path: Path) -> list[Finding]:
                 category="tidy_lesson_ending",
                 severity=severity,
                 count=len(hits),
-                occurrences=[
-                    Occurrence(chapter=chapter_slug, line=0, snippet=snippet)
-                ],
+                occurrences=[Occurrence(chapter=chapter_slug, line=0, snippet=snippet)],
             )
         )
     return findings
@@ -259,10 +257,7 @@ def _scan_tidy_lesson_endings(book_path: Path) -> list[Finding]:
 def _scan_anonymization_leak(book_path: Path) -> list[Finding]:
     """Memoir: flag draft chapters that contain a person's real name despite anonymization."""
     people = _read_people_profiles(book_path)
-    anon_people = [
-        p for p in people
-        if p["anonymization"] != "none" and p["real_name"]
-    ]
+    anon_people = [p for p in people if p["anonymization"] != "none" and p["real_name"]]
     if not anon_people:
         return []
 
@@ -350,18 +345,14 @@ def _scan_real_people_consistency(book_path: Path) -> list[Finding]:
             continue
 
         forms_str = ", ".join(f'"{f}"' for f in sorted(forms_found.keys()))
-        all_occurrences = [
-            occ for occs in forms_found.values() for occ in occs
-        ]
+        all_occurrences = [occ for occs in forms_found.values() for occ in occs]
         findings.append(
             Finding(
                 phrase=f'"{display_name}": multiple forms found — {forms_str}',
                 category="real_people_consistency",
                 severity="medium",
                 count=len(forms_found),
-                occurrences=sorted(
-                    all_occurrences, key=lambda o: (o.chapter, o.line)
-                )[:10],
+                occurrences=sorted(all_occurrences, key=lambda o: (o.chapter, o.line))[:10],
             )
         )
     return findings
