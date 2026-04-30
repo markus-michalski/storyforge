@@ -28,7 +28,10 @@ from tools.claudemd.rules_editor import (
     list_rules as _list_rules_impl,
     update_rule as _update_rule_impl,
 )
-from tools.claudemd.rules_lint import lint_book_rules as _lint_book_rules_impl
+from tools.claudemd.rules_lint import (
+    lint_book_rules as _lint_book_rules_impl,
+    lint_rule_text as _lint_rule_text_impl,
+)
 from tools.shared.paths import resolve_character_path, resolve_project_path
 
 from . import _app
@@ -121,14 +124,38 @@ def get_character(book_slug: str, character_slug: str) -> str:
 
 
 @mcp.tool()
-def append_book_rule(book_slug: str, text: str) -> str:
-    """Append a rule to the Rules section of a book's CLAUDE.md."""
+def append_book_rule(book_slug: str, text: str, validate: bool = True) -> str:
+    """Append a rule to the Rules section of a book's CLAUDE.md.
+
+    With ``validate=True`` (default) the rule text is run through the
+    same lint as ``update_book_rule`` and any warnings are returned in
+    the response. Warnings are advisory — the rule is appended either way.
+
+    Returns ``{path, kind, text, warnings, extracted_patterns}``.
+    """
     config = _app.load_config()
     try:
         path = _append_rule_impl(config, book_slug, text)
     except (FileNotFoundError, ValueError) as exc:
         return json.dumps({"error": str(exc)})
-    return json.dumps({"path": str(path), "kind": "rule", "text": text})
+
+    if validate:
+        lint = _lint_rule_text_impl(text)
+        warnings = lint["warnings"]
+        extracted = lint["extracted_patterns"]
+    else:
+        warnings = []
+        extracted = []
+
+    return json.dumps(
+        {
+            "path": str(path),
+            "kind": "rule",
+            "text": text,
+            "warnings": warnings,
+            "extracted_patterns": extracted,
+        }
+    )
 
 
 @mcp.tool()

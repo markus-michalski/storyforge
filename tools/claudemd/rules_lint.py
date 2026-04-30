@@ -44,6 +44,14 @@ _BAN_CUE_RE = re.compile(
     r"no\s+\w+|stop\s+using)\b",
     re.IGNORECASE,
 )
+# Phrases that indicate the rule already documents what to do instead.
+# When present, the scanner_extracts_nothing hint should not nag for an
+# alternative — only push for a scannable pattern.
+_ALTERNATIVE_CUE_RE = re.compile(
+    r"(replace\s+with|use\s+\S+\s+instead|instead\s+of|"
+    r"prefer\s+\S|→|->|rewrite\s+as|swap\s+for)",
+    re.IGNORECASE,
+)
 # Inside a backtick body: a [WORD] token (alphabetic, length 2-12).
 # Real character classes use ranges (``[a-z]``), shorter shorthand
 # (``[A-Z0-9]``), or POSIX-style. ``[noun]`` / ``[verb]`` / ``[subj]``
@@ -101,6 +109,21 @@ def lint_rule_text(rule_text: str) -> dict[str, Any]:
     extracted = _extracted_patterns(rule_text)
 
     if has_ban_cue and not extracted:
+        has_alternative = bool(_ALTERNATIVE_CUE_RE.search(rule_text))
+        if has_alternative:
+            hint = (
+                "Add the banned phrase in backticks (``foo``) so the "
+                "scanner can enforce it. The alternative is already "
+                "documented."
+            )
+        else:
+            hint = (
+                "Add the banned phrase in backticks (``foo``) so the "
+                "scanner can enforce it, AND document an alternative "
+                "(e.g. 'replace with ...', 'use ... instead', '→ ...') "
+                "so the rule tells the writer what to do, not just what "
+                "to avoid."
+            )
         warnings.append(
             {
                 "code": LINT_SCANNER_EXTRACTS_NOTHING,
@@ -108,10 +131,7 @@ def lint_rule_text(rule_text: str) -> dict[str, Any]:
                     "Rule has a ban cue but no extractable pattern — the "
                     "scanner will see nothing and the rule won't enforce."
                 ),
-                "hint": (
-                    "Add the banned phrase in backticks (``foo``) or in "
-                    "double quotes (\"foo\")."
-                ),
+                "hint": hint,
             }
         )
 
