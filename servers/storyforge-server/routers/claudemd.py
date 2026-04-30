@@ -21,6 +21,14 @@ from tools.claudemd.manager import (
     update_book_facts as _update_book_facts_impl,
 )
 from tools.claudemd.parser import extract_prefixed_lines as _extract_prefixed_lines
+from tools.claudemd.rules_editor import (
+    AmbiguousMatchError,
+    DisagreeingResolutionError,
+    MarkersNotFoundError,
+    list_rules as _list_rules_impl,
+    update_rule as _update_rule_impl,
+)
+from tools.claudemd.rules_lint import lint_book_rules as _lint_book_rules_impl
 from tools.shared.paths import resolve_character_path, resolve_project_path
 
 from . import _app
@@ -121,6 +129,124 @@ def append_book_rule(book_slug: str, text: str) -> str:
     except (FileNotFoundError, ValueError) as exc:
         return json.dumps({"error": str(exc)})
     return json.dumps({"path": str(path), "kind": "rule", "text": text})
+
+
+@mcp.tool()
+def list_book_rules(book_slug: str) -> str:
+    """List all managed rules in the book's CLAUDE.md RULES block.
+
+    Returns one entry per bullet inside ``<!-- RULES:START -->`` /
+    ``<!-- RULES:END -->`` with index, title, raw_text, has_regex,
+    has_literals, and the patterns the manuscript-checker scanner
+    would extract from the rule.
+
+    Static rules above the marker block are intentionally not listed —
+    they're template boilerplate, not user-managed entries.
+    """
+    config = _app.load_config()
+    try:
+        rules = _list_rules_impl(config, book_slug)
+    except FileNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+    except MarkersNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+    return json.dumps(
+        {
+            "rules": [
+                {
+                    "index": r.index,
+                    "title": r.title,
+                    "raw_text": r.raw_text,
+                    "has_regex": r.has_regex,
+                    "has_literals": r.has_literals,
+                    "extracted_patterns": r.extracted_patterns,
+                }
+                for r in rules
+            ]
+        }
+    )
+
+
+@mcp.tool()
+def update_book_rule(
+    book_slug: str,
+    rule_index: int = -1,
+    rule_match: str = "",
+    new_text: str = "",
+    delete: bool = False,
+    validate: bool = True,
+) -> str:
+    """Replace or remove a rule in the book's CLAUDE.md RULES block.
+
+    Resolution: ``rule_match`` is matched first against bold titles
+    (``**Title**``), then against rule body substrings — case-insensitive.
+    ``rule_index`` is the unambiguous fallback. When both are given they
+    must agree on the same rule.
+
+    Args:
+        book_slug: Book slug.
+        rule_index: 0-based index in the RULES block. ``-1`` = unset.
+        rule_match: Substring to match against rule title or body. Empty
+            string = unset.
+        new_text: Replacement text for the rule body (without leading
+            ``- ``). Required unless ``delete=True``.
+        delete: If True, remove the matched rule. Mutually exclusive
+            with ``new_text``.
+        validate: If True, lint the new rule against the
+            manuscript-checker pattern contract and return warnings.
+
+    Returns: ``{found, changed, rule_index, old_text, new_text,
+    warnings, extracted_patterns}``. ``found=False`` means the rule did
+    not exist (file unchanged). ``changed=False`` means the new text
+    matched the existing text (idempotent no-op).
+    """
+    config = _app.load_config()
+    resolved_index = rule_index if rule_index >= 0 else None
+    resolved_match = rule_match.strip() or None
+    resolved_new_text = new_text if new_text else None
+    try:
+        result = _update_rule_impl(
+            config,
+            book_slug,
+            rule_index=resolved_index,
+            rule_match=resolved_match,
+            new_text=resolved_new_text,
+            delete=delete,
+            validate=validate,
+        )
+    except FileNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+    except MarkersNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+    except AmbiguousMatchError as exc:
+        return json.dumps({"error": str(exc), "code": "ambiguous_match"})
+    except DisagreeingResolutionError as exc:
+        return json.dumps({"error": str(exc), "code": "disagreeing_resolution"})
+    except ValueError as exc:
+        return json.dumps({"error": str(exc), "code": "invalid_args"})
+    return json.dumps(result)
+
+
+@mcp.tool()
+def lint_book_rules(book_slug: str) -> str:
+    """Audit every rule in the book's RULES block against the
+    manuscript-checker pattern contract.
+
+    Surfaces rules the scanner will silently ignore or misinterpret
+    (italic-wrapped examples with ban cues, mixed positive/negative
+    quotes, dead patterns, character-class typos in backtick bodies).
+
+    Returns ``{rules_total, issues: [{rule_index, title, warnings,
+    extracted_patterns}, ...]}``. Rules with no warnings are not listed.
+    """
+    config = _app.load_config()
+    try:
+        result = _lint_book_rules_impl(config, book_slug)
+    except FileNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+    except MarkersNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+    return json.dumps(result)
 
 
 @mcp.tool()
