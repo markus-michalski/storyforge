@@ -69,6 +69,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Beta feedback" / "ARC feedback" / "Reader feedback" / "Beta-Feedback verarbeiten" | `/storyforge:beta-feedback` |
 | "problem:" / "recurring issue:" / "report issue" / "regel melden" / "Regel eintragen" | `/storyforge:report-issue` |
 | "promote rule" / "rule global machen" / "Regel hochstufen" / "promote to author" / "promote to global" | `/storyforge:promote-rule` |
+| "rules audit" / "regeln prüfen" / "rules check" / "rules cleanup" / "audit my rules" | `/storyforge:rules-audit` |
 | "Recherche" / "Research" | `/storyforge:researcher` |
 | "Sensitivity" / "Problematisch?" | `/storyforge:sensitivity-reader` |
 | "Ethics check" / "Consent check" / "Einwilligungen prüfen" / "Personen prüfen" | `/storyforge:memoir-ethics-checker` (memoir only) |
