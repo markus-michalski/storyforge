@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.17.0] - 2026-04-30
+
+### Added
+- add /storyforge:rules-audit skill (#148)
+- lint at rule append + push for documented alternative (#147)
+- add update_book_rule MCP tool with list/lint companions (#145) (#146)
+
 ## [1.16.0] - 2026-04-29
 
 ### Added
@@ -266,3 +273,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.14.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.14.0
 [1.15.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.15.0
 [1.16.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.16.0
+[1.17.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.17.0
