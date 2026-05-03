@@ -1,14 +1,30 @@
-"""Author-profile CRUD tools: list/get/create/update."""
+"""Author-profile CRUD tools: list/get/create/update.
+
+Issue #151 also adds ``harvest_book_rules`` here — the harvest tool produces
+author-level promotion candidates from a book's CLAUDE.md ``## Rules`` section,
+so it lives next to the rest of the author state surface.
+"""
 
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
+from pathlib import Path
 
 import yaml
 
-from tools.shared.paths import resolve_author_path, slugify
-from tools.state.parsers import parse_frontmatter
+from tools.author.rule_harvester import harvest
+from tools.claudemd.rules_editor import (
+    MarkersNotFoundError,
+    list_rules,
+)
+from tools.shared.paths import (
+    resolve_author_path,
+    resolve_project_path,
+    slugify,
+)
+from tools.state.parsers import parse_author_profile, parse_book_readme, parse_frontmatter
 
 from . import _app
 from ._app import _cache, mcp
@@ -124,6 +140,127 @@ avoid: ["purple-prose", "info-dumps", "deus-ex-machina"]
             "message": f"Author profile '{name}' created at {author_dir}",
         }
     )
+
+
+@mcp.tool()
+def harvest_book_rules(book_slug: str, author_slug: str = "") -> str:
+    """Collect promotion candidates from a book's findings (Issue #151).
+
+    Walks the book's ``CLAUDE.md ## Rules`` section, classifies each rule as
+    ``banned_phrase`` / ``style_principle`` / ``world_rule``, and dedupes
+    against the author's profile + vocabulary. Returns a structured candidate
+    list with per-entry recommendations (``promote`` / ``keep_book_only``).
+
+    Args:
+        book_slug: The book to harvest from.
+        author_slug: Optional author slug. If empty, the book's README
+            ``author`` field is used.
+
+    Returns the issue-spec'd JSON:
+    ``{"book_slug", "author_slug", "candidates": [...], "summary": {...}}``
+    Each candidate carries ``id``, ``type``, ``value``, ``context``,
+    ``evidence``, ``recommendation``, ``rationale``, ``source``,
+    ``target_section``, and (for book-rule sources) ``source_rule_index``.
+
+    On error returns ``{"error": "..."}`` — typical causes: book not found,
+    CLAUDE.md missing RULES markers.
+    """
+    config = _app.load_config()
+
+    book_dir = resolve_project_path(config, book_slug)
+    if not book_dir.is_dir():
+        return json.dumps({"error": f"Book '{book_slug}' not found"})
+
+    readme = book_dir / "README.md"
+    book_meta: dict = {}
+    if readme.is_file():
+        book_meta = parse_book_readme(readme)
+
+    resolved_author = author_slug.strip() or book_meta.get("author", "")
+
+    try:
+        parsed_rules = list_rules(config, book_slug)
+    except MarkersNotFoundError as exc:
+        return json.dumps({"error": f"Book CLAUDE.md missing RULES markers: {exc}"})
+    except FileNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+
+    author_profile, vocabulary_text = _load_author_for_dedup(config, resolved_author)
+    world_terms = _collect_world_terms(book_dir)
+
+    result = harvest(
+        book_slug=book_slug,
+        author_slug=resolved_author or None,
+        parsed_rules=parsed_rules,
+        findings=None,  # manuscript findings integration is a follow-up
+        author_profile=author_profile,
+        vocabulary_text=vocabulary_text,
+        world_terms=world_terms,
+    )
+    return json.dumps(result)
+
+
+def _load_author_for_dedup(config: dict, author_slug: str) -> tuple[dict | None, str]:
+    """Load author profile + vocabulary text for dedup. Missing files return defaults."""
+    if not author_slug:
+        return None, ""
+    try:
+        author_dir = resolve_author_path(config, author_slug)
+    except (KeyError, ValueError):
+        return None, ""
+
+    profile_path = author_dir / "profile.md"
+    profile = parse_author_profile(profile_path) if profile_path.is_file() else None
+
+    vocab_path = author_dir / "vocabulary.md"
+    vocab_text = vocab_path.read_text(encoding="utf-8") if vocab_path.is_file() else ""
+
+    return profile, vocab_text
+
+
+_BOLD_TERM_RE = re.compile(r"\*\*([^*]+)\*\*")
+_BULLET_HEADING_RE = re.compile(r"^[-*]\s+\*\*([^*]+)\*\*", re.MULTILINE)
+
+
+def _collect_world_terms(book_dir: Path) -> set[str]:
+    """Build a case-insensitive set of canon/world/character terms.
+
+    Sources walked:
+
+    - ``world/glossary.md`` — bold terms in bullets
+    - ``plot/canon-log.md`` — bold terms / headings
+    - ``characters/*.md`` and ``people/*.md`` — file slugs and front-matter names
+
+    The set feeds the rule classifier so glossary terms get marked
+    ``world_rule`` and are excluded from author-profile promotion.
+    """
+    terms: set[str] = set()
+    for rel in ("world/glossary.md", "plot/canon-log.md"):
+        path = book_dir / rel
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        terms.update(m.strip() for m in _BOLD_TERM_RE.findall(text) if m.strip())
+
+    for sub in ("characters", "people"):
+        char_dir = book_dir / sub
+        if not char_dir.is_dir():
+            continue
+        for md_file in char_dir.glob("*.md"):
+            if md_file.name == "INDEX.md":
+                continue
+            terms.add(md_file.stem.replace("-", " "))
+            try:
+                head = md_file.read_text(encoding="utf-8")[:2000]
+                meta, _body = parse_frontmatter(head)
+                name = meta.get("name") or meta.get("real_name")
+                if isinstance(name, str) and name.strip():
+                    terms.add(name.strip())
+            except OSError:
+                continue
+
+    # Drop empty / whitespace-only entries defensively.
+    return {t for t in terms if t.strip()}
 
 
 @mcp.tool()

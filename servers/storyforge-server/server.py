@@ -33,6 +33,7 @@ import routers  # noqa: E402, F401
 from routers.authors import (  # noqa: E402, F401
     create_author,
     get_author,
+    harvest_book_rules,
     list_authors,
     update_author,
 )
