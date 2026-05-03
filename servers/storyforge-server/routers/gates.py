@@ -17,6 +17,7 @@ from tools.analysis.chapter_validator import (
 )
 from tools.analysis.manuscript_checker import render_report, scan_repetitions
 from tools.analysis.memoir_ethics import check_consent as _check_consent_impl
+from tools.analysis.plot_logic import analyze_plot_logic as _analyze_plot_logic_impl
 from tools.analysis.timeline_validator import validate_timeline
 from tools.shared.gate_derivation import (
     derive_from_callback_verification,
@@ -210,6 +211,66 @@ def check_memoir_consent(book_slug: str) -> str:
         return json.dumps({"error": str(exc), "book_slug": book_slug})
     gate = derive_from_consent_check(result)
     return json.dumps(wrap_legacy(result, gate))
+
+
+@mcp.tool()
+def analyze_plot_logic(
+    book_slug: str,
+    scope: str = "manuscript",
+    chapter_slug: str = "",
+) -> str:
+    """Run the deterministic plot-logic checks for a book — Issue #150.
+
+    Builds a knowledge index from canon log + timeline + chapter
+    promises, then runs static detectors for the plothole categories
+    that don't need an LLM:
+
+    - ``causality_inversion`` — chapter references a fact whose
+      establishing chapter has a later story-day. High severity.
+    - ``chekhov_gun`` — promise placed in a chapter, target reached
+      but no payoff in target draft, OR unfired with no later
+      reference. High severity. Manuscript scope only.
+
+    The semantic categories (``information_leak``, ``motivation_break``,
+    ``premise_violation``, ``pov_knowledge_boundary``) are picked up
+    by the chapter-reviewer and manuscript-checker skills using the
+    returned ``knowledge_index``. The MCP tool stays deterministic.
+
+    Memoir books skip ``chekhov_gun`` (memoir doesn't structure on
+    setup-payoff arcs). ``premise_violation`` is also memoir-skipped
+    in the consuming skills.
+
+    Args:
+        book_slug: Book project slug.
+        scope: ``"manuscript"`` (default, all detectors) or
+            ``"chapter"`` (causality_inversion only, requires
+            chapter_slug).
+        chapter_slug: Required when scope=="chapter".
+
+    Returns JSON with keys:
+        - ``knowledge_index``: facts, promises, story-day map,
+          book_category — feeds the consuming skill's LLM pass.
+        - ``findings``: list of detected plotholes.
+        - ``gate``: PASS/WARN/FAIL envelope.
+    """
+    config = _app.load_config()
+    book_path = resolve_project_path(config, book_slug)
+    if not book_path.exists():
+        return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
+
+    try:
+        result = _analyze_plot_logic_impl(
+            book_path,
+            scope=scope,  # type: ignore[arg-type]
+            chapter_slug=chapter_slug or None,
+        )
+    except ValueError as exc:
+        return json.dumps({"error": str(exc), "book_slug": book_slug})
+
+    # Normalize the book_slug field — _analyze_plot_logic_impl uses
+    # path.name which equals slug under the standard layout.
+    result["book_slug"] = book_slug
+    return json.dumps(result)
 
 
 @mcp.tool()
@@ -488,6 +549,20 @@ def run_quality_gates(book_slug: str) -> str:
                 "findings": [],
                 "metadata": {},
             }
+
+    # --- Plot logic (causality_inversion + chekhov_gun) — Issue #150 -
+    try:
+        plot_result = _analyze_plot_logic_impl(book_path, scope="manuscript")
+        plot_gate = GateResult.from_dict(plot_result["gate"])
+        per_gate["plot_logic"] = plot_gate.to_json_dict()
+        gates.append(plot_gate)
+    except Exception as exc:  # noqa: BLE001
+        per_gate["plot_logic"] = {
+            "status": "WARN",
+            "reasons": [f"plot-logic analysis skipped: {exc}"],
+            "findings": [],
+            "metadata": {},
+        }
 
     # --- Memoir consent (memoir only) -------------------------------
     if book_category == "memoir":

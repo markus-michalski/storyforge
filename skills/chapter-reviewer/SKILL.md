@@ -142,6 +142,20 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 20. **Person facts** — Do descriptions and behaviors of named people match what was established in earlier chapters and the people-log?
 20a. **Dialog reconstruction honesty** — Is reconstructed dialog presented with appropriate epistemic humility? Does the chapter claim verbatim precision for conversations that happened decades ago? Flag any dialog rendered as if perfectly remembered without any qualifying framing.
 
+### Plot Logic (5 points) — both modes, Issue #150
+
+Load `analyze_plot_logic(book_slug, scope="chapter", chapter_slug=...)` once before scoring this section. The returned `knowledge_index` provides facts (canon log), promises (per-chapter), and chapter story-days. Use the index to anchor each check; flag findings against this chapter only.
+
+20b. **Information leak** — Does the POV character reference any fact the index says was established in a *later* chapter? Or any fact established in an earlier chapter where the POV character was not present in `plot/timeline.md`'s `Characters` field? Severity: **high (FAIL)** if the POV was demonstrably absent from every source-scene; **WARN** otherwise (the "95% rule" — presence does not strictly imply comprehension).
+
+20c. **Motivation chain** — Does each significant decision in the chapter follow from the character's established wants and knowledge in the canon log "Character Facts"? Flag any decision that contradicts a `## Character Facts` row without on-page justification or escalating pressure. Severity: **WARN** (motivation reads need human verification).
+
+20d. **Causality direction** — Run the index's static `causality_inversion` findings for this chapter (already in the brief's `findings` list). Each one is a high-severity hit that the writer must address. **FAIL** on any.
+
+20e. **World rule consistency** *(fiction only — skip for memoir)* — Does the chapter break any rule from the canon log "World / Setting Facts" or `world/rules.md`? Look for negation patterns ("cannot X", "never Y", "always must Z") that the prose violates without an exception clause. Severity: **high (FAIL)**.
+
+20f. **Chapter promise** — If the chapter places a setup-element (locked drawer, character claim, cryptic warning), is it documented in this chapter's `## Promises` section? After review, suggest any missing promises to the user; on approval call `register_chapter_promises` to persist. Severity: **WARN** when promises are placed but not logged.
+
 ### Tonal Consistency (5 points) — only if `plot/tone.md` exists
 21. **Dominant mode** — Does the chapter match the dominant mode defined in the Tonal Arc table for this chapter's position?
 22. **Warning signs** — Does the chapter exhibit any of the warning-sign patterns listed for this stage?
@@ -225,6 +239,14 @@ Report memoir AI-tells in their own labeled section, separate from universal Ant
 - [Fiction] Travel Matrix conflicts / [Memoir] Real-world plausibility issues: [count] — [details]
 - Stale references (from revisions): [count] — [details]
 - [Memoir] Consent warnings: [list persons with non-approved consent_status, or "none"]
+
+### Plot Logic Report
+- Information leaks (high): [count] — [details with evidence]
+- Information leaks (warn — POV present, comprehension uncertain): [count] — [details]
+- Motivation breaks: [count] — [details]
+- Causality inversions: [count] — [details]
+- World-rule violations (fiction only): [count] — [details]
+- Promise log: [N placed, M logged, K missing] — [list missing promises with suggested entries]
 
 ### Tonal Report (if tone.md exists)
 - Dominant mode match: [yes/no — expected: X, actual: Y]

@@ -152,22 +152,23 @@ For clean scenes, silence is fine. When cuts happen, optionally note "Simile-Sca
 
 ### Step 7: Save and Update (both modes)
 1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
-2. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
-3. **Update `plot/timeline.md`** — one row per story-day (memoir: real-date row). MANDATORY.
+2. **Extract promises (Issue #150)** — Before flipping status to `Review` or `Final`, walk the completed draft and identify setup-elements (locked drawers, character claims, cryptic warnings, unresolved clues — full taxonomy in `reference/craft/plot-logic.md`). For each: short concrete description (8–14 words), target chapter slug if the chapter outline names it else `unfired`, status `active`. Cap at 8 per chapter. Persist via MCP `register_chapter_promises(book_slug, chapter_slug, promises)`. If the chapter places no promises, pass an empty list — this writes a placeholder so the index knows the chapter was processed. Skip this step when staying at `Draft` (mid-chapter saves don't lock in promises).
+3. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
+4. **Update `plot/timeline.md`** — one row per story-day (memoir: real-date row). MANDATORY.
 
 **Fiction (`book_category: fiction`):**
 
-4. **Update Travel Matrix** in `world/setting.md` if new routes appeared.
-5. **Update `plot/canon-log.md`** — new facts. If revising, mark changed facts `CHANGED` with old version in Notes, and add downstream chapters to the Revision Impact Tracker.
+5. **Update Travel Matrix** in `world/setting.md` if new routes appeared.
+6. **Update `plot/canon-log.md`** — new facts. If revising, mark changed facts `CHANGED` with old version in Notes, and add downstream chapters to the Revision Impact Tracker.
 
 **Memoir (`book_category: memoir`):**
 
-4. **Update `plot/people-log.md`** — what each named person did, said, believed, or revealed in this chapter. The memoir analogue of canon-log; consistency across chapters is a truth standard, not just a craft standard. Create the file on first chapter close if it does not exist. Mark changed/corrected facts `CHANGED` with old version in Notes.
-5. **No Travel Matrix update** — memoir documents real settings via research, not a structured matrix. Note any new place names worth tracking in `research/sources.md` instead.
+5. **Update `plot/people-log.md`** — what each named person did, said, believed, or revealed in this chapter. The memoir analogue of canon-log; consistency across chapters is a truth standard, not just a craft standard. Create the file on first chapter close if it does not exist. Mark changed/corrected facts `CHANGED` with old version in Notes.
+6. **No Travel Matrix update** — memoir documents real settings via research, not a structured matrix. Note any new place names worth tracking in `research/sources.md` instead.
 
 **Both modes — universal step:**
 
-6. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with `~HH:MM`. MANDATORY (future chapters depend on it). Memoir uses real clock times.
+7. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with `~HH:MM`. MANDATORY (future chapters depend on it). Memoir uses real clock times.
 
 ### Step 8: Self-Review (both modes)
 Before presenting to user (in full-chapter mode) or after all scenes assembled (in scene-by-scene mode), quick-check:

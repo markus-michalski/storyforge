@@ -31,6 +31,11 @@ from tools.state.parsers import (
     parse_chapter_readme,
     parse_frontmatter,
 )
+from tools.state.promises import (
+    Promise,
+    parse_promises_section,
+    upsert_promises as _upsert_promises_impl,
+)
 from tools.state.review_brief import build_review_brief as _build_review_brief_impl
 from tools.timeline_anchor import get_story_anchor
 
@@ -408,5 +413,111 @@ def start_chapter_draft(book_slug: str, chapter_slug: str) -> str:
             "chapter_status_after": "Draft",
             "chapter_updated": True,
             "migrated_to_chapter_yaml": migrated,
+        }
+    )
+
+
+@mcp.tool()
+def register_chapter_promises(
+    book_slug: str,
+    chapter_slug: str,
+    promises: list[dict],
+) -> str:
+    """Persist setup-element promises for a chapter — Issue #150.
+
+    Writes (or merges) the chapter README's ``## Promises`` section.
+    Each promise records a setup-element placed in this chapter that
+    needs payoff later: a locked drawer, a character claim, a clue,
+    etc.
+
+    The chapter-writer skill calls this at the Draft → Review
+    transition with LLM-extracted promises. The
+    ``/storyforge:backfill-promises`` skill calls this for chapters
+    drafted before the feature shipped.
+
+    Merge semantics: existing promises are kept; matching
+    description+target updates status; new entries are appended.
+
+    Args:
+        book_slug: Book project slug.
+        chapter_slug: Chapter directory name (e.g. "05-the-meeting").
+        promises: List of dicts with keys:
+            - ``description`` (str, required, non-empty)
+            - ``target`` (str, required) — chapter slug, "Ch N", or
+              "unfired"
+            - ``status`` (str, default "active") — one of
+              "active" | "satisfied" | "retired"
+
+    Returns JSON with merge counts (added/updated/unchanged) and the
+    path of the README that was written.
+    """
+    config = _app.load_config()
+    ch_dir = resolve_chapter_path(config, book_slug, chapter_slug)
+    if not ch_dir.exists():
+        return json.dumps({"error": f"Chapter '{chapter_slug}' not found in book '{book_slug}'"})
+
+    readme = ch_dir / "README.md"
+    if not readme.exists():
+        return json.dumps({"error": f"Chapter README not found at {readme}"})
+
+    try:
+        promise_objs = [
+            Promise(
+                description=str(p.get("description", "")),
+                target=str(p.get("target", "")),
+                status=str(p.get("status", "active")).lower(),
+            )
+            for p in promises
+        ]
+    except Exception as exc:  # malformed input
+        return json.dumps({"error": f"Invalid promise input: {exc}"})
+
+    try:
+        counts = _upsert_promises_impl(readme, promise_objs)
+    except ValueError as exc:
+        return json.dumps({"error": str(exc)})
+
+    return json.dumps(
+        {
+            "success": True,
+            "book_slug": book_slug,
+            "chapter_slug": chapter_slug,
+            "readme_path": str(readme),
+            "added": counts["added"],
+            "updated": counts["updated"],
+            "unchanged": counts["unchanged"],
+        }
+    )
+
+
+@mcp.tool()
+def get_chapter_promises(book_slug: str, chapter_slug: str) -> str:
+    """Read the chapter's ``## Promises`` section.
+
+    Returns the parsed list. Useful for skills that need to read the
+    promise log without rebuilding the index from scratch.
+
+    Args:
+        book_slug: Book project slug.
+        chapter_slug: Chapter directory name.
+
+    Returns JSON with ``promises`` (list of dicts).
+    """
+    config = _app.load_config()
+    ch_dir = resolve_chapter_path(config, book_slug, chapter_slug)
+    if not ch_dir.exists():
+        return json.dumps({"error": f"Chapter '{chapter_slug}' not found in book '{book_slug}'"})
+
+    readme = ch_dir / "README.md"
+    if not readme.exists():
+        return json.dumps({"promises": []})
+
+    text = readme.read_text(encoding="utf-8")
+    promises = parse_promises_section(text)
+    return json.dumps(
+        {
+            "book_slug": book_slug,
+            "chapter_slug": chapter_slug,
+            "promises": [{"description": p.description, "target": p.target, "status": p.status} for p in promises],
         }
     )

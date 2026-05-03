@@ -11,6 +11,7 @@ from typing import Any
 
 CATEGORY_LABELS = {
     "book_rule_violation": "Book Rule Violations",
+    "plot_hole": "Plot-Logic Findings (causality / Chekhov / promises)",
     "cliche": "Clichés",
     "question_as_statement": "Dialogue Punctuation (Q-word + period)",
     "filter_word": "POV Filter Words",
@@ -37,6 +38,7 @@ CATEGORY_LABELS = {
 CATEGORY_ORDER = [
     "book_rule_violation",
     "anonymization_leak",
+    "plot_hole",
     "cliche",
     "question_as_statement",
     "filter_word",
@@ -132,6 +134,13 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             f"scene's POV, stakes, and sensory palette. If you must keep one, "
             f"make it ironic or subvert it."
         )
+    if cat == "plot_hole":
+        # source_rule carries the `suggested_fix` from the plot-logic detector.
+        fix = finding.get("source_rule") or (
+            "Move the dependent passage, supply an earlier source for the "
+            "knowledge, revise the establishing fact, or cut the passage."
+        )
+        return f"_Recommendation:_ {fix}"
     if cat == "question_as_statement":
         return (
             "_Recommendation:_ A single flat-delivery question reads as a "

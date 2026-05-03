@@ -564,6 +564,59 @@ def _scan_callbacks(book_path: Path) -> list[Finding]:
     return findings
 
 
+def _scan_plot_holes(book_path: Path) -> list[Finding]:
+    """Wrap ``analyze_plot_logic`` findings into manuscript-checker
+    Finding objects — Issue #150.
+
+    Each plot-logic finding (``causality_inversion`` or
+    ``chekhov_gun``) becomes one ``Finding`` with category
+    ``plot_hole``; the sub-category is embedded in the phrase prefix
+    (e.g. ``[causality_inversion] Tom confesses…``) so it survives
+    sorting and rendering. Severity is propagated as-is.
+
+    Memoir-aware via ``analyze_plot_logic`` itself — chekhov_gun is
+    skipped for memoir books at the lower layer.
+    """
+    # Local import — keep server boot lightweight; plot_logic itself
+    # imports manuscript-side helpers indirectly.
+    from tools.analysis.plot_logic import analyze_plot_logic
+
+    try:
+        result = analyze_plot_logic(book_path, scope="manuscript")
+    except Exception:  # pragma: no cover — defensive
+        return []
+
+    findings: list[Finding] = []
+    for raw in result.get("findings", []):
+        sub = raw.get("category", "plot_hole")
+        snippet = raw.get("snippet", "")
+        chapter = raw.get("chapter", "")
+        location = raw.get("location", "")
+        line = 0
+        if ":" in location:
+            tail = location.rsplit(":", 1)[1]
+            if tail.isdigit():
+                line = int(tail)
+        evidence = raw.get("evidence", "")
+        occ = Occurrence(
+            chapter=chapter,
+            line=line,
+            snippet=(f"{snippet} — {evidence}" if evidence else snippet)[:240],
+        )
+        phrase = f"[{sub}] {snippet[:80]}" if snippet else f"[{sub}]"
+        findings.append(
+            Finding(
+                phrase=phrase,
+                category="plot_hole",
+                severity=raw.get("severity", "medium"),
+                count=1,
+                occurrences=[occ],
+                source_rule=raw.get("suggested_fix"),
+            )
+        )
+    return findings
+
+
 __all__ = [
     "FILTER_WORD_PATTERNS",
     "_load_action_verbs",
@@ -572,6 +625,7 @@ __all__ = [
     "_scan_callbacks",
     "_scan_cliches",
     "_scan_filter_words",
+    "_scan_plot_holes",
     "_scan_question_as_statement",
     "_scan_sentence_repetitions",
     "_scan_snapshots",

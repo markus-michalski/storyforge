@@ -64,6 +64,7 @@ from tools.analysis.manuscript.scanners import (
     _scan_callbacks,
     _scan_cliches,
     _scan_filter_words,
+    _scan_plot_holes,
     _scan_question_as_statement,
     _scan_sentence_repetitions,
     _scan_snapshots,
@@ -195,6 +196,9 @@ def scan_repetitions(
     findings.extend(_scan_sentence_repetitions(book_path))
     findings.extend(_scan_snapshots(book_path, plugin_root=plugin_root))
     findings.extend(_scan_callbacks(book_path))
+    # Plot-logic findings (causality_inversion, chekhov_gun) — Issue #150.
+    # Outranks clichés in the sort below; reader trust > prose tics.
+    findings.extend(_scan_plot_holes(book_path))
 
     # Memoir-specific checks — run only when book_category is memoir.
     if book_category is None:
@@ -208,17 +212,19 @@ def scan_repetitions(
 
     # Sort order priority: book_rule_violation first (user-authored rules
     # override everything), then anonymization_leak (privacy-critical),
-    # then clichés (always bad), then the rest by severity.
+    # then plot_hole (story-logic breaks reader trust), then clichés,
+    # then the rest by severity.
     # Within same bucket: severity desc, count desc, phrase asc.
     category_rank = {
         "book_rule_violation": 0,
         "anonymization_leak": 1,
-        "cliche": 2,
+        "plot_hole": 2,
+        "cliche": 3,
     }
     severity_rank = {"high": 0, "medium": 1}
     findings.sort(
         key=lambda f: (
-            category_rank.get(f.category, 2),
+            category_rank.get(f.category, 4),
             severity_rank[f.severity],
             -f.count,
             f.phrase,
@@ -288,6 +294,7 @@ __all__ = [
     "_scan_callbacks",
     "_scan_cliches",
     "_scan_filter_words",
+    "_scan_plot_holes",
     "_scan_question_as_statement",
     "_scan_real_people_consistency",
     "_scan_reflective_platitudes",
