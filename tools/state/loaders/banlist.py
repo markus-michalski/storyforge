@@ -1,11 +1,14 @@
 """Banned-phrase aggregator for the chapter-writing brief (Issue #121).
 
-Collects up to 50 deduplicated banned-phrase entries from three
+Collects up to 50 deduplicated banned-phrase entries from four
 sources, in priority order:
 
 1. Book CLAUDE.md ``## Rules`` with backticked phrases (block severity).
 2. Author ``vocabulary.md`` (block severity).
-3. Global anti-AI tells from ``reference/craft/anti-ai-patterns.md``
+3. Author ``profile.md`` ``## Writing Discoveries / ### Recurring Tics``
+   (block severity) — phrases promoted via ``/storyforge:harvest-author-rules``
+   (Issue #151 follow-up).
+4. Global anti-AI tells from ``reference/craft/anti-ai-patterns.md``
    (warn severity).
 
 Each entry is ``{"phrase": str, "source": str, "severity": str}``.
@@ -37,6 +40,7 @@ def collect_banned_phrases(
     from tools.banlist_loader import (
         author_slug_from_book,
         load_author_vocab,
+        load_author_writing_discoveries,
         load_global_ai_tells,
     )
 
@@ -75,6 +79,26 @@ def collect_banned_phrases(
                 {
                     "phrase": p.label,
                     "source": "author vocabulary.md",
+                    "severity": p.severity,
+                }
+            )
+
+        # Issue #151 follow-up: Writing-Discoveries-promoted tics. Loaded
+        # AFTER vocabulary so vocabulary entries (canonical phrase store)
+        # win on dedup.
+        try:
+            discovery_patterns = load_author_writing_discoveries(author_slug)
+        except Exception:  # pylint: disable=broad-except
+            discovery_patterns = []
+        for p in discovery_patterns:
+            key = p.label.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(
+                {
+                    "phrase": p.label,
+                    "source": "author profile (## Writing Discoveries)",
                     "severity": p.severity,
                 }
             )

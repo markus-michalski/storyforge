@@ -36,6 +36,8 @@ from routers.authors import (  # noqa: E402, F401
     harvest_book_rules,
     list_authors,
     update_author,
+    write_author_banned_phrase,
+    write_author_discovery,
 )
 from routers.books import (  # noqa: E402, F401
     count_words,

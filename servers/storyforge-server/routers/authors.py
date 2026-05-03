@@ -14,11 +14,18 @@ from pathlib import Path
 
 import yaml
 
+from tools.author.discovery_writer import (
+    AlreadyPresent,
+    SectionMissing,
+    WriteResult,
+    write_discovery,
+)
 from tools.author.rule_harvester import harvest
 from tools.claudemd.rules_editor import (
     MarkersNotFoundError,
     list_rules,
 )
+from tools.rule_writer import write_author_rule
 from tools.shared.paths import (
     resolve_author_path,
     resolve_project_path,
@@ -261,6 +268,126 @@ def _collect_world_terms(book_dir: Path) -> set[str]:
 
     # Drop empty / whitespace-only entries defensively.
     return {t for t in terms if t.strip()}
+
+
+@mcp.tool()
+def write_author_discovery(
+    author_slug: str,
+    section: str,
+    text: str,
+    book_slug: str,
+    year_month: str = "",
+) -> str:
+    """Append a discovery to ``profile.md`` ``## Writing Discoveries`` (Issue #151).
+
+    Writes through ``tools.author.discovery_writer.write_discovery`` and
+    invalidates the state cache so subsequent ``get_author`` calls pick up
+    the new entry without a session restart. The harvest skill should call
+    this MCP tool rather than the underlying Python function so the cache
+    invalidation happens automatically.
+
+    Args:
+        author_slug: Author whose profile gets the entry.
+        section: One of ``recurring_tics``, ``style_principles``, ``donts``.
+        text: Entry body, e.g. ``**"thing"** — concretize on sight.``.
+            Origin tag is appended automatically.
+        book_slug: Book the discovery emerged from.
+        year_month: ``YYYY-MM`` stamp; defaults to today's year-month.
+
+    Returns ``{written, already_present, path, message}`` on success or
+    ``{error: ...}`` on failure (unknown author, invalid section, missing
+    profile, missing Writing Discoveries section).
+    """
+    if not year_month:
+        year_month = date.today().strftime("%Y-%m")
+
+    config = _app.load_config()
+    try:
+        profile_path = resolve_author_path(config, author_slug) / "profile.md"
+    except (KeyError, ValueError) as exc:
+        return json.dumps({"error": str(exc)})
+
+    if not profile_path.is_file():
+        return json.dumps({"error": f"Author '{author_slug}' not found at {profile_path}"})
+
+    try:
+        result = write_discovery(
+            profile_path=profile_path,
+            section=section,
+            text=text,
+            book_slug=book_slug,
+            year_month=year_month,
+        )
+    except ValueError as exc:
+        return json.dumps({"error": str(exc)})
+    except SectionMissing as exc:
+        return json.dumps({"error": f"section_missing: {exc}", "code": "section_missing"})
+    except FileNotFoundError as exc:
+        return json.dumps({"error": str(exc)})
+
+    # Invalidate so chapter-writer's get_author() picks up the new entry.
+    _cache.invalidate()
+
+    if isinstance(result, WriteResult):
+        return json.dumps(
+            {
+                "written": True,
+                "already_present": False,
+                "path": str(result.path),
+                "message": result.message,
+            }
+        )
+    if isinstance(result, AlreadyPresent):
+        return json.dumps(
+            {
+                "written": False,
+                "already_present": True,
+                "path": str(result.path),
+                "message": result.message,
+            }
+        )
+    # Unreachable, but keep mypy happy and the JSON contract well-formed.
+    return json.dumps({"error": "unexpected write result"})
+
+
+@mcp.tool()
+def write_author_banned_phrase(author_slug: str, phrase: str, reason: str = "") -> str:
+    """Append a banned phrase to the author's ``vocabulary.md`` (Issue #151).
+
+    Wraps :func:`tools.rule_writer.write_author_rule` and invalidates the
+    state cache. Idempotent — already-present phrases return
+    ``{written: false}`` without erroring.
+
+    Args:
+        author_slug: Target author.
+        phrase: Phrase to ban (e.g. ``thing``).
+        reason: Short rationale shown in the metadata tag.
+
+    Returns ``{written, path?, message}`` or ``{error: ...}``.
+    """
+    config = _app.load_config()
+    # Derive storyforge_home from authors_root so the writer hits the
+    # configured tree (test fixtures use a different home than ~/.storyforge).
+    try:
+        authors_root = Path(config["paths"]["authors_root"])
+        storyforge_home = authors_root.parent
+    except (KeyError, TypeError):
+        storyforge_home = None
+
+    written, message = write_author_rule(
+        phrase=phrase,
+        reason=reason or "promoted from book findings",
+        author_slug=author_slug,
+        source_context="harvest-author-rules",
+        storyforge_home=storyforge_home,
+    )
+    if not written and "not found" in message.lower():
+        return json.dumps({"error": message})
+
+    # Invalidate so subsequent get_author / brief loads see the new phrase.
+    _cache.invalidate()
+
+    return json.dumps({"written": written, "message": message})
 
 
 @mcp.tool()

@@ -204,9 +204,74 @@ def _scan_book_rules(book_path: Path) -> list[Finding]:
     return findings
 
 
+def _scan_writing_discoveries(book_path: Path) -> list[Finding]:
+    """Scan chapter drafts for violations of the author's Writing Discoveries.
+
+    Mirrors :func:`_scan_book_rules` but loads patterns from
+    ``profile.md ## Writing Discoveries / ### Recurring Tics`` via
+    :func:`tools.banlist_loader.load_author_writing_discoveries`. Findings are
+    emitted with ``category='writing_discovery_violation'`` so the report can
+    distinguish them from book-rule violations.
+
+    Issue #151 follow-up — without this scanner, phrases promoted via
+    ``/storyforge:harvest-author-rules`` were invisible to the manuscript
+    checker even though the chapter-writer brief picked them up.
+    """
+    # Lazy import: the manuscript module already keeps imports light to stay
+    # patchable from tests.
+    from tools.banlist_loader import author_slug_from_book, load_author_writing_discoveries
+
+    author_slug = author_slug_from_book(book_path)
+    if not author_slug:
+        return []
+
+    try:
+        patterns = load_author_writing_discoveries(author_slug)
+    except Exception:  # pylint: disable=broad-except
+        return []
+    if not patterns:
+        return []
+
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    findings: list[Finding] = []
+    for banned in patterns:
+        seen_positions: set[tuple[str, int]] = set()
+        occurrences: list[Occurrence] = []
+        for chapter_slug, raw_text in drafts:
+            cleaned = _strip_markdown(raw_text)
+            for line_no, line in enumerate(cleaned.splitlines(), start=1):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                for m in banned.pattern.finditer(stripped):
+                    key = (chapter_slug, line_no)
+                    if key in seen_positions:
+                        continue
+                    seen_positions.add(key)
+                    snippet = _make_snippet(stripped, m.group(0).lower())
+                    occurrences.append(Occurrence(chapter=chapter_slug, line=line_no, snippet=snippet))
+        if not occurrences:
+            continue
+        findings.append(
+            Finding(
+                phrase=banned.label,
+                category="writing_discovery_violation",
+                severity="high",
+                count=len(occurrences),
+                occurrences=sorted(occurrences, key=lambda o: (o.chapter, o.line)),
+                source_rule=f"author profile ## Writing Discoveries — {banned.label}",
+            )
+        )
+    return findings
+
+
 __all__ = [
     "_extract_patterns_from_rule",
     "_read_book_rules",
     "_rule_label",
     "_scan_book_rules",
+    "_scan_writing_discoveries",
 ]
