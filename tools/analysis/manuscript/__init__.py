@@ -56,6 +56,7 @@ from tools.analysis.manuscript.rules import (
     _read_book_rules,
     _rule_label,
     _scan_book_rules,
+    _scan_writing_discoveries,
 )
 from tools.analysis.manuscript.scanners import (
     _load_action_verbs,
@@ -180,6 +181,9 @@ def scan_repetitions(
     # Merge in per-book CLAUDE.md rule violations. These are high-severity
     # by definition and ignore the n-gram frequency thresholds above.
     findings.extend(_scan_book_rules(book_path))
+    # Issue #151 follow-up: scan promoted Writing Discoveries from the author
+    # profile. Same severity as book-rule violations — user-asserted bans.
+    findings.extend(_scan_writing_discoveries(book_path))
     # Merge the craft-level checks (filter words, adverb density, clichés,
     # question-as-statement punctuation, sentence-level repetitions).
     findings.extend(_scan_filter_words(book_path))
@@ -291,6 +295,7 @@ __all__ = [
     "_scan_adverb_density",
     "_scan_anonymization_leak",
     "_scan_book_rules",
+    "_scan_writing_discoveries",
     "_scan_callbacks",
     "_scan_cliches",
     "_scan_filter_words",

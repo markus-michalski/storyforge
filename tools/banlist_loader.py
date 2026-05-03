@@ -192,6 +192,158 @@ def _build_inflection_pattern(text: str) -> re.Pattern[str]:
 
 
 # ---------------------------------------------------------------------------
+# Author Writing Discoveries (block-severity) — Issue #151 follow-up
+# ---------------------------------------------------------------------------
+#
+# Discoveries promoted via /storyforge:harvest-author-rules land under
+# `## Writing Discoveries / ### Recurring Tics` in the author profile. The
+# bullets are bold-titled (` - **Title** — rationale`); the scannable phrase
+# is typically wrapped in double-quotes inside the bold title (e.g.
+# `**Vague-noun "thing" als Fallback**`). Without this loader, those tics
+# were invisible to the chapter-writing brief and the manuscript-checker
+# (#151 follow-up).
+
+_DISCOVERIES_SECTION_RE = re.compile(
+    r"^##\s+Writing\s+Discoveries\s*$(?P<body>.*?)(?=^##\s|\Z)",
+    re.MULTILINE | re.DOTALL | re.IGNORECASE,
+)
+_RECURRING_TICS_HEADER_RE = re.compile(
+    r"^###\s+Recurring\s+Tics\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+_BOLD_TITLE_BULLET_RE = re.compile(r"^-\s+(\*\*[^*]+\*\*)", re.MULTILINE)
+_DOUBLE_QUOTE_RE = re.compile(r'[“„”"]([^“„”"]{2,})[”"]')
+
+
+def _extract_phrases_from_bold_title(title: str) -> list[str]:
+    """Extract scannable phrases from a Writing-Discoveries bullet's bold title.
+
+    The bold title may carry one or more double-quoted phrases that are the
+    actual scannable patterns; if no quotes are present, the whole title text
+    (sans asterisks and whitespace) is the pattern.
+
+    Both ASCII (``"x"``) and German typographic (``„x"``) double-quote pairs
+    are recognized. Single-character quoted phrases are skipped (noise);
+    in that case the function falls back to the bold-title text.
+
+    Returns a deduplicated, order-preserving list. Empty/missing bold titles
+    return ``[]``.
+    """
+    if not title:
+        return []
+    cleaned = title.strip()
+    bold_match = re.match(r"\*\*(?P<inner>.+)\*\*\s*$", cleaned)
+    if not bold_match:
+        return []
+    inner = bold_match.group("inner").strip()
+    if not inner:
+        return []
+
+    quoted = [m.group(1).strip() for m in _DOUBLE_QUOTE_RE.finditer(inner)]
+    quoted = [q for q in quoted if len(q) >= 2]
+    if quoted:
+        # Dedup while preserving order.
+        seen: set[str] = set()
+        out: list[str] = []
+        for q in quoted:
+            key = q.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(q)
+        return out
+    return [inner] if len(inner) >= 2 else []
+
+
+def _author_profile_path(author_slug: str, storyforge_home: Path | None = None) -> Path:
+    home = storyforge_home or (Path.home() / ".storyforge")
+    return home / "authors" / author_slug / "profile.md"
+
+
+def load_author_writing_discoveries(
+    author_slug: str,
+    *,
+    storyforge_home: Path | None = None,
+) -> list[BannedPattern]:
+    """Load scannable phrases from ``profile.md`` ``## Writing Discoveries``.
+
+    Walks the ``### Recurring Tics`` sub-section only. ``### Style Principles``
+    and ``### Don'ts`` are prose-level rules, not phrase bans, so they're
+    out of scope for this loader.
+
+    Severity is always ``block`` — discoveries are user-asserted author voice
+    intent and were explicitly promoted via the harvest skill.
+
+    Returns ``[]`` when the profile is missing, has no Writing Discoveries
+    section, or the Recurring Tics sub-section is empty.
+    """
+    profile_path = _author_profile_path(author_slug, storyforge_home)
+    if not profile_path.is_file():
+        return []
+    try:
+        text = profile_path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+
+    section_match = _DISCOVERIES_SECTION_RE.search(text)
+    if not section_match:
+        return []
+    body = section_match.group("body")
+
+    tics_match = _RECURRING_TICS_HEADER_RE.search(body)
+    if not tics_match:
+        return []
+    tics_body = body[tics_match.end():]
+    next_subsection = re.search(r"^###\s+\S", tics_body, re.MULTILINE)
+    if next_subsection:
+        tics_body = tics_body[: next_subsection.start()]
+
+    patterns: list[BannedPattern] = []
+    seen: set[str] = set()
+
+    for bullet_match in _BOLD_TITLE_BULLET_RE.finditer(tics_body):
+        bold_title = bullet_match.group(1)
+        for phrase in _extract_phrases_from_bold_title(bold_title):
+            cleaned = _strip_parenthetical(phrase).strip()
+            if len(cleaned) < 2:
+                continue
+            key = cleaned.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            pattern = _build_discovery_pattern(cleaned)
+            patterns.append(
+                BannedPattern(
+                    label=cleaned,
+                    pattern=pattern,
+                    severity=SEVERITY_BLOCK,
+                    source="author profile (## Writing Discoveries / Recurring Tics)",
+                    reason="recurring tic promoted from a finished book",
+                )
+            )
+    return patterns
+
+
+def _build_discovery_pattern(text: str) -> re.Pattern[str]:
+    """Compile a tolerant pattern for Writing-Discoveries phrases.
+
+    Single-word phrases reuse :func:`_build_inflection_pattern` (so that
+    promoted single tics like ``thing`` still match ``things`` etc.).
+    Multi-word or punctuation-containing phrases use ``(?<!\\w)PHRASE(?!\\w)``
+    look-arounds — these match correctly even when the phrase ends with a
+    period (``\\b...\\b`` fails there because ``.`` is non-word and EOL/space
+    is also non-word, so no word-boundary fires).
+    """
+    is_simple_single_word = " " not in text and "-" not in text and not any(
+        c in text for c in ".,!?;:'\""
+    )
+    if is_simple_single_word:
+        return _build_inflection_pattern(text)
+    escaped = re.escape(text)
+    return re.compile(rf"(?<!\w){escaped}(?!\w)", re.IGNORECASE)
+
+
+# ---------------------------------------------------------------------------
 # Global anti-AI tells (warn-severity)
 # ---------------------------------------------------------------------------
 

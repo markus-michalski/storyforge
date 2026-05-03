@@ -138,29 +138,35 @@ worldbuilding-specific and rarely transfer.
 ### Promote (banned_phrase → vocabulary.md)
 
 ```python
-# Use the existing author-rule writer.
-mcp__storyforge-mcp__write_author_rule(
+mcp__storyforge-mcp__write_author_banned_phrase(
+    author_slug=author_slug,
     phrase=candidate.value,
     reason=candidate.rationale,
-    author_slug=author_slug,
-    source_context="harvest-author-rules",
 )
 ```
 
-If that MCP tool isn't available, call the underlying `tools.rule_writer.write_author_rule` directly via a Python invocation in the skill — but prefer the MCP route once it's wired.
+The MCP tool wraps the rule-writer AND invalidates the state cache, so the
+next `get_author()` and the next chapter-writing brief reflect the new
+phrase without a session restart.
 
 ### Promote (style_principle / donts → profile.md ## Writing Discoveries)
 
 ```python
-# tools.author.discovery_writer.write_discovery
-write_discovery(
-    profile_path=author_profile_path,
+mcp__storyforge-mcp__write_author_discovery(
+    author_slug=author_slug,
     section=candidate.target_section,  # "recurring_tics" | "style_principles" | "donts"
     text=user_edited_text or build_discovery_text(candidate),
     book_slug=book_slug,
-    year_month=current_year_month(),  # e.g. "2026-05"
+    year_month=current_year_month(),   # optional — defaults to today's YYYY-MM
 )
 ```
+
+Cache invalidation happens automatically. Build `text` as
+`**bold title** — short rationale.` so the parser and the manuscript-checker
+both pick the bold title up as the scannable phrase. When the bold title
+contains a double-quoted phrase (e.g. `**Vague-noun "thing" als Fallback**`),
+the manuscript-checker scans for that quoted phrase; otherwise it scans for
+the entire bold-title text.
 
 Build the discovery text with a bold title + dash + short rationale, e.g.:
 
