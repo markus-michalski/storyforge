@@ -46,11 +46,13 @@ from routers.books import (  # noqa: E402, F401
 )
 from routers.chapters import (  # noqa: E402, F401
     get_chapter,
+    get_chapter_promises,
     get_chapter_writing_brief,
     get_continuity_brief,
     get_current_story_anchor,
     get_recent_chapter_timelines,
     get_review_brief,
+    register_chapter_promises,
     start_chapter_draft,
     verify_tactical_setup,
 )
@@ -70,6 +72,7 @@ from routers.creation import (  # noqa: E402, F401
     create_character,
 )
 from routers.gates import (  # noqa: E402, F401
+    analyze_plot_logic,
     check_memoir_consent,
     run_pre_export_gates,
     run_quality_gates,

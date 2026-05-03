@@ -53,6 +53,7 @@ books additionally get five memoir-specific passes.
 | Category | What it catches | Severity logic |
 |---|---|---|
 | `book_rule_violation` | Patterns extracted from `<book>/CLAUDE.md` rules | always high |
+| `plot_hole` | Causality inversions + dropped/unfired Chekhov's-gun promises (Issue #150). Sub-category in phrase prefix (`[causality_inversion]` / `[chekhov_gun]`). | high — story-logic breaks reader trust |
 | `cliche` | Curated banlist of worn-out phrasings | always high |
 | `question_as_statement` | Dialogue starting with a Q-word but ending with `.` | high if ≥5 hits |
 | `filter_word` | POV-distancing verbs per chapter (>3/1k words) | high if >6/1k |
@@ -73,7 +74,7 @@ books additionally get five memoir-specific passes.
 | `timeline_ambiguity` | Density of temporal hand-waving per chapter ("at some point", "eventually", "years later") | high if >6/1k words, medium if >3/1k |
 | `real_people_consistency` | Same person's display name appearing in inconsistent capitalization or forms across chapters | always medium |
 
-Sort priority: `book_rule_violation` → `anonymization_leak` (privacy-critical) → `cliche` → all others by severity.
+Sort priority: `book_rule_violation` → `anonymization_leak` (privacy-critical, memoir) → `plot_hole` (story logic, fiction; partial for memoir) → `cliche` → all others by severity.
 
 ## Workflow
 
