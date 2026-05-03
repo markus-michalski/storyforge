@@ -52,7 +52,7 @@ This is a review flag, not a halt — the review continues, but the consent issu
 
 ### Step 2 — Load author and craft context (MCP calls)
 
-- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline — without it, "voice match" is gut-feel.
+- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline — without it, "voice match" is gut-feel. **`writing_discoveries.recurring_tics` (Issue #151) lists cross-book tics — flag any hit in the draft as Major findings; these are documented author defaults the next book is supposed to grow past, not absorb. `style_principles` and `donts` feed the same review pass.**
 - **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Banned-word scan and preferred-word presence check both run against this list.
 - **Craft references** via MCP `get_craft_reference()`:
   - `dos-and-donts` — **Why:** The general craft baseline for the Craft section (5 points).

@@ -61,3 +61,25 @@ author_writing_mode: "outliner"  # outliner | plantser | discovery
 ## Anti-Patterns
 
 *What this author specifically avoids.*
+
+## Writing Discoveries
+
+*Insights that emerged across books. Each entry is tagged with origin book + date so the author identity can grow as the body of work grows. Maintained by `/storyforge:harvest-author-rules` (#151) — manual edits are fine, but keep the bullet + origin-tag shape so the parser picks them up.*
+
+### Recurring Tics
+
+*Word, metaphor, or structural tics this author defaults to. Cut on sight unless the POV explicitly demands them.*
+
+_Frei._
+
+### Style Principles
+
+*Positive craft heuristics that proved themselves while writing.*
+
+_Frei._
+
+### Don'ts (beyond banned phrases)
+
+*Author-level don'ts that aren't single banned phrases (those live in `vocabulary.md`).*
+
+_Frei._
