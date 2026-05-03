@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.18.0] - 2026-05-03
+
+### Added
+- plothole checker — analyze_plot_logic + chapter promises (#150) (#152)
+
+### Changed
+- bump actions/checkout from 4 to 6 in the actions-all group (#149)
+
 ## [1.17.0] - 2026-04-30
 
 ### Added
@@ -274,3 +282,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.15.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.15.0
 [1.16.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.16.0
 [1.17.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.17.0
+[1.18.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.18.0
