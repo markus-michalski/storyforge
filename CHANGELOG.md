@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.19.0] - 2026-05-03
+
+### Added
+- harvest-author-rules — promote book findings into author profile (#151) (#153)
+
 ## [1.18.0] - 2026-05-03
 
 ### Added
@@ -283,3 +288,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.16.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.16.0
 [1.17.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.17.0
 [1.18.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.18.0
+[1.19.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.19.0
