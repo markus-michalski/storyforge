@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- MCP: `pov_character_inventory` field in `get_chapter_writing_brief` — deterministic extraction of the POV character's last established physical inventory (frontmatter > timeline_regex > draft_heuristic > none) so the chapter-writer surfaces gaps instead of inventing items (#157)
+- Skills: `chapter-writer` Pre-Scene Logic Audit — mandatory pre-prose audit block (inventory / geography / character biography / banned phrases + tics / sensory plausibility) emitted to chat before each scene (Mode A) or once per chapter (Mode B), so source-discipline is structurally enforced instead of being a passive rule the model overlooks under context pressure (#155)
+
+### Changed
+- Skills: `chapter-writer` promotes "Abstain from invention" to the first bullet under `## Rules > Universal` — explicit list of acceptable source types (brief / world+setting / characters / timeline / canon-log / prior drafts), the six invention risks (items / relations / routes / location features / quoted dialogue / named objects / time anchors), and the asymmetric cost of invention vs. surfacing a gap. Step 1's inline "do not invent" clause now references the top-level rule instead of restating it (#156)
 
 ### Changed
 - Nothing yet

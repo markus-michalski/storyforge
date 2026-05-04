@@ -48,6 +48,7 @@ from tools.state.loaders.people import (
     person_payload,
     scan_for_named_characters,
 )
+from tools.state.loaders.pov_inventory import extract_pov_inventory
 from tools.state.loaders.recent_chapters import (
     collect_recent_chapters,
     count_similes,
@@ -289,6 +290,23 @@ def build_chapter_writing_brief(
             [],
         )
 
+    chars_dir = resolve_people_dir(book_root, "memoir") if is_memoir else book_root / "characters"
+    pov_character_inventory = recorder.run(
+        "pov_character_inventory",
+        lambda: extract_pov_inventory(
+            book_root,
+            pov_character,
+            chapter_slug,
+            chars_dir=chars_dir,
+        ),
+        {
+            "items": [],
+            "as_of": None,
+            "extraction_method": "none",
+            "warnings": ["pov_character_inventory loader failed — see errors"],
+        },
+    )
+
     story_anchor = recorder.run(
         "story_anchor",
         lambda: get_story_anchor(book_root, chapter_slug).to_dict(),
@@ -343,6 +361,7 @@ def build_chapter_writing_brief(
         "recent_chapter_timelines": recent_timelines,
         "recent_chapter_endings": recent_endings,
         "characters_present": characters,
+        "pov_character_inventory": pov_character_inventory,
         "consent_status_warnings": consent_warnings,
         "rules_to_honor": rules_to_honor,
         "callbacks_in_register": callbacks_in_register,

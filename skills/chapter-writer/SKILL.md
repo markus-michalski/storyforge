@@ -23,7 +23,7 @@ The fiction and memoir prerequisite sets are non-overlapping. Branch every load 
 
 Before writing a single word:
 
-1. **Chapter writing brief** — MCP `get_chapter_writing_brief(book_slug, chapter_slug)`. **Why:** One structured payload that bundles 13 separate context sources — `book_category`, story_anchor, recent_chapter_timelines, recent_chapter_endings, characters_present (fiction: role + knowledge + tactical profiles; memoir: relationship + person_category + consent_status + anonymization), `consent_status_warnings` (memoir only), rules_to_honor (book CLAUDE.md ## Rules with severity), callbacks_in_register, banned_phrases (book + author + global), recent_simile_count_per_chapter, tone_litmus_questions, tactical_constraints, review_handle, plus the chapter metadata. Honor every populated field while writing. Empty fields and entries in `errors` mean "not available for this chapter" — degrade gracefully, do not invent. Store the returned `review_handle` as `{review_handle}`.
+1. **Chapter writing brief** — MCP `get_chapter_writing_brief(book_slug, chapter_slug)`. **Why:** One structured payload that bundles 14 separate context sources — `book_category`, story_anchor, recent_chapter_timelines, recent_chapter_endings, characters_present (fiction: role + knowledge + tactical profiles; memoir: relationship + person_category + consent_status + anonymization), `pov_character_inventory` (deterministic extraction of the POV character's last established physical inventory; structured `items` with source pointers; `extraction_method ∈ {frontmatter, timeline_regex, draft_heuristic, none}`; non-empty `warnings` mean **surface the gap to the user, do not invent items** — Issue #157), `consent_status_warnings` (memoir only), rules_to_honor (book CLAUDE.md ## Rules with severity), callbacks_in_register, banned_phrases (book + author + global), recent_simile_count_per_chapter, tone_litmus_questions, tactical_constraints, review_handle, plus the chapter metadata. Honor every populated field while writing. Empty fields and entries in `errors` mean "not available for this chapter" — degrade gracefully (see the **Abstain from invention** rule under `## Rules > Universal`). Store the returned `review_handle` as `{review_handle}`.
 2. **Author profile** — MCP `get_author()`. **Why:** Drives tone, vocabulary, rhythm, voice. Memoirist's voice is the same load. Without it prose defaults to generic AI register. **The profile's `writing_discoveries` field (Issue #151) carries cross-book findings — `recurring_tics` to actively suppress, `style_principles` to lean into, `donts` to avoid. Apply these BEFORE drafting any prose; they are author identity, not optional.**
 3. **Book data** — MCP `get_book_full()`. **Why:** Genres / category context, plot or scope, the frame the chapter must fit.
 
@@ -95,6 +95,29 @@ Call MCP `start_chapter_draft(book_slug, chapter_slug)` before any prose. **Why:
 #### Step A1: Scene Plan
 Break the chapter outline into scenes based on the Scene Beats in `README.md`. Present the plan: `Scene N: [description] (~XXX words)`. Target ~900 words/scene (vary 600-1200 as needed); total should approximate the chapter's target.
 
+#### Step A1b: Pre-Scene Logic Audit (MANDATORY, before each scene)
+
+**The skill MUST emit a bulleted audit list to the chat before appending any scene to `draft.md`.** This is the structural counter to context-pressure invention — the model that just wrote four scenes in a row will not reliably re-consult loaded sources unless forced to. Output the audit as a short bulleted block in the chat, then write the scene. No exceptions, no inlining into the prose response.
+
+The five categories below are mandatory. For each, answer in one sentence, citing the source the answer came from. If the source is silent, say so explicitly — that is the gap the rest of the skill is built to surface, not paper over.
+
+1. **Inventory (POV character).** What does the POV char physically have on them in this scene? **Source:** brief's `pov_character_inventory` (Issue #157). If `extraction_method: "none"` or `warnings` is non-empty, ask the user before drafting any item-touching action — do not invent items to fill the gap.
+   > *Example: "Theo (Ch26 ~12:55, source: chapter:26-the-basement:timeline:~12:55): compass, silver knife, no-signal phone, half a power bar, mission jacket. Pamphlet NOT on his person."*
+
+2. **Geography.** Which rooms, routes, and waypoints does this scene touch, and which of those is the POV char actually familiar with? **Source:** `world/setting.md` (Travel Matrix, fiction) or `research/sources.md` + chapter setting prose (memoir), plus established movements in `plot/timeline.md` and `recent_chapter_timelines`. Model the route mentally before any movement verb hits the page — overflying this category produces "wrong door, wrong stairs, wrong corridor" continuity breaks.
+   > *Example: "Mine = basement chamber + adit chamber, internally connected via the working tunnel; external trapdoor route runs through the Bloodrunner main corridor. POV is in the basement → the internal tunnel is the only sensible path."*
+
+3. **Character biography & relationships.** For every character on the page: who are they to the POV (family, friend, stranger), what does the POV know about them, what is forbidden by canon? **Source:** `characters/{slug}.md` (or `people/{slug}.md` for memoir), `book.yaml` description, `plot/canon-log.md` (fiction) or `plot/people-log.md` (memoir). Check the *planned* phrasing of any biographical claim against this BEFORE writing it as prose.
+   > *Example: "Theo: parents not in this story; Caelan is Sera's father, NOT Theo's. Any 'reminds him of his father' framing is canon-break — cut."*
+
+4. **Banned phrases + author tics.** Scan the *planned* beat content (not the prose, the plan) against the brief's `banned_phrases` and the author profile's `writing_discoveries.recurring_tics` / `donts`. A planned beat like "Theo runs the math in his head" is a hard stop if `math` is a tic in the profile — replan the beat itself, do not paraphrase.
+   > *Example: "Planned beat 'Theo does mental math' → tic violation (`math`); replan as 'Theo cross-checks the timing against the radio chatter' before any prose."*
+
+5. **Sensory plausibility.** Can the POV actually perceive what the planned beat asks them to perceive, given inventory + setting + body state (injured? gloved? booted? dark? loud?)? Cross-check against #1 (inventory) and #2 (geography), plus any body-state notes in the chapter outline or recent drafts.
+   > *Example: "Theo wears tactical boots → no direct stone-cold sensation through soles. Cut 'the steps were colder than he expected' or rewrite as a hand-on-rail observation."*
+
+After the audit, proceed to Step A2. If any category surfaces a gap (`pov_character_inventory.warnings`, missing canon entry, unclear geography, planned tic violation, implausible sensory beat), surface the gap explicitly and ask the user — never paper over it.
+
 #### Step A2: Write One Scene
 Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene.
 
@@ -116,6 +139,20 @@ All scenes approved → tell user: "Alle Szenen stehen. Bitte lies das komplette
 ---
 
 ### Mode B: Full Chapter Writing
+
+#### Step 2c: Pre-Chapter Logic Audit (MANDATORY, before drafting)
+
+The Mode A Pre-Scene Logic Audit (Step A1b) applies here too, scaled to the chapter level — **emit one bulleted audit block to the chat before any prose enters `draft.md`**. Run all five categories once, covering the chapter as a whole rather than scene-by-scene.
+
+Same categories, same source-citation discipline, same gap-surfacing rule:
+
+1. **Inventory (POV character).** From the brief's `pov_character_inventory` — list items the POV carries into this chapter; flag warnings.
+2. **Geography.** Map the rooms / routes / waypoints the chapter touches; cite `world/setting.md` (fiction) or research notes (memoir).
+3. **Character biography & relationships.** For everyone on the page across the chapter, cite the canon source for any biographical claim.
+4. **Banned phrases + author tics.** Scan the chapter outline / scene beats against the brief's `banned_phrases` and the author profile's `recurring_tics` and `donts` — replan offending beats before drafting.
+5. **Sensory plausibility.** Cross-check planned sensory beats against inventory + setting + body state.
+
+Surface every gap explicitly and ask the user. The audit is the structural defense against context-pressure invention; treating it as optional reintroduces exactly the failure mode it exists to prevent.
 
 #### Step 3: Opening Hook
 Open with action/voice/tension (not weather or waking-up). Ground the reader subtly. Create a micro-question. Match the author's voice from the FIRST sentence. See `openings-and-endings.md`. If Chapter 1: review and plan the 13-Point First Chapter Checklist from `openings-and-endings.md`.
@@ -196,6 +233,7 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 ## Rules
 
 ### Universal (both modes)
+- **Abstain from invention.** If you cannot point to a source line in the loaded brief, `world/setting.md`, `characters/*.md` (or `people/*.md` for memoir), `plot/timeline.md`, `plot/canon-log.md` / `plot/people-log.md`, or a previous chapter's `draft.md` for a concrete detail — items carried, character relationships, routes, location features, quoted dialogue, named objects, time anchors — do not write it. Surface the gap to the user and ask, or leave the spot empty. **Why:** every invented detail accumulates as soft canon and contradicts hard canon on the next pass. The cost of a missing detail is one question to the user; the cost of an invented detail is a continuity break that may not surface for chapters and corrupts every reader who passes through the gap before it is caught. **How to apply:** before writing any concrete claim, do a one-second source check. If the source is not immediately retrievable from the loaded data, flag it instead of guessing. The Pre-Scene Logic Audit (Step A1b / Step 2c) is the structural enforcement of this rule — emit it; do not skip it.
 - Resolve `book_category` in Step 0 before any prerequisite load. The fiction and memoir prerequisite sets are non-overlapping.
 - Author profile is LAW. SHOW don't tell. Every scene needs conflict (memoir: every scene needs *stakes* — the lived equivalent). Dialog has subtext. Banned words trigger sentence rewrite.
 - **Simile Discipline (Step 6c) is non-negotiable.** Every scene survives the two-question test before it enters `draft.md`. Author-voice bias = quality not quantity. See `simile-discipline.md`.
