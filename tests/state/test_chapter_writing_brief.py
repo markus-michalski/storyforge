@@ -467,3 +467,108 @@ class TestTacticalConstraints:
         )
         assert brief["tactical_constraints"] is not None
         assert "questions_for_writer" in brief["tactical_constraints"]
+
+
+# ---------------------------------------------------------------------------
+# pov_character_inventory: deterministic POV inventory extraction (Issue #157)
+# ---------------------------------------------------------------------------
+
+
+class TestPovCharacterInventory:
+    def test_brief_includes_pov_character_inventory_key(self, tmp_path):
+        book, plugin_root = _setup_book(tmp_path)
+        _make_chapter(book, "01-intro", number=1, title="Intro", pov="Theo")
+        _add_character(book, "theo", name="Theo")
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
+        )
+        assert "pov_character_inventory" in brief
+
+    def test_inventory_schema_matches_contract(self, tmp_path):
+        book, plugin_root = _setup_book(tmp_path)
+        _make_chapter(book, "01-intro", number=1, title="Intro", pov="Theo")
+        _add_character(book, "theo", name="Theo")
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
+        )
+        inv = brief["pov_character_inventory"]
+        assert isinstance(inv, dict)
+        for key in ("items", "as_of", "extraction_method", "warnings"):
+            assert key in inv
+
+    def test_no_inventory_anywhere_yields_method_none_with_warning(self, tmp_path):
+        book, plugin_root = _setup_book(tmp_path)
+        _make_chapter(book, "01-intro", number=1, title="Intro", pov="Theo")
+        _add_character(book, "theo", name="Theo")
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
+        )
+        inv = brief["pov_character_inventory"]
+        assert inv["extraction_method"] == "none"
+        assert inv["items"] == []
+        assert inv["warnings"]
+
+    def test_inventory_extracted_from_chapter_timeline_regex(self, tmp_path):
+        book, plugin_root = _setup_book(tmp_path)
+        _make_chapter(
+            book,
+            "01-intro",
+            number=1,
+            title="Intro",
+            pov="Theo",
+            body=(
+                "## Chapter Timeline\n\n"
+                "- ~12:55 Tactical inventory: compass, silver knife, no-signal phone, half a power bar.\n"
+            ),
+        )
+        _add_character(book, "theo", name="Theo")
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
+        )
+        inv = brief["pov_character_inventory"]
+        assert inv["extraction_method"] == "timeline_regex"
+        items = [i["item"] for i in inv["items"]]
+        assert "compass" in items
+        assert "silver knife" in items
+
+    def test_inventory_field_round_trips_through_json(self, tmp_path):
+        """Loader output must be JSON-serializable like the rest of the brief."""
+        import json as _json
+
+        book, plugin_root = _setup_book(tmp_path)
+        _make_chapter(
+            book,
+            "01-intro",
+            number=1,
+            title="Intro",
+            pov="Theo",
+            body=(
+                "## Chapter Timeline\n\n"
+                "- ~12:55 inventory: compass, knife.\n"
+            ),
+        )
+        _add_character(book, "theo", name="Theo")
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
+        )
+        _json.dumps(brief["pov_character_inventory"])

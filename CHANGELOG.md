@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- MCP: `pov_character_inventory` field in `get_chapter_writing_brief` — deterministic extraction of the POV character's last established physical inventory (frontmatter > timeline_regex > draft_heuristic > none) so the chapter-writer surfaces gaps instead of inventing items (#157)
 
 ### Changed
 - Nothing yet
