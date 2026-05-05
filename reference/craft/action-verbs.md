@@ -1,3 +1,10 @@
+---
+book_categories: [fiction, memoir]
+craft_topic: prose-style
+status: stable
+last_reviewed: 2026-05-05
+---
+
 # Action Verb List
 
 Used by the snapshot detector in `manuscript_checker.py` to classify sentences

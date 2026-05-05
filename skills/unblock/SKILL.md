@@ -6,6 +6,7 @@ description: |
   "keine Motivation", "keine Lust", "Schreibblockade", or similar signals of creative resistance.
 model: claude-opus-4-7
 user-invocable: true
+argument-hint: "[book-slug]"
 ---
 
 # Unblock
