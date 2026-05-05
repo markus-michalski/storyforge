@@ -196,7 +196,7 @@ For clean scenes, silence is fine. When cuts happen, optionally note "Simile-Sca
 **Fiction (`book_category: fiction`):**
 
 5. **Update Travel Matrix** in `world/setting.md` if new routes appeared.
-6. **Update `plot/canon-log.md`** — new facts. Use `## Chapter NN — Title` section headers and `### Subject: topic` subsections so the `canon_brief` projector can parse them deterministically (Issue #161). If revising, mark changed facts `CHANGED` with old version in Notes, and add downstream chapters to the Revision Impact Tracker.
+6. **Update `plot/canon-log.md`** — new facts. Use `## Chapter NN — Title` section headers and `### Subject: topic` subsections so the `canon_brief` projector can parse them deterministically (Issue #161). If revising, write a `- **CHANGED**: old → new (revision_impact: 06-slug, 11-slug)` bullet inside the chapter where the change was made. The trailing `revision_impact` list names every downstream chapter the change propagates into; the projector reads it automatically — no separate tracker table needed.
 
 **Memoir (`book_category: memoir`):**
 
