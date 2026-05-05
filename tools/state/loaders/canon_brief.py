@@ -362,10 +362,27 @@ def _subject_before(body: str, pos: int) -> str:
 def _filter_pov(facts: list[dict[str, Any]], pov_name_lower: str) -> list[dict[str, Any]]:
     if not pov_name_lower:
         return []
+    # Match on each significant token (≥3 chars) with word-boundary semantics.
+    # Whole-string substring match fails for "Theo Wilkons" because source
+    # pointers and bullet text use first-name only ("### Theo: cognition").
+    # OR-semantics: a fact qualifies when ANY token matches — intentional, because
+    # canon logs reference characters by first name only, making AND too strict.
+    tokens = [t for t in pov_name_lower.split() if len(t) >= 3]
+    if not tokens:
+        # Short single-name characters ("Bo", "Li") — fall back to substring match
+        # so they aren't silently excluded.
+        return [
+            f for f in facts
+            if pov_name_lower in f.get("source", "").lower()
+            or pov_name_lower in f.get("fact", "").lower()
+        ]
+    patterns = [re.compile(rf"\b{re.escape(t)}\b", re.IGNORECASE) for t in tokens]
     return [
         f for f in facts
-        if pov_name_lower in f.get("source", "").lower()
-        or pov_name_lower in f.get("fact", "").lower()
+        if any(
+            p.search(f.get("source", "")) or p.search(f.get("fact", ""))
+            for p in patterns
+        )
     ]
 
 
