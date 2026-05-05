@@ -9,6 +9,7 @@ description: |
   Do NOT trigger on bare "Idee" / "brainstorm" without book context — defer to a more specific plugin.
 model: claude-opus-4-7
 user-invocable: true
+argument-hint: "[idea-slug]"
 ---
 
 # Brainstorm
