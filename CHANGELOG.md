@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.20.1] - 2026-05-05
+
+### Changed
+- drop obsolete Revision Impact Tracker references after #161/#164 (#166)
+
+### Fixed
+- drop canon_brief.current_facts from chapter_writing_brief inline (#165) (#167)
+
 ## [1.20.0] - 2026-05-05
 
 ### Added
@@ -306,3 +314,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.19.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.19.0
 [1.19.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.19.1
 [1.20.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.0
+[1.20.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.1
