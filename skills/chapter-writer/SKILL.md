@@ -23,7 +23,7 @@ The fiction and memoir prerequisite sets are non-overlapping. Branch every load 
 
 Before writing a single word:
 
-1. **Chapter writing brief** — MCP `get_chapter_writing_brief(book_slug, chapter_slug)`. **Why:** One structured payload that bundles 14 separate context sources — `book_category`, story_anchor, recent_chapter_timelines, recent_chapter_endings, characters_present (fiction: role + knowledge + tactical profiles; memoir: relationship + person_category + consent_status + anonymization), `pov_character_inventory` (deterministic extraction of the POV character's last established physical inventory; structured `items` with source pointers; `extraction_method ∈ {frontmatter, timeline_regex, draft_heuristic, none}`; non-empty `warnings` mean **surface the gap to the user, do not invent items** — Issue #157), `consent_status_warnings` (memoir only), rules_to_honor (book CLAUDE.md ## Rules with severity), callbacks_in_register, banned_phrases (book + author + global), recent_simile_count_per_chapter, tone_litmus_questions, tactical_constraints, review_handle, plus the chapter metadata. Honor every populated field while writing. Empty fields and entries in `errors` mean "not available for this chapter" — degrade gracefully (see the **Abstain from invention** rule under `## Rules > Universal`). Store the returned `review_handle` as `{review_handle}`.
+1. **Chapter writing brief** — MCP `get_chapter_writing_brief(book_slug, chapter_slug)`. **Why:** One structured payload that bundles 14 separate context sources — `book_category`, story_anchor, recent_chapter_timelines, recent_chapter_endings, characters_present (fiction: role + knowledge + tactical profiles; memoir: relationship + person_category + consent_status + anonymization), `pov_character_inventory` (deterministic extraction of the POV character's last established physical inventory; structured `items` with source pointers; `extraction_method ∈ {frontmatter, timeline_regex, draft_heuristic, none}`; non-empty `warnings` mean **surface the gap to the user, do not invent items**; kept fresh by Step 7.8 write-back — Issue #157), `consent_status_warnings` (memoir only), rules_to_honor (book CLAUDE.md ## Rules with severity), callbacks_in_register, banned_phrases (book + author + global), recent_simile_count_per_chapter, tone_litmus_questions, tactical_constraints, review_handle, plus the chapter metadata. Honor every populated field while writing. Empty fields and entries in `errors` mean "not available for this chapter" — degrade gracefully (see the **Abstain from invention** rule under `## Rules > Universal`). Store the returned `review_handle` as `{review_handle}`.
 2. **Author profile** — MCP `get_author()`. **Why:** Drives tone, vocabulary, rhythm, voice. Memoirist's voice is the same load. Without it prose defaults to generic AI register. **The profile's `writing_discoveries` field (Issue #151) carries cross-book findings — `recurring_tics` to actively suppress, `style_principles` to lean into, `donts` to avoid. Apply these BEFORE drafting any prose; they are author identity, not optional.**
 3. **Book data** — MCP `get_book_full()`. **Why:** Genres / category context, plot or scope, the frame the chapter must fit.
 
@@ -206,6 +206,31 @@ For clean scenes, silence is fine. When cuts happen, optionally note "Simile-Sca
 **Both modes — universal step:**
 
 7. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with `~HH:MM`. MANDATORY (future chapters depend on it). Memoir uses real clock times.
+
+8. **Update POV character snapshot** (Issues #157 / #160) — Skip when staying at `Draft`. For `Review` / `Final` closes only.
+
+   **How (Option C — extract, propose, confirm, write):**
+
+   a. Run the brief's extractors mentally against the just-completed draft: what is the POV character carrying, wearing, injured, or affected by at the chapter's *end*? Pull from the Chapter Timeline beats you wrote in step 7 above — those are the authoritative source.
+
+   b. Present a concise proposal to the user:
+   ```
+   POV snapshot for {pov_character} after {chapter_slug}:
+   - current_inventory: [compass, silver knife, no-signal phone]
+   - current_clothing:  [tactical boots, mission jacket]
+   - current_injuries:  [bandaged left hand from ~21:30 beat]
+   - altered_states:    [running on 3 hours sleep]
+   - environmental_limiters: []
+   ```
+   Ask: *"Passt das so? Korrekturen?"*
+
+   c. Wait for user confirmation or corrections.
+
+   d. Persist via MCP `update_character_snapshot(book_slug, pov_slug, snapshot_json, book_category)` where `snapshot_json` is a JSON object with the confirmed fields plus `as_of_chapter: "{chapter_slug}"`. Fiction: `pov_slug` from `characters/{slug}.md`. Memoir: from `people/{slug}.md` (`book_category="memoir"`).
+
+   **Why this matters:** `pov_character_inventory` and (once #160 ships) `pov_character_state` use `frontmatter` as their highest-priority source. Without this write-back, each new chapter's brief degrades to timeline-regex or draft-heuristic extraction — fragile sources that miss silent state changes. A 30-second confirmation at chapter close keeps the brief sharp for every subsequent chapter.
+
+   **What to include:** only fields that actually changed or were established in this chapter. Omit fields with no new information — partial updates are fine; `update_character_snapshot` merges, not replaces.
 
 ### Step 8: Self-Review (both modes)
 Before presenting to user (in full-chapter mode) or after all scenes assembled (in scene-by-scene mode), quick-check:

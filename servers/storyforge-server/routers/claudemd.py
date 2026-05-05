@@ -1,8 +1,10 @@
-"""Per-book CLAUDE.md tools + ``get_character`` (which reads the character
-profile that the CLAUDE.md context references).
+"""Per-book CLAUDE.md tools + character read/write tools.
 
 The CLAUDE.md tools wrap ``tools.claudemd.manager`` — they're the only
 state-mutating MCP entry points that touch the per-book CLAUDE.md.
+
+Character tools: ``get_character`` (read) and ``update_character_snapshot``
+(write-back of end-of-chapter POV state — Issues #157 / #160).
 """
 
 from __future__ import annotations
@@ -32,7 +34,11 @@ from tools.claudemd.rules_lint import (
     lint_book_rules as _lint_book_rules_impl,
     lint_rule_text as _lint_rule_text_impl,
 )
-from tools.shared.paths import resolve_character_path, resolve_project_path
+from tools.shared.paths import (
+    resolve_character_path,
+    resolve_people_dir,
+    resolve_project_path,
+)
 
 from . import _app
 from ._app import mcp
@@ -121,6 +127,125 @@ def get_character(book_slug: str, character_slug: str) -> str:
         return json.dumps({"content": legacy.read_text(encoding="utf-8")})
 
     return json.dumps({"error": f"Character '{character_slug}' not found in book '{book_slug}'"})
+
+
+# Snapshot fields written back to the character file at chapter close.
+# ``as_of_chapter`` is a string (chapter slug); all others are list[str].
+_SNAPSHOT_FIELDS: frozenset[str] = frozenset(
+    {
+        "current_inventory",
+        "current_clothing",
+        "current_injuries",
+        "altered_states",
+        "environmental_limiters",
+        "as_of_chapter",
+    }
+)
+
+
+@mcp.tool()
+def update_character_snapshot(
+    book_slug: str,
+    character_slug: str,
+    snapshot_json: str,
+    book_category: str = "fiction",
+) -> str:
+    """Persist end-of-chapter POV character snapshot to the character file.
+
+    Writes the structured list fields that the chapter-writing brief extracts
+    (``pov_character_inventory`` from Issue #157; ``pov_character_state`` from
+    Issue #160) back to the character frontmatter so the *next* chapter's brief
+    picks them up from the highest-priority ``frontmatter`` source rather than
+    falling through to timeline regex or draft heuristics.
+
+    Only the five snapshot fields (plus ``as_of_chapter``) are touched — all
+    other frontmatter fields are left unchanged.
+
+    Args:
+        book_slug: Book project slug.
+        character_slug: Character / person slug (without extension).
+        snapshot_json: JSON object with any subset of:
+            ``current_inventory``, ``current_clothing``, ``current_injuries``,
+            ``altered_states``, ``environmental_limiters`` (all list[str]);
+            ``as_of_chapter`` (str). Unknown keys are rejected.
+        book_category: ``"fiction"`` (default) or ``"memoir"``. Controls
+            whether the character lives under ``characters/`` or ``people/``.
+
+    Returns:
+        ``{success, character, book, updated_fields}`` on success, or
+        ``{error}`` on validation / IO failure.
+    """
+    import yaml
+
+    from tools.state.parsers import parse_frontmatter
+
+    config = _app.load_config()
+    content_root = Path(config["paths"]["content_root"]).resolve()
+
+    try:
+        snapshot: dict[str, Any] = json.loads(snapshot_json)
+    except json.JSONDecodeError as exc:
+        return json.dumps({"error": f"snapshot_json is not valid JSON: {exc}"})
+    if not isinstance(snapshot, dict):
+        return json.dumps({"error": "snapshot_json must be a JSON object"})
+    if not snapshot:
+        return json.dumps({"error": "snapshot_json must not be empty"})
+
+    unknown = set(snapshot.keys()) - _SNAPSHOT_FIELDS
+    if unknown:
+        return json.dumps(
+            {
+                "error": (
+                    f"Unknown snapshot fields: {sorted(unknown)}. "
+                    f"Allowed: {sorted(_SNAPSHOT_FIELDS)}"
+                )
+            }
+        )
+
+    list_fields = _SNAPSHOT_FIELDS - {"as_of_chapter"}
+    for field in list_fields:
+        if field in snapshot:
+            val = snapshot[field]
+            if not isinstance(val, list) or not all(isinstance(i, str) for i in val):
+                return json.dumps({"error": f"Field '{field}' must be a list of strings"})
+
+    if "as_of_chapter" in snapshot and not isinstance(snapshot["as_of_chapter"], str):
+        return json.dumps({"error": "Field 'as_of_chapter' must be a string"})
+
+    project_dir = resolve_project_path(config, book_slug)
+    if not project_dir.exists():
+        return json.dumps({"error": f"Book '{book_slug}' not found"})
+
+    if book_category == "memoir":
+        char_file = resolve_people_dir(project_dir, "memoir") / f"{character_slug}.md"
+    else:
+        char_file = resolve_character_path(config, book_slug, character_slug)
+
+    try:
+        resolved = char_file.resolve()
+    except (OSError, RuntimeError) as exc:
+        return json.dumps({"error": f"Invalid path: {exc}"})
+    if not resolved.is_relative_to(content_root):
+        return json.dumps({"error": "Resolved character path escapes content_root"})
+
+    if not char_file.exists():
+        return json.dumps({"error": f"Character file not found: {char_file}"})
+
+    text = char_file.read_text(encoding="utf-8")
+    meta, body = parse_frontmatter(text)
+    meta.update(snapshot)
+    new_text = "---\n" + yaml.dump(meta, default_flow_style=False, allow_unicode=True) + "---\n" + body
+    char_file.write_text(new_text, encoding="utf-8")
+
+    _app._cache.invalidate()
+    return json.dumps(
+        {
+            "success": True,
+            "character": character_slug,
+            "book": book_slug,
+            "updated_fields": sorted(snapshot.keys()),
+        }
+    )
 
 
 @mcp.tool()
