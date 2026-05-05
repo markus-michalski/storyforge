@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.20.3] - 2026-05-05
+
+### Fixed
+- char-budget trim for pov_relevant_facts (#170) (#171)
+
 ## [1.20.2] - 2026-05-05
 
 ### Changed
@@ -324,3 +329,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.20.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.0
 [1.20.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.1
 [1.20.2]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.2
+[1.20.3]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.3

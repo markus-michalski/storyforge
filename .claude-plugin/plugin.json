@@ -1,6 +1,6 @@
 {
   "name": "storyforge",
-  "version": "1.20.2",
+  "version": "1.20.3",
   "description": "AI-powered book writing pipeline: brainstorm, concept, plot, characters, chapters, export",
   "author": {
     "name": "Markus Michalski"
