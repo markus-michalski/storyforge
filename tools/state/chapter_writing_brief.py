@@ -19,6 +19,8 @@ custom encoders.
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -57,6 +59,56 @@ from tools.state.loaders.recent_chapters import (
     last_paragraph,
 )
 from tools.timeline_anchor import get_story_anchor
+
+
+# Issue #170: char-budget for pov_relevant_facts in the inline canon_brief.
+# Books with narrative-style canon logs (~200 chars/bullet) accumulate
+# 75k+ chars of pov-matching facts on Act 3, pushing the brief past the
+# tool-result token limit. 30k leaves comfortable headroom for the rest
+# of the brief (banned_phrases ~7k, rules ~3k, callbacks ~3k, ...) inside
+# a ~100k tool-result limit.
+POV_FACTS_CHAR_BUDGET = 30_000
+
+_CHAPTER_NUM_RE = re.compile(r"^(?P<num>\d{1,3})")
+
+
+def _chapter_num_for_sort(slug: Any) -> int:
+    if not isinstance(slug, str):
+        return 0
+    m = _CHAPTER_NUM_RE.match(slug)
+    return int(m.group("num")) if m else 0
+
+
+def _trim_pov_facts(
+    facts: list[dict[str, Any]],
+    budget: int,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Keep newest facts (by chapter number) until cumulative JSON-length
+    exceeds ``budget``. Return ``(kept_facts, truncated_flag)``.
+
+    Newest-first because for chapter-writing the most relevant facts are
+    the most recently established canon — older facts are stable, the
+    high-risk continuity zone is the last 1-2 chapters.
+
+    Always keeps at least one fact when ``facts`` is non-empty so the
+    writer never falls through to an empty signal silently.
+    """
+    if not facts:
+        return [], False
+    by_chapter_desc = sorted(
+        facts,
+        key=lambda f: _chapter_num_for_sort(f.get("chapter")),
+        reverse=True,
+    )
+    kept: list[dict[str, Any]] = []
+    used = 0
+    for fact in by_chapter_desc:
+        size = len(json.dumps(fact, ensure_ascii=False))
+        if used + size > budget and kept:
+            return kept, True
+        kept.append(fact)
+        used += size
+    return kept, False
 
 
 @dataclass
@@ -395,6 +447,18 @@ def build_chapter_writing_brief(
     # skill calls get_canon_brief() separately when it needs the full list;
     # pov_relevant_facts (already inlined) covers the POV signal.
     canon_brief.pop("current_facts", None)
+
+    # Issue #170: pov_relevant_facts also scales with canon-log content ×
+    # bullet length × scope_chapters. On books with narrative-style canon
+    # logs (~200 chars/bullet) it can hit 75k chars on its own and push the
+    # brief past the tool-result limit. Trim newest-first to a char budget
+    # and surface truncated/total_count so the skill can fall back to
+    # standalone get_canon_brief() when older facts are needed.
+    pov_facts_full = canon_brief.get("pov_relevant_facts") or []
+    trimmed, was_truncated = _trim_pov_facts(pov_facts_full, POV_FACTS_CHAR_BUDGET)
+    canon_brief["pov_relevant_facts"] = trimmed
+    canon_brief["pov_relevant_facts_truncated"] = was_truncated
+    canon_brief["pov_relevant_facts_total_count"] = len(pov_facts_full)
 
     tactical = _gather_tactical(
         book_root,
