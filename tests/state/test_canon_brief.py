@@ -788,3 +788,203 @@ class TestBriefIntegration:
         assert any("pov_character" in w.lower() for w in warnings), (
             f"expected pov_character warning, got: {warnings}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Issue #170: pov_relevant_facts char-budget trim (symmetric to #167)
+# ---------------------------------------------------------------------------
+
+
+def _scaffold_long_book_with_pov(
+    tmp_path: Path,
+    *,
+    bullets_per_chapter: int = 50,
+    bullet_text_template: str | None = None,
+    pov_character: str = "Theo",
+) -> Path:
+    """Build a 10-chapter Review-status book with a Theo-tagged canon log."""
+    book = tmp_path / "long-book"
+    (book / "characters").mkdir(parents=True)
+    (book / "plot").mkdir()
+    (book / "world").mkdir()
+    (book / "README.md").write_text(
+        '---\ntitle: "Long Book"\nauthor: ""\n---\n', encoding="utf-8"
+    )
+
+    # 10 review-status chapters before the target — fully in scope_chapters=8 default
+    for i in range(1, 11):
+        ch = book / "chapters" / f"{i:02d}-ch{i}"
+        ch.mkdir(parents=True)
+        (ch / "README.md").write_text(
+            f'---\nnumber: {i}\nstatus: "Review"\n---\n', encoding="utf-8"
+        )
+        (ch / "draft.md").write_text(
+            f"# Chapter {i}\n\nSome prose.\n", encoding="utf-8"
+        )
+
+    target = book / "chapters" / "11-target"
+    target.mkdir(parents=True)
+    pov_line = f'pov_character: "{pov_character}"\n' if pov_character else ""
+    (target / "README.md").write_text(
+        f'---\nnumber: 11\nstatus: "Draft"\n{pov_line}---\n',
+        encoding="utf-8",
+    )
+
+    template = bullet_text_template or (
+        "This is a fairly long fact about chapter {chapter}, item {item}, "
+        "with enough text to make the canon log realistically dense — "
+        "around two hundred characters of narrative bullet content "
+        "that mirrors how authors actually write canon logs."
+    )
+
+    sections = []
+    for i in range(1, 11):
+        bullets = "\n".join(
+            f"- {template.format(chapter=i, item=j)}"
+            for j in range(1, bullets_per_chapter + 1)
+        )
+        sections.append(
+            f"## Chapter {i:02d} — Ch{i}\n\n### Theo: facts\n{bullets}\n"
+        )
+    (book / "plot" / "canon-log.md").write_text(
+        "\n\n".join(sections), encoding="utf-8"
+    )
+    return book
+
+
+class TestPovFactsCharBudget:
+    """Issue #170: pov_relevant_facts must respect a char-budget so it doesn't
+    push the chapter-writing brief past the tool-result token limit on books
+    with narrative-style canon logs."""
+
+    def test_pov_facts_char_budget_trims_on_long_canon_log(self, tmp_path):
+        from tools.state.chapter_writing_brief import (
+            POV_FACTS_CHAR_BUDGET,
+            build_chapter_writing_brief,
+        )
+        from pathlib import Path as _Path
+
+        plugin_root = _Path(__file__).resolve().parent.parent.parent
+        # 10 chapters × 50 dense bullets = 500 facts, ~110k chars of POV-matching content
+        book = _scaffold_long_book_with_pov(tmp_path, bullets_per_chapter=50)
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="long-book",
+            chapter_slug="11-target",
+            plugin_root=plugin_root,
+        )
+
+        cb = brief["canon_brief"]
+        pov_facts = cb["pov_relevant_facts"]
+        assert pov_facts, "pov_relevant_facts must not be empty after trim"
+
+        serialized_pov = _json.dumps(pov_facts, ensure_ascii=False)
+        assert len(serialized_pov) <= POV_FACTS_CHAR_BUDGET, (
+            f"pov_relevant_facts is {len(serialized_pov)} chars — "
+            f"exceeds char-budget {POV_FACTS_CHAR_BUDGET}"
+        )
+
+        assert cb.get("pov_relevant_facts_truncated") is True, (
+            "pov_relevant_facts_truncated must be True when trim fires"
+        )
+        total = cb.get("pov_relevant_facts_total_count")
+        assert isinstance(total, int)
+        assert total > len(pov_facts), (
+            f"pov_relevant_facts_total_count ({total}) must exceed kept count "
+            f"({len(pov_facts)}) when truncated"
+        )
+
+    def test_pov_facts_kept_are_from_newest_chapters(self, tmp_path):
+        """Newest-first preservation: when trimming, keep facts from the
+        highest-numbered chapters because those are the highest-risk
+        continuity zone for the current chapter."""
+        from tools.state.chapter_writing_brief import build_chapter_writing_brief
+        from pathlib import Path as _Path
+
+        plugin_root = _Path(__file__).resolve().parent.parent.parent
+        book = _scaffold_long_book_with_pov(tmp_path, bullets_per_chapter=50)
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="long-book",
+            chapter_slug="11-target",
+            plugin_root=plugin_root,
+        )
+
+        pov_facts = brief["canon_brief"]["pov_relevant_facts"]
+        assert pov_facts
+        # Extract chapter numbers (chapter slugs look like "10-ch10")
+        kept_chapter_nums = sorted(
+            {int(f["chapter"].split("-")[0]) for f in pov_facts}
+        )
+        # Trim must preserve the most recent chapters; chapter 10 is the
+        # newest in scope and MUST be kept.
+        assert 10 in kept_chapter_nums, (
+            f"newest chapter (10) was dropped; kept chapters: {kept_chapter_nums}"
+        )
+        # And it must not have skipped chapter 10 in favor of older chapters:
+        # if any older chapter is kept, every chapter newer than it must also be kept.
+        if kept_chapter_nums:
+            oldest_kept = min(kept_chapter_nums)
+            expected_window = set(range(oldest_kept, 11))
+            assert set(kept_chapter_nums) == expected_window, (
+                f"kept chapters {kept_chapter_nums} are not a contiguous "
+                f"newest-first window; expected {sorted(expected_window)}"
+            )
+
+    def test_pov_facts_no_trim_on_short_canon_log(self, tmp_path):
+        """Short canon log: nothing to trim — all matching facts kept,
+        truncated flag is False, total_count equals kept count."""
+        from tools.state.chapter_writing_brief import build_chapter_writing_brief
+        from pathlib import Path as _Path
+
+        plugin_root = _Path(__file__).resolve().parent.parent.parent
+        # 10 chapters × 5 short bullets = 50 facts, well under 30k chars
+        book = _scaffold_long_book_with_pov(
+            tmp_path,
+            bullets_per_chapter=5,
+            bullet_text_template="Short fact ch{chapter} item {item}.",
+        )
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="long-book",
+            chapter_slug="11-target",
+            plugin_root=plugin_root,
+        )
+
+        cb = brief["canon_brief"]
+        pov_facts = cb["pov_relevant_facts"]
+        assert pov_facts
+        # 8 in scope × 5 = 40 facts (default scope_chapters=8)
+        assert len(pov_facts) == 40, (
+            f"expected 40 pov facts on short log, got {len(pov_facts)}"
+        )
+        assert cb.get("pov_relevant_facts_truncated") is False
+        assert cb.get("pov_relevant_facts_total_count") == 40
+
+    def test_inline_canon_brief_size_under_budget_with_pov(self, tmp_path):
+        """Issue #170: with a POV character set on a long-running narrative-style
+        canon log, the full brief must still fit comfortably under the
+        tool-result token limit."""
+        from tools.state.chapter_writing_brief import build_chapter_writing_brief
+        from pathlib import Path as _Path
+
+        plugin_root = _Path(__file__).resolve().parent.parent.parent
+        book = _scaffold_long_book_with_pov(tmp_path, bullets_per_chapter=50)
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="long-book",
+            chapter_slug="11-target",
+            plugin_root=plugin_root,
+        )
+
+        serialized = _json.dumps(brief, ensure_ascii=False)
+        # Pre-#170 with POV set: ~105k chars (per Issue #170 reproduction).
+        # Post-#170 target: well under 60k.
+        assert len(serialized) < 60_000, (
+            f"brief is {len(serialized)} chars — exceeds size budget. "
+            f"pov_relevant_facts trim is likely missing (#170)."
+        )
