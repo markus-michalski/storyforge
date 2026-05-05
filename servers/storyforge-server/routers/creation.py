@@ -8,9 +8,9 @@ machinery.
 from __future__ import annotations
 
 import json
-from datetime import date
-
 import os
+from datetime import date
+from pathlib import Path
 
 from tools.shared.paths import (
     resolve_chapter_path,
@@ -22,9 +22,8 @@ from . import _app
 from ._app import _cache, mcp
 
 
-def _resolve_plugin_root() -> "Path":
+def _resolve_plugin_root() -> Path:
     """Resolve plugin root (env override or filesystem layout)."""
-    from pathlib import Path
     return Path(
         os.environ.get(
             "CLAUDE_PLUGIN_ROOT",
