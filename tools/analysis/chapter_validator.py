@@ -672,15 +672,48 @@ def _scan_pov_boundary(
 
 
 def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
+    """Block on phrases banned at author scope.
+
+    Aggregates two author-scoped sources, mirroring the brief's
+    ``collect_banned_phrases``:
+
+    - ``vocabulary.md`` ``### Forbidden ...`` sections (canonical phrase store)
+    - ``profile.md`` ``## Writing Discoveries / ### Recurring Tics`` (Issue #151
+      promoted findings)
+
+    Without the second source, phrases promoted via
+    ``/storyforge:harvest-author-rules`` would be reported as ``severity:block``
+    in the brief but pass the hard-gate at save time (Issue #172).
+    """
     try:
-        from tools.banlist_loader import author_slug_from_book, load_author_vocab
+        from tools.banlist_loader import (
+            author_slug_from_book,
+            load_author_vocab,
+            load_author_writing_discoveries,
+        )
     except Exception:
         return []
 
     slug = author_slug_from_book(book_root)
     if not slug:
         return []
-    patterns = load_author_vocab(slug)
+
+    # Vocabulary first — canonical phrase store wins on dedup.
+    vocab_patterns = load_author_vocab(slug)
+    try:
+        discovery_patterns = load_author_writing_discoveries(slug)
+    except Exception:
+        discovery_patterns = []
+
+    seen_labels: set[str] = set()
+    patterns = []
+    for p in (*vocab_patterns, *discovery_patterns):
+        key = p.label.lower()
+        if key in seen_labels:
+            continue
+        seen_labels.add(key)
+        patterns.append(p)
+
     if not patterns:
         return []
 
