@@ -130,7 +130,7 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 16. **Canon consistency** — Does the chapter contradict any fact in the Canon Log? Pay special attention to `CHANGED` facts.
 17. **Timeline accuracy** — Do day/date references match `plot/timeline.md`?
 18. **Travel consistency** — Do distances/travel times match the Travel Matrix?
-19. **Stale references** — Is this chapter flagged as `[STALE]` in the Revision Impact Tracker? If so, list all outdated references.
+19. **Stale references** — Does this chapter's slug appear in the `revision_impact` list of any `**CHANGED**` bullet in `plot/canon-log.md`? If so, verify the chapter uses the NEW version of every changed fact. The brief's `canon_brief.changed_facts[].revision_impact` exposes this directly per call.
 20. **Character facts** — Do character descriptions/behaviors match established facts? (e.g., does a vampire eat or not?)
 20a. **POV knowledge boundary** — Does the narration attribute domain knowledge the POV character's profile says they don't have? Three remediation options: (a) move into dialog, (b) reframe as lay observation, (c) cut.
 

@@ -254,13 +254,12 @@ Suggest: Fix conflicts manually or ask chapter-reviewer to address specific chap
 ### Step 9: Update Fact Log
 
 **Fiction:** If the Canon Log was reconstructed or new facts were discovered:
-1. Save to `{project}/plot/canon-log.md`
-2. Populate the Revision Impact Tracker with chapters that need attention
-3. Report to the user which chapters are flagged as `[STALE]`
+1. Save to `{project}/plot/canon-log.md` using the section convention from `templates/canon-log.md` — `## Chapter NN — Title` headers, `### Subject: topic` subsections, and `**CHANGED**` bullets with a trailing `revision_impact: 06-slug, 11-slug` list.
+2. Report to the user which chapters appear in any `revision_impact` list — those drafts may now reference outdated facts and need a re-read against the new canon.
 
 **Memoir:** If the People Log was reconstructed or new facts were discovered:
-1. Save to `{project}/plot/people-log.md`
-2. Flag chapters that contradict the log as `[STALE]`
+1. Save to `{project}/plot/people-log.md` using the same section + `**CHANGED**` convention as fiction (`templates/people-log.md`).
+2. Report which chapters appear in any `revision_impact` list — those drafts may contradict the new log and need a re-read.
 3. If any person with `consent_status: refused` appears in a chapter — flag as CRITICAL, route to `/storyforge:memoir-ethics-checker`
 
 ## Rules

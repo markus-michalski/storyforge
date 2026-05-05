@@ -16,8 +16,9 @@ from tools.state.review_brief import (
 )
 
 # ---------------------------------------------------------------------------
-# Sample data matching the template format (world-setting.md, plot-canon-log.md,
-# plot-tone.md)
+# Sample data matching the template format (world-setting.md, plot-tone.md, and
+# a minimal canon-log fixture this test pins). The live canon-log convention is
+# defined in templates/canon-log.md and exercised by tests/state/test_canon_brief.py.
 # ---------------------------------------------------------------------------
 
 TRAVEL_MATRIX_SAMPLE = """\
