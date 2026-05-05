@@ -68,6 +68,7 @@ from routers.claudemd import (  # noqa: E402, F401
     init_book_claudemd,
     sync_book_claudemd_from_text,
     update_book_claudemd_facts,
+    update_character_snapshot,
 )
 from routers.creation import (  # noqa: E402, F401
     create_book_structure,
