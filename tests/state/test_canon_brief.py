@@ -433,6 +433,95 @@ class TestPovFilter:
         assert "Theo is the protagonist." in pov_facts
         assert "Rain is falling." not in pov_facts
 
+    def test_multi_token_pov_matches_first_name_in_subject_header(self, tmp_path):
+        # Issue #168: "Theo Wilkons" must match bullets under ### Theo: cognition
+        # The old filter did whole-string substring match ("theo wilkons" not in source)
+        root = _book(tmp_path)
+        _chapter(root, "01-setup", number=1)
+        log = (
+            "## Chapter 01 — Setup\n\n"
+            "### Theo: cognition\n"
+            "- **Theo's question canon:** *\"Sera has been missing for three days.\"*\n\n"
+            "### Kael: behavior\n"
+            "- Kael avoids eye contact.\n"
+        )
+        _canon_log(root, log)
+        brief = build_canon_brief(root, "02-conflict", pov_character="Theo Wilkons")
+
+        assert len(brief["pov_relevant_facts"]) > 0, (
+            "pov_relevant_facts must not be empty for multi-token POV name"
+        )
+        pov_sources = {f["source"] for f in brief["pov_relevant_facts"]}
+        assert all("theo" in s.lower() for s in pov_sources)
+
+    def test_multi_token_pov_no_false_positives_on_partial_match(self, tmp_path):
+        # Word-boundary: "theo" must NOT match "theology"
+        root = _book(tmp_path)
+        _chapter(root, "01-setup", number=1)
+        log = (
+            "## Chapter 01 — Setup\n\n"
+            "- Theology fascinates the scholar.\n"
+            "- Theo arrived late.\n"
+        )
+        _canon_log(root, log)
+        brief = build_canon_brief(root, "02-conflict", pov_character="Theo Wilkons")
+
+        pov_facts = {f["fact"] for f in brief["pov_relevant_facts"]}
+        assert "Theology fascinates the scholar." not in pov_facts
+        assert "Theo arrived late." in pov_facts
+
+    def test_single_token_pov_backward_compatible(self, tmp_path):
+        # Single-name characters ("Kael") must still work after the token fix
+        root = _book(tmp_path)
+        _chapter(root, "01-setup", number=1)
+        log = (
+            "## Chapter 01 — Setup\n\n"
+            "### Kael: behavior\n"
+            "- Kael avoids eye contact.\n\n"
+            "### Theo: cognition\n"
+            "- Theo ponders the question.\n"
+        )
+        _canon_log(root, log)
+        brief = build_canon_brief(root, "02-conflict", pov_character="Kael")
+
+        assert len(brief["pov_relevant_facts"]) > 0
+        pov_sources = {f["source"] for f in brief["pov_relevant_facts"]}
+        assert all("kael" in s.lower() for s in pov_sources)
+
+    def test_short_single_name_fallback(self, tmp_path):
+        # Names shorter than 3 chars ("Bo") fall back to substring match, not empty list
+        root = _book(tmp_path)
+        _chapter(root, "01-setup", number=1)
+        log = (
+            "## Chapter 01 — Setup\n\n"
+            "- Bo crossed the bridge.\n"
+            "- Rain kept falling.\n"
+        )
+        _canon_log(root, log)
+        brief = build_canon_brief(root, "02-conflict", pov_character="Bo")
+
+        pov_facts = {f["fact"] for f in brief["pov_relevant_facts"]}
+        assert "Bo crossed the bridge." in pov_facts
+        assert "Rain kept falling." not in pov_facts
+
+    def test_multi_token_pov_or_semantics_surname_match(self, tmp_path):
+        # OR-semantics: a fact mentioning the surname alone still qualifies.
+        # Documents the intentional behavior: canon logs referencing a character
+        # by last name only are included in pov_relevant_facts.
+        root = _book(tmp_path)
+        _chapter(root, "01-setup", number=1)
+        log = (
+            "## Chapter 01 — Setup\n\n"
+            "- Wilkons noticed the discrepancy.\n"
+            "- Rain kept falling.\n"
+        )
+        _canon_log(root, log)
+        brief = build_canon_brief(root, "02-conflict", pov_character="Theo Wilkons")
+
+        pov_facts = {f["fact"] for f in brief["pov_relevant_facts"]}
+        assert "Wilkons noticed the discrepancy." in pov_facts
+        assert "Rain kept falling." not in pov_facts
+
 
 # ---------------------------------------------------------------------------
 # Slug normalisation
