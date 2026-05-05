@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 from datetime import date
 
+import os
+
 from tools.shared.paths import (
     resolve_chapter_path,
     resolve_project_path,
@@ -18,6 +20,17 @@ from tools.shared.paths import (
 
 from . import _app
 from ._app import _cache, mcp
+
+
+def _resolve_plugin_root() -> "Path":
+    """Resolve plugin root (env override or filesystem layout)."""
+    from pathlib import Path
+    return Path(
+        os.environ.get(
+            "CLAUDE_PLUGIN_ROOT",
+            str(Path(__file__).resolve().parent.parent.parent.parent),
+        )
+    )
 
 # Path E (#54): allowed book_category values for create_book_structure.
 # Phase 1 only ships fiction + memoir. Other non-fiction subtypes
@@ -148,6 +161,27 @@ updated: "{today}"
         )
         (project_dir / "plot" / "arcs.md").write_text(
             f"# {title} — Character Arcs\n\n*Use /storyforge:character-creator to develop.*\n", encoding="utf-8"
+        )
+
+    # Canon / people log — seeded from templates so the section convention
+    # is pre-baked and ready for get_canon_brief() to parse.
+    _plugin_root = _resolve_plugin_root()
+    if is_memoir:
+        _log_template = _plugin_root / "templates" / "people-log.md"
+        _log_dest = project_dir / "plot" / "people-log.md"
+    else:
+        _log_template = _plugin_root / "templates" / "canon-log.md"
+        _log_dest = project_dir / "plot" / "canon-log.md"
+    if _log_template.is_file():
+        _log_content = _log_template.read_text(encoding="utf-8").replace("{{title}}", title)
+        _log_dest.write_text(_log_content, encoding="utf-8")
+    else:
+        # Fallback if template missing — minimal valid header so the projector
+        # has something to work with.
+        _log_dest.write_text(
+            f"# {title} — {'People Log' if is_memoir else 'Canon Log'}\n\n"
+            "<!-- Add chapter sections here: ## Chapter NN — Title -->\n",
+            encoding="utf-8",
         )
 
     # Characters / People
