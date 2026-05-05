@@ -49,6 +49,7 @@ from tools.state.loaders.people import (
     scan_for_named_characters,
 )
 from tools.state.loaders.pov_inventory import extract_pov_inventory
+from tools.state.loaders.pov_state import extract_pov_state
 from tools.state.loaders.recent_chapters import (
     collect_recent_chapters,
     count_similes,
@@ -344,6 +345,32 @@ def build_chapter_writing_brief(
             outline_text = chapter_readme.read_text(encoding="utf-8")
         except OSError:
             outline_text = ""
+
+    pov_character_state = recorder.run(
+        "pov_character_state",
+        lambda: extract_pov_state(
+            book_root,
+            pov_character,
+            chapter_slug,
+            chars_dir=chars_dir,
+            outline_text=outline_text,
+        ),
+        {
+            "clothing": [],
+            "injuries": [],
+            "altered_states": [],
+            "environmental_limiters": [],
+            "as_of": None,
+            "extraction_methods": {
+                "clothing": "none",
+                "injuries": "none",
+                "altered_states": "none",
+                "environmental_limiters": "none",
+            },
+            "warnings": ["pov_character_state loader failed — see errors"],
+        },
+    )
+
     tactical = _gather_tactical(
         book_root,
         outline_text,
@@ -362,6 +389,7 @@ def build_chapter_writing_brief(
         "recent_chapter_endings": recent_endings,
         "characters_present": characters,
         "pov_character_inventory": pov_character_inventory,
+        "pov_character_state": pov_character_state,
         "consent_status_warnings": consent_warnings,
         "rules_to_honor": rules_to_honor,
         "callbacks_in_register": callbacks_in_register,
