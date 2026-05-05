@@ -8,14 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- MCP: `pov_character_state` field in `get_chapter_writing_brief` — four-category physical-reality snapshot (clothing, injuries, altered_states, environmental_limiters) extracted deterministically per category (frontmatter > timeline_regex > draft_heuristic > none); each item carries a source pointer; warnings are outline-aware (only fired when outline references a missing category); consumed by Pre-Scene Logic Audit category 5 for sensory plausibility checks (#160)
-- MCP: `update_character_snapshot` tool — persists end-of-chapter POV character state (inventory, clothing, injuries, altered states, environmental limiters, as_of_chapter) back to `characters/{slug}.md` / `people/{slug}.md` frontmatter so the next chapter brief picks them up from the highest-priority `frontmatter` source; supports fiction and memoir layouts (#157 prerequisite / #160 prerequisite)
-- Skills: `chapter-writer` Step 7.8 "Update POV character snapshot" — Option-C hybrid write-back: brief extracts state from the completed draft, proposes a snapshot to the user, waits for confirmation/correction, then persists via `update_character_snapshot`; runs on `Review`/`Final` closes only, skipped for mid-chapter Draft saves (#157 / #160 prerequisite)
-- MCP: `pov_character_inventory` field in `get_chapter_writing_brief` — deterministic extraction of the POV character's last established physical inventory (frontmatter > timeline_regex > draft_heuristic > none) so the chapter-writer surfaces gaps instead of inventing items (#157)
-- Skills: `chapter-writer` Pre-Scene Logic Audit — mandatory pre-prose audit block (inventory / geography / character biography / banned phrases + tics / sensory plausibility) emitted to chat before each scene (Mode A) or once per chapter (Mode B), so source-discipline is structurally enforced instead of being a passive rule the model overlooks under context pressure (#155)
-
-### Changed
-- Skills: `chapter-writer` promotes "Abstain from invention" to the first bullet under `## Rules > Universal` — explicit list of acceptable source types (brief / world+setting / characters / timeline / canon-log / prior drafts), the six invention risks (items / relations / routes / location features / quoted dialogue / named objects / time anchors), and the asymmetric cost of invention vs. surfacing a gap. Step 1's inline "do not invent" clause now references the top-level rule instead of restating it (#156)
+- Nothing yet
 
 ### Changed
 - Nothing yet
@@ -31,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Nothing yet
+
+## [1.20.0] - 2026-05-05
+
+### Added
+- canon_brief projector for canon-log/people-log scope-truncation fix (Issue #161) (#164)
+- add pov_character_state field for sensory plausibility (#160) (#163)
+- add update_character_snapshot + chapter-writer step 7b write-back (#162)
+
+### Changed
+- chapter-writer source discipline hardening (epic #158) (#159)
 
 ## [1.19.1] - 2026-05-03
 
@@ -302,3 +305,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.18.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.18.0
 [1.19.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.19.0
 [1.19.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.19.1
+[1.20.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.0
