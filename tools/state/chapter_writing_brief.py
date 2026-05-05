@@ -48,6 +48,7 @@ from tools.state.loaders.people import (
     person_payload,
     scan_for_named_characters,
 )
+from tools.state.loaders.canon_brief import build_canon_brief
 from tools.state.loaders.pov_inventory import extract_pov_inventory
 from tools.state.loaders.pov_state import extract_pov_state
 from tools.state.loaders.recent_chapters import (
@@ -371,6 +372,25 @@ def build_chapter_writing_brief(
         },
     )
 
+    canon_brief = recorder.run(
+        "canon_brief",
+        lambda: build_canon_brief(
+            book_root,
+            chapter_slug,
+            pov_character,
+            book_category=book_category,
+        ),
+        {
+            "current_facts": [],
+            "changed_facts": [],
+            "pov_relevant_facts": [],
+            "scanned_chapters": [],
+            "as_of": None,
+            "extraction_method": "none",
+            "warnings": ["canon_brief loader failed — see errors"],
+        },
+    )
+
     tactical = _gather_tactical(
         book_root,
         outline_text,
@@ -390,6 +410,7 @@ def build_chapter_writing_brief(
         "characters_present": characters,
         "pov_character_inventory": pov_character_inventory,
         "pov_character_state": pov_character_state,
+        "canon_brief": canon_brief,
         "consent_status_warnings": consent_warnings,
         "rules_to_honor": rules_to_honor,
         "callbacks_in_register": callbacks_in_register,

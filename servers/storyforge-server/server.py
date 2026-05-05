@@ -44,6 +44,7 @@ from routers.books import (  # noqa: E402, F401
     find_book,
     get_book_full,
     get_book_progress,
+    get_canon_brief,
     list_books,
     list_chapters,
 )

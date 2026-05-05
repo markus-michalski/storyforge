@@ -1,4 +1,4 @@
-"""Book-level read tools: list/find/get_full/get_progress/list_chapters/count_words.
+"""Book-level read tools: list/find/get_full/get_progress/list_chapters/count_words/get_canon_brief.
 
 These tools are pure-read against the cached state index — no filesystem
 mutations happen here. The only exception is ``count_words`` which reads
@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import json
 
-from tools.shared.paths import resolve_chapter_path
+from tools.shared.paths import resolve_chapter_path, resolve_project_path
+from tools.state.loaders.canon_brief import build_canon_brief
 from tools.state.parsers import count_words_in_file, is_chapter_drafted
 
 from . import _app
@@ -167,3 +168,51 @@ def count_words(book_slug: str, chapter_slug: str = "") -> str:
             "per_chapter": chapters,
         }
     )
+
+
+@mcp.tool()
+def get_canon_brief(
+    book_slug: str,
+    chapter_slug: str,
+    pov_character: str = "",
+    scope_chapters: int = 8,
+) -> str:
+    """Return a bounded, structured canon-log brief for the chapter being written.
+
+    Projects ``plot/canon-log.md`` (fiction) or ``plot/people-log.md`` (memoir)
+    into a scoped payload — only facts from the last ``scope_chapters``
+    review-or-later chapters plus all CHANGED entries (which can affect any
+    downstream chapter regardless of age).
+
+    Args:
+        book_slug: Book project slug.
+        chapter_slug: Chapter being written — anchors the scope window.
+        pov_character: Display name of the POV character; used to filter
+            ``pov_relevant_facts``.  Pass empty string to skip POV filter.
+        scope_chapters: How many review-or-later chapters before the current
+            one to include in ``current_facts``.  Defaults to 8.
+
+    Returns JSON with:
+        current_facts       — facts within the scope window
+        changed_facts       — all CHANGED entries regardless of age
+        pov_relevant_facts  — subset of current_facts matching pov_character
+        scanned_chapters    — chapter numbers included in current_facts
+        as_of               — slug of the most-recent scanned chapter
+        extraction_method   — "section_regex" | "heuristic" | "none"
+        warnings            — issues the skill should surface to the user
+    """
+    config = _app.load_config()
+    book_root = resolve_project_path(config, book_slug)
+
+    state = _cache.get()
+    book = state.get("books", {}).get(book_slug, {})
+    book_category = book.get("book_category", "fiction")
+
+    brief = build_canon_brief(
+        book_root,
+        chapter_slug,
+        pov_character,
+        book_category=book_category,
+        scope_chapters=scope_chapters,
+    )
+    return json.dumps(brief)
