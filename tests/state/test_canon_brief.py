@@ -161,7 +161,7 @@ class TestSectionRegexExtraction:
         _chapter(root, "01-setup", number=1)
         _chapter(root, "02-conflict", number=2)
         _canon_log(root, self._log())
-        brief = build_canon_brief(root, "03-climax")
+        brief = build_canon_brief(root, "03-climax", pov_character="Theo")
 
         assert brief["extraction_method"] == "section_regex"
         assert not brief["warnings"]
@@ -554,26 +554,39 @@ class TestMemoirMode:
 # ---------------------------------------------------------------------------
 
 
+def _scaffold_book(
+    tmp_path: Path,
+    *,
+    chapter_slug: str = "01-setup",
+    chapter_status: str = "Draft",
+    pov_character: str = "",
+) -> Path:
+    """Minimal book scaffold with a single target chapter for brief integration tests."""
+    book = tmp_path / "test-book"
+    (book / "chapters" / chapter_slug).mkdir(parents=True)
+    (book / "characters").mkdir()
+    (book / "plot").mkdir()
+    (book / "world").mkdir()
+    (book / "README.md").write_text(
+        '---\ntitle: "Test"\nauthor: ""\n---\n', encoding="utf-8"
+    )
+    ch = book / "chapters" / chapter_slug
+    pov_line = f'pov_character: "{pov_character}"\n' if pov_character else ""
+    (ch / "README.md").write_text(
+        f'---\nnumber: 1\nstatus: "{chapter_status}"\n{pov_line}---\n',
+        encoding="utf-8",
+    )
+    (ch / "draft.md").write_text("# Chapter 1\n\nSome prose.\n", encoding="utf-8")
+    return book
+
+
 class TestBriefIntegration:
     def test_canon_brief_key_present(self, tmp_path):
         from tools.state.chapter_writing_brief import build_chapter_writing_brief
         from pathlib import Path as _Path
 
         plugin_root = _Path(__file__).resolve().parent.parent.parent
-
-        book = tmp_path / "test-book"
-        (book / "chapters" / "01-setup").mkdir(parents=True)
-        (book / "characters").mkdir()
-        (book / "plot").mkdir()
-        (book / "world").mkdir()
-        (book / "README.md").write_text(
-            '---\ntitle: "Test"\nauthor: ""\n---\n', encoding="utf-8"
-        )
-        ch = book / "chapters" / "01-setup"
-        (ch / "README.md").write_text(
-            '---\nnumber: 1\nstatus: "Draft"\n---\n', encoding="utf-8"
-        )
-        (ch / "draft.md").write_text("# Chapter 1\n\nSome prose.\n", encoding="utf-8")
+        book = _scaffold_book(tmp_path)
 
         brief = build_chapter_writing_brief(
             book_root=book,
@@ -584,7 +597,105 @@ class TestBriefIntegration:
 
         assert "canon_brief" in brief
         cb = brief["canon_brief"]
-        assert "current_facts" in cb
-        assert "changed_facts" in cb
-        assert "extraction_method" in cb
+        # Issue #165: current_facts is NOT inlined; the skill calls
+        # get_canon_brief() separately when it needs the full fact list.
+        assert "current_facts" not in cb
+        for key in (
+            "changed_facts",
+            "pov_relevant_facts",
+            "scanned_chapters",
+            "as_of",
+            "extraction_method",
+            "warnings",
+        ):
+            assert key in cb, f"missing key in inline canon_brief: {key}"
         _json.dumps(brief)  # full brief must be JSON-serializable
+
+    def test_inline_canon_brief_size_under_budget(self, tmp_path):
+        """Issue #165: brief stays well under the tool-result token limit
+        even on long-running books with a dense canon log."""
+        from tools.state.chapter_writing_brief import build_chapter_writing_brief
+        from pathlib import Path as _Path
+
+        plugin_root = _Path(__file__).resolve().parent.parent.parent
+
+        book = tmp_path / "long-book"
+        (book / "characters").mkdir(parents=True)
+        (book / "plot").mkdir()
+        (book / "world").mkdir()
+        (book / "README.md").write_text(
+            '---\ntitle: "Long Book"\nauthor: ""\n---\n', encoding="utf-8"
+        )
+
+        # 10 review-status chapters before the target — fully in scope_chapters=8 default
+        for i in range(1, 11):
+            ch = book / "chapters" / f"{i:02d}-ch{i}"
+            ch.mkdir(parents=True)
+            (ch / "README.md").write_text(
+                f'---\nnumber: {i}\nstatus: "Review"\n---\n', encoding="utf-8"
+            )
+            (ch / "draft.md").write_text(
+                f"# Chapter {i}\n\nSome prose.\n", encoding="utf-8"
+            )
+
+        target = book / "chapters" / "11-target"
+        target.mkdir(parents=True)
+        (target / "README.md").write_text(
+            '---\nnumber: 11\nstatus: "Draft"\n---\n', encoding="utf-8"
+        )
+
+        # Realistic narrative-bullet density: ~50 facts per chapter at ~220 chars each.
+        sections = []
+        for i in range(1, 11):
+            bullets = "\n".join(
+                f"- This is a fairly long fact about chapter {i}, item {j}, "
+                f"with enough text to make the canon log realistically dense — "
+                f"around two hundred characters of narrative bullet content "
+                f"that mirrors how authors actually write canon logs."
+                for j in range(1, 51)
+            )
+            sections.append(
+                f"## Chapter {i:02d} — Ch{i}\n\n### Theo: facts\n{bullets}\n"
+            )
+        (book / "plot" / "canon-log.md").write_text(
+            "\n\n".join(sections), encoding="utf-8"
+        )
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="long-book",
+            chapter_slug="11-target",
+            plugin_root=plugin_root,
+        )
+
+        serialized = _json.dumps(brief)
+        # Pre-fix on a comparable book: ~169k chars. Post-fix: well under 60k.
+        assert len(serialized) < 60_000, (
+            f"brief is {len(serialized)} chars — exceeds size budget. "
+            f"canon_brief.current_facts is likely re-inlined; should be omitted (#165)."
+        )
+
+    def test_pov_character_missing_yields_warning(self, tmp_path):
+        """Issue #165 side observation: chapter without pov_character should warn
+        so the skill knows why pov_relevant_facts is empty."""
+        from tools.state.chapter_writing_brief import build_chapter_writing_brief
+        from pathlib import Path as _Path
+
+        plugin_root = _Path(__file__).resolve().parent.parent.parent
+        book = _scaffold_book(tmp_path)
+        # Populate canon-log so we hit the structured-extraction path.
+        (book / "plot" / "canon-log.md").write_text(
+            "## Chapter 01 — Setup\n\n- Some fact.\n", encoding="utf-8"
+        )
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-setup",
+            plugin_root=plugin_root,
+        )
+
+        warnings = brief["canon_brief"].get("warnings", [])
+        assert any("pov_character" in w.lower() for w in warnings), (
+            f"expected pov_character warning, got: {warnings}"
+        )

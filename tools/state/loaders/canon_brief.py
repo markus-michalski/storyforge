@@ -233,7 +233,7 @@ def _extract_structured(
         "scanned_chapters": sorted(scanned),
         "as_of": as_of,
         "extraction_method": "section_regex",
-        "warnings": [],
+        "warnings": _pov_warnings(pov_name_lower),
     }
 
 
@@ -268,6 +268,12 @@ def _extract_heuristic(text: str, pov_character: str) -> dict[str, Any]:
 
     pov_facts = _filter_pov(facts, pov_name_lower)
 
+    warnings = [
+        "canon-log.md has no ## Chapter NN section headers — extraction is imprecise. "
+        "Migrate to the section convention in templates/canon-log.md for reliable results."
+    ]
+    warnings.extend(_pov_warnings(pov_name_lower))
+
     return {
         "current_facts": facts,
         "changed_facts": changed_facts,
@@ -275,10 +281,7 @@ def _extract_heuristic(text: str, pov_character: str) -> dict[str, Any]:
         "scanned_chapters": [],
         "as_of": None,
         "extraction_method": "heuristic",
-        "warnings": [
-            "canon-log.md has no ## Chapter NN section headers — extraction is imprecise. "
-            "Migrate to the section convention in templates/canon-log.md for reliable results."
-        ],
+        "warnings": warnings,
     }
 
 
@@ -364,6 +367,17 @@ def _filter_pov(facts: list[dict[str, Any]], pov_name_lower: str) -> list[dict[s
         if pov_name_lower in f.get("source", "").lower()
         or pov_name_lower in f.get("fact", "").lower()
     ]
+
+
+def _pov_warnings(pov_name_lower: str) -> list[str]:
+    """Surface a warning when pov_character is missing so the skill knows
+    why pov_relevant_facts is empty (Issue #165 side observation)."""
+    if not pov_name_lower:
+        return [
+            "pov_character not set on chapter — pov_relevant_facts cannot be filtered. "
+            "Add pov_character to the chapter README frontmatter."
+        ]
+    return []
 
 
 def _as_of(scanned: list[int]) -> str | None:

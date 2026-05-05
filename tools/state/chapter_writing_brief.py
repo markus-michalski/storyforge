@@ -381,7 +381,6 @@ def build_chapter_writing_brief(
             book_category=book_category,
         ),
         {
-            "current_facts": [],
             "changed_facts": [],
             "pov_relevant_facts": [],
             "scanned_chapters": [],
@@ -390,6 +389,12 @@ def build_chapter_writing_brief(
             "warnings": ["canon_brief loader failed — see errors"],
         },
     )
+    # Issue #165: drop current_facts from the inline projection — it scales
+    # with canon-log size × scope_chapters and pushes the brief past the
+    # MCP tool-result token limit on long-running books. The chapter-writer
+    # skill calls get_canon_brief() separately when it needs the full list;
+    # pov_relevant_facts (already inlined) covers the POV signal.
+    canon_brief.pop("current_facts", None)
 
     tactical = _gather_tactical(
         book_root,
