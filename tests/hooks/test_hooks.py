@@ -1116,11 +1116,18 @@ class TestHookSubprocess:
 
 
 class TestValidateCharacter:
+    """Tests for the modernized character validator (post-#179 hygiene track).
+
+    The validator returns ``(blocking, warnings)``. Blocking covers structural
+    integrity (frontmatter); warnings cover content completeness (sections).
+    Both lists are empty for ignored files (non-character paths, INDEX.md).
+    """
+
     def test_ignores_non_character_files(self):
-        assert validate_character("/some/other/file.md") == []
+        assert validate_character("/some/other/file.md") == ([], [])
 
     def test_ignores_index(self):
-        assert validate_character("/project/characters/INDEX.md") == []
+        assert validate_character("/project/characters/INDEX.md") == ([], [])
 
     def test_valid_character(self, tmp_path):
         chars_dir = tmp_path / "project" / "characters"
@@ -1132,35 +1139,128 @@ class TestValidateCharacter:
             "## The Ghost\n\nContent.\n\n## Motivation Chain\n\nContent.\n",
             encoding="utf-8",
         )
-        assert validate_character(str(char_file)) == []
+        blocking, warnings = validate_character(str(char_file))
+        assert blocking == []
+        assert warnings == []
 
-    def test_missing_frontmatter(self, tmp_path):
+    def test_missing_frontmatter_blocks(self, tmp_path):
         chars_dir = tmp_path / "project" / "characters"
         chars_dir.mkdir(parents=True)
         char_file = chars_dir / "alex.md"
         char_file.write_text("# Alex\n\nNo frontmatter here.\n", encoding="utf-8")
-        issues = validate_character(str(char_file))
-        assert any("Missing YAML frontmatter" in i for i in issues)
+        blocking, _warnings = validate_character(str(char_file))
+        assert any("Missing YAML frontmatter" in i for i in blocking)
 
-    def test_missing_required_sections(self, tmp_path):
+    def test_missing_frontmatter_field_blocks(self, tmp_path):
+        chars_dir = tmp_path / "project" / "characters"
+        chars_dir.mkdir(parents=True)
+        char_file = chars_dir / "alex.md"
+        # Missing `status` — required field.
+        char_file.write_text(
+            '---\nname: "Alex"\nrole: "protagonist"\n---\n\n# Alex\n',
+            encoding="utf-8",
+        )
+        blocking, _warnings = validate_character(str(char_file))
+        assert any("'status'" in i for i in blocking)
+
+    def test_missing_recommended_sections_warns(self, tmp_path):
         chars_dir = tmp_path / "project" / "characters"
         chars_dir.mkdir(parents=True)
         char_file = chars_dir / "alex.md"
         char_file.write_text(
-            '---\nname: "Alex"\nrole: "protagonist"\nstatus: "Concept"\n---\n\n# Alex\n\nNo required sections.\n',
+            '---\nname: "Alex"\nrole: "protagonist"\nstatus: "Concept"\n---\n\n'
+            "# Alex\n\nNo recommended sections.\n",
             encoding="utf-8",
         )
-        issues = validate_character(str(char_file))
-        assert any("Want vs. Need" in i for i in issues)
-        assert any("Fatal Flaw" in i for i in issues)
+        blocking, warnings = validate_character(str(char_file))
+        assert blocking == []
+        assert any("Want vs. Need" in w for w in warnings)
+        assert any("Fatal Flaw" in w for w in warnings)
 
-    def test_minor_characters_skip_sections(self, tmp_path):
+    def test_section_match_accepts_level_3_header(self, tmp_path):
+        """The post-#41 template puts ``The Ghost`` as a level-3 sub-section
+        of ``## Backstory``. The validator must accept that placement."""
+        chars_dir = tmp_path / "project" / "characters"
+        chars_dir.mkdir(parents=True)
+        char_file = chars_dir / "alex.md"
+        char_file.write_text(
+            '---\nname: "Alex"\nrole: "protagonist"\nstatus: "Concept"\n---\n\n'
+            "# Alex\n\n## Want vs. Need\n\nContent.\n\n## Fatal Flaw\n\nContent.\n\n"
+            "## Backstory\n\n### The Ghost\n\nContent.\n\n## GMC\n\nContent.\n",
+            encoding="utf-8",
+        )
+        blocking, warnings = validate_character(str(char_file))
+        assert blocking == []
+        assert warnings == []
+
+    def test_section_alternatives_accepts_legacy_titles(self, tmp_path):
+        """Legacy character files use ``## Backstory / The Wound`` and ``## GMC
+        (Goal / Motivation / Conflict)`` instead of the strictly-titled
+        template sections. Both should satisfy the recommendation."""
+        chars_dir = tmp_path / "project" / "characters"
+        chars_dir.mkdir(parents=True)
+        char_file = chars_dir / "theo.md"
+        char_file.write_text(
+            '---\nname: "Theo"\nrole: "protagonist"\nstatus: "Concept"\n---\n\n'
+            "# Theo\n\n## Want vs. Need\n\nContent.\n\n## Fatal Flaw\n\nContent.\n\n"
+            "## Backstory / The Wound\n\nContent.\n\n"
+            "## GMC (Goal / Motivation / Conflict)\n\nContent.\n",
+            encoding="utf-8",
+        )
+        blocking, warnings = validate_character(str(char_file))
+        assert blocking == []
+        assert warnings == []
+
+    def test_minor_characters_skip_section_warnings(self, tmp_path):
         chars_dir = tmp_path / "project" / "characters"
         chars_dir.mkdir(parents=True)
         char_file = chars_dir / "barista.md"
         char_file.write_text(
-            '---\nname: "Barista"\nrole: "minor"\nstatus: "Concept"\n---\n\n# Barista\n\nJust a minor character.\n',
+            '---\nname: "Barista"\nrole: "minor"\nstatus: "Concept"\n---\n\n'
+            "# Barista\n\nJust a minor character.\n",
             encoding="utf-8",
         )
-        issues = validate_character(str(char_file))
-        assert not any("Want vs. Need" in i for i in issues)
+        blocking, warnings = validate_character(str(char_file))
+        assert blocking == []
+        assert not any("Want vs. Need" in w for w in warnings)
+
+    def test_unknown_role_warns(self, tmp_path):
+        chars_dir = tmp_path / "project" / "characters"
+        chars_dir.mkdir(parents=True)
+        char_file = chars_dir / "alex.md"
+        char_file.write_text(
+            '---\nname: "Alex"\nrole: "wizard"\nstatus: "Concept"\n---\n\n'
+            "# Alex\n\n## Want vs. Need\n\n## Fatal Flaw\n\n## The Ghost\n\n## Motivation Chain\n",
+            encoding="utf-8",
+        )
+        blocking, warnings = validate_character(str(char_file))
+        assert blocking == []
+        assert any("'wizard'" in w for w in warnings)
+
+    def test_memoir_person_file_validates(self, tmp_path):
+        """Memoir person files live under ``people/`` and use a different
+        schema (``person_category`` / ``consent_status`` etc.). Frontmatter
+        validates; section recommendations are skipped."""
+        people_dir = tmp_path / "memoir-project" / "people"
+        people_dir.mkdir(parents=True)
+        person_file = people_dir / "mom.md"
+        person_file.write_text(
+            "---\n"
+            'name: "Mom"\nrole: "supporting"\nstatus: "Concept"\n'
+            'person_category: "family"\nconsent_status: "given"\n'
+            "---\n\n# Mom\n\n## Memory anchors\n",
+            encoding="utf-8",
+        )
+        blocking, warnings = validate_character(str(person_file))
+        assert blocking == []
+        # No section warnings — memoir schema is different.
+        assert not any("Want vs. Need" in w for w in warnings)
+
+    def test_memoir_person_file_blocks_on_missing_frontmatter(self, tmp_path):
+        """Memoir branch still enforces structural integrity."""
+        people_dir = tmp_path / "memoir-project" / "people"
+        people_dir.mkdir(parents=True)
+        person_file = people_dir / "mom.md"
+        person_file.write_text("# Mom\n\nNo frontmatter.\n", encoding="utf-8")
+        blocking, _warnings = validate_character(str(person_file))
+        assert any("Missing YAML frontmatter" in i for i in blocking)
