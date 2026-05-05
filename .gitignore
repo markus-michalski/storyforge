@@ -23,3 +23,6 @@ htmlcov/
 
 # Research / decision spikes — working documents, not for distribution
 reference/research/
+
+# git-workflow skill state — local-only, not for distribution
+.git-workflow/
