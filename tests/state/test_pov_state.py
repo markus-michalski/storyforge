@@ -14,8 +14,6 @@ from __future__ import annotations
 import json as _json
 from pathlib import Path
 
-import pytest
-
 from tools.state.loaders.pov_state import extract_pov_state
 
 
