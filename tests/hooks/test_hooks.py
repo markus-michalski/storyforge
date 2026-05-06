@@ -1237,6 +1237,33 @@ class TestValidateCharacter:
         assert blocking == []
         assert any("'wizard'" in w for w in warnings)
 
+    def test_extended_fiction_roles_pass_role_check(self, tmp_path):
+        """Roles added in Issue #193 — love-interest, mentor, foil, herald,
+        confidant — are standard fiction-craft roles and must pass the role
+        check. Authors and skills (e.g. series-planner) reach for them
+        naturally; surfaced when /storyforge:series-planner blood-and-binary
+        produced ``role: love-interest`` for Kael in a paranormal-romance
+        trilogy and the hook flagged it as unknown.
+
+        Each fixture includes all four recommended sections so the role check
+        is the sole discriminator: a passing role means zero warnings."""
+        new_roles = ("love-interest", "mentor", "foil", "herald", "confidant")
+        chars_dir = tmp_path / "project" / "characters"
+        chars_dir.mkdir(parents=True)
+        for role in new_roles:
+            char_file = chars_dir / f"{role}.md"
+            char_file.write_text(
+                f'---\nname: "Test"\nrole: "{role}"\nstatus: "Concept"\n---\n\n'
+                "# Test\n\n## Want vs. Need\n\n## Fatal Flaw\n\n"
+                "## The Ghost\n\n## Motivation Chain\n",
+                encoding="utf-8",
+            )
+            blocking, warnings = validate_character(str(char_file))
+            assert blocking == [], f"role {role!r} unexpectedly blocked"
+            assert not any("Unknown role" in w for w in warnings), (
+                f"role {role!r} flagged as unknown — must be a valid role"
+            )
+
     def test_memoir_person_file_validates(self, tmp_path):
         """Memoir person files live under ``people/`` and use a different
         schema (``person_category`` / ``consent_status`` etc.). Frontmatter

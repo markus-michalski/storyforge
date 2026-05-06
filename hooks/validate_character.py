@@ -52,8 +52,25 @@ REQUIRED_FRONTMATTER = ("name", "role", "status")
 
 # Valid roles (fiction). Memoir person files use a different schema and are
 # skipped for the role check (see _is_memoir_person_file).
+#
+# The set covers core protagonist/antagonist tiers plus standard fiction-craft
+# archetypal roles (love-interest, mentor, foil, herald, confidant) authors
+# and skills reach for naturally — Hero's Journey beats, romance arcs, mystery
+# confidants. ``minor`` is the catch-all that also gates section-recommendation
+# warnings (minor characters skip the recommended-sections check). Issue #193.
 VALID_ROLES = frozenset(
-    {"protagonist", "antagonist", "deuteragonist", "supporting", "minor"}
+    {
+        "protagonist",
+        "deuteragonist",
+        "antagonist",
+        "love-interest",
+        "mentor",
+        "foil",
+        "herald",
+        "confidant",
+        "supporting",
+        "minor",
+    }
 )
 
 # Recommended sections — warn on missing (only for non-minor characters).
