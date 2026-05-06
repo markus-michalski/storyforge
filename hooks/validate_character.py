@@ -40,6 +40,13 @@ WATCHED_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
 # write whose path does not contain at least one of these.
 WATCHED_PATH_FRAGMENTS = ("/characters/", "/people/")
 
+# Path marker for series-character-trackers. Files under
+# ``series/{slug}/characters/`` document evolution across books and follow a
+# different schema (Snapshot / Evolution per Band / Beziehungen / Updates Log)
+# with roles like ``love-interest`` that the book-level validator does not
+# recognize. They must be skipped to avoid false-positive warnings (Issue #192).
+SERIES_PATH_MARKER = "/series/"
+
 # Frontmatter — block on missing.
 REQUIRED_FRONTMATTER = ("name", "role", "status")
 
@@ -100,10 +107,13 @@ def _extract_file_path(payload: dict[str, Any]) -> str | None:
 
 
 def _is_character_or_people_file(path: Path) -> bool:
-    """True for `characters/*.md` or `people/*.md` (excluding INDEX.md)."""
+    """True for `characters/*.md` or `people/*.md` (excluding INDEX.md and
+    series-character-trackers under ``series/{slug}/characters/``)."""
     if path.suffix != ".md":
         return False
     if path.name == "INDEX.md":
+        return False
+    if SERIES_PATH_MARKER in str(path):
         return False
     return any(frag in str(path) for frag in WATCHED_PATH_FRAGMENTS)
 

@@ -1264,3 +1264,50 @@ class TestValidateCharacter:
         person_file.write_text("# Mom\n\nNo frontmatter.\n", encoding="utf-8")
         blocking, _warnings = validate_character(str(person_file))
         assert any("Missing YAML frontmatter" in i for i in blocking)
+
+    def test_series_tracker_path_is_skipped(self, tmp_path):
+        """Files under ``series/{slug}/characters/`` are series-character-trackers
+        with a different schema (Snapshot / Evolution per Band / Beziehungen /
+        Updates Log) and roles like ``love-interest`` that the book-level
+        validator does not recognize.
+
+        The substring match on ``/characters/`` accidentally caught these files
+        and produced ~4 false-positive warnings per edit (Issue #192). The
+        validator must bail out before role / section checks for any path
+        containing ``/series/``.
+        """
+        series_dir = tmp_path / "series" / "blood-and-binary" / "characters"
+        series_dir.mkdir(parents=True)
+        tracker = series_dir / "kael.md"
+        tracker.write_text(
+            "---\n"
+            'name: "Kael"\n'
+            'slug: "kael"\n'
+            'role: "love-interest"\n'
+            'status: "Profile"\n'
+            "recurs_in: [B1, B2, B3]\n"
+            "---\n\n"
+            "# Kael — Series Evolution\n\n"
+            "## Snapshot\n\nContent.\n",
+            encoding="utf-8",
+        )
+        blocking, warnings = validate_character(str(tracker))
+        assert blocking == []
+        assert warnings == []
+
+    def test_series_tracker_skip_does_not_break_book_level_characters(self, tmp_path):
+        """Regression guard: book-level ``characters/`` files (no ``/series/``
+        in the path) must continue to validate fully."""
+        chars_dir = tmp_path / "blood-and-binary-firelight" / "characters"
+        chars_dir.mkdir(parents=True)
+        char_file = chars_dir / "alex.md"
+        char_file.write_text(
+            '---\nname: "Alex"\nrole: "wizard"\nstatus: "Concept"\n---\n\n'
+            "# Alex\n\nNo recommended sections.\n",
+            encoding="utf-8",
+        )
+        blocking, warnings = validate_character(str(char_file))
+        # Book-level validation still runs: unknown role + missing sections.
+        assert blocking == []
+        assert any("'wizard'" in w for w in warnings)
+        assert any("Want vs. Need" in w for w in warnings)
