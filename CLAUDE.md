@@ -64,7 +64,8 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Welt" / "World" / "Setting" / "Magic System" | `/storyforge:world-builder` |
 | "Kapitel schreiben" / "Write chapter" (fiction) | `/storyforge:chapter-writer` |
 | "Kapitel schreiben" / "Write chapter" (memoir) | `/storyforge:chapter-writer-memoir` |
-| "Kapitel reviewen" / "Review chapter" | `/storyforge:chapter-reviewer` |
+| "Kapitel reviewen" / "Review chapter" (fiction) | `/storyforge:chapter-reviewer` |
+| "Kapitel reviewen" / "Review chapter" (memoir) | `/storyforge:chapter-reviewer-memoir` |
 | "Continuity prüfen" / "Check continuity" / "Zeitlinie prüfen" / "Timeline prüfen" | `/storyforge:continuity-checker` |
 | "Voice check" / "Klingt das nach AI?" | `/storyforge:voice-checker` |
 | "Manuscript check" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" | `/storyforge:manuscript-checker` |
