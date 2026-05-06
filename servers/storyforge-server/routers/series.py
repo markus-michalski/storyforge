@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 
 import yaml
 
@@ -68,12 +69,23 @@ description: ""
 
 @mcp.tool()
 def get_series(slug: str) -> str:
-    """Get series data."""
+    """Get series data.
+
+    .. deprecated::
+        No skill references this tool — series-planner reads series files
+        directly. Removal in v2.0.
+    """
+    warnings.warn(
+        "get_series is deprecated — no skill uses it; series-planner reads files directly. Removal in v2.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    _deprecated_msg = "no skill references this tool; series-planner reads files directly"
     state = _cache.get()
     series = state.get("series", {}).get(slug)
     if not series:
-        return json.dumps({"error": f"Series '{slug}' not found"})
-    return json.dumps(series)
+        return json.dumps({"error": f"Series '{slug}' not found", "_deprecated": _deprecated_msg})
+    return json.dumps({**series, "_deprecated": _deprecated_msg})
 
 
 @mcp.tool()
