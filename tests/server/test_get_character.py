@@ -1,8 +1,13 @@
-"""Tests for the get_character MCP tool (issue #29)."""
+"""Tests for the get_character MCP tool (issue #29).
+
+get_character is deprecated (audit M-5, Issue #175) — use get_book_full().
+Tests are kept to verify backward compatibility and the _deprecated field.
+"""
 
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 
 import pytest
@@ -38,24 +43,32 @@ def config_legacy_layout(config: dict, tmp_path: Path) -> dict:
 class TestGetCharacter:
     def test_hit_returns_content(self, config_with_character: dict, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(_app, "load_config", lambda: config_with_character)
-        result = json.loads(get_character("my-book", "jane-doe"))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            result = json.loads(get_character("my-book", "jane-doe"))
         assert "content" in result
         assert "Jane Doe" in result["content"]
 
     def test_miss_bad_book(self, config: dict, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(_app, "load_config", lambda: config)
-        result = json.loads(get_character("nonexistent-book", "jane-doe"))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            result = json.loads(get_character("nonexistent-book", "jane-doe"))
         assert "error" in result
         assert "nonexistent-book" in result["error"]
 
     def test_miss_bad_character(self, config_with_character: dict, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(_app, "load_config", lambda: config_with_character)
-        result = json.loads(get_character("my-book", "nobody"))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            result = json.loads(get_character("my-book", "nobody"))
         assert "error" in result
         assert "nobody" in result["error"]
 
     def test_legacy_layout_fallback(self, config_legacy_layout: dict, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(_app, "load_config", lambda: config_legacy_layout)
-        result = json.loads(get_character("my-book", "old-hero"))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            result = json.loads(get_character("my-book", "old-hero"))
         assert "content" in result
         assert "Legacy character" in result["content"]
