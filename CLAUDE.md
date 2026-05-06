@@ -326,3 +326,4 @@ The following MCP tools are registered but have no skill wiring. They are availa
 - Python: English comments, type hints, PEP 8
 - Markdown: English for reference docs
 - YAML frontmatter: always present in project/chapter/character files
+- Skill size: skills over 25 k chars or 400 LOC require a split-or-trim plan — see [Skill-bloat budget](CONTRIBUTING.md#skill-bloat-budget) in CONTRIBUTING.md

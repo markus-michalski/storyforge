@@ -164,6 +164,26 @@ The PR template will guide you through the checklist. The CLA bot will comment w
 - **YAML frontmatter**: Required in all SKILL.md, book README.md, chapter README.md, character files.
 - **No emojis** in code comments, skill files, or internal documentation (UTF8MB4 issues in integrations).
 
+## Skill-bloat budget
+
+Any pull request that brings a single `skills/{name}/SKILL.md` over **either**:
+
+- **25 000 characters**, or
+- **400 lines**
+
+must include in the PR description **one of**:
+
+1. A split-or-trim plan in the same PR (target file size + how the diff gets there).
+2. A linked tracking issue with the split-or-trim plan (must be opened in the same week the threshold is crossed).
+
+The thresholds are not hard blocks — CI does not fail. They exist to make size growth a deliberate decision, not a side effect.
+
+**Why two thresholds?** LOC alone is misleading: a 300-LOC file can exceed 37 k chars if Why-blocks dominate (see `chapter-writer` history, Epic #179). Chars alone misses procedural sprawl. Both axes need watching.
+
+**Monitoring helper:** `scripts/check_skill_sizes.py` reports current sizes and flags entries over threshold. Run it before opening a PR that touches skill files.
+
+Reference: PR #137 (plot-architect split), Issue #174 (chapter-writer refactor), Epic #179.
+
 ## What Does NOT Belong in a PR
 
 - Generated book content (belongs in user's private repos)
