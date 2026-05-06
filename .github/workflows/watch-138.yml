@@ -1,6 +1,9 @@
 name: Watcher — issue #138 split trigger
 
 on:
+  push:
+    branches: [main]
+    paths: ["skills/manuscript-checker/SKILL.md"]
   schedule:
     - cron: "17 9 * * 2"  # Every Tuesday 09:17 UTC
   workflow_dispatch:        # Manual run for testing
@@ -10,6 +13,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - name: Check char-size trigger
+        id: chars
+        run: |
+          CHARS=$(wc -c < skills/manuscript-checker/SKILL.md)
+          echo "chars=$CHARS" >> "$GITHUB_OUTPUT"
+          # Warn at 80% of the 25 000-char budget rule (CONTRIBUTING.md § Skill-bloat budget)
+          if [ "$CHARS" -ge 20000 ]; then
+            echo "fired=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fired=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Check LOC trigger
         id: loc
@@ -36,13 +51,18 @@ jobs:
           fi
 
       - name: Post trigger comment
-        if: steps.loc.outputs.fired == 'true' || steps.memoir.outputs.fired == 'true'
+        if: steps.chars.outputs.fired == 'true' || steps.loc.outputs.fired == 'true' || steps.memoir.outputs.fired == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          CHARS="${{ steps.chars.outputs.chars }}"
           LOC="${{ steps.loc.outputs.loc }}"
           MEMOIR_COUNT="${{ steps.memoir.outputs.count }}"
           BODY="## Watcher: split trigger fired\n\n"
+
+          if [ "${{ steps.chars.outputs.fired }}" = "true" ]; then
+            BODY+="- **Char trigger**: \`skills/manuscript-checker/SKILL.md\` is at **${CHARS} chars** (80% threshold: 20 000, hard limit: 25 000)\n"
+          fi
 
           if [ "${{ steps.loc.outputs.fired }}" = "true" ]; then
             BODY+="- **LOC trigger**: \`skills/manuscript-checker/SKILL.md\` is at **${LOC} LOC** (threshold: 400)\n"
@@ -52,13 +72,14 @@ jobs:
             BODY+="- **Memoir category trigger**: memoir-specific pass list has **${MEMOIR_COUNT} categories** (threshold: 6)\n"
           fi
 
-          BODY+="\nTime to do the fiction/memoir split as specified in this issue."
+          BODY+="\nTime to do the fiction/memoir split as specified in this issue. See [Skill-bloat budget](../blob/main/CONTRIBUTING.md#skill-bloat-budget) in CONTRIBUTING.md."
 
           gh issue comment 138 --body "$(printf '%b' "$BODY")"
 
       - name: Status summary (no trigger)
-        if: steps.loc.outputs.fired == 'false' && steps.memoir.outputs.fired == 'false'
+        if: steps.chars.outputs.fired == 'false' && steps.loc.outputs.fired == 'false' && steps.memoir.outputs.fired == 'false'
         run: |
           echo "No trigger fired."
-          echo "  LOC: ${{ steps.loc.outputs.loc }}/400"
+          echo "  Chars: ${{ steps.chars.outputs.chars }}/20000 (80% warn) / 25000 (hard limit)"
+          echo "  LOC:   ${{ steps.loc.outputs.loc }}/400"
           echo "  Memoir categories: ${{ steps.memoir.outputs.count }}/6"
