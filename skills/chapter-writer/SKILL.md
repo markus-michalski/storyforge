@@ -13,11 +13,7 @@ argument-hint: "<book-slug> <chapter-number>"
 
 ## Step 0 — Resolve book category
 
-Read `book_category` from the chapter writing brief (Step 1). The brief carries it explicitly so the skill never has to re-fetch the book just to check. Treat missing as `fiction` (legacy default).
-
-If `book_category == "memoir"`, surface a one-line note: *"Working in memoir mode — loading memoir craft (scene-vs-summary, emotional-truth, anti-AI patterns), checking consent_status before drafting any scene with named living people."*
-
-The fiction and memoir prerequisite sets are non-overlapping. Branch every load below on `book_category`.
+If `book_category == "memoir"` (read from the chapter writing brief, Step 1) → invoke `/storyforge:chapter-writer-memoir` instead. Treat missing `book_category` as `fiction` (legacy default).
 
 ## Prerequisites — MANDATORY LOADS
 
@@ -48,28 +44,6 @@ Before writing a single word:
 8. **Canon log** — Use `canon_brief` from the chapter writing brief (Issue #161, #165, #170). **Why:** `plot/canon-log.md` grows large over a novel-length project and causes context-window truncation when read in full. The inlined `canon_brief` provides `pov_relevant_facts` (POV-filtered, your primary writing signal — trimmed newest-first to a 30k char budget) + `changed_facts` (ALL `CHANGED` entries regardless of age) — the facts most likely to affect the chapter being written. `warnings` non-empty = file missing, legacy format, or missing `pov_character` frontmatter; surface to user and do not invent. **For the unfiltered fact list within the scope window** (e.g. when `pov_relevant_facts` is empty or you need broader context), call standalone MCP `get_canon_brief(book_slug, chapter_slug, scope_chapters=N)`. The standalone tool returns the same projection plus `current_facts` — needed for review/continuity work, not for routine drafting. **When `pov_relevant_facts_truncated == true`** the inlined POV facts are the newest slice only; older POV facts still exist in the scope window — call standalone `get_canon_brief()` if continuity checks need them. To go beyond the scope window, pass a larger `N` or read the raw file.
 9. **Series canon** — If part of a series, read `{series}/world/canon.md`. **Why:** Series-level facts and constraints carry across books.
 
-### Memoir mode (`book_category == "memoir"`)
-
-4. **Genre README(s)** — MCP `get_genre()` for each genre, framed as **thematic tags** (memoir-of-illness, memoir-of-place). **Why:** Memoir uses genre as theme, not as plot-convention contract. Skip the plot-genre conventions (HEA, ticking-clock, etc.) — they do not apply.
-5. **Craft references — universal** — MCP `get_craft_reference()`:
-   - `chapter-construction` — **Why:** Hooks and chapter endings still apply; memoir scenes still need shape.
-   - `dialog-craft` — **Why:** Reconstructed dialogue in memoir is still dialogue and must not all sound the same. Subtext + beats apply identically.
-   - `show-dont-tell` — **Why:** Memoir's failure mode is reflective summary; show-don't-tell is the antidote.
-   - `pacing-guide` — **Why:** The scene/summary ratio is the central memoir-craft decision per page.
-   - `anti-ai-patterns` — **Why:** The fiction anti-AI catalog still applies for prose-level tells (delve, tapestry, smooth-but-flat rhythm).
-   - `prose-style` — **Why:** Sentence-level craft is identical across categories.
-   - `simile-discipline` — **Why:** The two-question test still gates Step 6c pre-save scan.
-6. **Memoir craft** from `book_categories/memoir/craft/` (resolve via MCP `get_book_category_dir("memoir")`):
-   - `scene-vs-summary.md` — **Why:** The first decision per page — dramatize or reflect — drives every memoir scene's shape. The fiction craft's "scene = goal/conflict/disaster" still applies; this layer adds *when not to render a scene at all*.
-   - `emotional-truth.md` — **Why:** The standard memoir is held to. Factual / emotional / narrative truth, in that order of priority. Failure mode: facts without felt sense.
-   - `memoir-anti-ai-patterns.md` — **Why:** Memoir-specific tells the universal anti-AI doc misses — "looking back I realize", reflective platitudes, tidy lessons learned, hedged intimacy.
-   - `real-people-ethics.md` — **Why:** Consent gate enforcement before any scene with a named living person; framing for anonymized portrayals; defamation-trigger awareness.
-7. **Memoir structure type** — Read `plot/structure.md` frontmatter (`structure_type:` — set by `plot-architect` memoir mode #58). **Why:** The chapter's scene/summary ratio and POV vantage vary by structure type (chronological / thematic / braided / vignette). For braided memoir, the chapter spine in `plot/outline.md` flags which thread (A or B) this chapter belongs to.
-8. **Story timeline** — Read `{project}/plot/timeline.md`. **Why:** Memoir uses real chronology, but the timeline file still anchors story-time so cross-chapter references stay consistent.
-9. **People log** — Use `canon_brief` from the chapter writing brief (Issue #161, #165, #170; memoir mode reads `plot/people-log.md`). **Why:** Same scope-window benefit as fiction's canon-log — large people-logs truncate context. The inlined brief carries `pov_relevant_facts` (POV-filtered, trimmed newest-first to a 30k char budget) and `changed_facts` — what the POV person did, said, believed plus all corrections. For the unfiltered list of every named person in scope, call standalone MCP `get_canon_brief(book_slug, chapter_slug)`. **When `pov_relevant_facts_truncated == true`** older POV-relevant person facts exist beyond the inlined window — call the standalone tool if continuity checks need them. If `extraction_method == "none"` the file does not exist yet — create it on first chapter close (Step 7). Surface `warnings` to the user; do not invent person facts to fill gaps.
-10. **Consent status check** — Read `consent_status_warnings` from the brief. **MANDATORY GATE.** If any warning has tier `refused`, halt drafting and route the user back to `/storyforge:character-creator` (memoir mode) to decide cut / anonymize / re-frame. For tier `missing` or `pending`, surface the warning to the user and confirm before drafting.
-
-Note: memoir does **not** read `world/setting.md` (no Travel Matrix — real settings live in `research/sources.md` and the chapter's own setting prose) and does **not** read `plot/canon-log.md` (memoir uses `people-log.md` for real-person consistency tracking instead).
 
 ## Writing Process
 
@@ -188,21 +162,10 @@ For clean scenes, silence is fine. When cuts happen, optionally note "Simile-Sca
 1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
 2. **Extract promises (Issue #150)** — Before flipping status to `Review` or `Final`, walk the completed draft and identify setup-elements (locked drawers, character claims, cryptic warnings, unresolved clues — full taxonomy in `reference/craft/plot-logic.md`). For each: short concrete description (8–14 words), target chapter slug if the chapter outline names it else `unfired`, status `active`. Cap at 8 per chapter. Persist via MCP `register_chapter_promises(book_slug, chapter_slug, promises)`. If the chapter places no promises, pass an empty list — this writes a placeholder so the index knows the chapter was processed. Skip this step when staying at `Draft` (mid-chapter saves don't lock in promises).
 3. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
-4. **Update `plot/timeline.md`** — one row per story-day (memoir: real-date row). MANDATORY.
-
-**Fiction (`book_category: fiction`):**
-
+4. **Update `plot/timeline.md`** — one row per story-day. MANDATORY.
 5. **Update Travel Matrix** in `world/setting.md` if new routes appeared.
-6. **Update `plot/canon-log.md`** — new facts. Use `## Chapter NN — Title` section headers and `### Subject: topic` subsections so the `canon_brief` projector can parse them deterministically (Issue #161). If revising, write a `- **CHANGED**: old → new (revision_impact: 06-slug, 11-slug)` bullet inside the chapter where the change was made. The trailing `revision_impact` list names every downstream chapter the change propagates into; the projector reads it automatically — no separate tracker table needed.
-
-**Memoir (`book_category: memoir`):**
-
-5. **Update `plot/people-log.md`** — what each named person did, said, believed, or revealed in this chapter. The memoir analogue of canon-log; consistency across chapters is a truth standard, not just a craft standard. Create the file on first chapter close if it does not exist. Use `## Chapter NN — Title` section headers and `### Person: topic` subsections so the `canon_brief` projector can parse them deterministically (Issue #161). Mark changed/corrected facts `CHANGED` with old version in Notes.
-6. **No Travel Matrix update** — memoir documents real settings via research, not a structured matrix. Note any new place names worth tracking in `research/sources.md` instead.
-
-**Both modes — universal step:**
-
-7. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with `~HH:MM`. MANDATORY (future chapters depend on it). Memoir uses real clock times.
+6. **Update `plot/canon-log.md`** — new facts. Use `## Chapter NN — Title` section headers and `### Subject: topic` subsections so the `canon_brief` projector can parse them deterministically (Issue #161). If revising, write a `- **CHANGED**: old → new (revision_impact: 06-slug, 11-slug)` bullet inside the chapter where the change was made. The trailing `revision_impact` list names every downstream chapter the change propagates into; the projector reads it automatically.
+7. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with `~HH:MM`. MANDATORY (future chapters depend on it).
 
 8. **Update POV character snapshot** (Issues #157 / #160) — Skip when staying at `Draft`. For `Review` / `Final` closes only.
 
@@ -257,7 +220,7 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 ### Universal (both modes)
 - **Abstain from invention.** If you cannot point to a source line in the loaded brief (including `canon_brief.pov_relevant_facts`, `canon_brief.changed_facts`, or — via standalone `get_canon_brief()` — `current_facts`), `world/setting.md`, `characters/*.md` (or `people/*.md` for memoir), `plot/timeline.md`, or a previous chapter's `draft.md` for a concrete detail — items carried, character relationships, routes, location features, quoted dialogue, named objects, time anchors — do not write it. Surface the gap to the user and ask, or leave the spot empty. **Why:** every invented detail accumulates as soft canon and contradicts hard canon on the next pass. The cost of a missing detail is one question to the user; the cost of an invented detail is a continuity break that may not surface for chapters and corrupts every reader who passes through the gap before it is caught. **How to apply:** before writing any concrete claim, do a one-second source check. If the source is not immediately retrievable from the loaded data, flag it instead of guessing. The Pre-Scene Logic Audit (Step A1b / Step 2c) is the structural enforcement of this rule — emit it; do not skip it.
 - Resolve `book_category` in Step 0 before any prerequisite load. The fiction and memoir prerequisite sets are non-overlapping.
-- Author profile is LAW. SHOW don't tell. Every scene needs conflict (memoir: every scene needs *stakes* — the lived equivalent). Dialog has subtext. Banned words trigger sentence rewrite.
+- Author profile is LAW. SHOW don't tell. Every scene needs conflict. Dialog has subtext. Banned words trigger sentence rewrite.
 - **Simile Discipline (Step 6c) is non-negotiable.** Every scene survives the two-question test before it enters `draft.md`. Author-voice bias = quality not quantity. See `simile-discipline.md`.
 - Honor every entry in the brief's `rules_to_honor` (book CLAUDE.md ## Rules) — `severity: block` rules will be hard-blocked by the PostToolUse hook. Honor `tone_litmus_questions` (from `plot/tone.md`) when present.
 - Never write a relative time reference without checking against the brief's `story_anchor` and `recent_chapter_timelines`. If the math doesn't work, adjust the prose — not the timeline.
@@ -272,17 +235,6 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 ### Fiction
 - Continuity is global: check `plot/timeline.md`, `canon_brief` (from brief — covers `plot/canon-log.md`), and `world/setting.md` Travel Matrix in addition to the brief's recent chapter timelines. Never invent travel times. Never contradict canon. Use the NEW version of any `CHANGED` fact — `canon_brief.changed_facts` lists all of them.
 - Respect genre conventions — they're the contract with the reader.
-
-### Memoir
-- **Consent gate is non-negotiable.** Before drafting any scene, read the brief's `consent_status_warnings`. Tier `refused` halts drafting — route to `/storyforge:character-creator` (memoir mode) for the cut/anonymize/re-frame decision. Tier `missing` requires the user's explicit decision before drafting. Tier `pending` requires user confirmation that drafting is okay (the consent request still needs to happen pre-publication).
-- **Real names are sacred.** Frontmatter `real_name` stays in the people file; never render it into prose. Use the `name` field (which may be a pseudonym).
-- **Scene-vs-summary discipline.** The first decision per page is dramatize or reflect. Default to mix; never default to one alone. See `book_categories/memoir/craft/scene-vs-summary.md`.
-- **Emotional truth, not just factual truth.** Reconstructed dialogue carries the substance of remembered conversation, not a fabricated transcript. Memoir's truth standard is felt-sense first; rendered events second; verifiable facts third — but never violate any of the three.
-- **No invented details.** If you don't know what someone wore, said, smelled like — leave it out, don't invent. The instinct to "fill in" with plausible detail is the fiction reflex; in memoir it produces fabrication.
-- **No tidy lessons.** "Looking back I realize…", "what I learned was…", reflective platitudes — these are the memoir AI-tells. See `memoir-anti-ai-patterns.md`.
-- **People-log over canon-log.** Memoir's continuity log is `plot/people-log.md` — what each named person did, said, believed, revealed across chapters. Inconsistency across chapters is not just craft failure, it is factual error.
-- **No Travel Matrix.** Memoir does not pre-tabulate travel times — real life provides them. Specific real places get noted in `research/sources.md`, not in `world/setting.md`.
-- **Genres are themes, not contracts.** A "horror memoir" is a memoir of horrifying experience, not a haunted-house plot. Don't impose plot-genre conventions on lived material.
 
 ## User Feedback Handling — CRITICAL
 
