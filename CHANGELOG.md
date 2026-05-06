@@ -25,6 +25,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.21.0] - 2026-05-06
+
+### Changed
+- add char-size trigger to issue #138 watcher (#191)
+- split into fiction + memoir variants (audit H-3, #176) (#190)
+- establish skill-bloat budget rule (audit Rec 10, #178) (#189)
+- sweep 7 likely-dead tools — deprecate 4, document 3 as utilities (audit M-5) (#188)
+- split into fiction + memoir variants (audit H-4) (#187)
+- extract memoir path into chapter-writer-memoir skill (#174 PR C) (#186)
+- dedup Mode A/B Pre-Logic Audit into shared section (#174 PR B) (#185)
+- trim brief schema to critical-action lines (#174 PR A) (#184)
+- Sprint 1 quick-wins from audit (epic #179) (#181)
+
+### Fixed
+- suppress DeprecationWarning in test_get_character (audit M-5 follow-up)
+- resolve character aliases in scan_for_named_characters (#183)
+- modernize + activate validate_character hook (audit H-1) (#180)
+- enforce author profile Writing Discoveries at draft save-time (#172) (#173)
+
 ## [1.20.3] - 2026-05-05
 
 ### Fixed
@@ -330,3 +349,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.20.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.1
 [1.20.2]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.2
 [1.20.3]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.3
+[1.21.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.21.0
