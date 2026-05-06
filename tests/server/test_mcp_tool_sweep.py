@@ -20,7 +20,6 @@ import pytest
 import routers._app as _app
 from routers.chapters import get_chapter
 from routers.claudemd import get_character, update_book_claudemd_facts
-from routers.reference import list_craft_references
 from routers.series import get_series
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
