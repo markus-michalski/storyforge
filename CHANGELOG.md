@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.21.1] - 2026-05-06
+
+### Fixed
+- extend VALID_ROLES with love-interest, mentor, foil, herald, confidant (#193) (#198)
+- skip series-character-trackers in validate_character (#192) (#197)
+
 ## [1.21.0] - 2026-05-06
 
 ### Changed
@@ -350,3 +356,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.20.2]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.2
 [1.20.3]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.3
 [1.21.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.21.0
+[1.21.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.21.1
