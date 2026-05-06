@@ -95,33 +95,36 @@ Call MCP `start_chapter_draft(book_slug, chapter_slug)` before any prose. **Why:
 
 ---
 
+### Pre-Logic Audit (MANDATORY, both modes)
+
+**Emit a bulleted audit block to chat before any prose enters `draft.md`.** No exceptions, no inlining into the prose response. For each category, answer in one sentence citing the source; if the source is silent, say so — that is the gap to surface, not paper over.
+
+1. **Inventory (POV character).** What does the POV char physically carry? **Source:** brief's `pov_character_inventory`. If `extraction_method: "none"` or `warnings` non-empty → ask before any item-touching action; do not invent.
+   > *Example: "Theo (Ch26 ~12:55): compass, silver knife, phone, power bar, mission jacket. No pamphlet."*
+
+2. **Geography.** Which rooms, routes, and waypoints does this scene touch; which is the POV char familiar with? **Source:** `world/setting.md` Travel Matrix (fiction) or `research/sources.md` (memoir), plus `plot/timeline.md` and `recent_chapter_timelines`. Model the route before any movement verb.
+   > *Example: "Mine = basement chamber + adit chamber via working tunnel; external route via Bloodrunner corridor. POV in basement → internal tunnel is the only sensible path."*
+
+3. **Character biography & relationships.** For every character on the page: relationship to POV, what POV knows, what is canon-forbidden? **Source:** `characters/{slug}.md` (fiction) or `people/{slug}.md` (memoir), brief's `canon_brief.pov_relevant_facts` + `canon_brief.changed_facts`. For non-POV characters call standalone `get_canon_brief()` → `current_facts`. If `canon_brief.warnings` non-empty → surface and ask.
+   > *Example: "Caelan is Sera's father, NOT Theo's. Any 'reminds him of his father' framing is canon-break — cut."*
+
+4. **Banned phrases + author tics.** Scan the *planned* beats against brief's `banned_phrases` and author profile's `writing_discoveries.recurring_tics` / `donts`. Replan offending beats before any prose.
+   > *Example: "Planned 'Theo does mental math' → tic `math` → replan as 'Theo cross-checks timing against radio chatter'."*
+
+5. **Sensory plausibility.** Can the POV perceive what the planned beat requires? **Source:** brief's `pov_character_state` — `clothing`, `injuries`, `altered_states`, `environmental_limiters`. If any category has `extraction_methods[cat] == "none"` AND the planned beat depends on it → surface and ask.
+   > *Example: "`clothing` → tactical boots; 'steps colder than expected' → boots block direct sensation → rewrite as 'he gripped the railing — cold enough that even through gloves he felt it'."*
+
+If any category surfaces a gap, surface it explicitly and ask the user — never paper over it.
+
+---
+
 ### Mode A: Scene-by-Scene Writing (Recommended)
 
 #### Step A1: Scene Plan
 Break the chapter outline into scenes based on the Scene Beats in `README.md`. Present the plan: `Scene N: [description] (~XXX words)`. Target ~900 words/scene (vary 600-1200 as needed); total should approximate the chapter's target.
 
-#### Step A1b: Pre-Scene Logic Audit (MANDATORY, before each scene)
-
-**The skill MUST emit a bulleted audit list to the chat before appending any scene to `draft.md`.** This is the structural counter to context-pressure invention — the model that just wrote four scenes in a row will not reliably re-consult loaded sources unless forced to. Output the audit as a short bulleted block in the chat, then write the scene. No exceptions, no inlining into the prose response.
-
-The five categories below are mandatory. For each, answer in one sentence, citing the source the answer came from. If the source is silent, say so explicitly — that is the gap the rest of the skill is built to surface, not paper over.
-
-1. **Inventory (POV character).** What does the POV char physically have on them in this scene? **Source:** brief's `pov_character_inventory` (Issue #157). If `extraction_method: "none"` or `warnings` is non-empty, ask the user before drafting any item-touching action — do not invent items to fill the gap.
-   > *Example: "Theo (Ch26 ~12:55, source: chapter:26-the-basement:timeline:~12:55): compass, silver knife, no-signal phone, half a power bar, mission jacket. Pamphlet NOT on his person."*
-
-2. **Geography.** Which rooms, routes, and waypoints does this scene touch, and which of those is the POV char actually familiar with? **Source:** `world/setting.md` (Travel Matrix, fiction) or `research/sources.md` + chapter setting prose (memoir), plus established movements in `plot/timeline.md` and `recent_chapter_timelines`. Model the route mentally before any movement verb hits the page — overflying this category produces "wrong door, wrong stairs, wrong corridor" continuity breaks.
-   > *Example: "Mine = basement chamber + adit chamber, internally connected via the working tunnel; external trapdoor route runs through the Bloodrunner main corridor. POV is in the basement → the internal tunnel is the only sensible path."*
-
-3. **Character biography & relationships.** For every character on the page: who are they to the POV (family, friend, stranger), what does the POV know about them, what is forbidden by canon? **Source:** `characters/{slug}.md` (or `people/{slug}.md` for memoir), `book.yaml` description, brief's `canon_brief.pov_relevant_facts` (POV-filtered, your primary signal) and `canon_brief.changed_facts` (corrections that apply from any chapter). For non-POV characters on the page, call standalone MCP `get_canon_brief(book_slug, chapter_slug)` and consult `current_facts` — `pov_relevant_facts` only filters on the POV name. Check the *planned* phrasing of any biographical claim against these BEFORE writing it as prose. If `canon_brief.extraction_method == "none"` or `canon_brief.warnings` is non-empty, surface the gap and ask before relying on invented facts.
-   > *Example: "Theo: parents not in this story; Caelan is Sera's father, NOT Theo's. Any 'reminds him of his father' framing is canon-break — cut."*
-
-4. **Banned phrases + author tics.** Scan the *planned* beat content (not the prose, the plan) against the brief's `banned_phrases` and the author profile's `writing_discoveries.recurring_tics` / `donts`. A planned beat like "Theo runs the math in his head" is a hard stop if `math` is a tic in the profile — replan the beat itself, do not paraphrase.
-   > *Example: "Planned beat 'Theo does mental math' → tic violation (`math`); replan as 'Theo cross-checks the timing against the radio chatter' before any prose."*
-
-5. **Sensory plausibility.** Can the POV actually perceive what the planned beat asks them to perceive, given their physical reality? **Source:** brief's `pov_character_state` (Issue #160) — `clothing`, `injuries`, `altered_states`, `environmental_limiters`, each with source pointers and `extraction_methods`. Cross-check against `pov_character_inventory` (#1) and geography (#2). If any `pov_character_state` category has `extraction_methods[cat] == "none"` AND the planned beat depends on that category, surface the gap and ask — do not assume the character can perceive normally.
-   > *Example: "`pov_character_state.clothing` → tactical boots (source: frontmatter); planned beat 'the steps were colder than he expected' → boots prevent direct stone-cold sensation → rewrite as 'he gripped the stone railing — cold enough that even through gloves he felt it.'"*
-
-After the audit, proceed to Step A2. If any category surfaces a gap (`pov_character_inventory.warnings`, `pov_character_state.warnings`, missing canon entry, unclear geography, planned tic violation, implausible sensory beat), surface the gap explicitly and ask the user — never paper over it.
+#### Step A1b: Pre-Scene Logic Audit
+Run the **Pre-Logic Audit** (above) **per scene**. Emit the bulleted block to chat before appending to `draft.md`, then proceed to Step A2.
 
 #### Step A2: Write One Scene
 Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene.
@@ -145,19 +148,8 @@ All scenes approved → tell user: "Alle Szenen stehen. Bitte lies das komplette
 
 ### Mode B: Full Chapter Writing
 
-#### Step 2c: Pre-Chapter Logic Audit (MANDATORY, before drafting)
-
-The Mode A Pre-Scene Logic Audit (Step A1b) applies here too, scaled to the chapter level — **emit one bulleted audit block to the chat before any prose enters `draft.md`**. Run all five categories once, covering the chapter as a whole rather than scene-by-scene.
-
-Same categories, same source-citation discipline, same gap-surfacing rule:
-
-1. **Inventory (POV character).** From the brief's `pov_character_inventory` — list items the POV carries into this chapter; flag warnings.
-2. **Geography.** Map the rooms / routes / waypoints the chapter touches; cite `world/setting.md` (fiction) or research notes (memoir).
-3. **Character biography & relationships.** For everyone on the page across the chapter, cite the canon source for any biographical claim.
-4. **Banned phrases + author tics.** Scan the chapter outline / scene beats against the brief's `banned_phrases` and the author profile's `recurring_tics` and `donts` — replan offending beats before drafting.
-5. **Sensory plausibility.** Cross-check planned sensory beats against brief's `pov_character_state` (clothing / injuries / altered_states / environmental_limiters — Issue #160); flag any category where `extraction_methods[cat] == "none"` if the chapter outline relies on it.
-
-Surface every gap explicitly and ask the user. The audit is the structural defense against context-pressure invention; treating it as optional reintroduces exactly the failure mode it exists to prevent.
+#### Step 2c: Pre-Chapter Logic Audit
+Run the **Pre-Logic Audit** (above) **once per chapter**, covering the chapter as a whole. Emit the bulleted block before any prose enters `draft.md`.
 
 #### Step 3: Opening Hook
 Open with action/voice/tension (not weather or waking-up). Ground the reader subtly. Create a micro-question. Match the author's voice from the FIRST sentence. See `openings-and-endings.md`. If Chapter 1: review and plan the 13-Point First Chapter Checklist from `openings-and-endings.md`.
