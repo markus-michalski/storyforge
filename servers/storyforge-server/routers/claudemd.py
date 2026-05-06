@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -107,26 +108,36 @@ def get_book_claudemd(book_slug: str) -> str:
 def get_character(book_slug: str, character_slug: str) -> str:
     """Read the full character file for a book.
 
+    .. deprecated::
+        Use ``get_book_full()`` instead — it projects characters via the
+        ``characters`` field. Removal in v2.0.
+
     Args:
         book_slug: Book slug (exact match)
         character_slug: Character slug without extension
     """
+    warnings.warn(
+        "get_character is deprecated — use get_book_full() which projects character data. Removal in v2.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    _deprecated_msg = "use get_book_full() instead — it projects characters in one call"
     config = _app.load_config()
     project_path = resolve_project_path(config, book_slug)
     if not project_path.exists():
-        return json.dumps({"error": f"Book '{book_slug}' not found"})
+        return json.dumps({"error": f"Book '{book_slug}' not found", "_deprecated": _deprecated_msg})
 
     # Primary layout: characters/{slug}.md
     primary = resolve_character_path(config, book_slug, character_slug)
     if primary.exists():
-        return json.dumps({"content": primary.read_text(encoding="utf-8")})
+        return json.dumps({"content": primary.read_text(encoding="utf-8"), "_deprecated": _deprecated_msg})
 
     # Legacy layout: characters/{slug}/README.md
     legacy = project_path / "characters" / character_slug / "README.md"
     if legacy.exists():
-        return json.dumps({"content": legacy.read_text(encoding="utf-8")})
+        return json.dumps({"content": legacy.read_text(encoding="utf-8"), "_deprecated": _deprecated_msg})
 
-    return json.dumps({"error": f"Character '{character_slug}' not found in book '{book_slug}'"})
+    return json.dumps({"error": f"Character '{character_slug}' not found in book '{book_slug}'", "_deprecated": _deprecated_msg})
 
 
 # Snapshot fields written back to the character file at chapter close.
@@ -435,7 +446,18 @@ def update_book_claudemd_facts(
 
     Empty strings are ignored (field left unchanged). Only stable facts
     live in CLAUDE.md; per-chapter progress belongs in the session cache.
+
+    .. deprecated::
+        The PreCompact hook (Issue #172 / PR #173) now writes Book Facts to
+        CLAUDE.md automatically at session-end. Manual calls are redundant.
+        Removal in v2.0.
     """
+    warnings.warn(
+        "update_book_claudemd_facts is deprecated — the PreCompact hook writes Book Facts automatically. Removal in v2.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    _deprecated_msg = "PreCompact hook now covers this path automatically (Issue #172)"
     config = _app.load_config()
     provided = {
         "pov": pov,
@@ -445,12 +467,12 @@ def update_book_claudemd_facts(
     }
     facts = {k: v for k, v in provided.items() if v}
     if not facts:
-        return json.dumps({"error": "No fields provided"})
+        return json.dumps({"error": "No fields provided", "_deprecated": _deprecated_msg})
     try:
         path = _update_book_facts_impl(config, book_slug, facts)
     except FileNotFoundError as exc:
-        return json.dumps({"error": str(exc)})
-    return json.dumps({"path": str(path), "updated": list(facts.keys())})
+        return json.dumps({"error": str(exc), "_deprecated": _deprecated_msg})
+    return json.dumps({"path": str(path), "updated": list(facts.keys()), "_deprecated": _deprecated_msg})
 
 
 @mcp.tool()

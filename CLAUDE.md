@@ -302,6 +302,25 @@ Skills MUST load relevant craft references before generating creative content. U
 19. **ALWAYS `Read` the full file when processing review comments** (GH#27). When the user signals that review comments (`{review_handle}:` blocks) are ready, call the `Read` tool on the full file first. The file-change `system-reminder` diff is truncated for long files — end-of-file comments get silently dropped. After reading, count the comments you see and report the count; re-read if the count mismatches expectation.
 20. **ALWAYS check `book_category` before creative work on a book** (Path E #54/#67). Read it from `get_book_full(slug).book_category`. All skills now branch automatically on `book_category` (Phase 4 #64 complete — no more manual load bridge needed). For named living people in memoir scenes, surface `consent_status` decisions explicitly — use `/storyforge:memoir-ethics-checker` (#65). For felt-sense gaps in chapter drafts, use `/storyforge:emotional-truth-prompt` (#66).
 
+## User-Callable MCP Tools
+
+The following MCP tools are registered but have no skill wiring. They are available as direct utility or diagnostic commands (audit M-5, Issue #175). Do not rely on them in skill workflows — use the recommended alternatives.
+
+| Tool | Purpose | Note |
+|------|---------|------|
+| `list_craft_references` | List all available craft and genre reference documents | Useful when exploring what references exist; skills name their loads explicitly |
+| `validate_timeline_consistency` | Cross-validate chapter anchors against `plot/timeline.md`; flags temporal drift | Diagnostic — run after several chapters to spot drift; not part of the writing pipeline |
+| `get_review_handle_config` | Return the configured inline-review comment handle | Informational; the handle is already bundled in `get_chapter_writing_brief` (`review_handle` field) |
+
+**Deprecated tools** (still callable, emit `DeprecationWarning`, removal in v2.0):
+
+| Tool | Replacement |
+|------|------------|
+| `get_chapter` | `get_book_full()` — projects `chapters_data` in one call |
+| `get_character` | `get_book_full()` — projects `characters` in one call |
+| `get_series` | `series-planner` reads series files directly |
+| `update_book_claudemd_facts` | PreCompact hook writes Book Facts automatically (Issue #172) |
+
 ## Code Style
 
 - Python: English comments, type hints, PEP 8

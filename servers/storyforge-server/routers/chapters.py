@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from pathlib import Path
 
 from tools.analysis.tactical_checker import (
@@ -45,17 +46,28 @@ from ._app import _cache, mcp
 
 @mcp.tool()
 def get_chapter(book_slug: str, chapter_slug: str) -> str:
-    """Get chapter metadata and word count."""
+    """Get chapter metadata and word count.
+
+    .. deprecated::
+        Use ``get_book_full()`` instead — it returns chapter data via the
+        ``chapters_data`` field and avoids a second round-trip. Removal in v2.0.
+    """
+    warnings.warn(
+        "get_chapter is deprecated — use get_book_full() which projects chapter data. Removal in v2.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    _deprecated_msg = "use get_book_full() instead — it projects chapters_data in one call"
     state = _cache.get()
     book = state.get("books", {}).get(book_slug)
     if not book:
-        return json.dumps({"error": f"Book '{book_slug}' not found"})
+        return json.dumps({"error": f"Book '{book_slug}' not found", "_deprecated": _deprecated_msg})
 
     chapter = book.get("chapters_data", {}).get(chapter_slug)
     if not chapter:
-        return json.dumps({"error": f"Chapter '{chapter_slug}' not found in '{book_slug}'"})
+        return json.dumps({"error": f"Chapter '{chapter_slug}' not found in '{book_slug}'", "_deprecated": _deprecated_msg})
 
-    return json.dumps(chapter)
+    return json.dumps({**chapter, "_deprecated": _deprecated_msg})
 
 
 @mcp.tool()
