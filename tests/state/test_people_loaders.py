@@ -10,8 +10,6 @@ Covers:
 
 from pathlib import Path
 
-import pytest
-
 from tools.state.loaders.people import scan_for_named_characters
 
 
