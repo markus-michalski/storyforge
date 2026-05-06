@@ -1,5 +1,6 @@
 ---
 name: "{{name}}"
+# aliases: ["Nickname", "Initials"]  # optional: explicit aliases for outline matching
 role: "{{role}}"
 status: "Concept"
 age: ""

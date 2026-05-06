@@ -13,6 +13,7 @@ Also surfaces the consent-status warning list for memoir scenes.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -63,12 +64,29 @@ def person_payload(path: Path) -> dict[str, Any]:
     }
 
 
-def scan_for_named_characters(text: str, characters_dir: Path) -> list[str]:
-    """Find character/person slugs whose ``name:`` appears in ``text``.
+def _extract_aliases(meta: dict[str, Any]) -> list[str]:
+    """Return all name aliases for a character.
 
-    Lightweight heuristic — reads each character file's frontmatter
-    ``name`` and checks for substring presence in the outline text.
-    Avoids pulling in characters that aren't in this chapter.
+    Combines two sources:
+    - Quoted substrings from the name field: 'Seraphina "Sera"' → ["Sera"]
+    - Explicit aliases list from frontmatter: aliases: ["Sera", "S."]
+    """
+    aliases: list[str] = []
+    name = str(meta.get("name", ""))
+    aliases.extend(re.findall(r'"([^"]+)"', name))
+    aliases.extend(re.findall(r"'([^']+)'", name))
+    explicit = meta.get("aliases", [])
+    if isinstance(explicit, list):
+        aliases.extend(str(a) for a in explicit if a)
+    return list(dict.fromkeys(a for a in aliases if a.strip()))
+
+
+def scan_for_named_characters(text: str, characters_dir: Path) -> list[str]:
+    """Find character/person slugs whose name or alias appears in ``text``.
+
+    Checks the full name plus any aliases (quoted substrings from the name
+    field and explicit ``aliases:`` frontmatter) against word boundaries to
+    avoid false positives like "Lin" matching inside "Linguistics".
     """
     if not characters_dir.is_dir():
         return []
@@ -82,8 +100,13 @@ def scan_for_named_characters(text: str, characters_dir: Path) -> list[str]:
             continue
         meta, _body = parse_frontmatter(char_text)
         name = str(meta.get("name", path.stem))
-        if name and name in text:
-            found.append(path.stem)
+        candidates = [name] + _extract_aliases(meta)
+        for cand in candidates:
+            if not cand:
+                continue
+            if re.search(rf"(?<!\w){re.escape(cand)}(?!\w)", text):
+                found.append(path.stem)
+                break
     return found
 
 
