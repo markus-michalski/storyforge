@@ -84,7 +84,7 @@ def main() -> int:
             if r["over_lines"]:
                 reasons.append(f"{r['lines']} lines > {LINE_THRESHOLD}")
             print(f"    {r['name']}: {', '.join(reasons)}")
-        print(f"\n  PR must include a split-or-trim plan. See CONTRIBUTING.md § Skill-bloat budget.")
+        print("\n  PR must include a split-or-trim plan. See CONTRIBUTING.md § Skill-bloat budget.")
 
     if near:
         print(f"\n  {YELLOW}Approaching threshold (> 80%) ({len(near)} skill(s)):{RESET}")
