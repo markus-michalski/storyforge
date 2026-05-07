@@ -73,6 +73,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "problem:" / "recurring issue:" / "report issue" / "regel melden" / "Regel eintragen" | `/storyforge:report-issue` |
 | "promote rule" / "rule global machen" / "Regel hochstufen" / "promote to author" / "promote to global" | `/storyforge:promote-rule` |
 | "harvest author rules" / "book to author" / "author rules" / "promote findings" / "Findings ins Autorenprofil" / "Buch-Erkenntnisse promoten" | `/storyforge:harvest-author-rules` |
+| "harvest evolution" / "evolve characters" / "harvest character evolution" / "Charakter-Evolution ernten" / "Tracker abgleichen" | `/storyforge:harvest-character-evolution` |
 | "rules audit" / "regeln prüfen" / "rules check" / "rules cleanup" / "audit my rules" | `/storyforge:rules-audit` |
 | "backfill promises" / "promises nachfüllen" / `/storyforge:backfill-promises` | `/storyforge:backfill-promises` |
 | "Recherche" / "Research" | `/storyforge:researcher` |

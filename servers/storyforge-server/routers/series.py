@@ -1,21 +1,87 @@
-"""Series tools: scaffold a series, get series data, link a book to a series."""
+"""Series tools: scaffold a series, get series data, link a book to a series.
+
+Also hosts the series-evolution tooling (Issue #200, D-1 of #195) —
+the harvest-character-evolution skill consumes these MCP tools to
+bridge between book-level character files and series-level evolution
+trackers.
+"""
 
 from __future__ import annotations
 
 import json
+import re
 import warnings
 
 import yaml
 
 from tools.shared.paths import (
+    resolve_character_path,
+    resolve_people_dir,
     resolve_project_path,
     resolve_series_path,
     slugify,
+)
+from tools.state.loaders.series import (
+    append_updates_log_entry,
+    find_series_trackers,
+    parse_evolution_sections,
+    parse_series_tracker,
+    resolve_book_slug_for_series_tracker,
+    write_evolution_section,
 )
 from tools.state.parsers import parse_frontmatter
 
 from . import _app
 from ._app import _cache, mcp
+
+
+# Snapshot fields read by the harvest tool — mirrors the canonical set
+# defined in routers.claudemd._SNAPSHOT_FIELDS (kept in sync manually
+# rather than imported to avoid a circular boot dependency).
+_SNAPSHOT_LIST_FIELDS = (
+    "current_inventory",
+    "current_clothing",
+    "current_injuries",
+    "altered_states",
+    "environmental_limiters",
+)
+_SNAPSHOT_AS_OF_FIELD = "as_of_chapter"
+
+
+# Relationships heading variants accepted by the harvest reader.
+# Singular ``Relationship`` is tolerated for legacy character files.
+_RE_RELATIONSHIPS_HEADING = re.compile(
+    r"^##\s+(?:Relationships?|Beziehungen(?:\s+(?:ueber\s+die\s+Bande|über\s+die\s+Bände))?)\s*$",
+    re.MULTILINE,
+)
+_RE_NEXT_H2 = re.compile(r"^##\s+\S", re.MULTILINE)
+
+
+# Band id pattern (B1, B2, ...) for input validation in evolution-write
+# tools. Liberal upper-bound — authors may want B12 for long sagas.
+_RE_BAND_ID = re.compile(r"^B\d+$")
+
+
+# Allowed evolution-section kinds, mapped to the canonical lowercase form
+# the writer expects.
+_VALID_KINDS = {
+    "start": "start",
+    "ende": "ende",
+    "end": "ende",
+    "geplant": "geplant",
+    "plan": "geplant",
+    "planned": "geplant",
+}
+
+
+def _extract_relationships_text(body: str) -> str:
+    """Return the body of the first matching ``## Relationships`` section."""
+    head = _RE_RELATIONSHIPS_HEADING.search(body)
+    if head is None:
+        return ""
+    rest = body[head.end() :]
+    next_h2 = _RE_NEXT_H2.search(rest)
+    return (rest[: next_h2.start()] if next_h2 else rest).strip()
 
 
 @mcp.tool()
@@ -117,3 +183,194 @@ def add_book_to_series(series_slug: str, book_slug: str, number: int) -> str:
 
     _cache.invalidate()
     return json.dumps({"success": True, "series": series_slug, "book": book_slug, "number": number})
+
+
+@mcp.tool()
+def read_character_for_harvest(
+    book_slug: str,
+    character_slug: str,
+    book_category: str = "fiction",
+) -> str:
+    """Read a book-level character file for the harvest skill (D-1 of #195).
+
+    Projects exactly the fields the harvest skill needs to propose a
+    ``B{N} Ende`` summary for the matching series-tracker:
+
+    - ``snapshot``: dict with ``current_inventory``, ``current_clothing``,
+      ``current_injuries``, ``altered_states``, ``environmental_limiters``
+      (all ``list[str]``) and ``as_of_chapter`` (``str``). Missing fields
+      default to empty list / empty string.
+    - ``relationships_text``: raw text of the ``## Relationships`` (or
+      ``## Beziehungen``) section, stripped. Empty string when absent.
+    - ``name``, ``role``, ``description``: identity fields from the
+      frontmatter; defaults to ``character_slug`` if name is missing.
+
+    Args:
+        book_slug: Book project slug.
+        character_slug: Character / person slug (no extension).
+        book_category: ``"fiction"`` (default) reads from
+            ``characters/``; ``"memoir"`` reads from ``people/`` (with
+            legacy fallback to ``characters/`` for pre-#59 books).
+
+    Returns:
+        ``{name, role, description, snapshot, relationships_text}`` JSON
+        on success, or ``{error}`` on a not-found / IO failure.
+    """
+    config = _app.load_config()
+
+    project_dir = resolve_project_path(config, book_slug)
+    if not project_dir.exists():
+        return json.dumps({"error": f"Book '{book_slug}' not found"})
+
+    if book_category == "memoir":
+        char_file = resolve_people_dir(project_dir, "memoir") / f"{character_slug}.md"
+    else:
+        char_file = resolve_character_path(config, book_slug, character_slug)
+
+    if not char_file.exists():
+        return json.dumps(
+            {"error": (f"Character '{character_slug}' not found in book '{book_slug}' ({book_category})")}
+        )
+
+    text = char_file.read_text(encoding="utf-8")
+    meta, body = parse_frontmatter(text)
+
+    snapshot: dict[str, list[str] | str] = {}
+    for field in _SNAPSHOT_LIST_FIELDS:
+        raw = meta.get(field, [])
+        if isinstance(raw, list):
+            snapshot[field] = [str(item) for item in raw]
+        else:
+            snapshot[field] = []
+    snapshot[_SNAPSHOT_AS_OF_FIELD] = str(meta.get(_SNAPSHOT_AS_OF_FIELD, ""))
+
+    return json.dumps(
+        {
+            "name": str(meta.get("name", character_slug)),
+            "role": str(meta.get("role", "supporting")),
+            "description": str(meta.get("description", "")),
+            "snapshot": snapshot,
+            "relationships_text": _extract_relationships_text(body),
+        }
+    )
+
+
+@mcp.tool()
+def list_series_trackers_for_book(
+    series_slug: str,
+    band: str,
+) -> str:
+    """List series-trackers whose ``recurs_in`` includes the given band.
+
+    The harvest skill calls this once per run to learn which characters
+    need a ``B{N} Ende`` summary. Each entry surfaces the resolved
+    book-level slug (via :func:`resolve_book_slug_for_series_tracker`)
+    and the existing Ende content (if any) so the skill can present a
+    diff before overwriting hand-edited drafts.
+
+    Args:
+        series_slug: Series slug.
+        band: Band id (``"B1"``, ``"B2"``, ...).
+
+    Returns:
+        ``{trackers: [{tracker_slug, book_slug, name, role, recurs_in,
+        has_existing_ende, existing_ende, path}, ...]}`` JSON or
+        ``{error}`` on validation / not-found failure.
+    """
+    if not _RE_BAND_ID.match(band):
+        return json.dumps({"error": f"band must match B<N> (e.g. 'B1') — got {band!r}"})
+
+    config = _app.load_config()
+    series_dir = resolve_series_path(config, series_slug)
+    if not series_dir.exists():
+        return json.dumps({"error": f"Series '{series_slug}' not found"})
+
+    out: list[dict] = []
+    for tracker_path in find_series_trackers(series_dir):
+        tracker = parse_series_tracker(tracker_path)
+        if band not in tracker["recurs_in"]:
+            continue
+        sections = parse_evolution_sections(tracker_path)
+        existing_ende = sections.get(band, {}).get("ende", "")
+        out.append(
+            {
+                "tracker_slug": tracker["slug"],
+                "book_slug": resolve_book_slug_for_series_tracker(tracker),
+                "name": tracker["name"],
+                "role": tracker["role"],
+                "recurs_in": tracker["recurs_in"],
+                "has_existing_ende": bool(existing_ende),
+                "existing_ende": existing_ende,
+                "path": str(tracker_path),
+            }
+        )
+
+    return json.dumps({"trackers": out})
+
+
+@mcp.tool()
+def write_series_evolution_section(
+    series_slug: str,
+    tracker_slug: str,
+    band: str,
+    kind: str,
+    content: str,
+    log_message: str,
+    date: str = "",
+) -> str:
+    """Write a Start/Ende/geplant value into a series-tracker (atomic).
+
+    Two side effects in one call:
+    1. Replaces or inserts the requested keyed slot in ``Evolution per
+       Band`` (preserving the tracker's existing shape).
+    2. Appends a dated entry to ``Updates Log``.
+
+    Args:
+        series_slug: Series slug.
+        tracker_slug: Tracker slug (file stem under
+            ``series/{series_slug}/characters/``).
+        band: Band id (``"B1"``, ``"B2"``, ...).
+        kind: ``"start"``, ``"ende"``, ``"geplant"`` (also accepts
+            ``"plan"``, ``"planned"``, ``"end"`` as aliases).
+        content: Body text for the slot.
+        log_message: Message to append to Updates Log (date is
+            prepended automatically).
+        date: Optional ISO date (``YYYY-MM-DD``) for the log entry.
+            Defaults to today's UTC date when omitted or empty.
+
+    Returns:
+        ``{success, tracker_slug, band, kind, path}`` on success or
+        ``{error}`` on validation / not-found failure.
+    """
+    if not _RE_BAND_ID.match(band):
+        return json.dumps({"error": f"band must match B<N> (e.g. 'B1') — got {band!r}"})
+    canonical_kind = _VALID_KINDS.get(kind.lower())
+    if canonical_kind is None:
+        return json.dumps({"error": (f"kind must be one of {sorted(set(_VALID_KINDS))} — got {kind!r}")})
+
+    config = _app.load_config()
+    series_dir = resolve_series_path(config, series_slug)
+    if not series_dir.exists():
+        return json.dumps({"error": f"Series '{series_slug}' not found"})
+
+    tracker_path = series_dir / "characters" / f"{tracker_slug}.md"
+    if not tracker_path.exists():
+        return json.dumps({"error": (f"Tracker '{tracker_slug}' not found in series '{series_slug}'")})
+
+    write_evolution_section(tracker_path, band=band, kind=canonical_kind, content=content)
+    append_updates_log_entry(
+        tracker_path,
+        message=log_message,
+        date=date or None,
+    )
+    _cache.invalidate()
+
+    return json.dumps(
+        {
+            "success": True,
+            "tracker_slug": tracker_slug,
+            "band": band,
+            "kind": canonical_kind,
+            "path": str(tracker_path),
+        }
+    )
