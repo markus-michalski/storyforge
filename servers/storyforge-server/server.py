@@ -110,11 +110,13 @@ from routers.scenes import (  # noqa: E402, F401
 )
 from routers.series import (  # noqa: E402, F401
     add_book_to_series,
+    bootstrap_character_for_new_book,
     copy_recurring_chars_to_new_book,
     create_series,
     get_series,
     list_series_trackers_for_book,
     read_character_for_harvest,
+    read_tracker_for_bootstrap,
     write_series_evolution_section,
 )
 from routers.state import (  # noqa: E402, F401

@@ -12,6 +12,8 @@ import json
 import re
 import shutil
 import warnings
+from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -501,3 +503,265 @@ def copy_recurring_chars_to_new_book(
 
     _cache.invalidate()
     return json.dumps({"copied": copied, "skipped": skipped, "new_chars": new_chars})
+
+
+@mcp.tool()
+def read_tracker_for_bootstrap(
+    series_slug: str,
+    tracker_slug: str,
+    prev_band: str,
+    new_band: str,
+    prev_book_slug: str = "",
+) -> str:
+    """Project per-tracker bootstrap data for the D-2 skill (Issue #203).
+
+    Returns the data the bootstrap skill needs to synthesize a starting
+    snapshot for the new book's character file:
+
+    - ``prev_band``: dict with ``start`` / ``ende`` / ``geplant`` slot
+      values from the tracker (empty strings when absent)
+    - ``new_band``: same shape — the planned narrative for the new book
+    - ``prev_book_snapshot``: when ``prev_book_slug`` is provided AND the
+      character file exists there, projects its current snapshot
+      frontmatter (``current_inventory`` etc.) so the skill can show a
+      diff. ``None`` otherwise.
+    - identity fields: ``name``, ``role``, ``tracker_slug``, ``book_slug``
+      (resolved via #194)
+
+    Args:
+        series_slug: Series slug.
+        tracker_slug: Tracker file stem under ``series/{slug}/characters/``.
+        prev_band: Band id to read Ende from (typically the band of the
+            previous book — ``"B1"`` when bootstrapping ``B2``).
+        new_band: Band id to read (geplant) from (the new book's band).
+        prev_book_slug: Optional. When set, also project the prev book
+            character file's existing snapshot so the skill can diff.
+
+    Returns:
+        ``{tracker_slug, book_slug, name, role, prev_band, new_band,
+        prev_book_snapshot}`` JSON, or ``{error}``.
+    """
+    if not _RE_BAND_ID.match(prev_band):
+        return json.dumps({"error": f"prev_band must match B<N> — got {prev_band!r}"})
+    if not _RE_BAND_ID.match(new_band):
+        return json.dumps({"error": f"new_band must match B<N> — got {new_band!r}"})
+
+    config = _app.load_config()
+    series_dir = resolve_series_path(config, series_slug)
+    if not series_dir.exists():
+        return json.dumps({"error": f"Series '{series_slug}' not found"})
+
+    tracker_path = series_dir / "characters" / f"{tracker_slug}.md"
+    if not tracker_path.exists():
+        return json.dumps({"error": (f"Tracker '{tracker_slug}' not found in series '{series_slug}'")})
+
+    tracker = parse_series_tracker(tracker_path)
+    sections = parse_evolution_sections(tracker_path)
+    book_slug = resolve_book_slug_for_series_tracker(tracker)
+
+    def _slot_payload(band: str) -> dict[str, str]:
+        band_data = sections.get(band, {})
+        return {
+            "start": band_data.get("start", ""),
+            "ende": band_data.get("ende", ""),
+            "geplant": band_data.get("geplant", ""),
+            "title": band_data.get("title", band),
+            "shape": band_data.get("shape", ""),
+        }
+
+    payload: dict[str, Any] = {
+        "tracker_slug": tracker["slug"],
+        "book_slug": book_slug,
+        "name": tracker["name"],
+        "role": tracker["role"],
+        "prev_band": _slot_payload(prev_band),
+        "new_band": _slot_payload(new_band),
+        "prev_book_snapshot": None,
+    }
+
+    if prev_book_slug:
+        prev_dir = resolve_project_path(config, prev_book_slug)
+        if prev_dir.exists():
+            # Try characters/ first, then people/ for memoir layouts.
+            for layout in ("characters", "people"):
+                candidate = prev_dir / layout / f"{book_slug}.md"
+                if candidate.exists():
+                    text = candidate.read_text(encoding="utf-8")
+                    meta, _body = parse_frontmatter(text)
+                    snap: dict[str, Any] = {}
+                    for field in _SNAPSHOT_LIST_FIELDS:
+                        raw = meta.get(field, [])
+                        snap[field] = [str(item) for item in raw] if isinstance(raw, list) else []
+                    snap[_SNAPSHOT_AS_OF_FIELD] = str(meta.get(_SNAPSHOT_AS_OF_FIELD, ""))
+                    payload["prev_book_snapshot"] = snap
+                    break
+
+    return json.dumps(payload)
+
+
+# Snapshot fields accepted by ``bootstrap_character_for_new_book``. The
+# canonical list lives in routers.claudemd._SNAPSHOT_FIELDS — duplicated
+# here to avoid a cross-router import.
+_BOOTSTRAP_SNAPSHOT_FIELDS = frozenset(
+    {
+        "current_inventory",
+        "current_clothing",
+        "current_injuries",
+        "altered_states",
+        "environmental_limiters",
+        "as_of_chapter",
+    }
+)
+
+
+def _apply_bootstrap_frontmatter(char_path: Path, snapshot: dict[str, Any], prev_band: str) -> None:
+    """Update ``char_path`` frontmatter with bootstrap snapshot + marker.
+
+    Preserves all existing frontmatter fields, replaces the snapshot
+    fields present in ``snapshot`` (list fields default to ``[]`` when
+    absent), and sets ``series_evolution_imported_from: {prev_band}``.
+    Body of the file is unchanged.
+    """
+    text = char_path.read_text(encoding="utf-8")
+    meta, body = parse_frontmatter(text)
+    if not isinstance(meta, dict):
+        meta = {}
+
+    list_fields = _BOOTSTRAP_SNAPSHOT_FIELDS - {"as_of_chapter"}
+    for field in list_fields:
+        if field in snapshot:
+            meta[field] = list(snapshot[field])
+    if "as_of_chapter" in snapshot:
+        meta["as_of_chapter"] = str(snapshot["as_of_chapter"])
+    meta["series_evolution_imported_from"] = prev_band
+
+    new_text = "---\n" + yaml.dump(meta, default_flow_style=False, allow_unicode=True, sort_keys=False) + "---\n" + body
+    char_path.write_text(new_text, encoding="utf-8")
+
+
+@mcp.tool()
+def bootstrap_character_for_new_book(
+    series_slug: str,
+    tracker_slug: str,
+    prev_book_slug: str,
+    new_book_slug: str,
+    prev_band: str,
+    snapshot_json: str,
+    log_message: str = "",
+    book_category: str = "fiction",
+    date: str = "",
+) -> str:
+    """Atomic bootstrap of a recurring character for a new book (Issue #203).
+
+    Combines four side effects in one call so the bootstrap skill can
+    walk char-by-char without partial-state risk:
+
+    1. **Ensure new book char file exists** — when missing, copy from
+       the prev book (reuses the #196 file-copy pattern). When the file
+       already exists (e.g. ``/storyforge:new-book`` ran the dumb-copy
+       beforehand), the existing body is preserved and only the
+       frontmatter is mutated.
+    2. **Apply snapshot** — replaces the frontmatter snapshot fields
+       (``current_inventory`` etc.) with the user-confirmed values
+       from ``snapshot_json``.
+    3. **Add marker** — writes
+       ``series_evolution_imported_from: {prev_band}`` to the
+       frontmatter for transparency.
+    4. **Append Updates Log entry** to the series-tracker so the
+       evolution history is auditable.
+
+    Args:
+        series_slug: Series slug.
+        tracker_slug: Tracker file stem.
+        prev_book_slug: Source book for the file copy (typically the
+            book whose ``B{prev_band}`` end-state was harvested).
+        new_book_slug: Destination book.
+        prev_band: ``"B1"``, ``"B2"``, ... — used as the marker value.
+        snapshot_json: JSON object with any subset of:
+            ``current_inventory``, ``current_clothing``,
+            ``current_injuries``, ``altered_states``,
+            ``environmental_limiters`` (list[str]); ``as_of_chapter``
+            (str). Unknown keys are rejected.
+        log_message: Optional. Defaults to
+            ``"Bootstrapped from {prev_band} for {new_book_slug}"``.
+        book_category: ``"fiction"`` or ``"memoir"``.
+        date: Optional ISO date for the log entry. Defaults to today.
+
+    Returns:
+        ``{success, copied_from_prev, snapshot_applied, log_added,
+        new_char_path}`` or ``{error}``.
+    """
+    if not _RE_BAND_ID.match(prev_band):
+        return json.dumps({"error": f"prev_band must match B<N> — got {prev_band!r}"})
+
+    try:
+        snapshot: dict[str, Any] = json.loads(snapshot_json)
+    except json.JSONDecodeError as exc:
+        return json.dumps({"error": f"snapshot_json is not valid JSON: {exc}"})
+    if not isinstance(snapshot, dict):
+        return json.dumps({"error": "snapshot_json must be a JSON object"})
+    unknown = set(snapshot.keys()) - _BOOTSTRAP_SNAPSHOT_FIELDS
+    if unknown:
+        return json.dumps(
+            {"error": (f"Unknown snapshot fields: {sorted(unknown)}. Allowed: {sorted(_BOOTSTRAP_SNAPSHOT_FIELDS)}")}
+        )
+
+    config = _app.load_config()
+    series_dir = resolve_series_path(config, series_slug)
+    if not series_dir.exists():
+        return json.dumps({"error": f"Series '{series_slug}' not found"})
+
+    tracker_path = series_dir / "characters" / f"{tracker_slug}.md"
+    if not tracker_path.exists():
+        return json.dumps({"error": (f"Tracker '{tracker_slug}' not found in series '{series_slug}'")})
+
+    new_dir = resolve_project_path(config, new_book_slug)
+    if not new_dir.exists():
+        return json.dumps({"error": f"New book '{new_book_slug}' not found"})
+
+    tracker = parse_series_tracker(tracker_path)
+    book_slug = resolve_book_slug_for_series_tracker(tracker)
+
+    layout = "people" if book_category == "memoir" else "characters"
+    dst_layout = resolve_people_dir(new_dir, "memoir") if book_category == "memoir" else new_dir / "characters"
+    dst_layout.mkdir(parents=True, exist_ok=True)
+    dest = dst_layout / f"{book_slug}.md"
+
+    copied_from_prev = False
+    if not dest.exists():
+        prev_dir = resolve_project_path(config, prev_book_slug)
+        if not prev_dir.exists():
+            return json.dumps({"error": f"Previous book '{prev_book_slug}' not found"})
+        src_layout = resolve_people_dir(prev_dir, "memoir") if book_category == "memoir" else prev_dir / "characters"
+        source = src_layout / f"{book_slug}.md"
+        if not source.exists():
+            return json.dumps(
+                {
+                    "error": (
+                        f"Source character '{book_slug}.md' missing in "
+                        f"'{prev_book_slug}/{layout}/' — cannot copy. The "
+                        "character may be a B{N}-first-appearance — create it "
+                        "via /storyforge:character-creator before bootstrap."
+                    )
+                }
+            )
+        shutil.copy2(source, dest)
+        copied_from_prev = True
+
+    _apply_bootstrap_frontmatter(dest, snapshot, prev_band)
+    snapshot_applied = True
+
+    final_log = log_message or f"Bootstrapped from {prev_band} for {new_book_slug}"
+    append_updates_log_entry(tracker_path, message=final_log, date=date or None)
+    log_added = True
+
+    _cache.invalidate()
+    return json.dumps(
+        {
+            "success": True,
+            "copied_from_prev": copied_from_prev,
+            "snapshot_applied": snapshot_applied,
+            "log_added": log_added,
+            "new_char_path": str(dest),
+        }
+    )
