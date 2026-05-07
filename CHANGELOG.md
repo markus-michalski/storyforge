@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.22.0] - 2026-05-07
+
+### Added
+- add series_evolution field per character (#205, D-3 of #195) (#206)
+- add bootstrap-book-from-series skill (#203, D-2 of #195) (#204)
+- auto-copy recurring character files from prior book in series (#196) (#202)
+- add harvest-character-evolution skill (#200, D-1 of #195) (#201)
+- add series-tracker book_slug resolver (#194) (#199)
+
 ## [1.21.1] - 2026-05-06
 
 ### Fixed
@@ -357,3 +366,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.20.3]: https://github.com/markus-michalski/storyforge/releases/tag/v1.20.3
 [1.21.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.21.0
 [1.21.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.21.1
+[1.22.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.22.0
