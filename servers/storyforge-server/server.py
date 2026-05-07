@@ -110,6 +110,7 @@ from routers.scenes import (  # noqa: E402, F401
 )
 from routers.series import (  # noqa: E402, F401
     add_book_to_series,
+    copy_recurring_chars_to_new_book,
     create_series,
     get_series,
     list_series_trackers_for_book,

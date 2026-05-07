@@ -57,9 +57,47 @@ argument-hint: "[title]"
 
 5. **Update session** — Use MCP `update_session()` with the new book as active
 
-6. **Load genre README(s)** — Use MCP `get_genre()` for each selected genre. Show key conventions to the user.
+6. **Auto-copy recurring characters from prior book in series** (Issue #196) — If the new book is part of an existing series AND there is a prior book in that series:
 
-7. **Suggest next steps** — Based on `book_category` and effective `author_writing_mode`:
+   a. Resolve the series link. The user may pass it explicitly: `/storyforge:new-book moonrise --series=blood-and-binary --copy-recurring-from=blood-and-binary-firelight`. Or — if `series:` is set on the new book and there's exactly one prior book in `series/{slug}/books/`, auto-detect it.
+
+   b. Compute the new book's band from `series_number` (set by `add_book_to_series()`): `band = f"B{series_number}"`. Skip this step entirely when `series_number` is missing or `1` (first book — nothing to copy from).
+
+   c. Show the planned copy (use AskUserQuestion to confirm):
+
+      ```
+      Found previous book in series: {prev_book_slug}
+      Will copy recurring characters from {prev_book_slug} → {new_book_slug} ({band}):
+
+        ✓ {N} files to copy
+        ⚠ {M} new chars in {band} need manual creation (no source)
+        ⊘ {K} chars excluded (recurs_in does not include {band})
+      ```
+
+      Options: **Yes, copy** (default) / **Skip — I'll do it manually**.
+
+   d. On confirmation, call MCP `copy_recurring_chars_to_new_book(series_slug, prev_book_slug, new_book_slug, band, book_category)`. The tool returns `{copied, skipped, new_chars}`.
+
+   e. Report the result:
+
+      ```
+      Copied {len(copied)} character files:
+        - {tracker_slug} → characters/{book_slug}.md
+        - ...
+
+      Skipped {len(skipped)} (already existed):
+        - ...
+
+      Need manual creation ({len(new_chars)} new in {band}):
+        - {tracker_slug} (recurs_in: {recurs_in})
+        - ...
+      ```
+
+   This is the **dumb-copy version** (#196). For smart frontmatter migration based on the series-tracker's `B{prev} Ende` and `B{new} (geplant)` sections, run `/storyforge:bootstrap-book-from-series` (D-2 of #195, future) after this.
+
+7. **Load genre README(s)** — Use MCP `get_genre()` for each selected genre. Show key conventions to the user.
+
+8. **Suggest next steps** — Based on `book_category` and effective `author_writing_mode`:
 
    **Fiction:**
    - **Outliner:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` for the full outline"
