@@ -35,6 +35,7 @@ from tools.state.chapter_timeline_parser import get_recent_chapter_timelines
 from tools.state.loaders.banlist import collect_banned_phrases
 from tools.state.loaders.chapter_meta import (
     load_book_category,
+    load_series_link,
     load_chapter_meta,
     serialize_chapter_meta,
 )
@@ -53,6 +54,7 @@ from tools.state.loaders.people import (
 from tools.state.loaders.canon_brief import build_canon_brief
 from tools.state.loaders.pov_inventory import extract_pov_inventory
 from tools.state.loaders.pov_state import extract_pov_state
+from tools.state.loaders.series import build_series_evolution_for_character
 from tools.state.loaders.recent_chapters import (
     collect_recent_chapters,
     count_similes,
@@ -291,6 +293,57 @@ def _gather_tactical(
     )
 
 
+def _enrich_with_series_evolution(
+    characters: list[dict[str, Any]],
+    book_root: Path,
+    series_slug: str,
+    series_number: int,
+    *,
+    recorder: _Recorder,
+) -> None:
+    """Mutate ``characters`` to add a ``series_evolution`` field per char.
+
+    Issue #205 (D-3 of Epic #195). When the book is part of a series,
+    each present character gets enriched with the matching tracker's
+    prev-band-Ende, current-band-geplant (or fallback), and
+    relationships-evolution narrative. The field is ``None`` when:
+
+    - The book is not in a series (``series_slug`` empty / ``series_number``
+      zero or negative)
+    - No tracker exists for the character
+    - The current band has no Evolution per Band content
+
+    No-op when the series directory does not exist on disk.
+    """
+    # Always set the field so downstream consumers can rely on its
+    # presence — None signals "no series context here".
+    for char in characters:
+        char.setdefault("series_evolution", None)
+
+    if not series_slug or series_number < 1:
+        return
+
+    # book_root is content_root/projects/{book_slug} — series dir is
+    # content_root/series/{series_slug}.
+    series_dir = book_root.parent.parent / "series" / series_slug
+    if not series_dir.is_dir():
+        return
+
+    current_band = f"B{series_number}"
+    prev_band = f"B{series_number - 1}" if series_number > 1 else None
+
+    for char in characters:
+        slug = char.get("slug")
+        if not slug:
+            continue
+        payload = recorder.run(
+            f"series_evolution.{slug}",
+            lambda s=slug: build_series_evolution_for_character(series_dir, s, current_band, prev_band),
+            None,
+        )
+        char["series_evolution"] = payload
+
+
 def build_chapter_writing_brief(
     *,
     book_root: Path,
@@ -328,11 +381,24 @@ def build_chapter_writing_brief(
     )
     is_memoir = book_category == "memoir"
 
+    series_slug, series_number = recorder.run(
+        "book.series_link",
+        lambda: load_series_link(book_root),
+        ("", 0),
+    )
+
     characters = _gather_characters(
         book_root,
         chapter_readme,
         pov_character,
         is_memoir=is_memoir,
+        recorder=recorder,
+    )
+    _enrich_with_series_evolution(
+        characters,
+        book_root,
+        series_slug,
+        series_number,
         recorder=recorder,
     )
 

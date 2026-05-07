@@ -179,6 +179,91 @@ def recurring_chars_for_book(series_dir: Path, band: str) -> list[dict[str, Any]
     return out
 
 
+def find_tracker_for_book_character(series_dir: Path, book_slug: str) -> Path | None:
+    """Reverse lookup: find the series-tracker for a book-level character.
+
+    Used by the chapter-writing brief enrichment (Issue #205, D-3 of
+    Epic #195) to surface series-evolution context per present
+    character. Iterates trackers under ``{series_dir}/characters/`` and
+    returns the first whose resolved book-level slug (via #194's
+    resolver) matches ``book_slug``.
+
+    Returns ``None`` when no tracker matches or when the directory does
+    not exist. The first sorted match wins for defensive determinism if
+    duplicates ever creep in (authors should not produce them).
+    """
+    if not book_slug:
+        return None
+    for path in find_series_trackers(series_dir):
+        tracker = parse_series_tracker(path)
+        if resolve_book_slug_for_series_tracker(tracker) == book_slug:
+            return path
+    return None
+
+
+def build_series_evolution_for_character(
+    series_dir: Path,
+    book_slug: str,
+    current_band: str,
+    prev_band: str | None,
+) -> dict[str, Any] | None:
+    """Assemble the ``series_evolution`` brief field for a character.
+
+    Used by ``chapter_writing_brief`` to enrich each present character
+    with series-tracker context. Returns ``None`` for graceful degrade:
+
+    - When no series-tracker exists for ``book_slug``
+    - When ``current_band`` has no Evolution-per-Band data in the
+      tracker (no Start, Ende, or geplant text)
+
+    Returns a dict with:
+    - ``tracker_slug`` — the tracker file stem (may differ from
+      ``book_slug`` per #194)
+    - ``current_book_phase`` — the band heading title
+      (e.g. ``"B2 Moonrise (geplant)"``)
+    - ``previous_book_end`` — ``prev_band`` Ende text, empty string
+      when no prev band
+    - ``current_book_plan`` — current band's geplant > ende > start
+      (priority order); the most-future-facing text available
+    - ``relationships_evolution`` — raw ``## Beziehungen`` section text
+    """
+    tracker_path = find_tracker_for_book_character(series_dir, book_slug)
+    if tracker_path is None:
+        return None
+
+    tracker = parse_series_tracker(tracker_path)
+    sections = parse_evolution_sections(tracker_path)
+
+    current = sections.get(current_band)
+    if current is None:
+        # Tracker has no Evolution per Band content for this band —
+        # graceful degrade.
+        return None
+
+    # Pick the most-future-facing slot for current_book_plan: the
+    # tracker's geplant (planning text) is the canonical "what's
+    # supposed to happen this book" payload. Fall back to ende when
+    # geplant is empty (e.g. drafted books that filled Ende only), and
+    # finally to start (e.g. early B1 drafting before any Ende exists).
+    current_plan = current.get("geplant") or current.get("ende") or current.get("start") or ""
+    if not current_plan:
+        # No narrative at all for the current band — degrade.
+        return None
+
+    prev_end = ""
+    if prev_band:
+        prev = sections.get(prev_band, {})
+        prev_end = prev.get("ende", "")
+
+    return {
+        "tracker_slug": tracker["slug"],
+        "current_book_phase": current.get("title", current_band),
+        "previous_book_end": prev_end,
+        "current_book_plan": current_plan,
+        "relationships_evolution": parse_relationships_section(tracker_path),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Section parsers — Evolution per Band, Beziehungen, Updates Log
 # ---------------------------------------------------------------------------
