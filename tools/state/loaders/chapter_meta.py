@@ -124,9 +124,37 @@ def load_book_category(book_root: Path) -> str:
     return str(book_meta.get("book_category", "fiction"))
 
 
+def load_series_link(book_root: Path) -> tuple[str, int]:
+    """Read ``(series_slug, series_number)`` from the book README frontmatter.
+
+    Returns ``("", 0)`` when the book is not part of a series, when the
+    README is missing, or when the field values are unparseable. Used
+    by the chapter-writing brief enricher (Issue #205, D-3 of #195) to
+    resolve the band ids needed for the ``series_evolution`` payload.
+    """
+    book_readme = book_root / "README.md"
+    if not book_readme.is_file():
+        return "", 0
+    try:
+        text = book_readme.read_text(encoding="utf-8")
+    except OSError:
+        return "", 0
+    if not text:
+        return "", 0
+    book_meta, _ = parse_frontmatter(text)
+    series_slug = str(book_meta.get("series", "") or "")
+    raw_number = book_meta.get("series_number", 0) or 0
+    try:
+        series_number = int(raw_number)
+    except (TypeError, ValueError):
+        series_number = 0
+    return series_slug, series_number
+
+
 __all__ = [
     "load_book_category",
     "load_chapter_meta",
+    "load_series_link",
     "parse_overview_table",
     "serialize_chapter_meta",
 ]
