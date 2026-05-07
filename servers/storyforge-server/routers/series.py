@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import warnings
 
 import yaml
@@ -26,6 +27,7 @@ from tools.state.loaders.series import (
     find_series_trackers,
     parse_evolution_sections,
     parse_series_tracker,
+    recurring_chars_for_book,
     resolve_book_slug_for_series_tracker,
     write_evolution_section,
 )
@@ -374,3 +376,128 @@ def write_series_evolution_section(
             "path": str(tracker_path),
         }
     )
+
+
+@mcp.tool()
+def copy_recurring_chars_to_new_book(
+    series_slug: str,
+    prev_book_slug: str,
+    new_book_slug: str,
+    new_band: str,
+    book_category: str = "fiction",
+) -> str:
+    """1:1 copy of recurring character files from a prior book (Issue #196).
+
+    Dumb-copy precursor to D-2: filters series-trackers by ``recurs_in``
+    (must include ``new_band``), resolves each tracker's book-level slug
+    via #194's resolver, and copies the source file from the previous
+    book's character/people directory to the new book's matching
+    directory.
+
+    No frontmatter mutation. No content transformation. The new book's
+    character files start as byte-identical copies of the prior book's
+    end-of-book state — author edits manually OR runs
+    ``/storyforge:bootstrap-book-from-series`` (D-2, future) for smart
+    state migration on top.
+
+    Args:
+        series_slug: Series slug.
+        prev_book_slug: Slug of the source book (typically B1 when
+            scaffolding B2). Must exist on disk.
+        new_book_slug: Slug of the destination book. Must already be
+            scaffolded (i.e. ``projects/{new_book_slug}/`` must exist).
+        new_band: Band id of the destination book (``"B2"`` etc.).
+        book_category: ``"fiction"`` (default) → ``characters/``;
+            ``"memoir"`` → ``people/``.
+
+    Returns:
+        ``{copied, skipped, new_chars}`` JSON, where:
+
+        - ``copied``: list of ``{tracker_slug, book_slug, source, dest}``
+        - ``skipped``: list of ``{tracker_slug, book_slug, reason}``
+          (dest already exists, or source missing while prior_bands
+          present)
+        - ``new_chars``: list of ``{tracker_slug, book_slug, recurs_in}``
+          for trackers whose first appearance is ``new_band`` (no source
+          to copy from — author must create manually)
+
+        ``{error}`` on validation / not-found failure.
+    """
+    if not _RE_BAND_ID.match(new_band):
+        return json.dumps({"error": f"new_band must match B<N> (e.g. 'B2') — got {new_band!r}"})
+
+    config = _app.load_config()
+    series_dir = resolve_series_path(config, series_slug)
+    if not series_dir.exists():
+        return json.dumps({"error": f"Series '{series_slug}' not found"})
+
+    prev_dir = resolve_project_path(config, prev_book_slug)
+    if not prev_dir.exists():
+        return json.dumps({"error": f"Previous book '{prev_book_slug}' not found"})
+
+    new_dir = resolve_project_path(config, new_book_slug)
+    if not new_dir.exists():
+        return json.dumps({"error": f"New book '{new_book_slug}' not found"})
+
+    layout = "people" if book_category == "memoir" else "characters"
+    src_layout = resolve_people_dir(prev_dir, "memoir") if book_category == "memoir" else prev_dir / "characters"
+    dst_layout = resolve_people_dir(new_dir, "memoir") if book_category == "memoir" else new_dir / "characters"
+    dst_layout.mkdir(parents=True, exist_ok=True)
+
+    copied: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = []
+    new_chars: list[dict] = []
+
+    for tracker in recurring_chars_for_book(series_dir, new_band):
+        tracker_slug = tracker["tracker_slug"]
+        book_slug = tracker["book_slug"]
+
+        # New char in this band — no source to copy from.
+        if not tracker["prior_bands"]:
+            new_chars.append(
+                {
+                    "tracker_slug": tracker_slug,
+                    "book_slug": book_slug,
+                    "recurs_in": tracker["recurs_in"],
+                }
+            )
+            continue
+
+        source = src_layout / f"{book_slug}.md"
+        dest = dst_layout / f"{book_slug}.md"
+
+        if not source.exists():
+            # Tracker says the char appears in prior book(s) but the
+            # source file is missing — surface as new_char so the author
+            # knows they have to create it.
+            new_chars.append(
+                {
+                    "tracker_slug": tracker_slug,
+                    "book_slug": book_slug,
+                    "recurs_in": tracker["recurs_in"],
+                }
+            )
+            continue
+
+        if dest.exists():
+            skipped.append(
+                {
+                    "tracker_slug": tracker_slug,
+                    "book_slug": book_slug,
+                    "reason": (f"destination already exists at {layout}/{book_slug}.md — not overwriting"),
+                }
+            )
+            continue
+
+        shutil.copy2(source, dest)
+        copied.append(
+            {
+                "tracker_slug": tracker_slug,
+                "book_slug": book_slug,
+                "source": str(source),
+                "dest": str(dest),
+            }
+        )
+
+    _cache.invalidate()
+    return json.dumps({"copied": copied, "skipped": skipped, "new_chars": new_chars})

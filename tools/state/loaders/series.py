@@ -126,6 +126,59 @@ def find_series_trackers(series_dir: Path) -> list[Path]:
     return sorted(p for p in chars_dir.glob("*.md") if p.name != "INDEX.md")
 
 
+# Band id pattern (B1, B2, ...) — kept here so callers don't need to
+# import from the routing layer.
+_RE_VALID_BAND = re.compile(r"^B\d+$")
+
+
+def recurring_chars_for_book(series_dir: Path, band: str) -> list[dict[str, Any]]:
+    """Return tracker dicts whose ``recurs_in`` includes ``band``.
+
+    Used by the new-book auto-copy logic (Issue #196) and the future
+    bootstrap-book-from-series skill (D-2 of Epic #195) to learn which
+    characters belong in a given book band.
+
+    Each entry mirrors :func:`parse_series_tracker` output (so callers
+    have ``slug``, ``book_slug``, ``recurs_in``, ``role``, ...) plus a
+    ``tracker_slug`` alias and a ``prior_bands`` field — the bands in
+    ``recurs_in`` that come strictly before ``band``, sorted ascending.
+    Empty ``prior_bands`` means the character first appears in ``band``
+    and has no source file in any prior book.
+
+    Returns an empty list when ``band`` is not a valid ``B<N>`` id, when
+    the characters directory is missing, or when no trackers match.
+    Results are sorted by ``tracker_slug`` for deterministic output.
+    """
+    if not _RE_VALID_BAND.match(band):
+        return []
+
+    target_n = int(band[1:])
+    out: list[dict[str, Any]] = []
+    for path in find_series_trackers(series_dir):
+        tracker = parse_series_tracker(path)
+        recurs = [str(b) for b in tracker.get("recurs_in") or []]
+        if band not in recurs:
+            continue
+
+        # Sort prior bands numerically so B10 comes after B2 (string sort
+        # would put B10 between B1 and B2).
+        prior_bands = sorted(
+            (b for b in recurs if _RE_VALID_BAND.match(b) and int(b[1:]) < target_n),
+            key=lambda b: int(b[1:]),
+        )
+        out.append(
+            {
+                **tracker,
+                "tracker_slug": tracker["slug"],
+                "book_slug": resolve_book_slug_for_series_tracker(tracker),
+                "prior_bands": prior_bands,
+            }
+        )
+
+    out.sort(key=lambda t: t["tracker_slug"])
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Section parsers — Evolution per Band, Beziehungen, Updates Log
 # ---------------------------------------------------------------------------
