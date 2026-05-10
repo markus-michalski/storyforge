@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.22.1] - 2026-05-10
+
+### Changed
+- update mcp requirement in the pip-all group (#207)
+
+### Fixed
+- tighten POV facts char-budget to keep brief under MCP cap (#208)
+
 ## [1.22.0] - 2026-05-07
 
 ### Added
@@ -367,3 +375,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.21.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.21.0
 [1.21.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.21.1
 [1.22.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.22.0
+[1.22.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.22.1
