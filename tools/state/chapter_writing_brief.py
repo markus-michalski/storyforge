@@ -63,13 +63,22 @@ from tools.state.loaders.recent_chapters import (
 from tools.timeline_anchor import get_story_anchor
 
 
-# Issue #170: char-budget for pov_relevant_facts in the inline canon_brief.
-# Books with narrative-style canon logs (~200 chars/bullet) accumulate
-# 75k+ chars of pov-matching facts on Act 3, pushing the brief past the
-# tool-result token limit. 30k leaves comfortable headroom for the rest
-# of the brief (banned_phrases ~7k, rules ~3k, callbacks ~3k, ...) inside
-# a ~100k tool-result limit.
-POV_FACTS_CHAR_BUDGET = 30_000
+# Issue #170 + follow-up: char-budget for pov_relevant_facts in the inline
+# canon_brief. Books with narrative-style canon logs (~200 chars/bullet)
+# accumulate 75k+ chars of pov-matching facts on Act 3.
+#
+# The original 30k value assumed a ~100k tool-result limit, but the real
+# MCP output cap is closer to ~50k chars. With the rest of the brief
+# routinely at ~28-30k (characters_present ~8k, banned_phrases ~8k,
+# rules ~3k, callbacks ~3k, character_state ~2k, plus framing), 30k
+# pushed total briefs to 55-60k and triggered tool-result overflow on
+# act-3 chapters of `blood-and-binary-firelight`.
+#
+# 15k keeps total brief comfortably under 45k. Keeps ~25-30 most-recent
+# facts (recency-sorted), which is the high-risk continuity zone for
+# the chapter being written; older facts are stable and redundantly
+# covered by recent_chapter_endings + characters_present + callbacks.
+POV_FACTS_CHAR_BUDGET = 15_000
 
 _CHAPTER_NUM_RE = re.compile(r"^(?P<num>\d{1,3})")
 

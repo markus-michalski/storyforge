@@ -983,8 +983,11 @@ class TestPovFactsCharBudget:
 
         serialized = _json.dumps(brief, ensure_ascii=False)
         # Pre-#170 with POV set: ~105k chars (per Issue #170 reproduction).
-        # Post-#170 target: well under 60k.
-        assert len(serialized) < 60_000, (
+        # Post-#170 with 30k pov-budget: ~55-60k on dense books — still
+        # crossed the real MCP output cap (~50k) on act-3 chapters.
+        # Follow-up tightened pov-budget to 15k; brief now stays well
+        # under 45k even with the densest synthetic canon log.
+        assert len(serialized) < 45_000, (
             f"brief is {len(serialized)} chars — exceeds size budget. "
-            f"pov_relevant_facts trim is likely missing (#170)."
+            f"pov_relevant_facts trim is likely missing or too generous (#170)."
         )
