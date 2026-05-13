@@ -581,7 +581,7 @@ Rooms, silences, and spaces are personified as containers that catch, hold, or c
 
 The bad pattern: architecture is doing emotional work that should be done by a named body. Rooms do nothing. Silences do nothing. *People* react. The personification is elegant and empty — pure AI register. Route impact through the bodies in the room.
 
-**Banned shape:** `\bthe (room|silence|quiet) (received|held|carried|absorbed|listened|quieted)\b`.
+**Banned shape:** `\bthe (room|silence|hall|space|air|quiet|chamber|stillness)\s+(received|did|held|kept|carried|absorbed|listened|quieted|made|hung|spoke|whispered|breathed|had received|had quieted)\b`.
 
 ### 11.4 Economic Metaphor for Emotional Weight
 
@@ -616,6 +616,24 @@ The bad pattern: a Schrödinger-emotion that is suspended between expressed and 
 
 **Recommended limit:** maximum one near-miss-body construction per scene.
 
+### 11.6 Body-Part Anthropomorphisation
+
+A body part is rendered as the subject of a cognitive or decision verb — the hand decides, the breath chooses, the shoulders refuse. The character is bypassed; the body part becomes a small autonomous agent.
+
+*AI Example:*
+> The hand had been deciding something the rest of Caelan had not yet caught up with.
+> His hands were having a conversation with each other.
+> His stomach kept failing to file the news.
+
+*Human Example:*
+> Caelan watched his own hand move before the rest of him caught up.
+> He flexed his fingers, then closed them. He had not decided yet.
+> The news landed in his stomach and stayed.
+
+The bad pattern: cognitive/decision verbs (deciding, choosing, knowing, wanting, refusing, considering, having a conversation, failing) after a body-part subject. Real prose lets the **character** decide; the body either does the physical thing (shook, stilled, tightened, pulled) or signals an unresolved state through the character's awareness of it. Body parts are not small autonomous agents.
+
+**Banned shape:** `\b(his|her|the|its)\s+(hand|hands|breath|stomach|shoulders|face|mouth|eyes|chest|throat|jaw|spine|fingers|knee|knees|feet|legs)\s+(had been|was|were|kept|started|began)\s+(deciding|having|choosing|wanting|refusing|trying|failing|considering|chosen|remembering|forgetting|knowing)\b`.
+
 ### Why These Patterns Cluster
 
 These five shapes co-occur in the same scenes — typically the highest-stakes moments of a chapter (deaths, declarations, family confrontations). They share a single underlying habit: **rendering emotional weight through abstraction instead of through specific physical reality**. The language model has been trained to recognise "literary" prose, and these shapes appear in published fiction often enough to be statistically respectable. But they are also the prose-equivalent of stage smoke: atmosphere without substance.
@@ -624,11 +642,19 @@ The countermeasure is the same in every case: **route the emotional weight throu
 
 ### How to Enforce
 
-Since Issue #210, **author-level enforcement is sufficient on its own**. Add the five shapes as `Don'ts` under `## Writing Discoveries / ### Don'ts` in the author profile `profile.md`. The `manuscript-checker` and the `validate_chapter.py` hook both scan that subsection automatically — bullets are recognized when their patterns are encoded either as backtick regexes (e.g. `` `\bthe (room|silence) (received|held)\b` ``) or as italicized example phrases (e.g. *The room received it.*) under a ban cue (`Never`, `Avoid`, `Don't use`).
+These shapes are **auto-scanned at warn severity for every author**. The `manuscript-checker` reports them as `global_shape_violation` (medium severity); the `validate_chapter.py` hook surfaces them as `warn`. No per-author or per-book copy needed — the catalog regex above is loaded directly.
 
-Author-scope enforcement applies to **every book by that author** — no per-book duplication needed.
+To promote a shape to **hard-block** for a specific author (so the next `Write` containing the shape fails with `exit 2`), copy the regex into that author's `~/.storyforge/authors/{slug}/profile.md ## Writing Discoveries / ### Don'ts`:
 
-Book-level enforcement (adding the same patterns to a single book's `CLAUDE.md` `<!-- RULES:START -->` block) is still available when a specific book needs a stricter override or wants a per-chapter `max N per chapter` limit on a pattern.
+```markdown
+### Don'ts
+
+- **Never personify rooms or silences as receivers** — `\bthe (room|silence|hall|space|air|quiet|chamber|stillness)\s+(received|did|held|kept|carried|absorbed|listened|quieted|made|hung|spoke|whispered|breathed|had received|had quieted)\b`. Examples (do not use): *The room received it.* / *the silence held it.*
+```
+
+Dedup: when the same chapter line matches both an author-level Don't (block) and a catalog shape (warn), the catalog finding is suppressed for that hit so the user doesn't see the same line flagged twice.
+
+Book-level enforcement (adding the regex to a single book's `CLAUDE.md` `<!-- RULES:START -->` block) is still available when a specific book needs a per-chapter `max N per chapter` limit on a pattern.
 
 ---
 

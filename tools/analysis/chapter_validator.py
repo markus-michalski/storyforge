@@ -504,6 +504,50 @@ def _scan_meta_narrative(text: str) -> list[Finding]:
 # ---------------------------------------------------------------------------
 
 
+def _scan_global_shapes(text: str) -> list[Finding]:
+    """Surface catalog-level shape bans as warn-severity findings (#213).
+
+    Reads ``reference/craft/anti-ai-patterns.md`` Section 11's
+    ``**Banned shape:** `regex``` lines via
+    :func:`tools.banlist_loader.load_global_shape_bans` and reports each
+    hit as ``category='global_shape_violation'``, ``severity=warn``.
+
+    Author-level overrides (Don'ts / vocabulary) still emit at block-severity
+    via :func:`_scan_author_banlist` — those run independently. The global
+    layer is the baseline every author inherits without having to copy
+    Section 11 into their profile.
+    """
+    findings: list[Finding] = []
+    try:
+        from tools.banlist_loader import load_global_shape_bans
+
+        patterns = load_global_shape_bans(PLUGIN_ROOT)
+    except Exception:
+        return findings
+
+    if not patterns:
+        return findings
+
+    for banned in patterns:
+        match = banned.pattern.search(text)
+        if not match:
+            continue
+        line_num = _line_for_offset(text, match.start())
+        findings.append(
+            Finding(
+                severity=SEVERITY_WARN,
+                category="global_shape_violation",
+                message=(
+                    f"Catalog shape '{banned.label}' matched — Section 11 of "
+                    f"anti-ai-patterns.md. Promote to hard-block per author "
+                    f"by copying the regex into `profile.md ### Don'ts`."
+                ),
+                line=line_num,
+            )
+        )
+    return findings
+
+
 def _scan_ai_tells(text: str) -> list[Finding]:
     findings: list[Finding] = []
     try:
@@ -856,6 +900,7 @@ def validate_chapter(file_path: str) -> list[Finding]:
     findings.extend(_scan_time_anchor(text, path))
     findings.extend(_scan_meta_narrative(text))
     findings.extend(_scan_ai_tells(text))
+    findings.extend(_scan_global_shapes(text))
     findings.extend(_scan_sentence_variance(text))
     return findings
 
