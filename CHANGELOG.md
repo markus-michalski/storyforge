@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.23.0] - 2026-05-13
+
+### Added
+- scan author profile Don'ts and vocabulary (#210) (#211)
+
+### Changed
+- Add elegant-abstraction register to anti-AI patterns (#209)
+
 ## [1.22.1] - 2026-05-10
 
 ### Changed
@@ -376,3 +384,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.21.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.21.1
 [1.22.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.22.0
 [1.22.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.22.1
+[1.23.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.23.0
