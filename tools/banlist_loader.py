@@ -344,6 +344,137 @@ def _build_discovery_pattern(text: str) -> re.Pattern[str]:
 
 
 # ---------------------------------------------------------------------------
+# Author Don'ts (block-severity) — Issue #210
+# ---------------------------------------------------------------------------
+#
+# ``### Don'ts`` is the third subsection under ``## Writing Discoveries`` in
+# the author profile. Where Recurring Tics encodes the scannable phrase
+# inside the bold title's double-quotes, Don'ts encodes patterns either in
+# backtick regexes (Section 11 style) or in italic example sentences.
+# Without this loader, the elegant-abstraction register patterns shipped in
+# PR #209 had to be duplicated into every book's CLAUDE.md to scan.
+
+_DONTS_HEADER_RE = re.compile(
+    r"^###\s+Don[’'’ʼ]?ts\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+_HOOK_BACKTICK_RE = re.compile(r"`([^`\n]+)`")
+_HOOK_ITALIC_RE = re.compile(r"(?<![\*\w])\*([^*\n]{3,})\*(?![\*\w])")
+_HOOK_BAN_CUE_RE = re.compile(
+    r"\b(banned|ban|avoid|never|don[’']?t\s+use|do\s+not\s+use|limit|no\s+\w+)\b",
+    re.IGNORECASE,
+)
+_HOOK_REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
+
+
+def _extract_dont_patterns(rule: str) -> list[tuple[str, re.Pattern[str]]]:
+    """Hook-side extractor — block-tier patterns from a single Don't bullet.
+
+    Pulls backticked strings (regex or literal) plus italic phrases when
+    the bullet carries a ban cue. Quoted phrases are intentionally
+    skipped: the hook keeps to the strict #70 convention of "backticks and
+    italics only count as hard-block".
+    """
+    patterns: list[tuple[str, re.Pattern[str]]] = []
+    seen: set[str] = set()
+
+    def _add(label: str, compiled: re.Pattern[str]) -> None:
+        key = compiled.pattern.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        patterns.append((label, compiled))
+
+    for m in _HOOK_BACKTICK_RE.finditer(rule):
+        raw = m.group(1)
+        inner = raw.strip()
+        if len(inner) < 2:
+            continue
+        try:
+            if any(c in _HOOK_REGEX_HINT_CHARS for c in inner):
+                _add(inner, re.compile(raw, re.IGNORECASE))
+            else:
+                _add(inner, re.compile(re.escape(raw), re.IGNORECASE))
+        except re.error:
+            continue
+
+    if _HOOK_BAN_CUE_RE.search(rule):
+        for m in _HOOK_ITALIC_RE.finditer(rule):
+            raw = m.group(1).strip()
+            cleaned = raw.rstrip(".,!?;:").strip()
+            if len(cleaned) < 3:
+                continue
+            _add(raw, re.compile(re.escape(cleaned), re.IGNORECASE))
+
+    return patterns
+
+
+def load_author_dont_rules(
+    author_slug: str,
+    *,
+    storyforge_home: Path | None = None,
+) -> list[BannedPattern]:
+    """Load scannable phrases from ``profile.md`` ``## Writing Discoveries /
+    ### Don'ts``.
+
+    Severity is always ``block`` — Don'ts are user-asserted author voice
+    intent and the strictest layer of the elegant-abstraction defense.
+
+    Returns ``[]`` when the profile is missing, has no Writing Discoveries
+    section, or the Don'ts subsection is empty.
+    """
+    profile_path = _author_profile_path(author_slug, storyforge_home)
+    if not profile_path.is_file():
+        return []
+    try:
+        text = profile_path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+
+    section_match = _DISCOVERIES_SECTION_RE.search(text)
+    if not section_match:
+        return []
+    body = section_match.group("body")
+
+    donts_match = _DONTS_HEADER_RE.search(body)
+    if not donts_match:
+        return []
+    donts_body = body[donts_match.end():]
+    next_subsection = re.search(r"^###\s+\S", donts_body, re.MULTILINE)
+    if next_subsection:
+        donts_body = donts_body[: next_subsection.start()]
+
+    patterns: list[BannedPattern] = []
+    seen: set[str] = set()
+
+    for bullet_match in _BOLD_TITLE_BULLET_RE.finditer(donts_body):
+        # Capture the full bullet body — the bold title is line 1 but we
+        # need the trailing prose for italics and explanatory backticks.
+        line_start = bullet_match.start()
+        next_bullet = re.search(r"\n-\s+", donts_body[bullet_match.end():])
+        line_end = (
+            bullet_match.end() + next_bullet.start() if next_bullet else len(donts_body)
+        )
+        bullet_text = donts_body[line_start:line_end]
+
+        for label, compiled in _extract_dont_patterns(bullet_text):
+            key = compiled.pattern.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            patterns.append(
+                BannedPattern(
+                    label=label,
+                    pattern=compiled,
+                    severity=SEVERITY_BLOCK,
+                    source="author profile (## Writing Discoveries / Don'ts)",
+                    reason="forbidden shape across all books by this author",
+                )
+            )
+    return patterns
+
+
+# ---------------------------------------------------------------------------
 # Global anti-AI tells (warn-severity)
 # ---------------------------------------------------------------------------
 

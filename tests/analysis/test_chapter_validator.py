@@ -346,3 +346,88 @@ class TestAuthorBanlistEnforcesWritingDiscoveries:
         assert author_findings
         assert all(f.severity == SEVERITY_BLOCK for f in author_findings)
         assert result.will_block
+
+
+class TestAuthorBanlistEnforcesDonts:
+    """Issue #210: ``### Don'ts`` in the author profile must trigger the
+    strict-mode hard-block at draft save time, alongside vocabulary.md and
+    ``### Recurring Tics``."""
+
+    def test_dont_italic_phrase_blocks_in_strict_mode(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        book = _write_book_with_author(tmp_path)
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                "### Don'ts\n\n"
+                "- **Never personify rooms as receivers** — *The room received it.*\n"
+            ),
+        )
+        # Draft with the banned shape + enough words to clear the variance gate.
+        prose = "The room received it without complaint that night. " * 30
+        draft = _write_draft(book, prose)
+
+        result = validate_chapter_path(str(draft))
+
+        author_findings = [
+            f for f in result.findings if f.category == "author_vocab_violation"
+        ]
+        assert author_findings, "expected at least one Don't violation"
+        assert any(
+            "don't" in f.message.lower() or "donts" in f.message.lower()
+            for f in author_findings
+        ), "expected the Don'ts source tag in the message"
+        assert all(f.severity == SEVERITY_BLOCK for f in author_findings)
+        assert result.will_block
+
+    def test_dont_backtick_regex_blocks_in_strict_mode(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        book = _write_book_with_author(tmp_path)
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                "### Don'ts\n\n"
+                "- **Never personify rooms** — `\\bthe (room|silence) "
+                "(received|held)\\b`\n"
+            ),
+        )
+        prose = "The silence held the verdict in place for far too long. " * 30
+        draft = _write_draft(book, prose)
+
+        result = validate_chapter_path(str(draft))
+
+        author_findings = [
+            f for f in result.findings if f.category == "author_vocab_violation"
+        ]
+        assert author_findings
+        assert all(f.severity == SEVERITY_BLOCK for f in author_findings)
+        assert result.will_block
+
+    def test_dont_without_violation_does_not_block(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        book = _write_book_with_author(tmp_path)
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                "### Don'ts\n\n"
+                "- **Never use rooms** — *The room received it.*\n"
+            ),
+        )
+        prose = "Clean prose with no banned shapes at all whatsoever. " * 30
+        draft = _write_draft(book, prose)
+
+        result = validate_chapter_path(str(draft))
+
+        # No author findings, no block.
+        dont_findings = [
+            f for f in result.findings
+            if f.category == "author_vocab_violation"
+            and ("don't" in f.message.lower() or "donts" in f.message.lower())
+        ]
+        assert not dont_findings

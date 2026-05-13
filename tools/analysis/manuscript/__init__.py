@@ -52,9 +52,13 @@ from tools.analysis.manuscript.metadata import (
 )
 from tools.analysis.manuscript.renderer import render_report
 from tools.analysis.manuscript.rules import (
+    _extract_patterns_from_author_dont,
     _extract_patterns_from_rule,
+    _read_author_rules,
     _read_book_rules,
     _rule_label,
+    _scan_author_rules,
+    _scan_author_vocab,
     _scan_book_rules,
     _scan_writing_discoveries,
 )
@@ -184,6 +188,11 @@ def scan_repetitions(
     # Issue #151 follow-up: scan promoted Writing Discoveries from the author
     # profile. Same severity as book-rule violations — user-asserted bans.
     findings.extend(_scan_writing_discoveries(book_path))
+    # Issue #210: scan ``### Don'ts`` from the author profile and
+    # ``vocabulary.md`` so author-level bans don't need to be duplicated
+    # into every book's CLAUDE.md to be visible to the manuscript-checker.
+    findings.extend(_scan_author_rules(book_path))
+    findings.extend(_scan_author_vocab(book_path))
     # Merge the craft-level checks (filter words, adverb density, clichés,
     # question-as-statement punctuation, sentence-level repetitions).
     findings.extend(_scan_filter_words(book_path))
@@ -215,15 +224,19 @@ def scan_repetitions(
         findings.extend(_scan_real_people_consistency(book_path))
 
     # Sort order priority: book_rule_violation first (user-authored rules
-    # override everything), then anonymization_leak (privacy-critical),
-    # then plot_hole (story-logic breaks reader trust), then clichés,
-    # then the rest by severity.
+    # override everything), then author-level bans (Don'ts, vocabulary,
+    # Recurring Tics — also user-authored, scoped one level wider), then
+    # anonymization_leak (privacy-critical), then plot_hole (story-logic
+    # breaks reader trust), then clichés, then the rest by severity.
     # Within same bucket: severity desc, count desc, phrase asc.
     category_rank = {
         "book_rule_violation": 0,
-        "anonymization_leak": 1,
-        "plot_hole": 2,
-        "cliche": 3,
+        "author_rule_violation": 1,
+        "author_vocab_violation": 2,
+        "writing_discovery_violation": 3,
+        "anonymization_leak": 4,
+        "plot_hole": 5,
+        "cliche": 6,
     }
     severity_rank = {"high": 0, "medium": 1}
     findings.sort(
@@ -278,6 +291,7 @@ __all__ = [
     "STRUCTURAL_HINTS",
     # Private helpers re-exported for the legacy shim.
     "_classify",
+    "_extract_patterns_from_author_dont",
     "_extract_patterns_from_rule",
     "_load_action_verbs",
     "_load_cliche_banlist",
@@ -285,6 +299,7 @@ __all__ = [
     "_make_snippet",
     "_ngrams_in_line",
     "_read_allowed_repetitions",
+    "_read_author_rules",
     "_read_book_category",
     "_read_book_genres",
     "_read_book_rules",
@@ -294,6 +309,8 @@ __all__ = [
     "_rule_label",
     "_scan_adverb_density",
     "_scan_anonymization_leak",
+    "_scan_author_rules",
+    "_scan_author_vocab",
     "_scan_book_rules",
     "_scan_writing_discoveries",
     "_scan_callbacks",

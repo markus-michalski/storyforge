@@ -624,11 +624,11 @@ The countermeasure is the same in every case: **route the emotional weight throu
 
 ### How to Enforce
 
-For book-level enforcement (manuscript-checker auto-scan), add scanner-compatible rules to the book's `CLAUDE.md` `<!-- RULES:START -->` block using the regex patterns above.
+Since Issue #210, **author-level enforcement is sufficient on its own**. Add the five shapes as `Don'ts` under `## Writing Discoveries / ### Don'ts` in the author profile `profile.md`. The `manuscript-checker` and the `validate_chapter.py` hook both scan that subsection automatically — bullets are recognized when their patterns are encoded either as backtick regexes (e.g. `` `\bthe (room|silence) (received|held)\b` ``) or as italicized example phrases (e.g. *The room received it.*) under a ban cue (`Never`, `Avoid`, `Don't use`).
 
-For author-level enforcement (chapter-writer, chapter-reviewer, voice-checker), add the five shapes as `Don'ts` in the author profile `profile.md`.
+Author-scope enforcement applies to **every book by that author** — no per-book duplication needed.
 
-Both layers are recommended — the book level catches the manuscript-checker scan, the author level catches the writer and reviewer at composition and review time.
+Book-level enforcement (adding the same patterns to a single book's `CLAUDE.md` `<!-- RULES:START -->` block) is still available when a specific book needs a stricter override or wants a per-chapter `max N per chapter` limit on a pattern.
 
 ---
 
