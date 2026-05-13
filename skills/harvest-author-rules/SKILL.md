@@ -152,12 +152,13 @@ phrase without a session restart.
 ### Promote (style_principle / donts → profile.md ## Writing Discoveries)
 
 ```python
-mcp__storyforge-mcp__write_author_discovery(
+result = mcp__storyforge-mcp__write_author_discovery(
     author_slug=author_slug,
     section=candidate.target_section,  # "recurring_tics" | "style_principles" | "donts"
     text=user_edited_text or build_discovery_text(candidate),
     book_slug=book_slug,
     year_month=current_year_month(),   # optional — defaults to today's YYYY-MM
+    validate=True,                      # default — emits warnings + extracted_patterns
 )
 ```
 
@@ -173,6 +174,51 @@ Build the discovery text with a bold title + dash + short rationale, e.g.:
 ```
 **"math" as analytical metaphor** — cut on sight unless POV explicitly demands.
 ```
+
+#### Surface lint warnings after the write (Issue #218)
+
+The MCP response carries `warnings` and `extracted_patterns` whenever
+`validate=True` (the default). Lint never blocks the write — but the
+warnings often reveal a write that the manuscript-checker scanner won't
+enforce the way the user expects. Always surface them to the user before
+moving to the cleanup step:
+
+```
+Wrote discovery to author profile.
+
+Extracted scan patterns ({N}):
+  - "The room received it."
+  - "the silence held it."
+
+Warnings ({M}):
+  - mixed_positive_negative_italics
+      Italic phrases on both sides of a recommendation marker.
+      Italics after the marker silently do NOT extract as banned patterns.
+      → Verify the post-marker italics are recommendations, not bans.
+
+  - bold_title_unscannable
+      Bold title carries no quoted phrase, the body has no quotes/backticks,
+      and the title text contains non-ASCII characters — the title-text
+      fallback compiles a non-English rule name that won't match English prose.
+      → Add a double-quoted example phrase to the title, or put scannable
+        phrases in the body.
+
+The bullet was written as-is. Want to edit and rewrite?
+```
+
+If the user picks **Edit and rewrite**, restart the promote step with the
+revised text and a fresh `write_author_discovery(validate=True)` call.
+Otherwise continue to Cleanup.
+
+Lint code reference:
+
+| Section | Code | What it means |
+|---------|------|---------------|
+| donts | `mixed_positive_negative_italics` | Italics on both sides of a recommendation marker; post-marker italics are silently NOT extracted |
+| donts | `mixed_positive_negative_quotes` | Multiple double-quoted phrases under a ban cue — both extract as bans |
+| donts | `scanner_extracts_nothing` | Ban cue without any backtick / quoted / italic — scanner sees nothing |
+| donts, recurring_tics, style_principles | `bracket_placeholder` | Backtick body has `[word]` — that's a character class, not `\w+` |
+| recurring_tics | `bold_title_unscannable` | German title + no body pattern — title-text fallback won't match English |
 
 ### Cleanup (after promote)
 
