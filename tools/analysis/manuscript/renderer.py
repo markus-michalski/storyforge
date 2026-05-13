@@ -11,6 +11,15 @@ from typing import Any
 
 CATEGORY_LABELS = {
     "book_rule_violation": "Book Rule Violations",
+    # Author-scoped bans surfaced from the resolved author profile (#210).
+    # `author_rule_violation` is the ``### Don'ts`` subsection,
+    # `author_vocab_violation` is ``vocabulary.md ### Forbidden ...``, and
+    # `writing_discovery_violation` is ``### Recurring Tics`` (#151 follow-up
+    # — the category was emitted by the scanner but never wired into the
+    # report until #210 made the gap visible).
+    "author_rule_violation": "Author Profile Don'ts",
+    "author_vocab_violation": "Author Vocabulary Bans",
+    "writing_discovery_violation": "Author Writing Discoveries (Recurring Tics)",
     "plot_hole": "Plot-Logic Findings (causality / Chekhov / promises)",
     "cliche": "Clichés",
     "question_as_statement": "Dialogue Punctuation (Q-word + period)",
@@ -37,6 +46,11 @@ CATEGORY_LABELS = {
 
 CATEGORY_ORDER = [
     "book_rule_violation",
+    # Author-level findings render immediately after book-level rules and
+    # before the privacy/plot/cliché tier. All four user-authored.
+    "author_rule_violation",
+    "author_vocab_violation",
+    "writing_discovery_violation",
     "anonymization_leak",
     "plot_hole",
     "cliche",
@@ -126,6 +140,29 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             f"Rewrite per the user-authored guidance above — all {count} "
             f"occurrence{'s' if count != 1 else ''} should be revised unless "
             f"the rule explicitly allows an exception."
+        )
+    if cat == "author_rule_violation":
+        return (
+            f"_Recommendation:_ This violates a Don't from the author profile — "
+            f"it applies to **all books by this author**, not just this one. "
+            f"Rewrite all {count} occurrence{'s' if count != 1 else ''}. If the "
+            f"shape is legitimately needed here, promote the exception explicitly "
+            f"into the book's CLAUDE.md so the scope stays auditable."
+        )
+    if cat == "author_vocab_violation":
+        return (
+            f"_Recommendation:_ '{finding['phrase']}' is banned at author scope in "
+            f"``vocabulary.md``. Replace all {count} "
+            f"occurrence{'s' if count != 1 else ''} with voice-aligned alternatives "
+            f"(see the author profile)."
+        )
+    if cat == "writing_discovery_violation":
+        return (
+            f"_Recommendation:_ '{finding['phrase']}' was promoted from a finished "
+            f"book as a Recurring Tic — every author-level book is supposed to be "
+            f"clean of it. Cut all {count} "
+            f"occurrence{'s' if count != 1 else ''}, then run "
+            f"``/storyforge:voice-checker`` before re-export."
         )
     if cat == "cliche":
         return (

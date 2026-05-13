@@ -674,20 +674,24 @@ def _scan_pov_boundary(
 def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
     """Block on phrases banned at author scope.
 
-    Aggregates two author-scoped sources, mirroring the brief's
+    Aggregates three author-scoped sources, mirroring the brief's
     ``collect_banned_phrases``:
 
     - ``vocabulary.md`` ``### Forbidden ...`` sections (canonical phrase store)
     - ``profile.md`` ``## Writing Discoveries / ### Recurring Tics`` (Issue #151
       promoted findings)
+    - ``profile.md`` ``## Writing Discoveries / ### Don'ts`` (Issue #210,
+      elegant-abstraction register patterns from PR #209)
 
-    Without the second source, phrases promoted via
-    ``/storyforge:harvest-author-rules`` would be reported as ``severity:block``
-    in the brief but pass the hard-gate at save time (Issue #172).
+    Without these sources, phrases promoted via
+    ``/storyforge:harvest-author-rules`` or shipped in PR #209's Section 11
+    would be reported as ``severity:block`` in the brief but pass the
+    hard-gate at save time.
     """
     try:
         from tools.banlist_loader import (
             author_slug_from_book,
+            load_author_dont_rules,
             load_author_vocab,
             load_author_writing_discoveries,
         )
@@ -704,10 +708,14 @@ def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
         discovery_patterns = load_author_writing_discoveries(slug)
     except Exception:
         discovery_patterns = []
+    try:
+        dont_patterns = load_author_dont_rules(slug)
+    except Exception:
+        dont_patterns = []
 
     seen_labels: set[str] = set()
     patterns = []
-    for p in (*vocab_patterns, *discovery_patterns):
+    for p in (*vocab_patterns, *discovery_patterns, *dont_patterns):
         key = p.label.lower()
         if key in seen_labels:
             continue
