@@ -142,6 +142,125 @@ class TestWriteAuthorDiscovery:
 
 
 # ---------------------------------------------------------------------------
+# write_author_discovery validate=True (Issue #218)
+# ---------------------------------------------------------------------------
+
+
+class TestWriteAuthorDiscoveryValidate:
+    """The MCP response must carry ``warnings`` + ``extracted_patterns``
+    fields when ``validate=True`` (the default), and must omit them when
+    ``validate=False``.
+
+    The lint runs BEFORE the write — but a lint warning never blocks the
+    write; the response surfaces both so the skill can show the warnings
+    to the user and the write still goes through.
+    """
+
+    def test_validate_true_attaches_warnings_and_patterns(self, author_setup):
+        result = json.loads(
+            write_author_discovery(
+                author_slug="ethan-cole",
+                section="donts",
+                text='**Never use rooms** — *The room received it.*',
+                book_slug="firelight",
+                year_month="2026-05",
+            )
+        )
+        assert result["written"] is True
+        assert "warnings" in result
+        assert "extracted_patterns" in result
+        labels = [p["label"] for p in result["extracted_patterns"]]
+        assert "The room received it." in labels
+
+    def test_validate_true_surfaces_lint_warning(self, author_setup):
+        """Don't with ban cue + no scannable pattern → scanner_extracts_nothing."""
+        result = json.loads(
+            write_author_discovery(
+                author_slug="ethan-cole",
+                section="donts",
+                text='**Never use weather openings** — clichéd.',
+                book_slug="firelight",
+                year_month="2026-05",
+            )
+        )
+        # Write still succeeded — lint is observability, not a block.
+        assert result["written"] is True
+        codes = [w["code"] for w in result["warnings"]]
+        assert "scanner_extracts_nothing" in codes
+
+    def test_validate_false_omits_warnings_and_patterns(self, author_setup):
+        result = json.loads(
+            write_author_discovery(
+                author_slug="ethan-cole",
+                section="donts",
+                text='**Never use rooms** — *The room received it.*',
+                book_slug="firelight",
+                year_month="2026-05",
+                validate=False,
+            )
+        )
+        assert result["written"] is True
+        assert "warnings" not in result
+        assert "extracted_patterns" not in result
+
+    def test_validate_true_works_for_already_present(self, author_setup):
+        """Idempotent already-present writes must still attach lint data so
+        the skill can surface warnings on retry."""
+        text = '**Never use rooms** — *The room received it.*'
+        write_author_discovery(
+            author_slug="ethan-cole",
+            section="donts",
+            text=text,
+            book_slug="firelight",
+            year_month="2026-05",
+        )
+        result = json.loads(
+            write_author_discovery(
+                author_slug="ethan-cole",
+                section="donts",
+                text=text,
+                book_slug="firelight",
+                year_month="2026-05",
+            )
+        )
+        assert result["already_present"] is True
+        assert "warnings" in result
+        assert "extracted_patterns" in result
+
+    def test_validate_true_recurring_tics_german_title_warns(self, author_setup):
+        result = json.loads(
+            write_author_discovery(
+                author_slug="ethan-cole",
+                section="recurring_tics",
+                text=(
+                    "**Abstrakte Körperteil-Anthropomorphisierung** — "
+                    "Körperteil als Subjekt + vages Prädikat. Konkretisieren."
+                ),
+                book_slug="firelight",
+                year_month="2026-05",
+            )
+        )
+        codes = [w["code"] for w in result["warnings"]]
+        assert "bold_title_unscannable" in codes
+
+    def test_validate_true_style_principles_no_scanner_warnings(self, author_setup):
+        """Style Principles are not machine-scanned — lint must NOT emit
+        scanner_extracts_nothing even when there's a ban cue."""
+        result = json.loads(
+            write_author_discovery(
+                author_slug="ethan-cole",
+                section="style_principles",
+                text='**No purple prose** — avoid lush descriptions.',
+                book_slug="firelight",
+                year_month="2026-05",
+            )
+        )
+        codes = [w["code"] for w in result["warnings"]]
+        assert "scanner_extracts_nothing" not in codes
+        assert result["extracted_patterns"] == []
+
+
+# ---------------------------------------------------------------------------
 # write_author_banned_phrase
 # ---------------------------------------------------------------------------
 

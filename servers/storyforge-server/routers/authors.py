@@ -11,6 +11,7 @@ import json
 import re
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -277,6 +278,7 @@ def write_author_discovery(
     text: str,
     book_slug: str,
     year_month: str = "",
+    validate: bool = True,
 ) -> str:
     """Append a discovery to ``profile.md`` ``## Writing Discoveries`` (Issue #151).
 
@@ -293,10 +295,16 @@ def write_author_discovery(
             Origin tag is appended automatically.
         book_slug: Book the discovery emerged from.
         year_month: ``YYYY-MM`` stamp; defaults to today's year-month.
+        validate: When ``True`` (default), the response also carries
+            ``warnings`` and ``extracted_patterns`` fields populated by
+            :func:`tools.author.discovery_lint.lint_author_discovery`
+            (Issue #218). Set ``False`` to skip lint and emit the legacy
+            response shape.
 
-    Returns ``{written, already_present, path, message}`` on success or
-    ``{error: ...}`` on failure (unknown author, invalid section, missing
-    profile, missing Writing Discoveries section).
+    Returns ``{written, already_present, path, message}`` on success — with
+    ``warnings`` and ``extracted_patterns`` appended when ``validate=True``
+    — or ``{error: ...}`` on failure (unknown author, invalid section,
+    missing profile, missing Writing Discoveries section).
     """
     if not year_month:
         year_month = date.today().strftime("%Y-%m")
@@ -309,6 +317,14 @@ def write_author_discovery(
 
     if not profile_path.is_file():
         return json.dumps({"error": f"Author '{author_slug}' not found at {profile_path}"})
+
+    lint_result: dict[str, Any] | None = None
+    if validate:
+        try:
+            from tools.author.discovery_lint import lint_author_discovery
+            lint_result = lint_author_discovery(section, text)
+        except ValueError as exc:
+            return json.dumps({"error": str(exc)})
 
     try:
         result = write_discovery(
@@ -329,25 +345,27 @@ def write_author_discovery(
     _cache.invalidate()
 
     if isinstance(result, WriteResult):
-        return json.dumps(
-            {
-                "written": True,
-                "already_present": False,
-                "path": str(result.path),
-                "message": result.message,
-            }
-        )
-    if isinstance(result, AlreadyPresent):
-        return json.dumps(
-            {
-                "written": False,
-                "already_present": True,
-                "path": str(result.path),
-                "message": result.message,
-            }
-        )
-    # Unreachable, but keep mypy happy and the JSON contract well-formed.
-    return json.dumps({"error": "unexpected write result"})
+        payload: dict[str, Any] = {
+            "written": True,
+            "already_present": False,
+            "path": str(result.path),
+            "message": result.message,
+        }
+    elif isinstance(result, AlreadyPresent):
+        payload = {
+            "written": False,
+            "already_present": True,
+            "path": str(result.path),
+            "message": result.message,
+        }
+    else:
+        # Unreachable, but keep mypy happy and the JSON contract well-formed.
+        return json.dumps({"error": "unexpected write result"})
+
+    if lint_result is not None:
+        payload["warnings"] = lint_result["warnings"]
+        payload["extracted_patterns"] = lint_result["extracted_patterns"]
+    return json.dumps(payload)
 
 
 @mcp.tool()
