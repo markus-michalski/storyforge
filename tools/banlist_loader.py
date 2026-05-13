@@ -475,6 +475,85 @@ def load_author_dont_rules(
 
 
 # ---------------------------------------------------------------------------
+# Global anti-AI shape bans — Issue #213
+# ---------------------------------------------------------------------------
+#
+# Section 11 of ``reference/craft/anti-ai-patterns.md`` documents the
+# elegant-abstraction-register shapes as ``**Banned shape:** `regex```
+# lines. PR #209 shipped these as reference text; this loader reads them
+# at warn-severity so every author profile inherits the catalog without
+# having to manually copy the regex into ``### Don'ts``.
+
+_SECTION_11_HEADER_RE = re.compile(
+    r"^##\s+11\.\s+",
+    re.MULTILINE,
+)
+_NEXT_TOP_SECTION_RE = re.compile(
+    r"^##\s+\d+\.\s+",
+    re.MULTILINE,
+)
+_BANNED_SHAPE_LINE_RE = re.compile(
+    r"^\*\*Banned\s+shape:\*\*\s*`([^`\n]+)`",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def load_global_shape_bans(plugin_root: Path) -> list[BannedPattern]:
+    """Parse banned-shape regexes from ``anti-ai-patterns.md`` Section 11.
+
+    Returns one :class:`BannedPattern` per ``**Banned shape:** `regex```
+    line found between the Section 11 header and the next top-level
+    ``## N. ...`` heading. Invalid regexes are silently skipped so a
+    single malformed line cannot break the global advisory layer.
+
+    Severity is always ``warn`` — these shapes are advisory baselines.
+    Authors who want hard-block treatment override per-profile via
+    ``### Don'ts``.
+    """
+    path = plugin_root / "reference" / "craft" / "anti-ai-patterns.md"
+    if not path.is_file():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+
+    header = _SECTION_11_HEADER_RE.search(text)
+    if not header:
+        return []
+    section_text = text[header.end():]
+    next_section = _NEXT_TOP_SECTION_RE.search(section_text)
+    if next_section:
+        section_text = section_text[: next_section.start()]
+
+    patterns: list[BannedPattern] = []
+    seen: set[str] = set()
+
+    for match in _BANNED_SHAPE_LINE_RE.finditer(section_text):
+        regex_src = match.group(1).strip()
+        if not regex_src:
+            continue
+        key = regex_src.lower()
+        if key in seen:
+            continue
+        try:
+            compiled = re.compile(regex_src, re.IGNORECASE)
+        except re.error:
+            continue
+        seen.add(key)
+        patterns.append(
+            BannedPattern(
+                label=regex_src,
+                pattern=compiled,
+                severity=SEVERITY_WARN,
+                source="global anti-ai (Section 11 shapes)",
+                reason="elegant-abstraction-register pattern",
+            )
+        )
+    return patterns
+
+
+# ---------------------------------------------------------------------------
 # Global anti-AI tells (warn-severity)
 # ---------------------------------------------------------------------------
 

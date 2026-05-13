@@ -60,6 +60,7 @@ from tools.analysis.manuscript.rules import (
     _scan_author_rules,
     _scan_author_vocab,
     _scan_book_rules,
+    _scan_global_shape_bans,
     _scan_writing_discoveries,
 )
 from tools.analysis.manuscript.scanners import (
@@ -193,6 +194,12 @@ def scan_repetitions(
     # into every book's CLAUDE.md to be visible to the manuscript-checker.
     findings.extend(_scan_author_rules(book_path))
     findings.extend(_scan_author_vocab(book_path))
+    # Issue #213: scan catalog-level Section 11 shape regexes so every
+    # author inherits the baseline AI-tell shape detection without having
+    # to copy the regexes into their profile's Don'ts. Emitted at medium
+    # severity (advisory), suppressed for chapter+line where an author-
+    # level ban already matches the same hit.
+    findings.extend(_scan_global_shape_bans(book_path, plugin_root=plugin_root))
     # Merge the craft-level checks (filter words, adverb density, clichés,
     # question-as-statement punctuation, sentence-level repetitions).
     findings.extend(_scan_filter_words(book_path))
@@ -234,9 +241,10 @@ def scan_repetitions(
         "author_rule_violation": 1,
         "author_vocab_violation": 2,
         "writing_discovery_violation": 3,
-        "anonymization_leak": 4,
-        "plot_hole": 5,
-        "cliche": 6,
+        "global_shape_violation": 4,
+        "anonymization_leak": 5,
+        "plot_hole": 6,
+        "cliche": 7,
     }
     severity_rank = {"high": 0, "medium": 1}
     findings.sort(
@@ -293,6 +301,7 @@ __all__ = [
     "_classify",
     "_extract_patterns_from_author_dont",
     "_extract_patterns_from_rule",
+    "_scan_global_shape_bans",
     "_load_action_verbs",
     "_load_cliche_banlist",
     "_looks_structural",

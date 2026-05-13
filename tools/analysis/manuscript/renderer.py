@@ -20,6 +20,9 @@ CATEGORY_LABELS = {
     "author_rule_violation": "Author Profile Don'ts",
     "author_vocab_violation": "Author Vocabulary Bans",
     "writing_discovery_violation": "Author Writing Discoveries (Recurring Tics)",
+    # Issue #213 — catalog-level Section 11 shapes, applied to every author.
+    # Severity medium (advisory) because they are not user-asserted bans.
+    "global_shape_violation": "Catalog Shape Bans (anti-ai Section 11)",
     "plot_hole": "Plot-Logic Findings (causality / Chekhov / promises)",
     "cliche": "Clichés",
     "question_as_statement": "Dialogue Punctuation (Q-word + period)",
@@ -51,6 +54,9 @@ CATEGORY_ORDER = [
     "author_rule_violation",
     "author_vocab_violation",
     "writing_discovery_violation",
+    # Catalog-level (advisory, every author inherits) — sits after the
+    # user-asserted layers, before the privacy/plot/cliché tier.
+    "global_shape_violation",
     "anonymization_leak",
     "plot_hole",
     "cliche",
@@ -163,6 +169,15 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             f"clean of it. Cut all {count} "
             f"occurrence{'s' if count != 1 else ''}, then run "
             f"``/storyforge:voice-checker`` before re-export."
+        )
+    if cat == "global_shape_violation":
+        return (
+            f"_Recommendation:_ '{finding['phrase']}' is a catalog-level "
+            f"elegant-abstraction shape from `anti-ai-patterns.md` Section 11. "
+            f"Advisory by default — review all {count} "
+            f"occurrence{'s' if count != 1 else ''} and decide per case. To "
+            f"hard-block this shape for this author across all future books, "
+            f"add the same regex to `profile.md ### Don'ts`."
         )
     if cat == "cliche":
         return (
