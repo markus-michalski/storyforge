@@ -25,6 +25,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.24.0] - 2026-05-13
+
+### Added
+- auto-scan Section 11 shape bans for every author (#213) (#214)
+
+### Changed
+- Add manuscript-checker scan for catalog Section 1 ai-tells (#216) (#223)
+- Split hook author-banlist into three distinct categories (#215) (#222)
+- Lint author profile writes via write_author_discovery (#218) (#221)
+- Extract Recurring-Tic patterns from bullet body, not just bold title (#212) (#220)
+- Fix author Don't extractor blocking recommended phrases (#217) (#219)
+
 ## [1.23.0] - 2026-05-13
 
 ### Added
@@ -385,3 +397,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.22.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.22.0
 [1.22.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.22.1
 [1.23.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.23.0
+[1.24.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.24.0
