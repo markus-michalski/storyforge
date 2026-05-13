@@ -214,6 +214,49 @@ _RECURRING_TICS_HEADER_RE = re.compile(
 _BOLD_TITLE_BULLET_RE = re.compile(r"^-\s+(\*\*[^*]+\*\*)", re.MULTILINE)
 _DOUBLE_QUOTE_RE = re.compile(r'[“„”"]([^“„”"]{2,})[”"]')
 
+# Recurring-Tic bullet with separately-captured title + body (#212). Body
+# spans from the title's closing ``**`` to the next bullet, blank line, or
+# end-of-section.
+_RECURRING_TIC_BULLET_RE = re.compile(
+    r"^-\s+(?P<title>\*\*[^*]+\*\*)\s*(?P<body>.*?)(?=^-\s+|^\s*$|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+
+# Backtick-wrapped content inside a bullet body — same shape as the book-rule
+# extractor uses. Regex hint characters trigger compile-as-regex; otherwise
+# the inner text is escaped and matched literally.
+_BACKTICK_CONTENT_RE = re.compile(r"`([^`\n]+)`")
+_REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
+
+
+def _title_inner_quotes(title: str) -> list[str]:
+    """Return only the double-quoted phrases embedded in a bold title.
+
+    Unlike :func:`_extract_phrases_from_bold_title`, this helper does NOT
+    fall back to the title text when no quotes are present — it returns
+    ``[]``. Callers use the empty result as the signal that body-level
+    extraction should kick in (#212).
+    """
+    if not title:
+        return []
+    bold_match = re.match(r"\*\*(?P<inner>.+)\*\*\s*$", title.strip())
+    if not bold_match:
+        return []
+    inner = bold_match.group("inner").strip()
+    if not inner:
+        return []
+    quoted = [m.group(1).strip() for m in _DOUBLE_QUOTE_RE.finditer(inner)]
+    quoted = [q for q in quoted if len(q) >= 2]
+    seen: set[str] = set()
+    out: list[str] = []
+    for q in quoted:
+        key = q.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(q)
+    return out
+
 
 def _extract_phrases_from_bold_title(title: str) -> list[str]:
     """Extract scannable phrases from a Writing-Discoveries bullet's bold title.
@@ -231,28 +274,75 @@ def _extract_phrases_from_bold_title(title: str) -> list[str]:
     """
     if not title:
         return []
+    quoted = _title_inner_quotes(title)
+    if quoted:
+        return quoted
     cleaned = title.strip()
     bold_match = re.match(r"\*\*(?P<inner>.+)\*\*\s*$", cleaned)
     if not bold_match:
         return []
     inner = bold_match.group("inner").strip()
-    if not inner:
+    return [inner] if len(inner) >= 2 else []
+
+
+def _extract_patterns_from_tic_body(body: str) -> list[tuple[str, re.Pattern[str] | None]]:
+    """Extract scannable patterns from a Recurring-Tic bullet body (#212).
+
+    Walks the body prose AFTER the bold title and returns one entry per
+    pattern. Two sources, in order:
+
+    1. **Backtick patterns** — same heuristic as
+       :func:`tools.analysis.manuscript.rules._extract_patterns_from_rule`.
+       If the content carries regex metacharacters it compiles as a regex;
+       otherwise literal substring.
+    2. **Double-quoted phrases** of at least 3 characters. Both ASCII
+       (``"x"``) and German typographic (``„x"``) quote pairs are accepted.
+
+    Each tuple is ``(label, compiled_pattern_or_None)``:
+
+    - When ``compiled_pattern`` is not ``None``, the caller should use it
+      directly (backtick path — preserves regex intent).
+    - When it is ``None``, the caller compiles via
+      :func:`_build_discovery_pattern` (quoted-phrase path — gets the
+      same inflection-aware compilation as title quotes).
+
+    Returns a deduplicated, order-preserving list. Empty body returns ``[]``.
+    """
+    if not body:
         return []
 
-    quoted = [m.group(1).strip() for m in _DOUBLE_QUOTE_RE.finditer(inner)]
-    quoted = [q for q in quoted if len(q) >= 2]
-    if quoted:
-        # Dedup while preserving order.
-        seen: set[str] = set()
-        out: list[str] = []
-        for q in quoted:
-            key = q.lower()
-            if key in seen:
+    out: list[tuple[str, re.Pattern[str] | None]] = []
+    seen: set[str] = set()
+
+    for m in _BACKTICK_CONTENT_RE.finditer(body):
+        raw = m.group(1)
+        inner = raw.strip()
+        if len(inner) < 2:
+            continue
+        key = inner.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        if any(c in _REGEX_HINT_CHARS for c in inner):
+            try:
+                compiled = re.compile(raw, re.IGNORECASE)
+            except re.error:
                 continue
-            seen.add(key)
-            out.append(q)
-        return out
-    return [inner] if len(inner) >= 2 else []
+            out.append((inner, compiled))
+        else:
+            out.append((inner, re.compile(re.escape(raw), re.IGNORECASE)))
+
+    for m in _DOUBLE_QUOTE_RE.finditer(body):
+        phrase = m.group(1).strip()
+        if len(phrase) < 3:
+            continue
+        key = phrase.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((phrase, None))
+
+    return out
 
 
 def _author_profile_path(author_slug: str, storyforge_home: Path | None = None) -> Path:
@@ -300,27 +390,61 @@ def load_author_writing_discoveries(
 
     patterns: list[BannedPattern] = []
     seen: set[str] = set()
+    source = "author profile (## Writing Discoveries / Recurring Tics)"
+    reason = "recurring tic promoted from a finished book"
 
-    for bullet_match in _BOLD_TITLE_BULLET_RE.finditer(tics_body):
-        bold_title = bullet_match.group(1)
-        for phrase in _extract_phrases_from_bold_title(bold_title):
-            cleaned = _strip_parenthetical(phrase).strip()
-            if len(cleaned) < 2:
-                continue
-            key = cleaned.lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            pattern = _build_discovery_pattern(cleaned)
-            patterns.append(
-                BannedPattern(
-                    label=cleaned,
-                    pattern=pattern,
-                    severity=SEVERITY_BLOCK,
-                    source="author profile (## Writing Discoveries / Recurring Tics)",
-                    reason="recurring tic promoted from a finished book",
-                )
+    def _emit(label: str, compiled: re.Pattern[str]) -> None:
+        cleaned = _strip_parenthetical(label).strip()
+        if len(cleaned) < 2:
+            return
+        key = cleaned.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        patterns.append(
+            BannedPattern(
+                label=cleaned,
+                pattern=compiled,
+                severity=SEVERITY_BLOCK,
+                source=source,
+                reason=reason,
             )
+        )
+
+    for bullet_match in _RECURRING_TIC_BULLET_RE.finditer(tics_body):
+        bold_title = bullet_match.group("title")
+        body_text = bullet_match.group("body") or ""
+
+        # Priority 1: quoted phrases inside the bold title (primary path —
+        # unchanged from the pre-#212 behavior so existing tics keep working).
+        title_quotes = _title_inner_quotes(bold_title)
+        if title_quotes:
+            for phrase in title_quotes:
+                _emit(phrase, _build_discovery_pattern(_strip_parenthetical(phrase).strip()))
+            continue
+
+        # Priority 2: extract patterns from the bullet body — backticks and
+        # double-quoted phrases. Backticks ship their own compiled regex;
+        # quoted phrases get the same inflection-aware compilation as title
+        # quotes.
+        body_patterns = _extract_patterns_from_tic_body(body_text)
+        if body_patterns:
+            for label, compiled in body_patterns:
+                if compiled is None:
+                    cleaned = _strip_parenthetical(label).strip()
+                    if len(cleaned) < 2:
+                        continue
+                    _emit(label, _build_discovery_pattern(cleaned))
+                else:
+                    _emit(label, compiled)
+            continue
+
+        # Priority 3: fall back to the bold-title text as the pattern. This
+        # is the only path for English-prose bullets like
+        # ``**Opened his mouth. Closed it.**`` that have neither title quotes
+        # nor body patterns.
+        for phrase in _extract_phrases_from_bold_title(bold_title):
+            _emit(phrase, _build_discovery_pattern(_strip_parenthetical(phrase).strip()))
     return patterns
 
 
