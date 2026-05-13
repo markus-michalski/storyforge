@@ -23,6 +23,9 @@ CATEGORY_LABELS = {
     # Issue #213 — catalog-level Section 11 shapes, applied to every author.
     # Severity medium (advisory) because they are not user-asserted bans.
     "global_shape_violation": "Catalog Shape Bans (anti-ai Section 11)",
+    # Issue #216 — catalog-level Section 1 AI-tell vocabulary. Same severity
+    # tier as global_shape_violation; the hook also flags these at write time.
+    "ai_tell_violation": "Catalog AI-Tell Vocabulary (anti-ai Section 1)",
     "plot_hole": "Plot-Logic Findings (causality / Chekhov / promises)",
     "cliche": "Clichés",
     "question_as_statement": "Dialogue Punctuation (Q-word + period)",
@@ -57,6 +60,7 @@ CATEGORY_ORDER = [
     # Catalog-level (advisory, every author inherits) — sits after the
     # user-asserted layers, before the privacy/plot/cliché tier.
     "global_shape_violation",
+    "ai_tell_violation",
     "anonymization_leak",
     "plot_hole",
     "cliche",
@@ -178,6 +182,16 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             f"occurrence{'s' if count != 1 else ''} and decide per case. To "
             f"hard-block this shape for this author across all future books, "
             f"add the same regex to `profile.md ### Don'ts`."
+        )
+    if cat == "ai_tell_violation":
+        return (
+            f"_Recommendation:_ '{finding['phrase']}' is a catalog-level "
+            f"AI-tell vocabulary entry from `anti-ai-patterns.md` Section 1. "
+            f"Advisory by default — review all {count} "
+            f"occurrence{'s' if count != 1 else ''} and decide per case. To "
+            f"hard-block this word for the author, add it to "
+            f"`vocabulary.md ### Absolutely Forbidden` (block + inflection "
+            f"matching)."
         )
     if cat == "cliche":
         return (

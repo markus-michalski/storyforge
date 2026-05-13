@@ -688,6 +688,111 @@ def _scan_global_shape_bans(
     return findings
 
 
+def _scan_global_ai_tells(
+    book_path: Path,
+    *,
+    plugin_root: Path | None = None,
+) -> list[Finding]:
+    """Scan chapter drafts for catalog-level AI-tell vocabulary (Issue #216).
+
+    Loads patterns from ``reference/craft/anti-ai-patterns.md`` Section 1
+    (``### Heavily Flagged Words and Phrases``) via
+    :func:`tools.banlist_loader.load_global_ai_tells`. Findings are emitted
+    with ``category='ai_tell_violation'`` and ``severity='medium'`` —
+    advisory, parallel to ``global_shape_violation``. The hook already
+    surfaces the same patterns at warn-severity at write time; this scanner
+    closes the gap for the post-draft manuscript sweep.
+
+    Dedup with author-level bans: if the author profile's ``vocabulary.md``,
+    ``### Don'ts``, or ``### Recurring Tics`` already match a phrase at the
+    same chapter+line, the catalog finding is suppressed.
+    """
+    from tools.banlist_loader import (
+        author_slug_from_book,
+        load_author_dont_rules,
+        load_author_vocab,
+        load_author_writing_discoveries,
+        load_global_ai_tells,
+    )
+
+    if plugin_root is None:
+        # Three levels up from tools/analysis/manuscript/rules.py.
+        plugin_root = Path(__file__).resolve().parents[3]
+
+    try:
+        patterns = load_global_ai_tells(plugin_root)
+    except Exception:  # pylint: disable=broad-except
+        return []
+    if not patterns:
+        return []
+
+    drafts = _read_chapter_drafts(book_path)
+    if not drafts:
+        return []
+
+    suppress: set[tuple[str, int]] = set()
+    author_slug = author_slug_from_book(book_path)
+    if author_slug:
+        author_patterns: list = []
+        try:
+            author_patterns.extend(load_author_vocab(author_slug))
+        except Exception:  # pylint: disable=broad-except
+            pass
+        try:
+            author_patterns.extend(load_author_writing_discoveries(author_slug))
+        except Exception:  # pylint: disable=broad-except
+            pass
+        try:
+            author_patterns.extend(load_author_dont_rules(author_slug))
+        except Exception:  # pylint: disable=broad-except
+            pass
+        for ap in author_patterns:
+            for chapter_slug, raw_text in drafts:
+                cleaned = _strip_markdown(raw_text)
+                for line_no, line in enumerate(cleaned.splitlines(), start=1):
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    if ap.pattern.search(stripped):
+                        suppress.add((chapter_slug, line_no))
+
+    findings: list[Finding] = []
+    for banned in patterns:
+        seen_positions: set[tuple[str, int]] = set()
+        occurrences: list[Occurrence] = []
+        for chapter_slug, raw_text in drafts:
+            cleaned = _strip_markdown(raw_text)
+            for line_no, line in enumerate(cleaned.splitlines(), start=1):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                key = (chapter_slug, line_no)
+                if key in suppress:
+                    continue
+                for m in banned.pattern.finditer(stripped):
+                    if key in seen_positions:
+                        continue
+                    seen_positions.add(key)
+                    snippet = _make_snippet(stripped, m.group(0).lower())
+                    occurrences.append(Occurrence(chapter=chapter_slug, line=line_no, snippet=snippet))
+        if not occurrences:
+            continue
+        findings.append(
+            Finding(
+                phrase=banned.label,
+                category="ai_tell_violation",
+                severity="medium",
+                count=len(occurrences),
+                occurrences=sorted(occurrences, key=lambda o: (o.chapter, o.line)),
+                source_rule=(
+                    "global anti-ai (Section 1 vocabulary) — "
+                    "reference/craft/anti-ai-patterns.md"
+                ),
+            )
+        )
+    return findings
+
+
 __all__ = [
     "_extract_patterns_from_author_dont",
     "_extract_patterns_from_rule",
@@ -697,6 +802,7 @@ __all__ = [
     "_scan_author_rules",
     "_scan_author_vocab",
     "_scan_book_rules",
+    "_scan_global_ai_tells",
     "_scan_global_shape_bans",
     "_scan_writing_discoveries",
 ]

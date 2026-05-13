@@ -60,6 +60,7 @@ from tools.analysis.manuscript.rules import (
     _scan_author_rules,
     _scan_author_vocab,
     _scan_book_rules,
+    _scan_global_ai_tells,
     _scan_global_shape_bans,
     _scan_writing_discoveries,
 )
@@ -200,6 +201,11 @@ def scan_repetitions(
     # severity (advisory), suppressed for chapter+line where an author-
     # level ban already matches the same hit.
     findings.extend(_scan_global_shape_bans(book_path, plugin_root=plugin_root))
+    # Issue #216: scan catalog Section 1 AI-tell vocabulary on the
+    # post-draft pass. The hook already surfaces these at write time;
+    # adding the manuscript-checker layer ensures bypassed hooks or
+    # warn-mode books still get a final-sweep resurfacing.
+    findings.extend(_scan_global_ai_tells(book_path, plugin_root=plugin_root))
     # Merge the craft-level checks (filter words, adverb density, clichés,
     # question-as-statement punctuation, sentence-level repetitions).
     findings.extend(_scan_filter_words(book_path))
@@ -242,9 +248,10 @@ def scan_repetitions(
         "author_vocab_violation": 2,
         "writing_discovery_violation": 3,
         "global_shape_violation": 4,
-        "anonymization_leak": 5,
-        "plot_hole": 6,
-        "cliche": 7,
+        "ai_tell_violation": 5,
+        "anonymization_leak": 6,
+        "plot_hole": 7,
+        "cliche": 8,
     }
     severity_rank = {"high": 0, "medium": 1}
     findings.sort(
@@ -301,6 +308,7 @@ __all__ = [
     "_classify",
     "_extract_patterns_from_author_dont",
     "_extract_patterns_from_rule",
+    "_scan_global_ai_tells",
     "_scan_global_shape_bans",
     "_load_action_verbs",
     "_load_cliche_banlist",
