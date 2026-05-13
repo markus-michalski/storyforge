@@ -172,6 +172,149 @@ class TestLoadAuthorWritingDiscoveries:
 
 
 # ---------------------------------------------------------------------------
+# load_author_writing_discoveries — body extraction (Issue #212)
+# ---------------------------------------------------------------------------
+#
+# Recurring Tic bullets whose bold title is the rule name (no embedded quotes)
+# but whose scannable example phrases live in the body prose were silently
+# un-scannable: the fallback path used the bold-title text as the pattern,
+# which never matches English chapter prose when the title is a German rule
+# name.
+
+
+class TestLoadAuthorWritingDiscoveriesBodyExtraction:
+    def test_extracts_body_quoted_phrases_when_title_has_no_quote(self, tmp_path):
+        """German rule-name title with English example phrases in body —
+        the very case from the issue (Ethan Cole's Abstrakte
+        Körperteil-Anthropomorphisierung tic).
+        """
+        body = (
+            '### Recurring Tics\n\n'
+            '- **Abstrakte Körperteil-Anthropomorphisierung** — '
+            'Körperteil als Subjekt + vages Prädikat: '
+            '"his hands were having a conversation with each other", '
+            '"his breath was not where he had left it", '
+            '"his stomach kept failing to file". Ersetzen mit konkreter '
+            'Empfindung.\n'
+        )
+        _make_profile(tmp_path, "ethan-cole", body)
+
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "his hands were having a conversation with each other" in labels
+        assert "his breath was not where he had left it" in labels
+        assert "his stomach kept failing to file" in labels
+        # The German title MUST NOT be promoted to a pattern when body quotes exist.
+        assert "Abstrakte Körperteil-Anthropomorphisierung" not in labels
+
+    def test_extracts_body_backtick_regex_when_title_has_no_quote(self, tmp_path):
+        """Backtick patterns inside a Recurring Tic body load as regex/literal
+        (same heuristic as `_extract_patterns_from_author_dont`)."""
+        body = (
+            '### Recurring Tics\n\n'
+            '- **Body part as subject anti-pattern** — '
+            'Körperteil-Subjekt + vages Prädikat: '
+            '`\\b(his|her) (hand|hands|breath|stomach) (was|were) '
+            '(having|not|kept)\\b`\n'
+        )
+        _make_profile(tmp_path, "ethan-cole", body)
+
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert patterns, "expected at least one pattern from body backtick"
+        # The compiled pattern must actually match the canonical example.
+        any_match = any(
+            p.pattern.search("his hands were having a conversation")
+            for p in patterns
+        )
+        assert any_match, "body-regex pattern must match canonical instance"
+
+    def test_title_quotes_take_priority_over_body_quotes(self, tmp_path):
+        """When the bold title already carries a quoted phrase, body quotes
+        are NOT merged in — preserves current behavior for tics that already
+        work."""
+        body = (
+            '### Recurring Tics\n\n'
+            '- **Vague-noun "thing" als Fallback** — concretize on sight. '
+            'Example: "the thing happened" should become specific.\n'
+        )
+        _make_profile(tmp_path, "ethan-cole", body)
+
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "thing" in labels
+        # Body quote MUST NOT pollute the pattern set when the title already
+        # carries the canonical scannable phrase.
+        assert "the thing happened" not in labels
+
+    def test_falls_back_to_title_text_when_nothing_extractable(self, tmp_path):
+        """English bold-title tics with no body quotes/backticks must still
+        fall back to the bold-title text as the pattern (regression for the
+        ``**Opened his mouth. Closed it.**`` style)."""
+        body = (
+            '### Recurring Tics\n\n'
+            '- **Opened his mouth. Closed it.** — vary or skip. '
+            '_(emerged from firelight, 2026-05)_\n'
+        )
+        _make_profile(tmp_path, "ethan-cole", body)
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "Opened his mouth. Closed it." in labels
+
+    def test_body_pattern_matches_chapter_prose(self, tmp_path):
+        """The compiled pattern from a body quoted phrase must actually
+        match the original line that would appear in a chapter draft."""
+        body = (
+            '### Recurring Tics\n\n'
+            '- **Hand-as-decider** — Hand als grammatisches Subjekt: '
+            '"the hand had been deciding something". Ersetzen mit konkretem '
+            'Subjekt.\n'
+        )
+        _make_profile(tmp_path, "ethan-cole", body)
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        decider = next(
+            (p for p in patterns if "deciding" in p.label.lower()),
+            None,
+        )
+        assert decider is not None, "expected the body-quoted phrase to be loaded"
+        assert decider.pattern.search(
+            "the hand had been deciding something the rest of Caelan had not yet caught up with"
+        ) is not None
+
+    def test_skips_short_body_quotes(self, tmp_path):
+        """Single-character or near-single-char body quotes are noise — must
+        not pollute the pattern set (and must not block the title-text
+        fallback)."""
+        body = (
+            '### Recurring Tics\n\n'
+            '- **Stylistic German Rule Name** — example: "a" is too short.\n'
+        )
+        _make_profile(tmp_path, "ethan-cole", body)
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        # The short body quote must be ignored.
+        assert "a" not in labels
+        # And with nothing else extractable, the title text becomes the
+        # fallback pattern (consistent with current behavior).
+        assert "Stylistic German Rule Name" in labels
+
+    def test_multiple_bullets_independent_extraction(self, tmp_path):
+        """Two bullets, one title-quoted, one body-quoted — both must yield
+        their respective patterns without cross-contamination."""
+        body = (
+            '### Recurring Tics\n\n'
+            '- **Vague-noun "thing" als Fallback** — concretize.\n'
+            '- **German Rule Name** — example: "concrete English phrase". '
+            'rest of prose.\n'
+        )
+        _make_profile(tmp_path, "ethan-cole", body)
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "thing" in labels
+        assert "concrete English phrase" in labels
+        assert "German Rule Name" not in labels
+
+
+# ---------------------------------------------------------------------------
 # author_slug_from_book
 # ---------------------------------------------------------------------------
 
