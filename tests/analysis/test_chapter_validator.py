@@ -273,10 +273,12 @@ class TestAuthorBanlistEnforcesWritingDiscoveries:
 
         result = validate_chapter_path(str(draft))
 
+        # Issue #215: Recurring Tic hits are emitted under their own category,
+        # matching the manuscript-checker vocabulary.
         author_findings = [
-            f for f in result.findings if f.category == "author_vocab_violation"
+            f for f in result.findings if f.category == "writing_discovery_violation"
         ]
-        assert author_findings, "expected at least one author_vocab_violation"
+        assert author_findings, "expected at least one writing_discovery_violation"
         assert any(
             "Writing Discoveries" in f.message for f in author_findings
         ), "expected the source-tag for Writing Discoveries in the message"
@@ -371,8 +373,10 @@ class TestAuthorBanlistEnforcesDonts:
 
         result = validate_chapter_path(str(draft))
 
+        # Issue #215: Don't hits are emitted under author_rule_violation,
+        # matching the manuscript-checker vocabulary.
         author_findings = [
-            f for f in result.findings if f.category == "author_vocab_violation"
+            f for f in result.findings if f.category == "author_rule_violation"
         ]
         assert author_findings, "expected at least one Don't violation"
         assert any(
@@ -401,7 +405,7 @@ class TestAuthorBanlistEnforcesDonts:
         result = validate_chapter_path(str(draft))
 
         author_findings = [
-            f for f in result.findings if f.category == "author_vocab_violation"
+            f for f in result.findings if f.category == "author_rule_violation"
         ]
         assert author_findings
         assert all(f.severity == SEVERITY_BLOCK for f in author_findings)
@@ -427,7 +431,163 @@ class TestAuthorBanlistEnforcesDonts:
         # No author findings, no block.
         dont_findings = [
             f for f in result.findings
-            if f.category == "author_vocab_violation"
+            if f.category == "author_rule_violation"
             and ("don't" in f.message.lower() or "donts" in f.message.lower())
         ]
         assert not dont_findings
+
+
+# ---------------------------------------------------------------------------
+# Issue #215: hook category split — each loader source gets its own category
+# ---------------------------------------------------------------------------
+
+
+class TestAuthorBanlistCategorySplit:
+    """The hook scanner must emit three distinct categories — matching the
+    manuscript-checker's vocabulary — so users can grep / filter hook output
+    consistently across both layers.
+    """
+
+    def test_vocabulary_hit_emits_author_vocab_violation(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        book = _write_book_with_author(tmp_path)
+        _write_author_vocabulary(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                "## Banned Words\n\n"
+                "### Absolutely Forbidden\n\n"
+                "- delve\n"
+            ),
+        )
+        prose = "He had to delve into the question one more time today. " * 30
+        draft = _write_draft(book, prose)
+        result = validate_chapter_path(str(draft))
+
+        categories = {f.category for f in result.findings}
+        assert "author_vocab_violation" in categories
+        # Pure-vocab path: no Recurring-Tic or Don't categories emitted.
+        assert "writing_discovery_violation" not in categories
+        assert "author_rule_violation" not in categories
+
+    def test_recurring_tic_hit_emits_writing_discovery_violation(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        book = _write_book_with_author(tmp_path)
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                '### Recurring Tics\n\n'
+                '- **Vague-noun "thing" als Fallback** — concretize.\n'
+            ),
+        )
+        prose = "He was doing a thing again, definitely a thing. " * 30
+        draft = _write_draft(book, prose)
+        result = validate_chapter_path(str(draft))
+
+        categories = [f.category for f in result.findings]
+        assert "writing_discovery_violation" in categories
+        # Pure-tic path: no vocab or Don't categories.
+        assert "author_vocab_violation" not in categories
+        assert "author_rule_violation" not in categories
+
+    def test_dont_hit_emits_author_rule_violation(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        book = _write_book_with_author(tmp_path)
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                "### Don'ts\n\n"
+                "- **Never use rooms** — *The room received it.*\n"
+            ),
+        )
+        prose = "The room received it without complaint last night. " * 30
+        draft = _write_draft(book, prose)
+        result = validate_chapter_path(str(draft))
+
+        categories = [f.category for f in result.findings]
+        assert "author_rule_violation" in categories
+        assert "author_vocab_violation" not in categories
+        assert "writing_discovery_violation" not in categories
+
+    def test_three_sources_yield_three_distinct_categories(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        """All three sources present + distinct phrases in the draft —
+        the hook emits one finding per source under its dedicated category."""
+        book = _write_book_with_author(tmp_path)
+        _write_author_vocabulary(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                "## Banned Words\n\n"
+                "### Absolutely Forbidden\n\n"
+                "- delve\n"
+            ),
+        )
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                '### Recurring Tics\n\n'
+                '- **Vague-noun "thing" als Fallback** — concretize.\n\n'
+                "### Don'ts\n\n"
+                "- **Never use rooms** — *The room received it.*\n"
+            ),
+        )
+        prose = (
+            "He had to delve into the question. Then a thing happened. "
+            "The room received it without complaint. " * 30
+        )
+        draft = _write_draft(book, prose)
+        result = validate_chapter_path(str(draft))
+
+        categories = {f.category for f in result.findings}
+        assert "author_vocab_violation" in categories
+        assert "writing_discovery_violation" in categories
+        assert "author_rule_violation" in categories
+
+    def test_dedup_preserves_winning_source_category(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        """The dedup precedence (vocabulary > tics > don'ts) is unchanged.
+        When the same phrase appears in multiple sources, only the winning
+        source's category surfaces — and the winner is vocabulary.
+        """
+        book = _write_book_with_author(tmp_path)
+        _write_author_vocabulary(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                "## Banned Words\n\n"
+                "### Forbidden Hedging Phrases\n\n"
+                "- thing\n"
+            ),
+        )
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                '### Recurring Tics\n\n'
+                '- **Vague-noun "thing" als Fallback** — concretize.\n'
+            ),
+        )
+        prose = "He was doing a thing again, deliberate-feeling. " * 30
+        draft = _write_draft(book, prose)
+        result = validate_chapter_path(str(draft))
+
+        thing_findings = [
+            f for f in result.findings
+            if "thing" in f.message.lower()
+            and f.category in {
+                "author_vocab_violation",
+                "writing_discovery_violation",
+                "author_rule_violation",
+            }
+        ]
+        assert len(thing_findings) == 1
+        assert thing_findings[0].category == "author_vocab_violation"

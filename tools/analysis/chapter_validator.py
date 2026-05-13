@@ -731,6 +731,12 @@ def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
     ``/storyforge:harvest-author-rules`` or shipped in PR #209's Section 11
     would be reported as ``severity:block`` in the brief but pass the
     hard-gate at save time.
+
+    Issue #215: each loader source maps to a distinct finding category,
+    matching the manuscript-checker vocabulary. Dedup precedence is
+    unchanged — vocabulary wins, then tics, then Don'ts — so when the
+    same phrase appears in multiple sources, only the highest-precedence
+    source's category surfaces.
     """
     try:
         from tools.banlist_loader import (
@@ -757,20 +763,27 @@ def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
     except Exception:
         dont_patterns = []
 
-    seen_labels: set[str] = set()
-    patterns = []
-    for p in (*vocab_patterns, *discovery_patterns, *dont_patterns):
-        key = p.label.lower()
-        if key in seen_labels:
-            continue
-        seen_labels.add(key)
-        patterns.append(p)
+    sources: list[tuple[list, str]] = [
+        (vocab_patterns, "author_vocab_violation"),
+        (discovery_patterns, "writing_discovery_violation"),
+        (dont_patterns, "author_rule_violation"),
+    ]
 
-    if not patterns:
+    seen_labels: set[str] = set()
+    patterns_with_category: list[tuple[object, str]] = []
+    for plist, category in sources:
+        for p in plist:
+            key = p.label.lower()
+            if key in seen_labels:
+                continue
+            seen_labels.add(key)
+            patterns_with_category.append((p, category))
+
+    if not patterns_with_category:
         return []
 
     findings: list[Finding] = []
-    for banned in patterns:
+    for banned, category in patterns_with_category:
         match = banned.pattern.search(text)
         if not match:
             continue
@@ -778,7 +791,7 @@ def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
         findings.append(
             Finding(
                 severity=SEVERITY_BLOCK,
-                category="author_vocab_violation",
+                category=category,
                 message=(f"Banned by author voice ({banned.source}): '{banned.label}'"),
                 line=line_num,
             )
