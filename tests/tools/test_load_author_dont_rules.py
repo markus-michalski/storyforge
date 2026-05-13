@@ -22,8 +22,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from tools.banlist_loader import (
     SEVERITY_BLOCK,
     load_author_dont_rules,
