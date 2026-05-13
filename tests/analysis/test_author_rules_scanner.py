@@ -136,6 +136,124 @@ class TestExtractPatternsFromAuthorDont:
 
 
 # ---------------------------------------------------------------------------
+# _extract_patterns_from_author_dont — recommendation-marker boundary (Issue #217)
+# ---------------------------------------------------------------------------
+
+
+class TestRecommendationMarkerBoundary:
+    """A bullet may carry both bad italic examples (to ban) and good italic
+    examples (the recommended replacement). The extractor must stop italic /
+    quoted extraction at the first 'recommendation marker' (``Render``,
+    ``Instead:``, ``→``, ...) so positive examples never end up as banned
+    patterns. Backticks always extract regardless of position because they
+    encode explicit ban intent.
+    """
+
+    def test_render_marker_blocks_following_italics(self):
+        rule = (
+            "**Never personify rooms** — *The room received it.* / "
+            "*the silence held it.* Render the impact through a named body: "
+            "*Caelan's eyes did not move*, *Viktor's hand stilled*."
+        )
+        labels = [lab for lab, _ in _extract_patterns_from_author_dont(rule)]
+        assert "The room received it." in labels
+        assert "the silence held it." in labels
+        assert "Caelan's eyes did not move" not in labels
+        assert "Viktor's hand stilled" not in labels
+
+    def test_instead_colon_marker_blocks_following_italics(self):
+        rule = (
+            "**Never use** — *bad phrase one.* / *bad phrase two.* "
+            "Instead: *good phrase one.* / *good phrase two.*"
+        )
+        labels = [lab for lab, _ in _extract_patterns_from_author_dont(rule)]
+        assert "bad phrase one." in labels
+        assert "bad phrase two." in labels
+        assert "good phrase one." not in labels
+        assert "good phrase two." not in labels
+
+    def test_arrow_marker_blocks_following_italics(self):
+        rule = "**Never use** — *the old way.* → *the new way.*"
+        labels = [lab for lab, _ in _extract_patterns_from_author_dont(rule)]
+        assert "the old way." in labels
+        assert "the new way." not in labels
+
+    def test_replace_marker_blocks_following_italics(self):
+        rule = "**Avoid** — *clunky phrasing.* Replace with *clean phrasing.*"
+        labels = [lab for lab, _ in _extract_patterns_from_author_dont(rule)]
+        assert "clunky phrasing." in labels
+        assert "clean phrasing." not in labels
+
+    def test_rather_colon_marker_blocks_following_italics(self):
+        rule = "**Never** — *flat note.* Rather: *living note.*"
+        labels = [lab for lab, _ in _extract_patterns_from_author_dont(rule)]
+        assert "flat note." in labels
+        assert "living note." not in labels
+
+    def test_use_instead_marker_blocks_following_italics(self):
+        rule = "**Don't use** — *passive voice example.* Use instead *active phrasing.*"
+        labels = [lab for lab, _ in _extract_patterns_from_author_dont(rule)]
+        assert "passive voice example." in labels
+        assert "active phrasing." not in labels
+
+    def test_marker_is_case_insensitive(self):
+        rule = "**Never use** — *bad one.* INSTEAD: *good one.*"
+        labels = [lab for lab, _ in _extract_patterns_from_author_dont(rule)]
+        assert "bad one." in labels
+        assert "good one." not in labels
+
+    def test_no_marker_extracts_all_italics_status_quo(self):
+        """Bullet without any recommendation marker — behavior unchanged from
+        the pre-#217 status quo: every italic phrase under a ban cue is
+        extracted. Recurring Tics rules and old-style bullets must keep working.
+        """
+        rule = "**Never use** — *first banned.* / *second banned.* / *third banned.*"
+        labels = [lab for lab, _ in _extract_patterns_from_author_dont(rule)]
+        assert "first banned." in labels
+        assert "second banned." in labels
+        assert "third banned." in labels
+
+    def test_backtick_after_marker_still_extracts(self):
+        """Backticks encode explicit ban intent. They must extract regardless
+        of where they sit relative to the recommendation marker — backticks
+        after ``Instead:`` are still ban patterns (the author chose to escalate
+        them to backticks).
+        """
+        rule = (
+            "**Never** — *bad italic.* Instead: *good italic.* "
+            "Also banned: `\\bexplicit regex\\b`"
+        )
+        patterns = _extract_patterns_from_author_dont(rule)
+        labels = [lab for lab, _ in patterns]
+        assert "bad italic." in labels
+        assert "good italic." not in labels
+        assert any("explicit regex" in lab for lab in labels)
+
+    def test_quoted_phrase_after_marker_is_not_extracted(self):
+        """Quoted phrases follow the same gate as italics — they are bannable
+        examples only when they sit inside the ban window.
+        """
+        rule = (
+            'Never use the phrase "bad quoted phrase" in narration. '
+            'Instead: "good quoted phrase" works better.'
+        )
+        labels = [lab for lab, _ in _extract_patterns_from_author_dont(rule)]
+        assert "bad quoted phrase" in labels
+        assert "good quoted phrase" not in labels
+
+    def test_marker_inside_word_does_not_trigger(self):
+        """``Render`` must match as a word, not as a substring inside another
+        word. A bullet body containing e.g. ``rerendered`` must not be
+        misread as a recommendation marker.
+        """
+        rule = "**Never use** — *render method calls.* / *rerendered output.*"
+        labels = [lab for lab, _ in _extract_patterns_from_author_dont(rule)]
+        # No real recommendation marker — both italics extract.
+        assert "render method calls." in labels
+        assert "rerendered output." in labels
+
+
+# ---------------------------------------------------------------------------
 # _read_author_rules
 # ---------------------------------------------------------------------------
 

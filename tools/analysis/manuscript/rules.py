@@ -63,6 +63,31 @@ _BAN_CUE_RE = re.compile(
 # italics as narrative examples, not bannable patterns.
 _ITALIC_CONTENT_RE = re.compile(r"(?<![\*\w])\*([^*\n]{3,})\*(?![\*\w])")
 
+# Recommendation markers (#217) — words/symbols that signal "what follows is
+# the recommended replacement, not the banned example". The author-Don't
+# extractor caps the italic/quoted extraction window at the first occurrence
+# of any of these markers so positive examples never end up as banned
+# patterns. Backticks are unaffected — they encode explicit ban intent.
+#
+# Word-boundary markers use ``\b`` to avoid false positives inside other
+# words (``rerendered`` must not trigger the ``Render`` marker). The arrow
+# ``→`` is matched literally; colon-suffixed forms allow optional whitespace
+# before the colon.
+_RECOMMENDATION_MARKER_RE = re.compile(
+    r"(?:"
+    r"\bRender\b"
+    r"|\bReplace\b"
+    r"|\bUse\s+instead\b"
+    r"|\bInstead\s*:"
+    r"|\bAllowed\s*:"
+    r"|\bBetter\s*:"
+    r"|\bRewrite\s+as\b"
+    r"|\bRather\s*:"
+    r"|→"
+    r")",
+    re.IGNORECASE,
+)
+
 # Heading + section markers for the author-profile ``## Writing Discoveries
 # / ### Don'ts`` subsection. Apostrophe variants (ASCII, curly, fancy) are
 # all accepted so the harvest helper's slightly different output never
@@ -300,19 +325,63 @@ def _extract_patterns_from_author_dont(rule: str) -> list[tuple[str, re.Pattern[
     Extraction rules:
 
     1. Backticks: always extracted (literal or regex, same heuristic as
-       :func:`_extract_patterns_from_rule`).
+       :func:`_extract_patterns_from_rule`). Position-independent — they
+       encode explicit ban intent.
     2. Double-quoted phrases: extracted only when the rule carries a ban
-       cue (``Never``, ``Avoid``, ``Don't use``, ...).
-    3. Italic phrases (single ``*foo*``, not bold ``**foo**``): extracted
-       only when the rule carries a ban cue. Bold spans are skipped via
-       ``(?<![\\*\\w])`` / ``(?![\\*\\w])`` look-arounds.
+       cue (``Never``, ``Avoid``, ``Don't use``, ...) AND only from inside
+       the "ban window" — the slice before the first recommendation marker
+       (``Render``, ``Instead:``, ``→``, ...). Phrases after the marker are
+       positive examples, not bans (#217).
+    3. Italic phrases (single ``*foo*``, not bold ``**foo**``): same gate
+       as quoted phrases. Bold spans are skipped via ``(?<![\\*\\w])`` /
+       ``(?![\\*\\w])`` look-arounds.
     """
-    patterns = _extract_patterns_from_rule(rule)
+    patterns: list[tuple[str, re.Pattern[str]]] = []
+    seen: set[str] = set()
+
+    def _add(label: str, compiled: re.Pattern[str]) -> None:
+        key = compiled.pattern.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        patterns.append((label, compiled))
+
+    # Backticks: extracted from the full rule regardless of marker position.
+    for m in _BACKTICK_CONTENT_RE.finditer(rule):
+        raw = m.group(1)
+        inner = raw.strip()
+        if len(inner) < 2:
+            continue
+        if any(c in _REGEX_HINT_CHARS for c in inner):
+            try:
+                _add(inner, re.compile(raw, re.IGNORECASE))
+            except re.error:
+                continue
+        else:
+            _add(inner, re.compile(re.escape(raw), re.IGNORECASE))
+
     if not _BAN_CUE_RE.search(rule):
         return patterns
 
-    seen: set[str] = {p.pattern.lower() for _, p in patterns}
-    for m in _ITALIC_CONTENT_RE.finditer(rule):
+    # Italic and quoted extraction is bounded by the first recommendation
+    # marker (#217). Everything from start-of-rule up to (but not including)
+    # the marker is the ban window; phrases after the marker are positive
+    # examples and must not be extracted as banned patterns.
+    #
+    # Markers inside ``*...*`` italic spans are part of the example, not
+    # a boundary signal — mask italic content with spaces before searching
+    # so positions stay aligned but the marker regex cannot land inside.
+    masked = _ITALIC_CONTENT_RE.sub(lambda m: " " * len(m.group(0)), rule)
+    marker = _RECOMMENDATION_MARKER_RE.search(masked)
+    ban_window = rule[: marker.start()] if marker else rule
+
+    for m in _QUOTED_CONTENT_RE.finditer(ban_window):
+        raw = m.group(1).strip()
+        if len(raw) < 6 or raw.lower() in STOP_WORDS:
+            continue
+        _add(raw, re.compile(re.escape(raw), re.IGNORECASE))
+
+    for m in _ITALIC_CONTENT_RE.finditer(ban_window):
         raw = m.group(1).strip()
         # Italic example sentences in author Don'ts typically end with a period
         # (full sentence). Trailing sentence punctuation is decorative, not part
@@ -321,12 +390,7 @@ def _extract_patterns_from_author_dont(rule: str) -> list[tuple[str, re.Pattern[
         cleaned = raw.rstrip(".,!?;:").strip()
         if len(cleaned) < 3:
             continue
-        compiled = re.compile(re.escape(cleaned), re.IGNORECASE)
-        key = compiled.pattern.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        patterns.append((raw, compiled))
+        _add(raw, re.compile(re.escape(cleaned), re.IGNORECASE))
     return patterns
 
 
