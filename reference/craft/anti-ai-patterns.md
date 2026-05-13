@@ -2,7 +2,7 @@
 book_categories: [fiction, memoir]
 craft_topic: voice-and-truth
 status: stable
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-13
 ---
 
 # Anti-AI Patterns: A Writer's Guide to Authentic Fiction
@@ -513,6 +513,122 @@ Human writing is marked by:
 Your defense is commitment to a personal style—expressed through vocabulary choices, structural patterns, character voices, and narrative perspective that cannot be easily replicated without explicit instruction.
 
 Make your profile idiosyncratic, specific, and unflinching. Every choice should be *yours*—not because it follows a rule, but because it breaks one.
+
+---
+
+## 11. Known AI Tells — Elegant Abstraction Register
+
+Beyond vocabulary, structure, dialogue, and content, AI fiction betrays itself through a more subtle register: **elegant abstraction**. This is the mode language models slip into when they render emotionally weighty moments. It is not "purple prose" in the classic flowery sense — it is leaner, more controlled, and therefore harder to spot. But it is the same impulse: **dressing emotional impact in metaphorical clothing instead of rendering it through specific, concrete physical reality**.
+
+Real human writers render emotional weight through bodies, actions, and dialog. AI defaults to rendering it through:
+
+- Architectural personification (rooms, silences, spaces)
+- Meta-commentary on the speech act itself
+- Sentences as projectiles or settling objects
+- Economic vocabulary as code for emotional cost
+- Body language that *almost* becomes something
+
+Each of the five sub-shapes below has been observed repeatedly in chapter drafts. Each is invisible to the standard banned-word lists. Each requires its own countermeasure.
+
+### 11.1 Word-Count Meta-Commentary
+
+The narrator counts the words a character just said and editorialises on their rarity or significance.
+
+*AI Example:*
+> "Mother is right."
+>
+> Two words. Viktor had not used them often in his life.
+
+*Human Example:*
+> "Mother is right."
+>
+> Caelan's eyes shifted to him. Viktor agreeing with their mother was new.
+
+The bad pattern: a sentence fragment counting the words (*Two words.* / *One word.* / *Three words.*) followed by an observation on how rarely the speaker uses them. No working novelist does this — the reader can count the words themselves; the comment infantilises. Allowed only as a dialog beat where the count is immediately filled by the quoted words (*"Two words." "Yes." "No."* style), never as narrator commentary on the count.
+
+**Banned shape:** `\b(One|Two|Three|Four) words?\.` followed by editorialising clause.
+
+### 11.2 Sentence-as-Projectile
+
+Spoken lines are personified as objects that fly through space, strike listeners, or settle into rooms.
+
+*AI Example:*
+> The words landed.
+> The line landed.
+> One more truth landed.
+> They settled into the room and sat there.
+
+*Human Example:*
+> No one moved.
+> Caelan's hand on the table stilled.
+> A long pause before anyone spoke.
+
+The bad pattern: rendering impact through personification of the sentence itself instead of through the body of the recipient. Once per book is fine. Twice is a tic. Beyond that, the metaphor is burned and the prose is in elegant-abstraction register.
+
+**Banned shape:** `\bthe (words|line|sentence|reply|name|truth) (landed|settled)\b`.
+
+### 11.3 Room-as-Receiver
+
+Rooms, silences, and spaces are personified as containers that catch, hold, or carry emotional weight.
+
+*AI Example:*
+> The room received it.
+> The room had quieted enough to receive the line.
+> The silence held the word.
+
+*Human Example:*
+> No one spoke. Caelan was looking at the page. Miriel's hand did not move from where it sat on the table.
+
+The bad pattern: architecture is doing emotional work that should be done by a named body. Rooms do nothing. Silences do nothing. *People* react. The personification is elegant and empty — pure AI register. Route impact through the bodies in the room.
+
+**Banned shape:** `\bthe (room|silence|quiet) (received|held|carried|absorbed|listened|quieted)\b`.
+
+### 11.4 Economic Metaphor for Emotional Weight
+
+Emotional difficulty is coded in the vocabulary of money, transaction, and cost.
+
+*AI Example:*
+> the most expensive sentence he had managed
+> the smallest motion he had made and the most expensive
+> paid in silence
+> the word cost him
+
+*Human Example:*
+> Viktor's voice did not crack on the last sentence. Theo saw what it took him — Viktor's hand stayed flat on the table when it would normally have closed.
+
+The bad pattern: AI reaches for *expensive, paid, cost* as code for emotional difficulty. The reader infers a tidy moral economy where every difficult feeling has a price tag. Real prose lets the body and the silence do the work. Acceptable only when the cost is literal (money, time, effort).
+
+**Banned shape:** `\b(most|more|less|the) expensive (sentence|word|nod|motion|gesture|silence|line)\b`.
+
+### 11.5 Near-Miss Body Language
+
+A body part performs an action that *almost* becomes something else but does not quite cross the line.
+
+*AI Example:*
+> There was a long pull at the side of his mouth that did not quite become a word.
+> A breath that almost became a sentence.
+> The corner of his mouth moved but never quite smiled.
+
+*Human Example:*
+> The corner of his mouth pulled, briefly. He looked at the wall.
+
+The bad pattern: a Schrödinger-emotion that is suspended between expressed and unexpressed. One instance per scene is fine — it is a legitimate technique. Stacked, it becomes the register of someone who is afraid to commit to a feeling. Real writers commit. The body either does the thing or it does not.
+
+**Recommended limit:** maximum one near-miss-body construction per scene.
+
+### Why These Patterns Cluster
+
+These five shapes co-occur in the same scenes — typically the highest-stakes moments of a chapter (deaths, declarations, family confrontations). They share a single underlying habit: **rendering emotional weight through abstraction instead of through specific physical reality**. The language model has been trained to recognise "literary" prose, and these shapes appear in published fiction often enough to be statistically respectable. But they are also the prose-equivalent of stage smoke: atmosphere without substance.
+
+The countermeasure is the same in every case: **route the emotional weight through a named body in the room.** Whose eyes did not move. Whose hand stilled. Whose breath came faster. Specificity is the antidote to elegance.
+
+### How to Enforce
+
+For book-level enforcement (manuscript-checker auto-scan), add scanner-compatible rules to the book's `CLAUDE.md` `<!-- RULES:START -->` block using the regex patterns above.
+
+For author-level enforcement (chapter-writer, chapter-reviewer, voice-checker), add the five shapes as `Don'ts` in the author profile `profile.md`.
+
+Both layers are recommended — the book level catches the manuscript-checker scan, the author level catches the writer and reviewer at composition and review time.
 
 ---
 
