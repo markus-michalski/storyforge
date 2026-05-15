@@ -27,13 +27,15 @@ user-invocable: true
    | Characters Created | `/storyforge:world-builder` | Build the world (if fantasy/sci-fi/supernatural) or skip to Drafting |
    | World Built | `/storyforge:chapter-writer` ch.1 | Start writing! |
    | Drafting | `/storyforge:chapter-writer` next unwritten chapter | Keep writing |
-   | Drafting → Revision (all chapters drafted) | `/storyforge:manuscript-checker` | Catch cross-chapter prose issues (rules, clichés, dialogue punctuation, filter words, adverbs, repetition) before per-chapter revision |
-   | Revision | `/storyforge:chapter-reviewer` on first unreviewed chapter | Review and polish |
+   | Drafting → Revision (all chapters drafted) | `/storyforge:chapter-reviewer` on first unreviewed chapter | Start per-chapter craft review before the full-book pass |
+   | Revision (chapter-reviewer done, proofreader not yet run) | `/storyforge:chapter-proofreader` on first un-proofread chapter | Language correctness pass: spelling, grammar, punctuation — after craft fixes are stable |
+   | Revision (all chapters proofread) | `/storyforge:manuscript-checker` | Catch cross-chapter prose issues (rules, clichés, dialogue punctuation, filter words, adverbs, repetition) |
    | Editing | `/storyforge:voice-checker` | Final authenticity check |
    | Proofread | `/storyforge:export-engineer` | Generate the book file |
    | Export Ready | `/storyforge:translator` or publish | Translate or distribute |
 
 4. **Check for incomplete work**
+   - Any chapters reviewed but not yet proofread? → Suggest `chapter-proofreader`
    - Any chapters in "Draft" that need review? → Suggest `chapter-reviewer`
    - Characters still in "Concept"? → Suggest `character-creator`
    - Missing plot outline? → Suggest `plot-architect`
