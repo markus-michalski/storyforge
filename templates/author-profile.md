@@ -15,6 +15,8 @@ themes: []
 influences: []
 avoid: ["purple-prose", "info-dumps", "deus-ex-machina"]
 author_writing_mode: "outliner"  # outliner | plantser | discovery
+native_language: "{{native_language}}"                    # ISO 639-1: author's mother tongue — used for explanations in language-aware skills
+preferred_writing_language: "{{preferred_writing_language}}"  # ISO 639-1: fallback if book has no book_language set
 ---
 
 # {{name}}
