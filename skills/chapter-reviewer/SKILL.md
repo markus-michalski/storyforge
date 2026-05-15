@@ -107,6 +107,9 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 12. **Tone match** — Does the tone match the profile's descriptors?
 13. **Vocabulary** — Any banned words used? Preferred words present?
 14. **Sentence rhythm** — Varied length? Matches author's style?
+
+**14b. Phrase micro-echo (voice sub-point)** — Within any 3-sentence window, are content words (nouns, verbs, adjectives) repeated more than once without intentional rhetorical effect? Flag: (a) flat anaphor — a noun from sentence N used again as the referent in sentence N+1 or N+2 where a pronoun or reframing would serve better (e.g. `"the locked-down quality … Theo knew that quality"`); (b) close-range noun repetition with no variation; (c) accidental verb twins. Exclude intentional repetition (anaphora, refrain, litany). Severity: WARN by default; FAIL only if the echo derails a critical scene beat. Suggest the simplest fix first (pronoun, synonym, or reword) — not elaborate imagery.
+
 15. **Dialog voice** — Each character distinguishable without tags?
 
 ### Continuity (5 points + 1 sub-point)
@@ -230,6 +233,11 @@ Load `analyze_plot_logic(book_slug, scope="chapter", chapter_slug=...)` once bef
 - Dead similes: [list]
 - Passing similes: [count]
 - Author-voice register applied: [sparse / simile-heavy / as documented in profile]
+
+### Phrase Echo Report
+- Close-range echoes found: [count, or "none"]
+- [quote → location → suggested fix (pronoun / synonym / reword)]
+- Intentional refrains excluded: [count]
 
 ### Verdict
 [PASS / NEEDS REVISION / MAJOR REVISION]
