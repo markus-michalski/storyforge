@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.25.2] - 2026-05-15
+
+### Added
+- chapter-writer — prompt rolling-planner for plantser/discovery authors
+
 ## [1.25.1] - 2026-05-15
 
 ### Added
@@ -415,3 +420,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.24.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.24.0
 [1.25.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.25.0
 [1.25.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.25.1
+[1.25.2]: https://github.com/markus-michalski/storyforge/releases/tag/v1.25.2
