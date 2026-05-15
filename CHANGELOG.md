@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.25.1] - 2026-05-15
+
+### Added
+- chapter-reviewer — add 14b Phrase Micro-Echo check (closes #228)
+
+### Fixed
+- cap chapter-writer Mode A at 2 scenes per session to prevent compaction degradation
+- persist scene plan to README.md in chapter-writer Mode A (closes #230)
+
 ## [1.25.0] - 2026-05-15
 
 ### Added
@@ -405,3 +414,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.23.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.23.0
 [1.24.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.24.0
 [1.25.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.25.0
+[1.25.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.25.1
