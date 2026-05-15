@@ -97,7 +97,17 @@ If any category surfaces a gap, surface it explicitly and ask the user — never
 #### Step A1: Scene Plan
 **Check for existing plan first:** Read the chapter's `README.md`. If a `## Scene Plan` section already exists, load it and present it to the user for confirmation or adjustments — do NOT re-derive from scratch. A scene marked `Written ✓` is locked; offer to re-open it only if the user explicitly asks.
 
-If no `## Scene Plan` section exists: break the chapter outline into scenes based on the Scene Beats in `README.md`. Present the plan: `Scene N: [description] (~XXX words)`. Target ~900 words/scene (vary 600-1200 as needed); total should approximate the chapter's target.
+**If no `## Scene Plan` exists — check writing mode:** Read `author_writing_mode` from the loaded author profile.
+
+- If `author_writing_mode` is `plantser` or `discovery`: ask the user (AskUserQuestion):
+  - **Rolling Planner first (Recommended)** — Invoke `/storyforge:rolling-planner` to collaboratively develop and stress-test the scene beats before writing. Stops here; resume chapter-writer after rolling-planner completes.
+  - **Skip, derive directly** — Build the scene plan now from the outline beats and proceed.
+
+  If the user chooses Rolling Planner: tell them to run `/storyforge:rolling-planner {book_slug} {chapter_slug}` and **STOP**. Do not proceed further in this session.
+
+- If `author_writing_mode` is `outliner` or missing: proceed directly.
+
+If no `## Scene Plan` section exists (and proceeding directly): break the chapter outline into scenes based on the Scene Beats in `README.md`. Present the plan: `Scene N: [description] (~XXX words)`. Target ~900 words/scene (vary 600-1200 as needed); total should approximate the chapter's target.
 
 #### Step A1c: Persist Scene Plan
 After the user confirms (or adjusts) the scene plan, write or update the `## Scene Plan` section in `{project}/chapters/{chapter}/README.md`. Use this exact format:
