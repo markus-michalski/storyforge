@@ -128,7 +128,10 @@ After writing:
 3. **WAIT for user feedback** as `{review_handle}:` blocks inside `draft.md`.
 
 #### Step A3: User Review Loop
-When the user signals feedback ready ("kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an", or any `{review_handle}:` mention), MUST call `Read` on the full `draft.md` first (GH#27 — file-change diffs truncate for long files). Count the `{review_handle}:` blocks aloud: "Ich sehe N Kommentare." Process each per User Feedback Handling. When the user approves: remove applied review blocks, update the scene's entry in `README.md ## Scene Plan` from `Planned` to `Written ✓` (include the actual word count if known, e.g. `~912w, Written ✓`), then move to next scene.
+When the user signals feedback ready ("kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an", or any `{review_handle}:` mention), MUST call `Read` on the full `draft.md` first (GH#27 — file-change diffs truncate for long files). Count the `{review_handle}:` blocks aloud: "Ich sehe N Kommentare." Process each per User Feedback Handling. When the user approves: remove applied review blocks, update the scene's entry in `README.md ## Scene Plan` from `Planned` to `Written ✓` (include the actual word count if known, e.g. `~912w, Written ✓`), then:
+
+- **If this was scene 2 (or any even-numbered scene) AND further scenes remain:** tell the user to start a new session. Emit exactly: *"Session-Grenze erreicht. Bitte starte eine neue Session und fahre mit Szene N fort — der Szenenplan in README.md ist aktuell."* Do not proceed to the next scene in this session.
+- **Otherwise:** move to the next scene.
 
 #### Step A4: Chapter Completion
 All scenes approved → tell user: "Alle Szenen stehen. Bitte lies das komplette Kapitel." Wait for final read. Apply any remaining corrections. Then proceed to Step 7 with status `Review` or `Final` per user verdict.
@@ -243,7 +246,7 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 - Full-chapter mode: write in ONE PASS, then offer revision. Don't second-guess mid-flow.
 - Scene-by-scene mode: write ONLY the current scene, then STOP and WAIT for explicit user approval (silence does not count). Scene text goes into `draft.md`, never chat — chat gets only metadata (scene number, word count, one-line summary). The user's inline-review workflow (`` ```textile {review_handle}: ... ``` `` blocks) breaks if prose sits in chat.
 - **Read the full `draft.md` for review (GH#27).** When the user signals `{review_handle}:` blocks are ready (keywords: "kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an"), ALWAYS call `Read` on the whole file first. The file-change system-reminder diff truncates for long files; trailing comments get silently dropped. Count the blocks you see and report the count.
-- **One Claude Code session per chapter.** Cold-start brief is designed for a fresh session; scene-by-scene cycles burn context fast. If auto-compaction fires mid-chapter, earlier review decisions can be silently dropped. Finish the chapter, close, open a new session.
+- **Max. 2 scenes per session (Mode A).** Correction cycles burn context fast — after 2 approved scenes, proactively tell the user to start a new session before continuing with the next scene. Do not wait for compaction to hit silently; degraded context means degraded prose. The `## Scene Plan` in README.md preserves state across sessions.
 - **Stop if context pressure mounts.** A scene written after partial context loss degrades silently. End the session and resume fresh rather than shipping a degraded scene.
 - Target word count from the chapter README.
 
