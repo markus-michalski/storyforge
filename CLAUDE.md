@@ -66,6 +66,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Kapitel schreiben" / "Write chapter" (memoir) | `/storyforge:chapter-writer-memoir` |
 | "Kapitel reviewen" / "Review chapter" (fiction) | `/storyforge:chapter-reviewer` |
 | "Kapitel reviewen" / "Review chapter" (memoir) | `/storyforge:chapter-reviewer-memoir` |
+| "Kapitel proofreaden" / "Proofread chapter" / "Korrekturlesen" / "Spelling check" / "Grammar check" | `/storyforge:chapter-proofreader` |
 | "Continuity prüfen" / "Check continuity" / "Zeitlinie prüfen" / "Timeline prüfen" | `/storyforge:continuity-checker` |
 | "Voice check" / "Klingt das nach AI?" | `/storyforge:voice-checker` |
 | "Manuscript check" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" | `/storyforge:manuscript-checker` |
@@ -130,7 +131,8 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 6. `/storyforge:rolling-planner` — Scene-by-scene planning buffer (3-5 scenes ahead)
 8. `/storyforge:chapter-writer` — Write chapters in author's voice (loads timeline + travel matrix + tonal document + chapter timeline)
 9. `/storyforge:continuity-checker` — (Optional, after several chapters) Validate timeline and location consistency
-9. `/storyforge:chapter-reviewer` — Review each chapter
+9. `/storyforge:chapter-reviewer` — Review each chapter for craft, voice, structure, and AI-tells
+9a. `/storyforge:chapter-proofreader` — Language correctness per chapter: spelling, grammar, punctuation — runs AFTER craft fixes from chapter-reviewer are applied; explanations in author's native_language
 9b. `/storyforge:manuscript-checker` — (At drafting → revision transition) Scan the whole manuscript for book-rule violations, clichés, dialogue punctuation, filter words, adverb density, and cross-chapter repetition
 9c. `/storyforge:beta-feedback` — (After eBook/ARC stage) Process curated beta-reader feedback, triage, revision plan
 10. `/storyforge:voice-checker` — Verify authenticity
