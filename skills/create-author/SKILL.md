@@ -33,6 +33,8 @@ Ask the user:
 1. **Pen name** — What should this author be called?
 2. **Primary genres** — Show available genres via MCP `list_genres()`. Select 1-3.
 3. **Writing influences** — Which published authors inspire this persona? (e.g., "Stephen King meets Carmen Maria Machado")
+4. **Native language** — What is the author's mother tongue? (ISO 639-1 code, e.g. `de`, `fr`, `es`, `ja`) — used for explanations in language-aware skills like the proofreader
+5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `book_language` set. (default: `en`)
 
 ### Phase 2: Voice Definition
 Guide the user through voice choices (use AskUserQuestion):
@@ -69,6 +71,8 @@ Ask the user:
 1. **Name / pen name** — What should this author be called? (May use real name)
 2. **Memoir scope tags** — What kind of memoir? (e.g., memoir-of-illness, memoir-of-family, memoir-of-place, memoir-of-addiction, memoir-of-work — these are not genres but thematic anchors)
 3. **Writing influences** — Which memoirists or essayists inspire this voice? (e.g., Mary Karr, Tara Westover, Carmen Maria Machado, Ta-Nehisi Coates, Kiese Laymon, Roxane Gay, Paul Kalanithi)
+4. **Native language** — What is the author's mother tongue? (ISO 639-1 code, e.g. `de`, `fr`, `es`, `ja`) — used for explanations in language-aware skills like the proofreader
+5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `book_language` set. (default: `en`)
 
 ### Phase 2: Voice Definition (Memoir)
 Same universal voice questions as fiction, plus memoir-specific additions:
@@ -116,7 +120,8 @@ Ask open-ended questions tailored to memoir:
 
 1. Use MCP `create_author()` with collected data
 2. Call MCP `update_author(slug, "author_writing_mode", value)` to persist writing mode
-3. For memoir authors, also call `update_author(slug, "subject_position", value)` and `update_author(slug, "off_limits", value)`
+3. Call MCP `update_author(slug, "native_language", value)` and `update_author(slug, "preferred_writing_language", value)`
+4. For memoir authors, also call `update_author(slug, "subject_position", value)` and `update_author(slug, "off_limits", value)`
 4. Load the generated `profile.md` and `vocabulary.md`
 5. Review the banned words list (AI tells) — ask if user wants to add/remove any
 6. For memoir: pre-populate memoir-specific AI tells from `book_categories/memoir/craft/memoir-anti-ai-patterns.md` (reflective platitudes, "looking back I realize", tidy lesson endings)
