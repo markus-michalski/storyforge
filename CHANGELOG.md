@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.25.0] - 2026-05-15
+
+### Added
+- add chapter-proofreader skill (#224) (#227)
+- add native_language + preferred_writing_language to author profile (#226)
+
 ## [1.24.0] - 2026-05-13
 
 ### Added
@@ -398,3 +404,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.22.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.22.1
 [1.23.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.23.0
 [1.24.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.24.0
+[1.25.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.25.0
