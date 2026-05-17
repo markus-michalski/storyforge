@@ -44,12 +44,16 @@ Scan every sentence for the following constructions. For each hit, record: line 
 | **11.6 Trust-split** | `trust his/her/my face`, `trust his/her voice`, `trust his/her hands` + `distrust`/`not trust` variants |
 | **11.7 Backward-negation loop** | `what [pronoun] had been refusing/unable/failing to [verb]` where the verb echoes the sentence's opening action |
 | **11.8 Expository repeat** | Same noun-phrase or logical constraint appearing in two consecutive sentences — second sentence restates first to justify a narrative gap |
+| **11.9 Negation-as-assertion loop** | `It wasn't [X]. It was [Y].` or `Not [X]. [Y].` — flag on 2nd+ occurrence per scene |
+| **11.10 Hedge-word density** | `seemed`, `appeared to`, `as if` (non-simile use), `might have` — flag when 3+ combined instances per scene |
 
 **11.5 scoring:** One near-miss per scene is acceptable. Two or more in the same scene → flag all instances.
 
+**11.9 / 11.10 density rules:** Count instances per scene. 11.9: flag from the second negation-assertion per scene onward. 11.10: flag when *seemed* / *appeared to* / *as if* (non-simile) / *might have* reaches 3+ combined per scene — report the count and all instances.
+
 ### Pass 2: Flagged Vocabulary (Section 1)
 
-Scan for the 55 flagged words from Section 1 of anti-ai-patterns.md (`delve`, `tapestry`, `nuanced`, `vibrant`, `landscape` (metaphorical), `embark`, `resonate`, `pivotal`, `realm`, `testament`, `intricate`, `myriad`, `unprecedented`, `foster`, `navigate` (metaphorical), etc.).
+Scan for the 60 flagged words and phrases from Section 1 of anti-ai-patterns.md. Entries 1–55 include core AI-vocabulary (`delve`, `tapestry`, `nuanced`, `vibrant`, `landscape` (metaphorical), `embark`, `resonate`, `pivotal`, `realm`, `testament`, `intricate`, `myriad`, `unprecedented`, `foster`, `navigate` (metaphorical), etc.). Entries 56–60 are formal transition tells: `Furthermore`, `Moreover`, `In addition`, `Conversely`, `On the other hand`.
 
 For each hit: record word, sentence, context. Do not flag words that are clearly literal or in-character dialect.
 

@@ -74,6 +74,13 @@ The following terms appear with suspicious frequency in AI-generated fiction and
 53. **Broadly speaking** — Distancing and generalizing.
 54. **To some extent** — Hedging that kills commitment.
 55. **Generally speaking** — AI's way of saying "I'm not specific."
+56. **Furthermore** — Formal connector that reads as mechanically generated. Humans transition through action or implication, not announcement.
+57. **Moreover** — Academic-tier connector; identical problem to "Furthermore." Absent from authentic fiction and dialogue.
+58. **In addition** — Bland additive connector. Real writers use structure to imply addition, not announce it.
+59. **Conversely** — Signals "pivot to contrast" without doing the actual pivoting. The word names the move instead of making it.
+60. **On the other hand** — AI's preferred hedge when presenting an alternative view. Vanishingly rare in authentic prose or speech.
+
+> **Note:** Entries 56–60 also appear in Section 2 (Too-Clean Transitions) as a pattern-level structural tell. Including them here makes them available for vocabulary-level scanning in chapter-humanizer Pass 2, so they are caught even when used in isolation.
 
 ### Why These Words Signal AI
 
@@ -678,6 +685,42 @@ The bad pattern: sentence A states fact X. Sentence B restates X as the explanat
 2. Is sentence B doing logical work ("because they had X, they didn't do Y") instead of dramatic work? If yes, cut sentence B and either trust the reader or dramatize the gap from POV.
 
 **Fix:** Remove the repeat. If the constraint matters, establish it once, specifically, with a body in the scene — then let the action follow without re-statement.
+
+### 11.9 Negation-as-Assertion Loop
+
+A sentence negates something; the next sentence (or fragment) asserts the real thing. One instance is a legitimate emphasis technique. Repeated across a scene, it becomes a mechanical AI tic.
+
+*AI Example (density problem):*
+> It wasn't fear. It was something older.
+> Not anger. Resignation.
+> It wasn't the words that hurt. It was the silence after.
+
+*Human Example:*
+> She recognized the feeling — not fear exactly. Something heavier. The kind that comes before bad news, not during it.
+
+The bad pattern: `It wasn't [X]. It was [Y].` or `Not [X]. [Y].` appearing two or more times in the same scene as a rhetorical move. The first instance is emphasis; from the second onward, the pattern becomes a mechanical tic. Real writers use it once and find different approaches to emphasis elsewhere.
+
+**Density rule:** Flag on the second and subsequent instances per scene.
+
+**Banned shape (density):** `\bIt wasn't [^.\n]{1,40}\.\s+It was\b` or `\bNot [A-Z][a-z]+\.\s+[A-Z][a-z]+\.` — count per scene, flag from second occurrence onward.
+
+### 11.10 Hedge-Word Density
+
+*Seemed*, *appeared to*, *as if* (used as hedge rather than simile), and *might have* are legitimate individually. AI deploys them at density — three or more per scene — creating prose that refuses to commit to what actually happens. The narrator watches events through gauze instead of rendering them.
+
+*AI Example (density problem):*
+> He seemed uncertain. The room appeared to hold its breath. She might have smiled. It seemed like the right moment.
+
+*Human Example:*
+> He stood there. She watched his jaw work without sound. Then: "I didn't know."
+
+The bad pattern: a paragraph where the narrator refuses to commit to a single direct assertion — every observation hedged. Individually these words are neutral. Clustered, they signal a model that is afraid to say what happens.
+
+**Density rule:** Flag *seemed* / *appeared to* / *as if* (non-simile use) / *might have* when three or more combined instances appear in the same scene.
+
+**Banned shape (density):** `\b(seemed|appeared to|as if|might have)\b` — count per scene; flag when the combined total reaches 3+ and the use is hedge rather than literal simile or direct comparison.
+
+**Diagnostic question:** Remove the hedge word and read the sentence without it. If it still makes sense, cut the hedge.
 
 ### Why These Patterns Cluster
 
