@@ -60,7 +60,7 @@ argument-hint: "<book-slug>"
    | Characters Created | `/storyforge:world-builder` |
    | World Built | `/storyforge:chapter-writer [book] 1` |
    | Drafting | `/storyforge:chapter-writer [book] [next]` |
-   | Revision | `/storyforge:chapter-reviewer` |
-   | Editing | `/storyforge:voice-checker` |
+   | Revision | `/storyforge:chapter-reviewer` → `chapter-humanizer` → `chapter-proofreader` |
+   | Editing | `/storyforge:manuscript-checker` + optionally `/storyforge:voice-checker` |
    | Proofread | `/storyforge:export-engineer` |
    | Export Ready | `/storyforge:export-engineer [book] epub` |

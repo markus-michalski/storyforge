@@ -4,7 +4,7 @@ description: |
   Check a chapter for spelling, grammar, and punctuation errors in the book's writing language.
   Explanations are delivered in the author's native language.
   Use when: (1) User says "Kapitel proofreaden", "proofread chapter", "Korrekturlesen",
-  (2) After chapter-reviewer craft fixes are applied, before manuscript-checker.
+  (2) After chapter-humanizer AI-tell pass, before manuscript-checker.
   Works for both fiction and memoir books.
 model: claude-sonnet-4-6
 user-invocable: true
@@ -14,7 +14,7 @@ argument-hint: "<book-slug> <chapter-slug>"
 # Chapter Proofreader
 
 Checks language correctness — spelling, grammar, punctuation — on prose that is already
-craft-stable (after chapter-reviewer). Does NOT check craft, voice, or cross-chapter patterns.
+craft-stable (after chapter-reviewer + chapter-humanizer). Does NOT check craft, voice, or cross-chapter patterns.
 
 ## Step 1 — Resolve Languages
 
