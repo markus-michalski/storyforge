@@ -130,7 +130,7 @@ Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene.
 
 **Pre-write tactical check:** if the scene involves combat OR group movement (`walk`, `hike`, `drive`, `attack`, `mission`, `enter the building`, `approach`, multi-character formation), the brief's `tactical_constraints` may already be populated. If not — or if the scene's specific outline differs — call MCP `verify_tactical_setup(book_slug, scene_outline_text, characters_present)` and resolve every warn-severity warning before drafting.
 
-**Pre-append:** run the Step 6c Simile Discipline Scan. No scene enters `draft.md` before the scan.
+**Pre-append:** run the Step 6c Simile Discipline Scan, then the Step 6d Elegant Abstraction Scan. No scene enters `draft.md` before both scans pass.
 
 After writing:
 1. **Append directly to `{project}/chapters/{chapter}/draft.md`** — never paste prose into chat. If `draft.md` doesn't exist, create it with `# Chapter N: Title` above the first scene. Separate scenes with a blank line.
@@ -186,6 +186,34 @@ For clean scenes, silence is fine. When cuts happen, optionally note "Simile-Sca
 
 ---
 
+### Step 6d: Elegant Abstraction Scan (MANDATORY, both modes, pre-save)
+
+Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c), BEFORE any prose is appended to `draft.md`. Reference: `anti-ai-patterns.md` Section 11 for the full shape catalog and examples.
+
+These shapes cluster at high-stakes moments (deaths, declarations, confrontations) and are statistically respectable — they appear in published fiction — but they render emotional weight through abstraction instead of specific physical reality. They pass casual review and are the primary reason AI-generated prose feels "off" even when vocabulary and structure seem fine.
+
+**Scan markers — check every sentence for these constructions:**
+
+| Shape (Section) | Markers to search |
+|---|---|
+| 11.1 Word-count commentary | `One word.` / `Two words.` / `Three words.` followed by narrator editorial |
+| 11.2 Sentence-as-projectile | `the words landed`, `the line landed`, `settled into the room` |
+| 11.3 Room-as-receiver | `the room received`, `the silence held`, `the hall absorbed` |
+| 11.4 Economic metaphor | `most expensive sentence`, `the word cost him`, `paid in silence` |
+| 11.5 Near-miss body language | `did not quite become`, `almost became a`, `never quite [verb]` — flag if 2+ per scene |
+| 11.6 Body-part agency | `[hand/breath/stomach/shoulders/face/mouth/eyes/chest/throat/jaw/spine/fingers/knee/feet/legs] + [had been/was/were/kept/started/began] + [deciding/choosing/wanting/refusing/failing/knowing]` — full regex in Section 11.6 |
+| 11.6 Trust-split | `trust his/her/my face/voice/hands/body/expression` + `distrust`/`not trust` variants |
+| 11.7 Backward-negation loop | `what [pronoun] had been refusing/unable to [verb]` echoing the opening verb |
+| 11.8 Expository repeat | Same key phrase or logical constraint in two consecutive sentences |
+
+**For each hit:** Ask — can this be replaced by a named body doing a physical thing? If yes, replace it. If the hit is a near-miss (11.5) and it's the first in the scene, it may stay. If it's the second or more, cut.
+
+**Fix direction (same for all shapes):** Route the emotional weight through a named body in the room. Whose eyes did not move. Whose hand stilled. Whose breath came faster. Specificity is the antidote.
+
+When cuts happen, optionally note "EA-Scan: N cut, M revised" alongside the scene metadata line. Do not skip — these shapes are invisible to the vocabulary-scan in Step 6 and are the most common source of AI-register complaints from readers.
+
+---
+
 ### Step 7: Save and Update (both modes)
 1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
 2. **Extract promises (Issue #150)** — Before flipping status to `Review` or `Final`, walk the completed draft and identify setup-elements (locked drawers, character claims, cryptic warnings, unresolved clues — full taxonomy in `reference/craft/plot-logic.md`). For each: short concrete description (8–14 words), target chapter slug if the chapter outline names it else `unfired`, status `active`. Cap at 8 per chapter. Persist via MCP `register_chapter_promises(book_slug, chapter_slug, promises)`. If the chapter places no promises, pass an empty list — this writes a placeholder so the index knows the chapter was processed. Skip this step when staying at `Draft` (mid-chapter saves don't lock in promises).
@@ -228,6 +256,7 @@ Before presenting to user (in full-chapter mode) or after all scenes assembled (
 - Does the POV character's emotional state change?
 - Would a reader know which character is speaking without dialog tags?
 - **Simile discipline** — Confirm the Step 6c scan ran on every scene/section. No decorative or illogical comparisons survived. No stacked similes. No dead similes. `the kind of X that Y` constructions inspected.
+- **Elegant abstraction** — Confirm the Step 6d scan ran. No body-part agency, no room-as-receiver, no backward-negation loops, no expository repeats. Section 11 shapes are the primary source of AI-register complaints — never skip.
 - **Litmus test** — If `plot/tone.md` exists, answer EVERY question from the Litmus Test section. If more than 1 answer is "no", flag it to the user and suggest specific revisions before proceeding.
 - **Time consistency** — Verify that every time reference in the chapter (explicit or relative) is consistent with the Chapter Timeline you created in Step 7.
 
@@ -250,6 +279,7 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 - Resolve `book_category` in Step 0 before any prerequisite load. The fiction and memoir prerequisite sets are non-overlapping.
 - Author profile is LAW. SHOW don't tell. Every scene needs conflict. Dialog has subtext. Banned words trigger sentence rewrite.
 - **Simile Discipline (Step 6c) is non-negotiable.** Every scene survives the two-question test before it enters `draft.md`. Author-voice bias = quality not quantity. See `simile-discipline.md`.
+- **Elegant Abstraction Scan (Step 6d) is non-negotiable.** Every scene passes the Section 11 shape-check before entering `draft.md`. These shapes look literary but render emotion through abstraction — they are the primary AI-register failure mode at high-stakes moments. See `anti-ai-patterns.md` Section 11.
 - Honor every entry in the brief's `rules_to_honor` (book CLAUDE.md ## Rules) — `severity: block` rules will be hard-blocked by the PostToolUse hook. Honor `tone_litmus_questions` (from `plot/tone.md`) when present.
 - Never write a relative time reference without checking against the brief's `story_anchor` and `recent_chapter_timelines`. If the math doesn't work, adjust the prose — not the timeline.
 - The Chapter Timeline section in `README.md` is MANDATORY at review status. Future chapters depend on it.

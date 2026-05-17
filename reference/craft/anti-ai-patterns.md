@@ -527,8 +527,11 @@ Real human writers render emotional weight through bodies, actions, and dialog. 
 - Sentences as projectiles or settling objects
 - Economic vocabulary as code for emotional cost
 - Body language that *almost* becomes something
+- Body parts treated as autonomous agents with cognitive/decision capacity
+- Same verb negated in a temporal-refusal clause
+- Same logical constraint repeated across two consecutive sentences
 
-Each of the five sub-shapes below has been observed repeatedly in chapter drafts. Each is invisible to the standard banned-word lists. Each requires its own countermeasure.
+Each of the eight sub-shapes below has been observed repeatedly in chapter drafts. Each is invisible to the standard banned-word lists. Each requires its own countermeasure.
 
 ### 11.1 Word-Count Meta-Commentary
 
@@ -624,19 +627,61 @@ A body part is rendered as the subject of a cognitive or decision verb — the h
 > The hand had been deciding something the rest of Caelan had not yet caught up with.
 > His hands were having a conversation with each other.
 > His stomach kept failing to file the news.
+> stayed there until he could trust his face again.
 
 *Human Example:*
 > Caelan watched his own hand move before the rest of him caught up.
 > He flexed his fingers, then closed them. He had not decided yet.
 > The news landed in his stomach and stayed.
+> He held still. When he was certain his expression had settled, he moved.
 
-The bad pattern: cognitive/decision verbs (deciding, choosing, knowing, wanting, refusing, considering, having a conversation, failing) after a body-part subject. Real prose lets the **character** decide; the body either does the physical thing (shook, stilled, tightened, pulled) or signals an unresolved state through the character's awareness of it. Body parts are not small autonomous agents.
+The bad pattern: cognitive/decision verbs (deciding, choosing, knowing, wanting, refusing, considering, having a conversation, failing) after a body-part subject — but also **trust/distrust applied to a body part as its object** ("trust his face", "trust his hands", "trust his voice"). In all cases the character is split from their own body, which becomes a separate entity to be managed. Real prose lets the **character** decide; the body either does the physical thing (shook, stilled, tightened, pulled) or signals an unresolved state through the character's awareness of it. Body parts are not small autonomous agents.
 
 **Banned shape:** `\b(his|her|the|its)\s+(hand|hands|breath|stomach|shoulders|face|mouth|eyes|chest|throat|jaw|spine|fingers|knee|knees|feet|legs)\s+(had been|was|were|kept|started|began)\s+(deciding|having|choosing|wanting|refusing|trying|failing|considering|chosen|remembering|forgetting|knowing)\b`.
 
+**Banned shape (trust-split):** `\b(trust|distrust|not trust)\s+(his|her|my|their)\s+(face|voice|hands|body|expression|eyes|mouth|legs)\b` — e.g. "he could trust his face again", "she didn't trust her voice".
+
+### 11.7 Backward-Negation Loop
+
+A single verb (or near-verb) is used twice in the same sentence: once as the action that now happens, once negated in a prior-time clause. The construction buries emotional weight in temporal recursion instead of rendering it directly.
+
+*AI Example:*
+> His throat closed on what it had been refusing to close on since yesterday in the sitting room.
+> She said the thing she had been unable to say since the hospital.
+> He did what he had promised himself he would never do.
+
+*Human Example:*
+> His throat tightened. Yesterday he hadn't been able to cry. He still couldn't, not entirely — but the pressure was there now.
+> She said it. The word she'd been holding since the hospital.
+> He did it anyway.
+
+The bad pattern: `[verb phrase] on/around/about what it had been [negated same verb phrase] since [time marker]`. The construction is syntactically legal but reads as a model working hard to sound literary. The emotion is named twice (once as action, once as prior refusal) where a direct rendering would name it once and let it land. The reader doesn't need to be told what wasn't happening before.
+
+**Banned shape:** `\b(what|that) (it|he|she|they) had been (refusing|unable|failing|trying not) to\b` followed by the same or near-synonym verb from the opening clause.
+
+**Diagnostic question:** Can you cut the temporal-refusal clause and just write the action? If yes, cut it.
+
+### 11.8 Expository Repeat (Narrative Justification)
+
+The same key phrase or logical constraint appears in two consecutive sentences, the second sentence re-stating the first to "prove" a character decision or justify a narrative gap.
+
+*AI Example:*
+> They had silver on her and weren't careful about the rest. They did not look under the shirt of a vampire they had silver on.
+
+*Human Example:*
+> Silver was enough. They didn't bother checking further — why would they?
+
+The bad pattern: sentence A states fact X. Sentence B restates X as the explanation for why something didn't happen. The AI is filling a logical gap by repeating the premise. The repetition signals the model is aware the scene has a plausibility hole and is papering over it with re-statement instead of dramatizing the moment or trusting the reader. In real prose, logical constraints are established once and trusted; the reader tracks them. When a writer repeats a constraint, it usually means the scene's POV hasn't been rendered specifically enough to make the constraint feel real.
+
+**Diagnostic questions:**
+1. Does sentence B contain the same noun-phrase or verb-phrase as sentence A? If yes, flag it.
+2. Is sentence B doing logical work ("because they had X, they didn't do Y") instead of dramatic work? If yes, cut sentence B and either trust the reader or dramatize the gap from POV.
+
+**Fix:** Remove the repeat. If the constraint matters, establish it once, specifically, with a body in the scene — then let the action follow without re-statement.
+
 ### Why These Patterns Cluster
 
-These five shapes co-occur in the same scenes — typically the highest-stakes moments of a chapter (deaths, declarations, family confrontations). They share a single underlying habit: **rendering emotional weight through abstraction instead of through specific physical reality**. The language model has been trained to recognise "literary" prose, and these shapes appear in published fiction often enough to be statistically respectable. But they are also the prose-equivalent of stage smoke: atmosphere without substance.
+These shapes co-occur in the same scenes — typically the highest-stakes moments of a chapter (deaths, declarations, family confrontations). They share a single underlying habit: **rendering emotional weight through abstraction instead of through specific physical reality**. The language model has been trained to recognise "literary" prose, and these shapes appear in published fiction often enough to be statistically respectable. But they are also the prose-equivalent of stage smoke: atmosphere without substance.
 
 The countermeasure is the same in every case: **route the emotional weight through a named body in the room.** Whose eyes did not move. Whose hand stilled. Whose breath came faster. Specificity is the antidote to elegance.
 

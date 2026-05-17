@@ -66,6 +66,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Kapitel schreiben" / "Write chapter" (memoir) | `/storyforge:chapter-writer-memoir` |
 | "Kapitel reviewen" / "Review chapter" (fiction) | `/storyforge:chapter-reviewer` |
 | "Kapitel reviewen" / "Review chapter" (memoir) | `/storyforge:chapter-reviewer-memoir` |
+| "Humanize chapter" / "AI-Tells entfernen" / "chapter humanizer" / "AI-Sätze raus" | `/storyforge:chapter-humanizer` |
 | "Kapitel proofreaden" / "Proofread chapter" / "Korrekturlesen" / "Spelling check" / "Grammar check" | `/storyforge:chapter-proofreader` |
 | "Continuity prüfen" / "Check continuity" / "Zeitlinie prüfen" / "Timeline prüfen" | `/storyforge:continuity-checker` |
 | "Voice check" / "Klingt das nach AI?" | `/storyforge:voice-checker` |
@@ -101,8 +102,9 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 1. Create Author Profile → Study PDFs (optional)
 2. Brainstorm → New Book → Concept
 3. Plot Architecture → Characters → World
-4. Chapter Writing → Chapter Review → Voice Check
+4. Chapter Writing → Chapter Review → Chapter Humanizer → Chapter Proofread
 5. Revision → Export → Translation (optional)
+6. Voice Checker (optional, standalone score check)
 ```
 
 ### Standard Workflow (Outliner)
@@ -132,10 +134,11 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 8. `/storyforge:chapter-writer` — Write chapters in author's voice (loads timeline + travel matrix + tonal document + chapter timeline)
 9. `/storyforge:continuity-checker` — (Optional, after several chapters) Validate timeline and location consistency
 9. `/storyforge:chapter-reviewer` — Review each chapter for craft, voice, structure, and AI-tells
-9a. `/storyforge:chapter-proofreader` — Language correctness per chapter: spelling, grammar, punctuation — runs AFTER craft fixes from chapter-reviewer are applied; explanations in author's native_language
-9b. `/storyforge:manuscript-checker` — (At drafting → revision transition) Scan the whole manuscript for book-rule violations, clichés, dialogue punctuation, filter words, adverb density, and cross-chapter repetition
-9c. `/storyforge:beta-feedback` — (After eBook/ARC stage) Process curated beta-reader feedback, triage, revision plan
-10. `/storyforge:voice-checker` — Verify authenticity
+9a. `/storyforge:chapter-humanizer` — Targeted AI-construction scan; identifies Section 11 elegant-abstraction shapes and flagged vocabulary; proposes human alternatives interactively; runs AFTER chapter-reviewer craft fixes
+9b. `/storyforge:chapter-proofreader` — Language correctness per chapter: spelling, grammar, punctuation — runs AFTER humanizer pass; explanations in author's native_language
+9c. `/storyforge:manuscript-checker` — (At drafting → revision transition) Scan the whole manuscript for book-rule violations, clichés, dialogue punctuation, filter words, adverb density, and cross-chapter repetition
+9d. `/storyforge:beta-feedback` — (After eBook/ARC stage) Process curated beta-reader feedback, triage, revision plan
+10. `/storyforge:voice-checker` — (Optional) Holistic AI-authenticity score (0–100) across 7 dimensions; use when you want a scorecard rather than targeted fixes; not a required step in the standard workflow
 11. `/storyforge:cover-artist` — Generate cover prompts
 12. `/storyforge:export-engineer` — EPUB/PDF/MOBI via Pandoc
 13. `/storyforge:promo-writer` — Social media campaign (FB, Instagram, TikTok, X, Bluesky, Newsletter)
