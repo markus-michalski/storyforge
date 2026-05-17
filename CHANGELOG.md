@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.26.1] - 2026-05-17
+
+### Added
+- extend AI-tell catalog with shapes 11.9, 11.10 and transition tells (#232)
+
 ## [1.26.0] - 2026-05-17
 
 ### Added
@@ -427,3 +432,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.25.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.25.1
 [1.25.2]: https://github.com/markus-michalski/storyforge/releases/tag/v1.25.2
 [1.26.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.0
+[1.26.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.1
