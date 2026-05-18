@@ -11,20 +11,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Changed
-- Renamed skill `session-start` to `start-session` for verb-noun naming consistency (`/storyforge:session-start` → `/storyforge:start-session`). Natural-language triggers (`/start`, "start session", "Session starten") continue to work. (#241)
+- Nothing yet
 
 ### Deprecated
 - Nothing yet
 
 ### Removed
-- Slash command `/storyforge:session-start` (renamed to `/storyforge:start-session`, no deprecated stub). (#241)
-- Deprecated MCP tools `get_chapter`, `get_character`, `get_series`, `update_book_claudemd_facts` (#236). Migration: use `get_book_full()` for chapter/character projections; series-planner reads series files directly; edit the book's CLAUDE.md directly for Book Facts fields.
+- Nothing yet
 
 ### Fixed
 - Nothing yet
 
 ### Security
 - Nothing yet
+
+## [2.0.0] - 2026-05-18
+
+### Added
+- add next-step hints to mid-pipeline skills (#239) (#250)
+- add create_character_tracker MCP tool + improve series-planner skill (#237) (#248)
+
+### Changed
+- session-start → start-session (#241) (#252)
+- H2 structural drift detection for fiction/memoir skill pairs (#238) (#249)
+- remove deprecated v2.0 tools, document internals (#247)
+- extract shared craft reference (#246)
+- update xfail reference from #235 to #245
+
+### Fixed
+- disambiguate unblock vs next-step trigger conditions (#240) (#251)
+- trim chapter-writer scan sections + add skill-size smoke test (#244)
+- repair broken MCP tool calls and routing after coherence audit (#243)
+- support WARN severity and chapter_limit for Writing Discoveries
 
 ## [1.26.2] - 2026-05-18
 
@@ -440,3 +458,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.26.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.0
 [1.26.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.1
 [1.26.2]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.2
+[2.0.0]: https://github.com/markus-michalski/storyforge/releases/tag/v2.0.0
