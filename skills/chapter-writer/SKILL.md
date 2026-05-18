@@ -176,11 +176,7 @@ Runs BEFORE any prose is appended to `draft.md`. Scene-by-scene mode: per scene 
 
 Reference: `simile-discipline.md` for the full heuristic. The scan enforces its two-question test (literal resemblance + real work) plus book-CLAUDE.md simile bans (already in the brief's `rules_to_honor`).
 
-Scan markers: `like [noun/clause]`, `as [adj] as`, `as if/as though`, `the way [subj] [verb]`, `moved/felt/sounded/looked/seemed like`, `resembled`, `reminded ___ of`, `gave the impression of`, `had the air of`, and the failure pattern `the kind of [noun] that [clause]`.
-
-For each hit: answer literal-resemblance and real-work honestly. Apply author-voice bias from the profile (simile-heavy authors get more leeway than sparse ones). Flag any paragraph with two or more simile markers — either each does distinct work or all but the strongest are cut. Reject dead similes on sight (*pale as a ghost*, *quick as lightning*, etc.). Revise: cut and replace with a beat first, swap the vehicle second, keep only if rework genuinely earned it.
-
-The brief's `recent_simile_count_per_chapter` shows what the last 3 chapters used — if a paragraph would push above ~3-4, cut harder. Book CLAUDE.md ## Rules in the brief's `rules_to_honor` override author-voice leniency.
+Apply author-voice bias from the author profile — simile-heavy voices get more leeway than sparse ones. The brief's `recent_simile_count_per_chapter` shows what the last 3 chapters used — if a paragraph would push above ~3-4, cut harder. Book CLAUDE.md ## Rules in `rules_to_honor` override author-voice leniency. See `simile-discipline.md` for the full marker list, failure modes, and revision moves.
 
 For clean scenes, silence is fine. When cuts happen, optionally note "Simile-Scan: N cut, M revised" alongside the scene metadata line. Do not skip — decorative similes are the recurring failure mode `prose-style.md` and `anti-ai-patterns.md` cannot catch alone.
 
@@ -190,21 +186,7 @@ For clean scenes, silence is fine. When cuts happen, optionally note "Simile-Sca
 
 Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `draft.md` until this scan is fully resolved.** Reference: `anti-ai-patterns.md` Section 11 for the full shape catalog and examples.
 
-These shapes cluster at high-stakes moments (deaths, declarations, confrontations) and are statistically respectable — they appear in published fiction — but they render emotional weight through abstraction instead of specific physical reality. They pass casual review and are the primary reason AI-generated prose feels "off" even when vocabulary and structure seem fine.
-
-**Scan markers — check every sentence for these constructions:**
-
-| Shape (Section) | Markers to search |
-|---|---|
-| 11.1 Word-count commentary | `One word.` / `Two words.` / `Three words.` followed by narrator editorial |
-| 11.2 Sentence-as-projectile | `the words landed`, `the line landed`, `settled into the room` |
-| 11.3 Room-as-receiver | `the room received`, `the silence held`, `the hall absorbed` |
-| 11.4 Economic metaphor | `most expensive sentence`, `the word cost him`, `paid in silence` |
-| 11.5 Near-miss body language | `did not quite become`, `almost became a`, `never quite [verb]` — flag if 2+ per scene |
-| 11.6 Body-part agency | `[hand/breath/stomach/shoulders/face/mouth/eyes/chest/throat/jaw/spine/fingers/knee/feet/legs] + [had been/was/were/kept/started/began] + [deciding/choosing/wanting/refusing/failing/knowing]` — full regex in Section 11.6 |
-| 11.6 Trust-split | `trust his/her/my face/voice/hands/body/expression` + `distrust`/`not trust` variants |
-| 11.7 Backward-negation loop | `what [pronoun] had been refusing/unable to [verb]`; `had not known [noun clause] could [verb]`; `could not [verb] without [negative consequence]` — defining an experience through its negation or refusal |
-| 11.8 Expository repeat | Same key phrase or logical constraint in two consecutive sentences |
+**Shape catalog:** `anti-ai-patterns.md` Section 11 has the full catalog, markers, and examples (11.1–11.10). Quick-scan markers: *One/Two/Three words.* narrator commentary (11.1); *the words/line landed* (11.2); *the room received / silence held* (11.3); *most expensive sentence / paid in silence* (11.4); *did not quite become* — flag 2+ per scene (11.5); body-part + deciding/refusing/knowing (11.6); *trust his/her/my face/hands* trust-split variants (11.6); backward-negation refusal clauses (11.7); same logical constraint in two consecutive sentences (11.8).
 
 **Scan protocol:**
 
