@@ -24,7 +24,7 @@ FRONTMATTER_SEP = "---"
 # Skills currently over budget with an active trim plan.
 # Remove the entry once the skill is trimmed under WARN_BYTES.
 KNOWN_OVERSIZED: dict[str, str] = {
-    "chapter-writer": "Issue #235 — trim plan in progress",
+    "chapter-writer": "Issue #245 — Phase 2 trim in progress",
 }
 
 
