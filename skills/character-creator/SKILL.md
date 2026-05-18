@@ -153,7 +153,7 @@ Map relationships to other characters:
 - How do relationships change through the story?
 
 ### Step 14: Write Character File
-Update the character file with all developed details via MCP `update_character()` or direct Write.
+Update the character file with all developed details via direct Write.
 Update `{project}/characters/INDEX.md` with the new character.
 
 After all major characters are created, update book status to "Characters Created".

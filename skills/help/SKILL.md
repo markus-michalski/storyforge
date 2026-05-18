@@ -3,7 +3,7 @@ name: help
 description: |
   Show available StoryForge skills, workflow overview, and quick-start guide.
   Use when: (1) User says "help", "Hilfe", "was kann das Plugin?"
-model: claude-haiku-4-5-20251001
+model: claude-haiku-4-5
 user-invocable: true
 ---
 

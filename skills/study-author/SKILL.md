@@ -107,12 +107,12 @@ mode: fiction
 ```
 
 ### Phase 4: Update Profile
-Update the author's `profile.md` and `vocabulary.md` based on findings:
-- Add characteristic words to "Preferred Words"
-- Refine tone descriptors based on evidence
-- Update sentence_style based on measured variance
-- Add discovered "Signature Techniques"
-- Update "Deliberate Imperfections" section
+Update the author's profile using MCP tools to ensure cache invalidation:
+
+- **Tone / sentence_style / other frontmatter fields** — MCP `update_author(slug, field, value)` per field
+- **Signature Techniques discovered** — MCP `write_author_discovery(author_slug, section="style_principles", text=<technique>, book_slug=<analyzed-work-slug>)`
+- **Anti-patterns to avoid** — MCP `write_author_banned_phrase(author_slug, phrase, reason=<why-avoid>)` per phrase
+- **Preferred Words / Deliberate Imperfections** — Direct Write to `~/.storyforge/authors/{slug}/vocabulary.md` (no MCP tool for these sections)
 
 ### Phase 5: Report
 Show the user a summary of what was learned and what changed in the profile.
@@ -199,12 +199,12 @@ mode: memoir
 ```
 
 ### Phase 4: Update Profile
-Update the author's `profile.md` and `vocabulary.md` based on findings:
-- Add unguarded personal phrases to "Signature Phrases"
-- Add personal vocabulary to "Preferred Words"
-- Note the natural tense and self-reference style
-- Flag hedging or avoidance patterns as memoir-specific risks to watch
-- Add preoccupation themes — these are the memoir's authentic emotional spine
+Update the author's profile using MCP tools to ensure cache invalidation:
+
+- **Tense / self-reference style / other frontmatter fields** — MCP `update_author(slug, field, value)` per field
+- **Unguarded phrases to preserve** — MCP `write_author_discovery(author_slug, section="style_principles", text=<phrase>, book_slug=<analyzed-work-slug>)`
+- **Hedging / avoidance patterns to flag** — MCP `write_author_banned_phrase(author_slug, phrase, reason="memoir-anti-ai: avoidance pattern")` per phrase
+- **Preferred Words / Signature Phrases / preoccupation themes** — Direct Write to `~/.storyforge/authors/{slug}/vocabulary.md` (no MCP tool for these sections)
 
 ### Phase 5: Report
 Show the user what was found and what changed. Specifically: which phrases are uniquely theirs and should survive editing, and which patterns (hedging, reflective platitudes) the memoir-anti-ai checker will flag.
