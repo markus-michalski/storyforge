@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -743,3 +744,182 @@ def bootstrap_character_for_new_book(
             "new_char_path": str(dest),
         }
     )
+
+
+_VALID_TRACKER_TYPES = {"thin", "full"}
+
+
+def _build_tracker_content(
+    name: str,
+    slug: str,
+    role: str,
+    recurs_in: list[str],
+    species: str,
+    tracker_type: str,
+    book_slug: str,
+    today: str,
+) -> str:
+    """Generate h3-shape series character tracker file content."""
+    resolved_book_slug = book_slug if book_slug else slug
+
+    # Build frontmatter as a dict — yaml.dump handles quoting/escaping.
+    meta: dict[str, Any] = {
+        "name": name,
+        "slug": slug,
+        "role": role,
+        "status": "Profile",
+        "recurs_in": recurs_in,
+        "tracker_type": tracker_type,
+    }
+    if species:
+        meta["species"] = species
+    if book_slug:
+        meta["book_slug"] = book_slug
+
+    # Sort keys in a canonical order for readability.
+    key_order = ["name", "slug", "book_slug", "role", "species", "status", "recurs_in", "tracker_type"]
+    sorted_meta = {k: meta[k] for k in key_order if k in meta}
+
+    frontmatter = "---\n" + yaml.dump(sorted_meta, default_flow_style=False, allow_unicode=True, sort_keys=False) + "---\n"
+
+    # Build Evolution per Band in h3 shape.
+    # Each band in recurs_in gets Start + Ende headings.
+    # The next band after the last gets a (geplant) heading.
+    band_numbers = sorted(int(b[1:]) for b in recurs_in)
+    next_band_n = band_numbers[-1] + 1
+
+    evolution_lines: list[str] = ["## Evolution per Band\n"]
+    for i, n in enumerate(band_numbers):
+        band = f"B{n}"
+        if i == 0:
+            start_hint = "Initial state, defining wound or driver, current situation. Filled at planning time."
+            ende_hint = "Filled by the harvest tool at end-of-book from book-level frontmatter snapshot fields and relationships."
+        else:
+            prev = f"B{band_numbers[i - 1]}"
+            start_hint = f"Where the character begins in {band}. Filled by the bootstrap tool from {prev} Ende."
+            ende_hint = f"Where the character ends in {band}. Filled by the harvest tool at end-of-book."
+        evolution_lines.append(f"\n### {band} Start\n*{start_hint}*\n")
+        evolution_lines.append(f"\n### {band} Ende\n*{ende_hint}*\n")
+
+    next_band = f"B{next_band_n}"
+    evolution_lines.append(
+        f"\n### {next_band} (geplant)\n"
+        f"*Planned arc for Book {next_band_n}. What changes? What carries forward? "
+        f"What new external pressure forces growth? Filled at planning time.*\n"
+    )
+
+    body = f"""
+# {name} — Series Evolution Tracker
+
+> Full character profile per book: `projects/<book-slug>/characters/{resolved_book_slug}.md`
+
+## Snapshot
+
+*One-paragraph essence at series scope. What is constant about this character across all books? Capture identity, role, key relationship anchors. Not plot, not arc-per-book — the through-line.*
+
+{"".join(evolution_lines)}
+## Beziehungen über die Bände
+
+*Cross-book relationship arcs. Capture how each significant pairing evolves across the series, not just within one book. Format:*
+
+- **{{Other Character}}**: {{B1 dynamic}} → {{B2 shift}} → resolution
+
+## Updates Log
+
+- {today} — Tracker scaffolded by series-planner
+"""
+    return frontmatter + body
+
+
+@mcp.tool()
+def create_character_tracker(
+    series_slug: str,
+    name: str,
+    slug: str,
+    role: str,
+    recurs_in: list[str],
+    species: str = "",
+    tracker_type: str = "thin",
+    book_slug: str = "",
+) -> str:
+    """Create a series character tracker file from the canonical template.
+
+    Scaffolds ``series/{series_slug}/characters/{slug}.md`` with:
+    - YAML frontmatter (name, slug, role, species, status, recurs_in,
+      tracker_type; ``book_slug`` included only when it differs from
+      ``slug``)
+    - h3-shape Evolution per Band sections: ``### BN Start`` and
+      ``### BN Ende`` for every band in ``recurs_in``, plus
+      ``### B{N+1} (geplant)`` for the next planned book
+    - Empty Snapshot and Beziehungen sections
+    - An initial Updates Log entry dated today
+
+    Use this in the series-planner Step 5 (Canon Management) to create
+    one tracker per recurring character rather than copying the template
+    manually.
+
+    Args:
+        series_slug: Series slug (must already exist).
+        name: Full character name (e.g. ``"King Caelan"``).
+        slug: Tracker file slug / stem (e.g. ``"king-caelan"``).
+        role: Character role (e.g. ``"supporting"``, ``"protagonist"``).
+        recurs_in: Band ids the character appears in
+            (e.g. ``["B1", "B2", "B3"]``). Each must match ``B<N>``.
+            Must not be empty.
+        species: Optional species / type (e.g. ``"vampire"``).
+        tracker_type: ``"thin"`` (default) or ``"full"``. Use ``"full"``
+            only for characters that span books equally without a home
+            book.
+        book_slug: Optional. Set when the tracker slug differs from the
+            book-level character file stem (e.g. tracker ``king-caelan``
+            ↔ book file ``caelan.md``). Omit for the common case where
+            they match — the resolver falls back to ``slug``.
+
+    Returns:
+        ``{success, slug, path}`` on success or ``{error}`` on failure.
+    """
+    if not recurs_in:
+        return json.dumps({"error": "recurs_in must not be empty"})
+
+    if len(set(recurs_in)) != len(recurs_in):
+        dupes = [b for b in recurs_in if recurs_in.count(b) > 1]
+        return json.dumps({"error": f"recurs_in contains duplicate band ids: {sorted(set(dupes))}"})
+
+    invalid_bands = [b for b in recurs_in if not _RE_BAND_ID.match(str(b))]
+    if invalid_bands:
+        return json.dumps(
+            {"error": f"recurs_in contains invalid band ids: {invalid_bands} — each must match B<N> (e.g. 'B1')"}
+        )
+
+    if tracker_type not in _VALID_TRACKER_TYPES:
+        return json.dumps(
+            {"error": f"tracker_type must be one of {sorted(_VALID_TRACKER_TYPES)} — got {tracker_type!r}"}
+        )
+
+    config = _app.load_config()
+    series_dir = resolve_series_path(config, series_slug)
+    if not series_dir.exists():
+        return json.dumps({"error": f"Series '{series_slug}' not found"})
+
+    chars_dir = series_dir / "characters"
+    chars_dir.mkdir(parents=True, exist_ok=True)
+
+    tracker_path = chars_dir / f"{slug}.md"
+    if tracker_path.exists():
+        return json.dumps({"error": f"Tracker '{slug}' already exists in series '{series_slug}'"})
+
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    content = _build_tracker_content(
+        name=name,
+        slug=slug,
+        role=role,
+        recurs_in=[str(b) for b in recurs_in],
+        species=species,
+        tracker_type=tracker_type,
+        book_slug=book_slug,
+        today=today,
+    )
+    tracker_path.write_text(content, encoding="utf-8")
+
+    _cache.invalidate()
+    return json.dumps({"success": True, "slug": slug, "path": str(tracker_path)})
