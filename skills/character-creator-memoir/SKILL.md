@@ -4,6 +4,7 @@ description: |
   Memoir real-people handler. Captures real people with relationship,
   person_category, consent_status, and anonymization decisions.
   Produces people files at `people/{slug}.md` via MCP `create_person()`.
+  Run after `/storyforge:plot-architect-memoir`, before `/storyforge:chapter-writer-memoir`.
   Use when: (1) `book_category == "memoir"` AND user says "Charakter",
   "character", "Figur", "Person", "real people",
   (2) After plot/structure is outlined, to populate the memoir's cast.
@@ -14,6 +15,8 @@ argument-hint: "<book-slug> [name]"
 ---
 
 # Character Creator (Memoir)
+
+**Position in workflow:** `plot-architect-memoir → character-creator-memoir → chapter-writer-memoir`
 
 This skill is the memoir variant of character-creator, split out per Issue #177 so memoir-only sessions never load the fiction character-arc machinery (GMC, Fatal Flaw, The Ghost, Want vs. Need, arc design) and fiction-only sessions never load the memoir real-people handler.
 
@@ -113,6 +116,8 @@ The MCP tool validates each enum value and refuses to write the file on unknown 
 After creation, expand the file body with the Memory anchors from Step M5. Update `{project}/people/INDEX.md` to list the new person under their relationship category (Family / Friends & relationships / Public figures / Pseudonymized / composite).
 
 After all structural-cast people are captured, update book status to "Characters Created" (the status label is shared with fiction; the meaning shifts per `book_categories/memoir/status-model.md`).
+
+Ask: *"Ready to write? → `/storyforge:chapter-writer-memoir`"*
 
 ## Rules
 

@@ -107,7 +107,7 @@ Write to `{project}/synopsis.md`.
 
 Update book status to "Concept" via MCP `update_field()`.
 
-Ask: *"Ready to structure the plot? → `/storyforge:plot-architect`"*
+Ask: *"Outliner/Plantser → `/storyforge:plot-architect`. Discovery writer → `/storyforge:rolling-planner` before each chapter session."*
 
 ## Workflow — Memoir (5 phases)
 

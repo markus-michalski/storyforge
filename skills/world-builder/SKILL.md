@@ -2,7 +2,7 @@
 name: world-builder
 description: |
   Build settings, magic systems, societies, and history for the story world.
-  Run after `/storyforge:character-creator`, before `/storyforge:chapter-writer`.
+  For fantasy/sci-fi/supernatural/historical: run after `/storyforge:character-creator`, before `/storyforge:chapter-writer`. Optional for contemporary, romance, mystery, drama, literary.
   Use when: (1) User says "Welt", "world", "Setting", "Magic System",
   (2) For fantasy, sci-fi, supernatural, or historical genres.
 model: claude-opus-4-7
@@ -12,7 +12,7 @@ argument-hint: "<book-slug>"
 
 # World Builder
 
-**Position in workflow:** `character-creator → world-builder → chapter-writer`
+**Position in workflow:** Optional. For fantasy/sci-fi/supernatural/historical: `character-creator → world-builder → chapter-writer`. Skip for contemporary, romance, mystery, drama, literary.
 
 ## Step 0 — Resolve Book Category
 
