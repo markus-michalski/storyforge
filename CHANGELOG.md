@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Removed
-- Nothing yet
+- Deprecated MCP tools `get_chapter`, `get_character`, `get_series`, `update_book_claudemd_facts` (#236). Migration: use `get_book_full()` for chapter/character projections; series-planner reads series files directly; edit the book's CLAUDE.md directly for Book Facts fields.
 
 ### Fixed
 - Nothing yet

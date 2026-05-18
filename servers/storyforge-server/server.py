@@ -49,7 +49,6 @@ from routers.books import (  # noqa: E402, F401
     list_chapters,
 )
 from routers.chapters import (  # noqa: E402, F401
-    get_chapter,
     get_chapter_promises,
     get_chapter_writing_brief,
     get_continuity_brief,
@@ -65,10 +64,8 @@ from routers.claudemd import (  # noqa: E402, F401
     append_book_rule,
     append_book_workflow,
     get_book_claudemd,
-    get_character,
     init_book_claudemd,
     sync_book_claudemd_from_text,
-    update_book_claudemd_facts,
     update_character_snapshot,
 )
 from routers.creation import (  # noqa: E402, F401
@@ -113,7 +110,6 @@ from routers.series import (  # noqa: E402, F401
     bootstrap_character_for_new_book,
     copy_recurring_chars_to_new_book,
     create_series,
-    get_series,
     list_series_trackers_for_book,
     read_character_for_harvest,
     read_tracker_for_bootstrap,
