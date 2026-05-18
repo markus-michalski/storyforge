@@ -51,7 +51,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Buch-Idee" / "Story-Idee" / "Roman-Idee" / "Fiction-Idee" / "Brainstorm a story/book/novel" / "Was könnte ich schreiben?" / "neue Geschichte" | `/storyforge:brainstorm` (only when fiction context is clear; defer if ambiguous) |
 | "Meine Buch-Ideen" / "Story-Ideen" / "Was habe ich an Buchideen gespeichert?" | `/storyforge:ideas` |
 | Book title/name mentioned | `/storyforge:resume [name]` |
-| "What's next?" / "Was steht an?" | `/storyforge:next-step` |
+| "What's next?" / "Was steht an?" | `/storyforge:next-step` — workflow status question, NOT emotional block |
 | "Dashboard" / "Status" / "Fortschritt" | `/storyforge:book-dashboard` |
 | "Konzept" / "Develop concept" | `/storyforge:book-conceptualizer` |
 | "Serie planen" / "Series" | `/storyforge:series-planner` |
@@ -89,7 +89,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Promo" / "Social Media" / "Marketing" / "bewerben" | `/storyforge:promo-writer` |
 | "Klappentext" / "Blurb" / "Back cover" / "Back-cover copy" | `/storyforge:promo-writer` (starts at blurb step) |
 | "Neues Genre" / "Genre-Mix" | `/storyforge:genre-creator` |
-| "I'm stuck" / "Ich komme nicht weiter" / "blockiert" / "kann nicht schreiben" / "keine Motivation" / "Schreibblockade" / "keine Lust" | `/storyforge:unblock` |
+| "I'm stuck" / "Ich komme nicht weiter" / "blockiert" / "kann nicht schreiben" / "keine Motivation" / "Schreibblockade" / "keine Lust" | `/storyforge:unblock` — emotional/creative block, NOT a workflow question |
 | "Rolling planner" / "Next scene" / "Was kommt als nächstes?" / "Nächste Szene planen" / "Discovery writer" | `/storyforge:rolling-planner` |
 | `Regel:` / `Workflow:` / `Callback:` prefix, "merke dir" | `/storyforge:register-callback` |
 | "Hilfe" / "Help" | `/storyforge:help` |
