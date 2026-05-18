@@ -65,7 +65,7 @@ body:
         - /storyforge:help
         - /storyforge:setup
         - /storyforge:configure
-        - /storyforge:session-start
+        - /storyforge:start-session
         - Other (specify in description)
     validations:
       required: false

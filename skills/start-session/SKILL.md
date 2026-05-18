@@ -1,5 +1,5 @@
 ---
-name: session-start
+name: start-session
 description: |
   Initialize a StoryForge session: verify setup, load context, report status.
   Use when: (1) User types /start, (2) User says "start session", "Session starten".
@@ -7,7 +7,7 @@ model: claude-sonnet-4-6
 user-invocable: true
 ---
 
-# Session Start
+# Start Session
 
 ## Workflow
 
