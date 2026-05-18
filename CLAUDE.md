@@ -319,15 +319,12 @@ The following MCP tools are registered but have no skill wiring. They are availa
 | `list_craft_references` | List all available craft and genre reference documents | Useful when exploring what references exist; skills name their loads explicitly |
 | `validate_timeline_consistency` | Cross-validate chapter anchors against `plot/timeline.md`; flags temporal drift | Diagnostic — run after several chapters to spot drift; not part of the writing pipeline |
 | `get_review_handle_config` | Return the configured inline-review comment handle | Informational; the handle is already bundled in `get_chapter_writing_brief` (`review_handle` field) |
+| `rebuild_state` | Force-rebuild the in-memory state cache from filesystem and run book-status auto-sync (Issue #25) | Admin/recovery tool — use after manual file edits or when tools return stale data. No args. |
+| `get_current_story_anchor` | Resolve the story-calendar anchor for a chapter: start/end story-times and relative-phrase map (`yesterday`, `this morning`, etc.) | Diagnostic — spot-check time-anchor drift without running `chapter-writer`. Args: `book_slug`, optional `chapter_slug` (defaults to session `last_chapter`) |
+| `get_recent_chapter_timelines` | Return the last N eligible chapters' intra-day scene grids (status ≥ review) in chronological order | Diagnostic — inspect timeline grids across chapters; same data `chapter-writer` uses for Prerequisite 14. Args: `book_slug`, optional `n` (default 3) |
+| `count_words` | Word count for a single chapter draft or the entire book. JSON keys: `total_words`, `target_words`, `progress_percent`, `per_chapter` | Quick progress check without opening `book-dashboard`. Args: `book_slug`, optional `chapter_slug` |
 
-**Deprecated tools** (still callable, emit `DeprecationWarning`, removal in v2.0):
-
-| Tool | Replacement |
-|------|------------|
-| `get_chapter` | `get_book_full()` — projects `chapters_data` in one call |
-| `get_character` | `get_book_full()` — projects `characters` in one call |
-| `get_series` | `series-planner` reads series files directly |
-| `update_book_claudemd_facts` | PreCompact hook writes Book Facts automatically (Issue #172) |
+**Removed (Issue #236):** `get_chapter`, `get_character`, `get_series`, `update_book_claudemd_facts` — use `get_book_full()` for chapter/character data; series-planner reads series files directly; edit the book's CLAUDE.md directly to update Book Facts (pov, tense, genre, writing_mode). No stubs kept.
 
 ## Code Style
 
