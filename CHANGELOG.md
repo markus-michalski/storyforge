@@ -11,12 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Changed
-- Nothing yet
+- Renamed skill `session-start` to `start-session` for verb-noun naming consistency (`/storyforge:session-start` → `/storyforge:start-session`). Natural-language triggers (`/start`, "start session", "Session starten") continue to work. (#241)
 
 ### Deprecated
 - Nothing yet
 
 ### Removed
+- Slash command `/storyforge:session-start` (renamed to `/storyforge:start-session`, no deprecated stub). (#241)
 - Deprecated MCP tools `get_chapter`, `get_character`, `get_series`, `update_book_claudemd_facts` (#236). Migration: use `get_book_full()` for chapter/character projections; series-planner reads series files directly; edit the book's CLAUDE.md directly for Book Facts fields.
 
 ### Fixed

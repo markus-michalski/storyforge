@@ -5,7 +5,7 @@
 | Model | Purpose | Skills |
 |-------|---------|--------|
 | **Opus** | Creative work, deep analysis, style-sensitive writing | chapter-writer, chapter-reviewer, voice-checker, book-conceptualizer, plot-architect, character-creator, world-builder, create-author, study-author, brainstorm, researcher, sensitivity-reader, translator, cover-artist, genre-creator, series-planner |
-| **Sonnet** | Structured coordination, project management, validation | new-book, session-start, resume, next-step, book-dashboard, export-engineer, setup, configure |
+| **Sonnet** | Structured coordination, project management, validation | new-book, start-session, resume, next-step, book-dashboard, export-engineer, setup, configure |
 | **Haiku** | Fast lookups, simple output | help |
 
 ## Rationale
