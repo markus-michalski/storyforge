@@ -3,6 +3,7 @@ name: brainstorm
 description: |
   Brainstorm book ideas interactively — fiction (What if?) or memoir (What happened?).
   Use ONLY for book/novel/memoir concepts — NOT for software, code, video, or dev project ideas.
+  Run before `/storyforge:book-conceptualizer` (create the project first with `/storyforge:new-book`).
   Use when: (1) User says "Buch-Idee", "Story-Idee", "Roman-Idee", "Memoir-Idee", "brainstorm a story/book/novel/memoir",
   "was könnte ich schreiben", "neue Geschichte", (2) User explicitly invokes `/storyforge:brainstorm`,
   (3) Context is clearly a book (genre mentions, character/plot/world, memoir/life-writing, reading material).
@@ -13,6 +14,8 @@ argument-hint: "[idea-slug]"
 ---
 
 # Brainstorm
+
+**Position in workflow:** `brainstorm → new-book → book-conceptualizer → plot-architect → character-creator → world-builder → chapter-writer`
 
 ## Step 0 — Detect Book Category
 
@@ -56,7 +59,7 @@ Save via MCP `create_idea` with `title`, `genres`, `logline`, `concept`, and `bo
 
 The idea gets status `raw` by default. If fully developed (logline + themes + comps), call `update_idea(slug, "status", "explored")` immediately.
 
-Tell the user the slug. Ask: "Ready to turn this into a project? → `/storyforge:new-book --from-idea {slug}`"
+Tell the user the slug. Ask: *"Ready to turn this into a project? → `/storyforge:new-book --from-idea {slug}` — then develop the concept with `/storyforge:book-conceptualizer`."*
 
 ---
 
@@ -99,7 +102,7 @@ Save via MCP `create_idea` with `title`, `genres` (use scope tags as thematic an
 
 The idea gets status `raw`. If three questions are fully answered and scope is clear, call `update_idea(slug, "status", "explored")`.
 
-Tell the user the slug. Ask: "Ready to turn this into a memoir project? → `/storyforge:new-book --from-idea {slug}` (choose memoir when prompted)"
+Tell the user the slug. Ask: *"Ready to turn this into a memoir project? → `/storyforge:new-book --from-idea {slug}` (choose memoir when prompted) — then shape the concept with `/storyforge:book-conceptualizer`."*
 
 ---
 

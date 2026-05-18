@@ -4,6 +4,7 @@ description: |
   Fiction plot architect. Structures the plot with acts, beats, turning
   points, and character arcs across nine standard structures (3-Act,
   Hero's Journey, Save the Cat, Snowflake, etc.).
+  Run after `/storyforge:book-conceptualizer`, before `/storyforge:character-creator`.
   Use when: (1) `book_category == "fiction"` (or missing) AND user says
   "Plot", "Handlung", "Struktur", "outline", "plot beats",
   (2) After concept is developed, before character creation.
@@ -14,6 +15,8 @@ argument-hint: "<book-slug>"
 ---
 
 # Plot Architect (Fiction)
+
+**Position in workflow:** `book-conceptualizer → plot-architect → character-creator → world-builder → chapter-writer`
 
 This skill is the fiction variant of plot-architect, split out per Issue #126 so fiction-only sessions never load the memoir structure types and memoir-only sessions never load the fiction structure catalog.
 
@@ -173,6 +176,8 @@ Create `{project}/plot/tone.md` from template `plot-tone.md`. This step is MANDA
 
 This document guards against tonal drift during long-form writing. Without it, books tend to collapse into generic "literary" mode after ~15 chapters.
 
+Ask: *"Characters next? → `/storyforge:character-creator`"*
+
 ---
 
 ## Snowflake Workflow
@@ -307,6 +312,8 @@ Revision between steps is **built into the method**, not a failure signal:
 After completing Step 8, update book status to "Plot Outlined" via MCP `update_field()`.
 Then proceed to Steps 9–10 (optional scene descriptions + first draft).
 Also create the tonal document (original Step 9 of the standard workflow) at this point.
+
+Ask: *"Characters next? → `/storyforge:character-creator`"*
 
 ## Rules
 
