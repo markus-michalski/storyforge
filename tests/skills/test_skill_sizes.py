@@ -7,7 +7,7 @@ This test warns at 28K (a buffer above the 25K rule) so we catch drift before
 it becomes a bloat problem. Known offenders are marked xfail so CI stays green
 while their trim plan is in progress.
 
-See: Issue #235 (chapter-writer trim plan)
+See: Issue #235 (chapter-writer trim plan), Issue #245 (Phase 2 — shared extract)
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ FRONTMATTER_SEP = "---"
 
 # Skills currently over budget with an active trim plan.
 # Remove the entry once the skill is trimmed under WARN_BYTES.
-KNOWN_OVERSIZED: dict[str, str] = {
-    "chapter-writer": "Issue #245 — Phase 2 trim in progress",
-}
+# If chapter-writer drifts over budget again: extract more procedures into
+# reference/craft/chapter-writing-shared.md rather than re-adding here.
+KNOWN_OVERSIZED: dict[str, str] = {}
 
 
 def _body_bytes(skill_file: Path) -> int:
@@ -60,3 +60,31 @@ def test_skill_size_budget(skill_name: str, skill_file: Path) -> None:
         pytest.xfail(f"{message} Known: {reason}")
     else:
         pytest.fail(message)
+
+
+_SHARED_CHAPTER_ANCHORS = [
+    "## § Mode Selector",
+    "## § Scene Plan Persistence",
+    "## § User Review Loop",
+    "## § Chapter Completion",
+    "## § POV Snapshot Procedure",
+    "## § User Feedback Handling",
+]
+
+
+def test_chapter_writing_shared_exists_and_complete() -> None:
+    """chapter-writer and chapter-writer-memoir load this via get_craft_reference().
+
+    If the file is renamed or an anchor removed, both skills break at runtime.
+    """
+    shared = PLUGIN_ROOT / "reference" / "craft" / "chapter-writing-shared.md"
+    assert shared.exists(), (
+        "reference/craft/chapter-writing-shared.md is missing — "
+        "restore the file or update the § references in both chapter-writer skills."
+    )
+    body = shared.read_text(encoding="utf-8")
+    for anchor in _SHARED_CHAPTER_ANCHORS:
+        assert anchor in body, (
+            f"Anchor '{anchor}' missing from chapter-writing-shared.md — "
+            "restore the section or update the § references in the chapter-writer skills."
+        )
