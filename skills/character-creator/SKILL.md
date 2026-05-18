@@ -3,6 +3,7 @@ name: character-creator
 description: |
   Fiction character developer. Builds deep, three-dimensional characters with
   arcs, voice, motivation, and backstory across 14 structured steps.
+  Run after `/storyforge:plot-architect`, before `/storyforge:world-builder` or `/storyforge:chapter-writer`.
   Use when: (1) `book_category == "fiction"` (or missing) AND user says
   "Charakter", "character", "Figur", "Person",
   (2) After plot/structure is outlined, to populate the story.
@@ -13,6 +14,8 @@ argument-hint: "<book-slug> [name]"
 ---
 
 # Character Creator (Fiction)
+
+**Position in workflow:** `plot-architect → character-creator → world-builder → chapter-writer`
 
 This skill is the fiction variant of character-creator, split out per Issue #177 so fiction-only sessions never load the memoir real-people handler and memoir-only sessions never load the fiction character-arc machinery.
 
@@ -157,6 +160,8 @@ Update the character file with all developed details via direct Write.
 Update `{project}/characters/INDEX.md` with the new character.
 
 After all major characters are created, update book status to "Characters Created".
+
+Ask: *"Need world-building? → `/storyforge:world-builder`. Ready to write? → `/storyforge:chapter-writer`."*
 
 ## Rules
 

@@ -4,6 +4,7 @@ description: |
   Memoir narrative-arc architect. Picks one of four structure types
   (chronological / thematic / braided / vignette) and shapes the chapter
   spine per that type.
+  Run after `/storyforge:book-conceptualizer` (memoir mode), before `/storyforge:character-creator-memoir`.
   Use when: (1) `book_category == "memoir"` AND user says "Plot",
   "Handlung", "Struktur", "narrative arc", "Aufbau", (2) After
   book-conceptualizer (memoir mode) has populated the `## Scope` section.
@@ -14,6 +15,8 @@ argument-hint: "<book-slug>"
 ---
 
 # Plot Architect (Memoir)
+
+**Position in workflow:** `book-conceptualizer → plot-architect-memoir → character-creator-memoir → chapter-writer-memoir`
 
 This skill is the memoir variant of `plot-architect`, split out per Issue #126 so memoir-only sessions never load the fiction structure catalog (3-Act, Hero's Journey, Save the Cat, Snowflake) and fiction-only sessions never load the memoir structure types.
 
@@ -188,6 +191,8 @@ Steps:
 5. Write the completed document to `{project}/plot/tone.md`.
 
 Update book status to "Plot Outlined" via MCP `update_field()`.
+
+Ask: *"People profiles next? → `/storyforge:character-creator-memoir`"*
 
 ## Rules
 

@@ -2,6 +2,7 @@
 name: book-conceptualizer
 description: |
   Develop a book concept through 5 phases. Fiction: premise → theme → conflict → structure → pitch. Memoir: premise → theme → scope → structure → pitch.
+  Run after `/storyforge:brainstorm` + `/storyforge:new-book`, before `/storyforge:plot-architect`.
   Use when: (1) User says "Konzept", "develop concept", "Buchkonzept",
   (2) After brainstorming, to deepen an idea into a workable concept.
 model: claude-opus-4-7
@@ -10,6 +11,8 @@ argument-hint: "<book-slug>"
 ---
 
 # Book Conceptualizer
+
+**Position in workflow:** `brainstorm → new-book → book-conceptualizer → plot-architect → character-creator → world-builder → chapter-writer`
 
 Concept development branches on `book_category` (Path E #97 Phase 2 #60). Fiction runs the historical 5-phase flow. Memoir runs a memoir-shaped 5-phase flow that replaces Phase 3 *Conflict* with Phase 3 *Scope* and pulls memoir-specific craft.
 
@@ -104,6 +107,8 @@ Write to `{project}/synopsis.md`.
 
 Update book status to "Concept" via MCP `update_field()`.
 
+Ask: *"Outliner/Plantser → `/storyforge:plot-architect`. Discovery writer → `/storyforge:rolling-planner` before each chapter session."*
+
 ## Workflow — Memoir (5 phases)
 
 The phase numbering matches fiction (1-5) so downstream skills can reference *"Phase 4"* without branching. The shape of each phase is memoir-specific.
@@ -196,6 +201,8 @@ Anti-pattern check: re-read `memoir-anti-ai-patterns.md` against the generated b
 Write to `{project}/synopsis.md`.
 
 Update book status to "Concept" via MCP `update_field()`.
+
+Ask: *"Ready to shape the narrative arc? → `/storyforge:plot-architect-memoir`"*
 
 ## Rules
 - Resolve `book_category` in Step 0 before any phase. Never assume fiction.

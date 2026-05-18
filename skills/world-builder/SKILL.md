@@ -2,6 +2,7 @@
 name: world-builder
 description: |
   Build settings, magic systems, societies, and history for the story world.
+  For fantasy/sci-fi/supernatural/historical: run after `/storyforge:character-creator`, before `/storyforge:chapter-writer`. Optional for contemporary, romance, mystery, drama, literary.
   Use when: (1) User says "Welt", "world", "Setting", "Magic System",
   (2) For fantasy, sci-fi, supernatural, or historical genres.
 model: claude-opus-4-7
@@ -10,6 +11,8 @@ argument-hint: "<book-slug>"
 ---
 
 # World Builder
+
+**Position in workflow:** Optional. For fantasy/sci-fi/supernatural/historical: `character-creator → world-builder → chapter-writer`. Skip for contemporary, romance, mystery, drama, literary.
 
 ## Step 0 — Resolve Book Category
 
@@ -104,6 +107,8 @@ Create a consistency checklist in `{project}/world/rules.md`:
 - [ ] Characters can't know things they shouldn't
 
 Update book status to "World Built" via MCP `update_field()`.
+
+Ask: *"Ready to write? → `/storyforge:chapter-writer`"*
 
 ## Rules (Fiction)
 - ICEBERG PRINCIPLE: Know 100%, show ~10% in-story. The reader discovers through scene; the author keeps the rest as reference.
