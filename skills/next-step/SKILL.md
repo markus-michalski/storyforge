@@ -3,6 +3,7 @@ name: next-step
 description: |
   Suggest the next step based on current book status and workflow.
   Use when: (1) User asks "was steht an?", "next step", "was als nächstes?"
+  NOT for writer's block or creative resistance — use /storyforge:unblock instead.
 model: claude-sonnet-4-6
 user-invocable: true
 ---

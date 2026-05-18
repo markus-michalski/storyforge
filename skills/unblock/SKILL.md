@@ -4,6 +4,7 @@ description: |
   Diagnose and resolve writer's block with targeted, book-context-aware interventions.
   Use when: User says "I'm stuck", "Ich komme nicht weiter", "blocked", "can't write",
   "keine Motivation", "keine Lust", "Schreibblockade", or similar signals of creative resistance.
+  NOT for workflow questions ("what's next?", "was steht an?") — use /storyforge:next-step instead.
 model: claude-opus-4-7
 user-invocable: true
 argument-hint: "[book-slug]"
