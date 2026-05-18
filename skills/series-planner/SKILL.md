@@ -11,6 +11,13 @@ argument-hint: "<series-name>"
 
 # Series Planner
 
+## Session Start
+
+Before asking questions, check whether the user is resuming work on an existing series:
+- If a series slug is provided or deducible, call `list_series_trackers_for_book(series_slug, "B1")` to surface existing trackers.
+- Report how many trackers exist and which characters are already tracked — this prevents duplicates and gives the user immediate orientation.
+- Skip the check when the series doesn't exist yet (Step 2 will create it).
+
 ## Workflow
 
 ### Step 1: Series Concept
@@ -29,14 +36,34 @@ Ask the user:
 ### Step 2: Create Series
 Use MCP `create_series()` with collected info.
 
-### Step 3: Series Arc
-For sequential/trilogy series — plan the OVERARCHING arc:
-- What's the BIG question across all books?
-- How does each book answer a piece of it?
-- What escalates between books?
-- How does the protagonist grow across the series?
+`create_series()` scaffolds the directory and creates placeholder files including `series-arc.md`, `timeline.md`, `world/canon.md`, and `README.md`. Confirm the path from the response before proceeding to Step 3.
 
-Write to `{series}/series-arc.md`.
+### Step 3: Series Arc
+For sequential/trilogy series — plan the OVERARCHING arc with the user:
+- **Big Question**: What is the central dramatic question that spans ALL books?
+- **Per-Book Answers**: How does each book answer one piece of it (without resolving the whole)?
+- **Escalation Map**: What raises the stakes between each book?
+- **Protagonist Growth Arc**: How does the main character change across the entire series?
+
+Once agreed, use the Write tool to populate `series-arc.md` at the path returned by `create_series()`. Structure the file as:
+
+```markdown
+# {Title} — Series Arc
+
+## The Big Question
+{The central dramatic question spanning all books}
+
+## Per-Book Arc
+- **Book 1 ({title}):** {What this book answers / contributes}
+- **Book 2 ({title}):** {What this book answers / contributes}
+...
+
+## Escalation Between Books
+{What raises the stakes from book to book — stakes, scope, personal cost}
+
+## Protagonist Growth Arc
+{How the protagonist changes across the full series — wound → growth → resolution}
+```
 
 **Wait for user approval of the series arc before proceeding to Step 4.** Per-book planning depends on a locked overarching arc.
 
@@ -57,28 +84,37 @@ Set up `{series}/world/canon.md`:
 - World rules (magic systems, technology, geography)
 - Timeline of events across books
 
-Set up `{series}/characters/` from `templates/series-character-tracker.md`:
-- One tracker file per recurring character (`recurs_in: [B1, B2, ...]`)
-- `## Snapshot` (essence at series scope), `## Evolution per Band` (B1 Start/Ende, B2 geplant), `## Beziehungen über die Bände`, `## Updates Log`
-- `tracker_type: thin` for characters whose full profile lives in their home book; `full` is rare and only for characters that span books equally without a home book
+Set up series character trackers for every recurring character:
 
-**`book_slug:` mapping (Issue #194).** When you propose a tracker slug that differs from the slugified character name (and from the existing book-level character slug — e.g. you pick `king-caelan` for a character whose book-level file is `caelan.md`), write the optional `book_slug:` frontmatter field on the tracker. This is what the future harvest, bootstrap, and brief-source tooling (Issue #195) consumes to bridge between scopes:
+For each recurring character, call MCP `create_character_tracker()`:
 
-```yaml
----
-name: "King Caelan"
-slug: "king-caelan"
-book_slug: "caelan"        # ← explicit book-level equivalent
-role: "supporting"
-recurs_in: ["B1", "B2", "B3"]
-tracker_type: "thin"
----
+```
+create_character_tracker(
+  series_slug="{series-slug}",
+  name="{Full Character Name}",
+  slug="{tracker-slug}",           # kebab-case; use role-prefix if needed (e.g. "king-caelan")
+  role="{protagonist|antagonist|supporting|love-interest|mentor|minor}",
+  recurs_in=["{B1}", "{B2}", ...],  # all books this character appears in
+  species="{species}",              # optional
+  tracker_type="thin",              # "full" only for characters with no single home book
+  book_slug="{book-level-slug}",    # set ONLY when tracker slug differs from book-level file name
+                                    # e.g. tracker "king-caelan" ↔ book file "caelan.md"
+)
 ```
 
-When the tracker slug already matches the book-level slug (e.g. `kael` ↔ `kael.md`), omit `book_slug:` — the resolver falls back to the tracker slug. Zero-config for the common case.
+`book_slug:` mapping rule (Issue #194): When the tracker slug differs from the book-level character file stem, set `book_slug` explicitly. When they match (e.g. tracker `kael` ↔ book file `kael.md`), omit it — the resolver falls back to the tracker slug automatically.
+
+`tracker_type: thin` is correct for characters whose full profile lives in their home book. Use `full` only for characters that span books equally without a "home" book — this is rare.
+
+**Wait for user review of each tracker before creating the next.** The `recurs_in` list is load-bearing for bootstrap, harvest, and brief-source tooling.
 
 ### Step 6: Link Books
-As books are created, link them via MCP `add_book_to_series()`.
+As books are created, link them via MCP `add_book_to_series(series_slug, book_slug, number)`.
+
+After each `add_book_to_series()` call, verify the link with `get_book_full(book_slug)`:
+- Check `book["series"]` matches the series slug
+- Check `book["series_number"]` is the expected number
+- Report status and any warnings to the user before continuing
 
 ## Rules
 - Canon.md is sacred — once established, treat it as permanent. Changes require a series-level revision pass.
