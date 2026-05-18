@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [1.26.2] - 2026-05-18
+
+### Added
+- upgrade Step 6d EA-Scan to interactive hard-gate (#233)
+
 ## [1.26.1] - 2026-05-17
 
 ### Added
@@ -433,3 +438,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.25.2]: https://github.com/markus-michalski/storyforge/releases/tag/v1.25.2
 [1.26.0]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.0
 [1.26.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.1
+[1.26.2]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.2
