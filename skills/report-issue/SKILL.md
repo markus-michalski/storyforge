@@ -53,7 +53,7 @@ For structural rules (walking order, POV boundary) that cannot be expressed as a
 
 If the rule is a literal phrase or regex (not structural):
 
-Use MCP `run_manuscript_scan(book_slug, pattern)` if available. Otherwise:
+Use MCP `scan_manuscript(book_slug, pattern)` if available. Otherwise:
 1. List all chapter draft files: `{project}/chapters/*/draft.md`
 2. Read each draft and count occurrences of the phrase.
 3. Report: "Found N occurrences across M chapters: [chapter list with counts]"
@@ -84,11 +84,11 @@ Use AskUserQuestion:
 
 ## Step 6: Write the Rule
 
-Call the appropriate `rule_writer` function based on scope:
+Call the appropriate tool based on scope:
 
-- **Book scope**: MCP `write_rule_book(book_slug, phrase, reason, severity, source_context)`
-- **Author scope**: MCP `write_rule_author(author_slug, phrase, reason, source_context)`
-- **Global scope**: MCP `write_rule_global(phrase, reason, source_context)`
+- **Book scope**: MCP `append_book_rule(book_slug, phrase, reason, severity, source_context)`
+- **Author scope**: MCP `write_author_banned_phrase(author_slug, phrase, reason)`
+- **Global scope**: Direct Write — append the rule entry to `{plugin_root}/reference/craft/anti-ai-patterns.md`
 
 Where `source_context = "report-issue based on {book_title} Ch {chapter_number} review"`.
 

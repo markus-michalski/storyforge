@@ -75,11 +75,21 @@ Use AskUserQuestion:
 
 ## Step 6: Execute Promotion
 
-Call MCP `promote_rule(phrase, reason, from_scope, to_scope, book_slug, author_slug, remove_from_source)`.
+Execute in two sub-steps:
+
+**Write to target scope:**
+- **Book → Author**: MCP `write_author_banned_phrase(author_slug, phrase, reason)` with reason including `_(promoted from book-scope on {today's date})_`.
+- **Author → Global** or **Book → Global**: Direct Write — append the rule entry to `{plugin_root}/reference/craft/anti-ai-patterns.md`.
 
 The `reason` is extracted from the existing rule entry or asked if not present:
 - Book CLAUDE.md: extract text after `` `{phrase}` — ``
 - Author vocabulary: use the section name as reason context
+
+**Remove from source (only when user chose "Yes, promote" in Step 5):**
+- **From book scope**: Read the book's CLAUDE.md via `get_book_claudemd(book_slug)`. Remove the rule entry via direct Edit. Call `get_book_claudemd(book_slug)` once more to confirm.
+- **From author scope**: Read `~/.storyforge/authors/{slug}/vocabulary.md` directly. Remove the phrase entry via direct Edit.
+
+Write to target first — confirm success before removing from source.
 
 ## Step 7: Report Result
 

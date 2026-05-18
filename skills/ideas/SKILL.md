@@ -4,7 +4,7 @@ description: |
   List, filter, and manage book ideas. Shows ideas by status and genre.
   Use when: (1) User says "meine Ideen", "ideas", "was habe ich gespeichert",
   (2) User wants to pick up a parked idea, (3) User asks what ideas are ready.
-model: claude-haiku-4-5-20251001
+model: claude-haiku-4-5
 user-invocable: true
 argument-hint: "[status] [genre]"
 ---
