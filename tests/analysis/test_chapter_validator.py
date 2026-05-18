@@ -591,3 +591,140 @@ class TestAuthorBanlistCategorySplit:
         ]
         assert len(thing_findings) == 1
         assert thing_findings[0].category == "author_vocab_violation"
+
+    def test_warn_severity_tic_does_not_block(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        """A tic tagged [warn] produces a WARN finding but never blocks the write."""
+        book = _write_book_with_author(tmp_path)
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                "### Recurring Tics\n\n"
+                "- **Vague-plural things** — "
+                "`\\b(did|does|doing)\\s+things\\b` — [warn] advisory.\n"
+            ),
+        )
+        prose = "He did things he normally would not do. " * 30
+        draft = _write_draft(book, prose)
+        result = validate_chapter_path(str(draft))
+
+        tic_findings = [
+            f for f in result.findings if f.category == "writing_discovery_violation"
+        ]
+        assert tic_findings, "expected a writing_discovery_violation finding"
+        assert all(f.severity == SEVERITY_WARN for f in tic_findings)
+        assert not result.will_block
+
+    def test_chapter_limit_allows_hits_under_cap(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        """A tic with 'Max 2 per chapter' does not fire when hits <= cap."""
+        book = _write_book_with_author(tmp_path)
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                '### Recurring Tics\n\n'
+                '- **"the way" Vergleichs-Tic** — Max 2 per chapter.\n'
+            ),
+        )
+        # Use ~3 000 words so _scaled_scene_limit does not reduce cap below 2.
+        filler = "This sentence is unrelated filler content for test validation purposes. " * 200
+        prose = (
+            "He moved the way a cat moves. She spoke the way people speak at funerals. "
+            + filler
+        )
+        draft = _write_draft(book, prose)
+        result = validate_chapter_path(str(draft))
+
+        tic_findings = [
+            f for f in result.findings if f.category == "writing_discovery_violation"
+        ]
+        assert not tic_findings, f"unexpected finding with 2 hits at cap 2: {tic_findings}"
+
+    def test_chapter_limit_blocks_hits_over_cap(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        """A tic with 'Max 2 per chapter' fires when hits exceed the cap."""
+        book = _write_book_with_author(tmp_path)
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                '### Recurring Tics\n\n'
+                '- **"the way" Vergleichs-Tic** — Max 2 per chapter.\n'
+            ),
+        )
+        filler = "This sentence is unrelated filler content for test validation purposes. " * 200
+        prose = (
+            "He moved the way a cat moves. She spoke the way people speak. "
+            "He laughed the way tired men laugh. "
+            + filler
+        )
+        draft = _write_draft(book, prose)
+        result = validate_chapter_path(str(draft))
+
+        tic_findings = [
+            f for f in result.findings if f.category == "writing_discovery_violation"
+        ]
+        assert tic_findings, "expected a writing_discovery_violation finding at 3 hits over cap 2"
+        assert "3" in tic_findings[0].message
+
+    def test_german_limit_syntax_parsed(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        """German 'Max. 2–3 pro Kapitel' phrasing is parsed as chapter_limit=3."""
+        book = _write_book_with_author(tmp_path)
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                '### Recurring Tics\n\n'
+                '- **"count" Zeitmarker-Tic** — Max. 2–3 pro Kapitel.\n'
+            ),
+        )
+        filler = "This sentence is unrelated filler content for test validation purposes. " * 200
+        # 3 hits of bare "count" at cap 3 — must pass.
+        # Avoid "counted" which also matches \bcount\w*.
+        prose = (
+            "For a count of three he held still. For a count of two she waited. "
+            "For a count of five they breathed. "
+            + filler
+        )
+        draft = _write_draft(book, prose)
+        result = validate_chapter_path(str(draft))
+
+        tic_findings = [
+            f for f in result.findings if f.category == "writing_discovery_violation"
+        ]
+        assert not tic_findings, f"3 hits at cap 3 should not block: {tic_findings}"
+
+    def test_einmal_limit_syntax_parsed(
+        self, tmp_path: Path, patch_storyforge_home: Path
+    ) -> None:
+        """German 'Max einmal pro Kapitel' parses as chapter_limit=1."""
+        book = _write_book_with_author(tmp_path)
+        _write_author_profile_with_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            (
+                '### Recurring Tics\n\n'
+                '- **"the way" Tic** — Max einmal pro Kapitel.\n'
+            ),
+        )
+        filler = "This sentence is unrelated filler content for test validation purposes. " * 200
+        # 2 hits — exceeds cap of 1 even at full word count.
+        prose = (
+            "He moved the way a ghost moves. She smiled the way old friends smile. "
+            + filler
+        )
+        draft = _write_draft(book, prose)
+        result = validate_chapter_path(str(draft))
+
+        tic_findings = [
+            f for f in result.findings if f.category == "writing_discovery_violation"
+        ]
+        assert tic_findings, "2 hits should exceed cap of 1"
+        assert "2" in tic_findings[0].message

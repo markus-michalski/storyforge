@@ -302,7 +302,7 @@ Skills MUST load relevant craft references before generating creative content. U
 11. ALWAYS update `plot/timeline.md` after writing a chapter — one row per story-day
 12. ALWAYS load `plot/canon-log.md` before writing any chapter — preserve established facts. Contradictions break canon and reader trust.
 13. ALWAYS update `plot/canon-log.md` after writing or revising a chapter — track new and changed facts
-14. ALWAYS verify user corrections before applying — quote the relevant text, check context, assess impact, and push back when the user is wrong or has misunderstood. The user's English comprehension may miss prose nuances; blind acceptance corrupts drafts.
+14. ALWAYS verify user corrections before applying — quote the relevant text, check context, assess impact. If the correction seems wrong or the user may have misread the prose: present your analysis and explain why the original may be stronger, then explicitly ASK whether to apply the change or keep the original. The final decision is always the user's — pushback opens a discussion, it never decides the outcome unilaterally. The user's English comprehension may miss prose nuances, but the user still has final authority over every edit.
 15. ALWAYS load `plot/tone.md` before writing any chapter (if it exists) — tonal consistency is mandatory
 16. ALWAYS update the `## Chapter Timeline` section in the chapter's README.md after writing — intra-day time tracking prevents temporal inconsistencies
 17. ALWAYS load the book's `CLAUDE.md` via MCP `get_book_claudemd()` before writing or reviewing a chapter — it contains persisted workflow rules and callbacks that survive session compaction

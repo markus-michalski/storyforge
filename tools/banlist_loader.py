@@ -192,7 +192,7 @@ def _build_inflection_pattern(text: str) -> re.Pattern[str]:
 
 
 # ---------------------------------------------------------------------------
-# Author Writing Discoveries (block-severity) — Issue #151 follow-up
+# Author Writing Discoveries — Issue #151 follow-up
 # ---------------------------------------------------------------------------
 #
 # Discoveries promoted via /storyforge:harvest-author-rules land under
@@ -202,6 +202,54 @@ def _build_inflection_pattern(text: str) -> re.Pattern[str]:
 # `**Vague-noun "thing" als Fallback**`). Without this loader, those tics
 # were invisible to the chapter-writing brief and the manuscript-checker
 # (#151 follow-up).
+#
+# Severity and chapter_limit extensions:
+#
+# - Adding ``[warn]`` or ``[advisory]`` anywhere in the bullet text downgrades
+#   the finding to SEVERITY_WARN — the hook reports it without blocking.
+#   Use for tics that are context-dependent (sometimes acceptable).
+# - Adding ``Max N per chapter`` / ``Max N–M per chapter`` / ``Max einmal pro
+#   Kapitel`` in the bullet text sets a per-chapter cap. The hook allows up to
+#   that many hits before emitting a finding. The same German phrasing already
+#   used in existing tic bullets is accepted.
+
+# ``[warn]`` / ``[advisory]`` anywhere in a bullet body → SEVERITY_WARN.
+_DISCOVERY_WARN_RE = re.compile(r"\[(?:warn|advisory)\]", re.IGNORECASE)
+
+# ``Max N per chapter``, ``Max N–M pro Kapitel``, ``Max einmal pro Kapitel``.
+# Handles the German "Max. N–M pro Kapitel" phrasing (with trailing period on
+# "Max") and "einmal"/"once" as a synonym for 1.
+_DISCOVERY_LIMIT_RE = re.compile(
+    r"\bmax(?:imum)?\.?\s+"
+    r"(?:(?P<once>once|einmal)"
+    r"|(?:(?P<low>\d+)\s*[-–—]\s*)?(?P<high>\d+))"
+    r"\s+(?:per|pro)\s+(?:chapter|kapitel)\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_discovery_severity(text: str) -> str:
+    """Return SEVERITY_WARN when ``[warn]`` / ``[advisory]`` is present."""
+    return SEVERITY_WARN if _DISCOVERY_WARN_RE.search(text) else SEVERITY_BLOCK
+
+
+def _extract_discovery_limit(text: str) -> int:
+    """Parse per-chapter cap from a tic bullet body.
+
+    Returns the integer limit (upper bound for ranges, 1 for once/einmal),
+    or 0 when no cap is declared (block on first hit).
+    """
+    match = _DISCOVERY_LIMIT_RE.search(text)
+    if not match:
+        return 0
+    if match.group("once"):
+        return 1
+    upper = match.group("high") or match.group("low")
+    try:
+        return int(upper)
+    except ValueError:
+        return 0
+
 
 _DISCOVERIES_SECTION_RE = re.compile(
     r"^##\s+Writing\s+Discoveries\s*$(?P<body>.*?)(?=^##\s|\Z)",
@@ -393,7 +441,12 @@ def load_author_writing_discoveries(
     source = "author profile (## Writing Discoveries / Recurring Tics)"
     reason = "recurring tic promoted from a finished book"
 
-    def _emit(label: str, compiled: re.Pattern[str]) -> None:
+    def _emit(
+        label: str,
+        compiled: re.Pattern[str],
+        severity: str = SEVERITY_BLOCK,
+        chapter_limit: int = 0,
+    ) -> None:
         cleaned = _strip_parenthetical(label).strip()
         if len(cleaned) < 2:
             return
@@ -405,9 +458,10 @@ def load_author_writing_discoveries(
             BannedPattern(
                 label=cleaned,
                 pattern=compiled,
-                severity=SEVERITY_BLOCK,
+                severity=severity,
                 source=source,
                 reason=reason,
+                chapter_limit=chapter_limit,
             )
         )
 
@@ -415,12 +469,23 @@ def load_author_writing_discoveries(
         bold_title = bullet_match.group("title")
         body_text = bullet_match.group("body") or ""
 
+        # Severity and per-chapter limit are bullet-level metadata — extract
+        # once and apply to every pattern emitted from this bullet.
+        full_bullet = bold_title + " " + body_text
+        sev = _extract_discovery_severity(full_bullet)
+        limit = _extract_discovery_limit(full_bullet)
+
         # Priority 1: quoted phrases inside the bold title (primary path —
         # unchanged from the pre-#212 behavior so existing tics keep working).
         title_quotes = _title_inner_quotes(bold_title)
         if title_quotes:
             for phrase in title_quotes:
-                _emit(phrase, _build_discovery_pattern(_strip_parenthetical(phrase).strip()))
+                _emit(
+                    phrase,
+                    _build_discovery_pattern(_strip_parenthetical(phrase).strip()),
+                    sev,
+                    limit,
+                )
             continue
 
         # Priority 2: extract patterns from the bullet body — backticks and
@@ -434,9 +499,9 @@ def load_author_writing_discoveries(
                     cleaned = _strip_parenthetical(label).strip()
                     if len(cleaned) < 2:
                         continue
-                    _emit(label, _build_discovery_pattern(cleaned))
+                    _emit(label, _build_discovery_pattern(cleaned), sev, limit)
                 else:
-                    _emit(label, compiled)
+                    _emit(label, compiled, sev, limit)
             continue
 
         # Priority 3: fall back to the bold-title text as the pattern. This
@@ -444,7 +509,12 @@ def load_author_writing_discoveries(
         # ``**Opened his mouth. Closed it.**`` that have neither title quotes
         # nor body patterns.
         for phrase in _extract_phrases_from_bold_title(bold_title):
-            _emit(phrase, _build_discovery_pattern(_strip_parenthetical(phrase).strip()))
+            _emit(
+                phrase,
+                _build_discovery_pattern(_strip_parenthetical(phrase).strip()),
+                sev,
+                limit,
+            )
     return patterns
 
 

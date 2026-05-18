@@ -715,7 +715,9 @@ def _scan_pov_boundary(
     return findings
 
 
-def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
+def _scan_author_banlist(
+    text: str, book_root: Path, draft_path: Path | None = None
+) -> list[Finding]:
     """Block on phrases banned at author scope.
 
     Aggregates three author-scoped sources, mirroring the brief's
@@ -784,18 +786,44 @@ def _scan_author_banlist(text: str, book_root: Path) -> list[Finding]:
 
     findings: list[Finding] = []
     for banned, category in patterns_with_category:
-        match = banned.pattern.search(text)
-        if not match:
+        matches = list(banned.pattern.finditer(text))
+        if not matches:
             continue
-        line_num = _line_for_offset(text, match.start())
-        findings.append(
-            Finding(
-                severity=SEVERITY_BLOCK,
-                category=category,
-                message=(f"Banned by author voice ({banned.source}): '{banned.label}'"),
-                line=line_num,
+
+        if banned.chapter_limit > 0:
+            if draft_path is not None:
+                target_words = _chapter_target_words(draft_path)
+                current_words = max(len(text.split()), 1)
+                effective_limit = _scaled_scene_limit(
+                    banned.chapter_limit, current_words, target_words
+                )
+            else:
+                effective_limit = banned.chapter_limit
+            if len(matches) <= effective_limit:
+                continue
+            line_num = _line_for_offset(text, matches[0].start())
+            occurrences = _format_occurrences(text, matches)
+            findings.append(
+                Finding(
+                    severity=banned.severity,
+                    category=category,
+                    message=(
+                        f"Banned by author voice ({banned.source}): '{banned.label}' "
+                        f"appears {len(matches)}× (limit: {effective_limit}). {occurrences}"
+                    ),
+                    line=line_num,
+                )
             )
-        )
+        else:
+            line_num = _line_for_offset(text, matches[0].start())
+            findings.append(
+                Finding(
+                    severity=banned.severity,
+                    category=category,
+                    message=(f"Banned by author voice ({banned.source}): '{banned.label}'"),
+                    line=line_num,
+                )
+            )
     return findings
 
 
@@ -908,7 +936,7 @@ def validate_chapter(file_path: str) -> list[Finding]:
     book_root = find_book_root(path)
     if book_root is not None:
         findings.extend(_scan_book_banlist(text, book_root, path))
-        findings.extend(_scan_author_banlist(text, book_root))
+        findings.extend(_scan_author_banlist(text, book_root, path))
         findings.extend(_scan_pov_boundary(text, path, book_root))
     findings.extend(_scan_time_anchor(text, path))
     findings.extend(_scan_meta_narrative(text))
