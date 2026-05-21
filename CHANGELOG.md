@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [2.0.1] - 2026-05-21
+
+### Added
+- add anti-checklist warning for scene beats (#253) (#254)
+
 ## [2.0.0] - 2026-05-18
 
 ### Added
@@ -459,3 +464,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.26.1]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.1
 [1.26.2]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.2
 [2.0.0]: https://github.com/markus-michalski/storyforge/releases/tag/v2.0.0
+[2.0.1]: https://github.com/markus-michalski/storyforge/releases/tag/v2.0.1
