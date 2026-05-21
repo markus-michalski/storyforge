@@ -85,6 +85,8 @@ Read the chapter README.md outline:
 5. **Sensory plausibility.** Can the POV perceive what the planned beat requires? **Source:** brief's `pov_character_state` — `clothing`, `injuries`, `altered_states`, `environmental_limiters`. If any category has `extraction_methods[cat] == "none"` AND the planned beat depends on it → surface and ask.
    > *Example: "`clothing` → tactical boots; 'steps colder than expected' → boots block direct sensation → rewrite as 'he gripped the railing — cold enough that even through gloves he felt it'."*
 
+6. **Scene arc (scene-level; Step 1 asks the chapter-level equivalent).** In one sentence: what does the POV character feel at the start of this scene, what shifts mid-scene, and where do they land emotionally? **Source:** scene PURPOSE from the `## Scene Plan` in the chapter README. If you can only answer by listing beats in order, re-read PURPOSE before writing.
+
 If any category surfaces a gap, surface it explicitly and ask the user — never paper over it.
 
 ---
@@ -114,6 +116,9 @@ If no `## Scene Plan` section exists (and proceeding directly): break the chapte
 Run the **Pre-Logic Audit** (above) **per scene**. Emit the bulleted block to chat before appending to `draft.md`, then proceed to Step A2.
 
 #### Step A2: Write One Scene
+
+**Anti-Checklist Warning:** The Pre-Scene Audit operates per-beat — that is the planning phase. Prose does NOT follow that sequence. Read all beats from the chapter README's Scene Beats section, hold them as a constellation, then write the scene as one organic whole. Do NOT write beat 1, then beat 2, then beat 3 — that produces sequential paragraphs each rendering one beat in isolation, not prose. After writing, check whether each beat found its place naturally. If a beat did not surface, note it in the chat metadata line so the user can decide whether to add it or release it from the plan.
+
 Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene.
 
 **Pre-write tactical check:** if the scene involves combat OR group movement (`walk`, `hike`, `drive`, `attack`, `mission`, `enter the building`, `approach`, multi-character formation), the brief's `tactical_constraints` may already be populated. If not — or if the scene's specific outline differs — call MCP `verify_tactical_setup(book_slug, scene_outline_text, characters_present)` and resolve every warn-severity warning before drafting.
