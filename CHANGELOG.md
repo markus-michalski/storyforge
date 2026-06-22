@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [2.2.0] - 2026-06-22
+
+### Added
+- backfill-style-principles skill (#262) (#263)
+
+### Changed
+- update mcp requirement in the pip-all group (#257)
+- bump actions/checkout from 6 to 7 in the actions-all group (#256)
+
 ## [2.1.0] - 2026-06-22
 
 ### Added
@@ -475,3 +484,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [2.0.0]: https://github.com/markus-michalski/storyforge/releases/tag/v2.0.0
 [2.0.1]: https://github.com/markus-michalski/storyforge/releases/tag/v2.0.1
 [2.1.0]: https://github.com/markus-michalski/storyforge/releases/tag/v2.1.0
+[2.2.0]: https://github.com/markus-michalski/storyforge/releases/tag/v2.2.0
