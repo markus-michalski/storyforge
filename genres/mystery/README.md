@@ -81,3 +81,15 @@ Mystery fiction hinges on a central puzzle—a crime, disappearance, or secret�
 - **Mystery + Literary Fiction:** Excellent pairing. Literary prose quality and thematic depth elevate mystery beyond puzzle. Emotional complexity of culprit/victim matters as much as whodunit.
 - **Mystery + Science Fiction:** Works with SF elements as clues or setting (futuristic investigation methods, alien suspects). Same fair-play rules apply.
 - **Mystery + Fantasy:** Possible with magical clues and solutions, but be careful about breaking fair-play. Readers should theorize toward magic; they shouldn't feel cheated by it.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Clue seeding density** — How many real clues (vs. atmosphere or red herrings) appear per chapter? Are they embedded in action/dialog or delivered as information? The embedding technique is what separates fair-play from info-dump.
+- **Fair-play information balance** — Could a careful reader theoretically solve the mystery before the reveal? Note at what chapter all essential clues are available. This ratio defines the reader's experience as puzzle vs. surprise.
+- **Investigation energy markers** — How does the author convey the detective/protagonist's enthusiasm, frustration, or intuitive leaps? What techniques are used to make investigative process engaging rather than procedural?
+- **Atmosphere density in investigation scenes** — Does the investigation happen against a backdrop of rich setting and character texture, or is it procedural and stripped-back? Note the author's balance of plot-function vs. scene-building.
+- **Revelation spacing** — How many scenes or chapters pass between each significant new discovery? What is the minimum and maximum gap? The rhythm creates reader engagement or frustration.
+- **Character-mystery integration** — How deeply is the protagonist's personal arc entangled with the case? Purely external mystery vs. personally-stakes mystery creates fundamentally different reader engagement.
+- **Ensemble dynamic in investigation** — If there are multiple characters investigating, how does the author distribute information and perspective across them? How does conflict within the team create tension?

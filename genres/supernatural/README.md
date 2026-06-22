@@ -81,3 +81,15 @@ Supernatural fiction integrates creatures, entities, or phenomena from folklore,
 - **Supernatural + Thriller:** Viable; external threat combines with supernatural stakes. Pacing should remain taut; atmosphere shouldn't overly slow momentum.
 - **Supernatural + Literary Fiction:** Achievable with prose quality and psychological depth. Literary supernatural explores meaning, consciousness, and mortality.
 - **Supernatural + Contemporary/Historical:** Nearly always present; supernatural is grounded in recognizable setting. Modern or period authenticity is essential.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Supernatural rule reveal pacing** — How early are the rules of the supernatural world established? Does the author front-load rules or let them emerge through incident? Note the reveal sequence and whether established rules are then used for plot (chekhov's gun principle).
+- **Supernatural-mundane integration** — How does the author weave the supernatural into everyday settings and routines? Note specific techniques: supernatural beings with mundane problems, magic with bureaucratic rules, immortals with contemporary concerns. The more grounded, the more believable.
+- **Mythology density vs. revelation ratio** — How much backstory and lore exists (implied) vs. how much is actually revealed? Heavy mythology with controlled revelation creates depth; too much exposition creates drag. Note the author's balance.
+- **Creature/being interiority** — If the book has supernatural beings as POV characters, how does the author convey non-human consciousness while keeping it accessible? Note specific techniques: translation to human analogue, defamiliarization, unique sensory priorities.
+- **Threat calibration** — If the supernatural elements include threat, how does the author calibrate what the beings can and cannot do? Unlimited power creates no tension; carefully bounded power creates stakes. Note the constraint mechanisms.
+- **Wonder vs. horror balance** — Does the supernatural primarily inspire awe, dread, or both? In what ratio across the narrative? Map which scenes prioritize each. This ratio defines the book's emotional register.
+- **Human-supernatural relationship dynamics** — How does the author handle the power differential between humans and supernatural beings in relationship contexts? Note whether this creates tension, comedy, or tenderness — and how.

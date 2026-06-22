@@ -80,3 +80,15 @@ Drama fiction prioritizes emotional truth, character transformation, and the exp
 - **Drama + Thriller/Suspense:** Possible if the external threat accelerates emotional reckoning. Danger can force characters to confront feelings or relationships.
 - **Drama + Science Fiction or Fantasy:** Rare but achievable. The speculative element should deepen emotional exploration, not replace it. Example: SF exploring future family dynamics or fantasy examining belonging.
 - **Drama + Comedy:** Works well. Humor can soften emotional weight without undermining seriousness. Often called "dramedy." Balance is essential; one can't overshadow the other.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Conflict escalation rhythm** — How does the author build emotional conflict across the narrative? Note whether conflict escalates continuously, in waves, or in a single sustained arc. Map the key escalation points and what triggers each.
+- **Character revelation frequency** — How often does the reader genuinely learn something new about a character that recontextualizes earlier behavior? Note whether revelations come through action, dialog, or interior reflection — and which method the author uses most effectively.
+- **Relationship dynamic shift markers** — How does the author signal that a relationship between characters has fundamentally changed? Note specific techniques: a scene that mirrors an earlier scene with altered dynamics, changed dialog register, physical behavior shifts, what is now said vs. what was previously withheld.
+- **Dialog subtext density** — What percentage of dialog scenes have a clear gap between what characters say and what they mean? Note the author's specific techniques for creating subtext: deflection, topic avoidance, irony, over-explaining. High subtext density creates reader engagement through decoding.
+- **Emotional peak preparation** — How many scenes of setup and accumulation precede a major emotional confrontation or revelation? Note the author's ratio of preparation to payoff. Underprepared peaks feel melodramatic; overprepared peaks lose impact.
+- **Warmth within conflict** — Pure drama without warmth becomes punishing. How does the author sustain reader investment in characters who are behaving badly or hurting each other? Note specific techniques: access to character's private vulnerability, moments of unguarded connection, humor that briefly penetrates conflict.
+- **Resolution quality** — How does the author resolve the central dramatic conflict? Note whether resolution is earned (the character genuinely changes), partial (realistic, unresolved residue), or withheld. Drama resolutions that feel too clean often betray the genre.

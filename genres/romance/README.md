@@ -82,3 +82,15 @@ Romance fiction centers on the development and deepening of a love relationship 
 - **Romance + Horror:** Challenging but possible. The couple must be each other's anchor against external horror. Relationship development shouldn't be sacrificed for scares.
 - **Romance + Literary Fiction:** Achievable with prose quality and emotional depth. Literary romance often focuses on nuance, subtext, and transformative love.
 - **Romance + Comedy:** Natural pairing. Humor can soften emotional moments; emotional stakes give comedy weight.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Tension-release cycle frequency** — How often does romantic tension build and then (partially) release per chapter? Map the rise-release-rise pattern. Too few cycles = flat; too many = breathless and exhausting. Note the author's calibration and rhythm.
+- **Chemistry markers** — What specific techniques does the author use to show attraction before any explicit acknowledgment? Note: involuntary physical reactions, specific senses activated (what does the love interest smell like, sound like), dialog subtext, spatial awareness (proximity).
+- **Emotional reveal cadence** — How many scenes or beats pass before a character lets emotional vulnerability show? What triggers the reveal — an external event, accumulated proximity, a specific conversation? Note the pattern across both POVs.
+- **Banter and wit deployment** — How does this author use humor between the love interests? Note: frequency per scene, who initiates (equal or asymmetric?), what triggers banter (deflection of tension? character establishment? genuine play?), and average exchange length. Banter is often the primary chemistry vehicle.
+- **Obstacle type and deployment** — Is the central obstacle internal (character flaw, fear, wound) or external (circumstance, other characters, situation)? When are obstacles introduced — early, escalating, or clustered near the midpoint? Note the author's structural preference.
+- **Heat escalation rhythm** — How does physical intimacy build across the book? Map the escalation: awareness → proximity → touch → more. Note the average number of scenes between each escalation step and what catalyzes each advance.
+- **Earned HEA signals** — What does the author do to make the eventual resolution feel earned rather than inevitable? Note specific techniques: the protagonist genuinely changes, the obstacle is genuinely resolved (not bypassed), both characters are seen clearly.

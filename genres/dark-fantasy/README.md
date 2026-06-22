@@ -79,3 +79,15 @@ Dark Fantasy blends the worldbuilding and magic systems of fantasy with the mora
 - **Dark Fantasy + Literary Fiction:** Achievable with prose quality and thematic depth. Literary dark fantasy explores meaning, power, and morality through beautiful language.
 - **Dark Fantasy + Political Intrigue:** Natural combination. Complex, morally gray power structures and characters navigating them for survival.
 - **Dark Fantasy + Mystery:** Works when uncovering hidden truths (conspiracies, historical atrocities, character secrets) drives plot and moral complexity.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Darkness-hope balance** — What is the ratio of despair/violence/loss to moments of connection, warmth, or small victory? Map where hope appears in the narrative arc. Too much unrelieved darkness is numbing; too much hope undercuts the genre. Note the author's calibration.
+- **Moral ambiguity frequency** — How often does the author present a genuine ethical dilemma with no clean answer? What distinguishes a real moral grey zone from a manufactured one? Note the author's techniques for making the reader genuinely uncertain.
+- **Character warmth within grimdark** — How does the author create reader investment in characters operating in a brutal world? Note specific techniques: humor in dark moments, small kindnesses, genuine (if complicated) loyalty, the things characters protect.
+- **Violence-consequence integration** — When violence occurs, how much page-time addresses the aftermath — physical, psychological, relational? Consequence-to-action ratio defines whether violence is meaningful or gratuitous. Note the author's balance.
+- **World-grimness density** — Is the grimness ambient (the world is always dark) or episodic (darkness strikes specific moments)? Ambient grimness vs. episodic grimness creates different structural requirements and different reader fatigue profiles.
+- **Power-cost mechanics** — When characters exercise power (political, magical, physical), what do they give up? Note how consistently the author applies cost — characters who pay nothing become invulnerable and uninteresting. Map cost-to-power ratio.
+- **Subverted hope pattern** — How does the author raise and then complicate hope? Note whether it's consistently destroyed (nihilistic) or whether some hope survives (grimdark with moral core). The pattern tells you what the book actually believes.

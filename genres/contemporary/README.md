@@ -80,3 +80,14 @@ Contemporary fiction is set in the present day (or recent past), featuring reali
 - **Contemporary + Drama:** Nearly indistinguishable. Contemporary drama explores character and relationship through current settings and issues.
 - **Contemporary + Comedy:** Works well; contemporary humor is readily accessible. Tone can range from light rom-com to dark comedy.
 - **Contemporary + Science Fiction:** Rare but viable (near-future SF can feel contemporary; speculative contemporary fiction). Technology and speculative elements should feel grounded in recognizable now.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Cultural and era-specific marker density** — How many specific contemporary references appear per chapter (tech, media, brands, events, social dynamics)? Note whether these are used for grounding/authenticity or for comedy. Too few = timeless but thin; too many = dated. Note the author's calibration.
+- **Naturalistic dialog authenticity** — How does the author distinguish their characters' spoken voices from each other and from literary dialog? Note specific markers: incomplete thoughts, topic changes without transitions, things left unsaid, how characters actually interrupt vs. how they're written to interrupt.
+- **Mundane-detail grounding** — How does the author use everyday specificity (a particular brand of coffee, a specific neighborhood detail, the texture of an ordinary object) to make the world feel lived-in? Note density per scene and the type of details chosen — what the author reaches for as "real."
+- **Humor and levity integration** — In a realistic setting, comedy must emerge from character and situation rather than genre convention. How does the author create genuinely funny moments? Note: whether humor arrives through character behavior, dialog, irony, or situation, and how it integrates with emotional stakes rather than undercutting them.
+- **Character interiority depth** — Contemporary fiction lives or dies on access to character interiority. How much page-time goes to internal thought vs. external action and dialog? How does the author make interior monologue feel immediate rather than reflective?
+- **Relationship texture in established dynamics** — When characters have a prior relationship (friends, family, colleagues), how does the author establish that history efficiently without flashback? Note specific techniques: assumed knowledge in dialog, how characters react to each other's habits, what goes unsaid because both know it.

@@ -83,3 +83,15 @@ Science fiction explores the consequences of speculative technology, scientific 
 - **SF + Romance:** Viable but requires balancing speculative interest with emotional stakes. Don't let worldbuilding overshadow character connection.
 - **SF + Mystery:** Great combination. SF mysteries often revolve around understanding the technology or discovering hidden truths about the world.
 - **SF + Literary Fiction:** Possible with emphasis on prose quality and thematic depth. Hard SF can feel dry; literary SF deepens philosophical inquiry.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Concept introduction pacing** — How much speculative exposition precedes the first plot movement? What is the ratio of worldbuilding to story in the opening chapters? Heavy upfront vs. drip-feed throughout creates very different reading experiences.
+- **Technical grounding techniques** — How does the author make technology or speculative concepts feel human-scale and accessible? Note specific techniques: analogy to familiar objects, character's sensory experience of tech, consequences over mechanisms.
+- **Wonder-vs-dread distribution** — Does the speculative element primarily create awe, dread, or both? In what ratio? Map which scenes generate which emotion and how the author achieves each.
+- **World-normalization markers** — At what point in the narrative does the strange feel ordinary to both character and reader? How does the author signal this shift? It determines whether the setting is foregrounded or becomes background.
+- **Science-plot integration** — Is the speculative element central to every plot development, or primarily a setting detail? Tightly integrated SF (the tech/science IS the problem) vs. loosely integrated (SF as backdrop) creates different structural requirements.
+- **Character interiority in high-concept moments** — When a character encounters a major speculative element (alien contact, technological breakthrough, existential revelation), how much page-time goes to their internal response vs. external action? The ratio signals the author's priorities.
+- **Philosophical payload delivery** — If the book explores a speculative idea (consciousness, time, societal systems), how does the author deliver its implications — through dialog debate, character experience, plot consequence, or authorial narration? Note the method and frequency.
