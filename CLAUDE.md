@@ -80,6 +80,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "bootstrap from series" / "bootstrap book" / "Charaktere aus Serie initialisieren" / "Charakter-Snapshots für B2/B3 initialisieren" | `/storyforge:bootstrap-book-from-series` |
 | "rules audit" / "regeln prüfen" / "rules check" / "rules cleanup" / "audit my rules" | `/storyforge:rules-audit` |
 | "backfill promises" / "promises nachfüllen" / `/storyforge:backfill-promises` | `/storyforge:backfill-promises` |
+| "backfill style principles" / "style principles nachfüllen" / "style_principles backfill" / "positive markers backfill" / `/storyforge:backfill-style-principles` | `/storyforge:backfill-style-principles` |
 | "Recherche" / "Research" | `/storyforge:researcher` |
 | "Sensitivity" / "Problematisch?" | `/storyforge:sensitivity-reader` |
 | "Ethics check" / "Consent check" / "Einwilligungen prüfen" / "Personen prüfen" | `/storyforge:memoir-ethics-checker` (memoir only) |
