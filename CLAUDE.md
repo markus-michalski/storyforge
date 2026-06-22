@@ -70,6 +70,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Kapitel proofreaden" / "Proofread chapter" / "Korrekturlesen" / "Spelling check" / "Grammar check" | `/storyforge:chapter-proofreader` |
 | "Continuity prüfen" / "Check continuity" / "Zeitlinie prüfen" / "Timeline prüfen" | `/storyforge:continuity-checker` |
 | "Voice check" / "Klingt das nach AI?" | `/storyforge:voice-checker` |
+| "Author check" / "Style check" / "Positive check" / "Banter fehlt" / "Sarcasm fehlt" / "Stil prüfen" / "Positive Marker" | `/storyforge:author-check` |
 | "Manuscript check" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" | `/storyforge:manuscript-checker` |
 | "Beta feedback" / "ARC feedback" / "Reader feedback" / "Beta-Feedback verarbeiten" | `/storyforge:beta-feedback` |
 | "problem:" / "recurring issue:" / "report issue" / "regel melden" / "Regel eintragen" | `/storyforge:report-issue` |
@@ -134,10 +135,11 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 8. `/storyforge:chapter-writer` — Write chapters in author's voice (loads timeline + travel matrix + tonal document + chapter timeline)
 9. `/storyforge:continuity-checker` — (Optional, after several chapters) Validate timeline and location consistency
 10. `/storyforge:chapter-reviewer` — Review each chapter for craft, voice, structure, and AI-tells
-10a. `/storyforge:chapter-humanizer` — Targeted AI-construction scan; identifies Section 11 elegant-abstraction shapes and flagged vocabulary; proposes human alternatives interactively; runs AFTER chapter-reviewer craft fixes
-10b. `/storyforge:chapter-proofreader` — Language correctness per chapter: spelling, grammar, punctuation — runs AFTER humanizer pass; explanations in author's native_language
-10c. `/storyforge:manuscript-checker` — (At drafting → revision transition) Scan the whole manuscript for book-rule violations, clichés, dialogue punctuation, filter words, adverb density, and cross-chapter repetition
-10d. `/storyforge:beta-feedback` — (After eBook/ARC stage) Process curated beta-reader feedback, triage, revision plan
+10a. `/storyforge:author-check` — (Optional, after chapter-writer or chapter-reviewer) Positive style compliance gate: checks presence of style_principles Writing Discoveries and quantitative prose targets; counterpart to the constraint-only tools
+10b. `/storyforge:chapter-humanizer` — Targeted AI-construction scan; identifies Section 11 elegant-abstraction shapes and flagged vocabulary; proposes human alternatives interactively; runs AFTER chapter-reviewer craft fixes
+10c. `/storyforge:chapter-proofreader` — Language correctness per chapter: spelling, grammar, punctuation — runs AFTER humanizer pass; explanations in author's native_language
+10d. `/storyforge:manuscript-checker` — (At drafting → revision transition) Scan the whole manuscript for book-rule violations, clichés, dialogue punctuation, filter words, adverb density, and cross-chapter repetition
+10e. `/storyforge:beta-feedback` — (After eBook/ARC stage) Process curated beta-reader feedback, triage, revision plan
 11. `/storyforge:voice-checker` — (Optional) Holistic AI-authenticity score (0–100) across 7 dimensions; use when you want a scorecard rather than targeted fixes; not a required step in the standard workflow
 11. `/storyforge:cover-artist` — Generate cover prompts
 12. `/storyforge:export-engineer` — EPUB/PDF/MOBI via Pandoc
@@ -284,6 +286,7 @@ Skills MUST load relevant craft references before generating creative content. U
 - `character-creator-memoir` (memoir-only, split out in #177) → 6-step real-people handler (#59) that loads `book_categories/memoir/craft/real-people-ethics.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`; writes to `people/{slug}.md` via `create_person` MCP tool with the four-category ethics schema.
 - `world-builder` → loads: world-building (memoir typically skips this skill — real settings are documented in `world/setting.md` via research, not invention)
 - `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`; runs Dimension 8 memoir-specific AI-tells: reflective platitude, "looking back" hinges, tidy lesson endings, hedging-as-humility, therapeutic reframe, explanation-after-image — Issue #62)
+- `author-check` → loads: author profile (style_principles Writing Discoveries + quantitative targets) via `get_author()`; reads chapter draft directly; optionally reads existing `review.md` for constraint violation count (balance warning). No craft references needed — checks positive presence, not craft quality.
 - `manuscript-checker` → memoir mode adds memoir-specific patterns (Phase 3 #61)
 - `promo-writer` → loads: genre README(s) for blurb tone guidance, `reference/promo/platforms.md` for platform characteristics
 
