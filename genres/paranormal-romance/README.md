@@ -81,3 +81,15 @@ Paranormal Romance merges the relationship-centric focus of romance (with its gu
 - **Paranormal Romance + Paranormal Mystery:** Works when mystery deepens relationship (uncovering partner's past, discovering paranormal conspiracy). Investigation parallels relationship development.
 - **Paranormal Romance + LGBTQ+:** Any paranormal romance can feature LGBTQ+ characters. Paranormal complications work the same way; representation should be authentic and complex.
 - **Paranormal Romance + Contemporary:** Most paranormal romance is contemporary; paranormal elements in modern setting. Must balance present-day realism with paranormal worldbuilding.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Supernatural/romantic tension interplay** — How does the author use paranormal elements to amplify romantic tension and vice versa? Note specific mechanisms: supernatural danger forcing proximity, paranormal bond creating emotional vulnerability, creature nature creating obstacles to intimacy.
+- **Bond/mate reveal pacing** — If the book uses a fated-bond or mate mechanic, when and how is it revealed? Immediate vs. gradual reveal creates different reader experiences. Note the author's strategy and its effect on romantic tension maintenance.
+- **Pack/coven/clan dynamic scenes** — How often does the wider supernatural community appear, and what function do these scenes serve (comic relief, exposition, stakes escalation, relationship dynamics)? Note frequency and average scene length.
+- **Dual-POV switch rhythm** — If the book alternates POV between love interests, how many chapters/scenes per character before switching? What triggers a switch (scene end, tension peak, cliff-hanger)? The rhythm shapes reader identification and dramatic irony.
+- **Heat escalation within supernatural constraints** — How does the author build romantic/sexual tension within the constraints of the paranormal setting? Note specific escalation techniques: interrupted moments, supernatural barriers to physical contact, bond-driven intensity.
+- **Found-family integration in romance** — How does the supernatural community (pack, coven, clan) function as found family? How does belonging to that community affect the central romance? Note whether the group is obstacle, support, or both.
+- **Banter and humor deployment** — In the specific context of paranormal romance, how does the author use humor to balance supernatural stakes? Note: when does banter appear (after tension peaks, during safety moments, as character establishment), how long banter exchanges run, and which character types initiate.

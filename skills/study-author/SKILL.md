@@ -34,6 +34,21 @@ Alternatively, detect from context: if the book linked to the author slug has `b
 2. **Get author** — Which author profile to update? Show list via MCP `list_authors()`
 3. **Read the file** — Use the Read tool for text/markdown/PDF files. For EPUB and DOCX, the MCP server's `extract_text_from_file()` handles extraction. Supported: PDF, EPUB, DOCX, TXT, MD. Max 50 MB, max 200k words (larger files are auto-sampled from beginning, middle, and end).
 
+### Phase 1.5: Build Positive Extraction Checklist
+
+Before analyzing the text, compile a genre-specific checklist of positive craft markers to look for.
+
+1. **Load author profile** — MCP `get_author(slug)`. Read `primary_genres` and `tone` descriptors.
+2. **Load genre Positive Markers** — For each genre in `primary_genres`, MCP `get_genre(name)`. Read the `## study-author: Positive Markers` section.
+3. **Compose checklist** — Combine:
+   - Genre-derived positive markers (from each genre's `## study-author: Positive Markers` section)
+   - Tone-derived markers from the author profile (e.g. `tone: sarcastic` → explicitly look for sarcasm deployment patterns; `tone: dark-humor` → look for gallows humor techniques)
+4. **Present checklist to user** — Show what will be tracked positively, allow the user to add or remove items before proceeding.
+
+> Example output: "For lgbtq-supernatural-romance I'll specifically track: banter exchange frequency and triggers, sarcasm deployment points, vulnerability reveal pattern, mate/bond tension escalation, pack/found-family dynamic scenes. Additionally from your author's tone profile (sarcastic, playful, warm): humor-as-armor patterns, warmth signals after sarcasm drops."
+
+This checklist drives Phase 2. Every item must be answered — "not found" is a valid answer, but the checklist must be worked through.
+
 ### Phase 2: Analysis
 Analyze the text for these concrete patterns:
 
@@ -93,8 +108,11 @@ mode: fiction
 ## Quantitative Metrics
 [Tables with numbers]
 
+## Positive Style Markers
+[One section per checklist item from Phase 1.5. For each: what was found, frequency/ratio if measurable, concrete examples from the text. "Not found" is a valid answer — record it so the absence is documented, not silently skipped.]
+
 ## Distinctive Patterns
-[Qualitative observations]
+[Qualitative observations beyond the checklist]
 
 ## Signature Techniques
 [What makes this writing unique]
@@ -110,7 +128,8 @@ mode: fiction
 Update the author's profile using MCP tools to ensure cache invalidation:
 
 - **Tone / sentence_style / other frontmatter fields** — MCP `update_author(slug, field, value)` per field
-- **Signature Techniques discovered** — MCP `write_author_discovery(author_slug, section="style_principles", text=<technique>, book_slug=<analyzed-work-slug>)`
+- **Positive style markers found** — **MANDATORY for every checklist item where a pattern was found.** MCP `write_author_discovery(author_slug, section="style_principles", text=<marker>, book_slug=<analyzed-work-slug>)` per item. Format: `**[Marker name]** — [concrete observation from this text, with frequency or ratio if measurable].` A positive finding that only lives in `studied-works/analysis-{title}.md` is invisible to chapter-writer. Every found positive marker must become a `style_principles` Writing Discovery. "Not found" items are skipped.
+- **Signature Techniques discovered** (beyond the checklist) — MCP `write_author_discovery(author_slug, section="style_principles", text=<technique>, book_slug=<analyzed-work-slug>)`
 - **Anti-patterns to avoid** — MCP `write_author_banned_phrase(author_slug, phrase, reason=<why-avoid>)` per phrase
 - **Preferred Words / Deliberate Imperfections** — Direct Write to `~/.storyforge/authors/{slug}/vocabulary.md` (no MCP tool for these sections)
 
@@ -215,4 +234,5 @@ Show the user what was found and what changed. Specifically: which phrases are u
 - Extract PATTERNS only — verbatim text from studied works belongs nowhere in the profile. Verbatim copy is plagiarism risk and AI-tell.
 - Multiple studied works refine the profile further — merge, don't overwrite. Each studied work is evidence; the profile is the synthesis.
 - Flag any conflicts between studied works — surface to the user before merging.
+- **Positive markers are mandatory Writing Discoveries (fiction mode):** Every positive style marker found via the Phase 1.5 checklist MUST be written as a `style_principles` Writing Discovery via `write_author_discovery`. The analysis file is an archive; Writing Discoveries are the living profile that chapter-writer acts on. A positive pattern that stays only in the analysis file has zero effect on how the author writes.
 - **Memoir mode:** privacy first. Journals contain sensitive material about third parties. The analysis extracts voice patterns — it does not summarize events, record names of people mentioned, or store any personal facts from the journals in the analysis file.

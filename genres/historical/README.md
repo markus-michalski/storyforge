@@ -80,3 +80,15 @@ Historical fiction sets narratives in a specific historical period, using real h
 - **Historical Fiction + Literary Fiction:** Often overlaps. Literary prose style elevates historical narrative; thematic depth deepens period exploration.
 - **Historical Fiction + Science Fiction:** Rare but viable. Alternate history is essentially this. Requires clear logic about how divergence occurs.
 - **Historical Fiction + Drama:** Natural pairing. Character-driven exploration of historical period. Emotional depth alongside historical context.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Period atmosphere density** — How many era-specific sensory and cultural details appear per scene? Note whether atmosphere is concentrated in establishing scenes or distributed throughout. Also note the author's balance: immersive period texture vs. readability for modern audiences.
+- **Historical-personal integration** — How does the author connect large historical events (wars, movements, social change) to the intimate personal lives of characters? Note specific techniques: a historical event witnessed from a private perspective, a political decision that affects a single family, public history reflected in private consequence.
+- **Period-accurate detail seeding** — How does the author deliver historical accuracy without info-dumping? Note specific techniques: details embedded in action rather than narration, period specifics revealed through character assumption (what a character takes for granted), period detail that carries plot or character function.
+- **Anachronism avoidance strategy** — What techniques does the author use to prevent modern thinking or language from bleeding into period characters? Note how the author signals period-appropriate worldview, social expectation, and limitation — especially for characters readers might expect to be more "modern."
+- **Historical emotional bridge** — What is the author's technique for making readers who didn't live in the period feel the emotional stakes of period-specific situations (arranged marriages, war conscription, social immobility, period disease)? Note how the author generates empathy across historical distance.
+- **Research integration invisibility** — How does the author use historical research without making it visible? Note whether research appears as atmospheric texture (seamlessly integrated) or as informational passages. The mark of historical fiction craft is research that disappears.
+- **Historical voice authenticity** — How does the author render period dialog and narration? Note the balance: authentic enough to feel period, modern enough to be readable. Excessive archaism is as wrong as anachronistic informality. Note the author's specific calibration.

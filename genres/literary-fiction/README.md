@@ -80,3 +80,15 @@ Literary fiction prioritizes prose quality, thematic depth, and the exploration 
 - **Literary Fiction + Historical:** Often overlaps. Literary historical fiction examines how historical forces shape individual psychology and consciousness.
 - **Literary Fiction + Horror:** Viable; often called "literary horror" or "weird fiction." Dread and unease deepen thematic exploration rather than providing scares.
 - **Literary Fiction + Drama:** Often integrated or indistinguishable. Both prioritize character depth and emotional truth.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Prose rhythm variation** — How does the author vary sentence length for emotional effect? Map the sentence-length distribution in calm scenes vs. emotionally charged scenes vs. moments of revelation. Literary fiction uses rhythm as a primary tool — the pattern IS the meaning.
+- **Image and metaphor density** — How many images or metaphors appear per page? Are they fresh (specific, unexpected) or conventional? Note the author's ratio of concrete-to-abstract imagery and whether metaphors extend across scenes or are single-use.
+- **Interior monologue depth and technique** — How much page-time goes to character interiority? What technique does the author use: free indirect discourse, stream of consciousness, attributed thought, or reflection? Note how the technique creates intimacy vs. distance.
+- **Subtext density** — What percentage of scenes have a significant gap between what happens/is said and what it means? Note the author's specific subtext techniques: scenes where the surface action and the emotional reality are completely different, dialog that talks around the real subject.
+- **Thematic resonance markers** — How does the author surface the book's themes without stating them? Note specific techniques: recurring images that accumulate meaning, character decisions that embody the thematic question, dialog that touches the theme obliquely. Frequency and subtlety of these markers.
+- **Structural experimentation** — Does the author use non-linear structure, multiple timelines, fragmented perspective, or unconventional chapter organization? Note what the structural choice achieves that linear narration wouldn't.
+- **Language precision as character** — How does the author's word choice create a distinctive narrative voice? Note specific words or constructions that feel unique to this text — the vocabulary decisions that mark it as this author and no other.

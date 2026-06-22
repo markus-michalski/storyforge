@@ -82,3 +82,15 @@ Thriller fiction propels readers forward through escalating tension, high stakes
 - **Thriller + Science Fiction:** Works with speculative threats. High-stakes tech problems create natural urgency.
 - **Thriller + Literary Fiction:** Achievable with prose quality and thematic depth. Literary writing can slow thriller pacing; balance is necessary.
 - **Thriller + Fantasy/SF Worldbuilding:** Possible but risky. Readers expect thriller pacing; elaborate worldbuilding slows momentum. Use only what serves immediate threat.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Tension spike frequency** — How many genuine tension peaks occur per chapter? What triggers each spike (new information, physical threat, betrayal, deadline)? Map the rhythm across chapters to find the author's pacing signature.
+- **Sentence and chapter compression under tension** — Do chapters get shorter, sentences more clipped, paragraphs more staccato as the climax approaches? Measure chapter length distribution across the book. Compression is a deliberate pacing tool.
+- **Information withholding pattern** — What does the author know that the reader and protagonist don't? How is that gap maintained? Identify the specific techniques: unreliable characters, scene cuts at critical moments, limited POV.
+- **Red herring deployment** — How many false leads appear and when? What distinguishes a good red herring from one that feels manipulative? Note the author's fairness ratio.
+- **Deadline and clock mechanics** — How does the author use time pressure? Is the threat external (countdown), internal (deteriorating protagonist), or both? How often is the deadline invoked per chapter?
+- **Stakes escalation cadence** — How does the author ratchet up the stakes from chapter to chapter? Note the specific mechanisms: new revelation, personal cost, expanding threat scope.
+- **Protagonist competence markers** — How does the author balance protagonist danger vs. capability? Readers must believe the character can survive but not feel guaranteed. Note the specific tension techniques used.

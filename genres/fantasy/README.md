@@ -83,3 +83,15 @@ Fantasy fiction constructs fully realized alternate worlds or infuses the presen
 - **Fantasy + Science Fiction:** Possible in some cases (sufficiently advanced magic = technology), but different reader expectations can clash. Clarify early which framework dominates.
 - **Fantasy + Mystery:** Excellent pairing. Magical mystery creates fresh whodunit dynamics. The solution often involves magical properties or history.
 - **Fantasy + Thriller:** Works if you prioritize pacing and revelation over atmosphere. Magic becomes a tool in a high-stakes game rather than a source of wonder.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Worldbuilding delivery method** — What percentage of worldbuilding is delivered through: (a) direct authorial narration, (b) character dialog, (c) character action and discovery, (d) environmental description? The ratio shapes reader immersion. Note the author's dominant method.
+- **Sense-of-wonder deployment** — How frequently does the author create a genuine moment of awe (first sight of magic, discovery of a new place or creature, unexpected scale)? What techniques trigger wonder: description density, pacing pause, character reaction? Map frequency per chapter.
+- **Magic system revelation pacing** — How much of the magic system is established before it becomes a plot tool? Does the author explain rules upfront or let them emerge through use? Note the reveal-to-use ratio and whether it creates fair-play or surprise.
+- **Ensemble scene construction** — When multiple characters interact in a group scene, how does the author give each a distinct voice and agenda while moving the scene forward? Note the maximum cast size the author handles well and their specific techniques.
+- **Conversational exposition technique** — When worldbuilding must be delivered verbally (characters explaining things to each other), how does the author prevent info-dump? Note specific techniques: character conflict during explanation, interruptions, character-filtered perspective.
+- **Stakes grounding** — How does the author make epic-scale threats feel personal? Note the techniques that connect world-level danger to individual character stakes, and their frequency.
+- **Pacing variation between action and wonder** — How often does pure action alternate with quiet discovery or wonder? What is the typical scene-pattern: action → wonder → action, or other sequences? This rhythm determines reader exhaustion vs. engagement.

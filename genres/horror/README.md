@@ -83,3 +83,15 @@ Horror fiction exploits the reader's primal fears and anxieties, creating sustai
 - **Horror + Science Fiction:** Works via body horror (aliens, mutation) or existential SF premises. Avoid conflating "scientifically plausible monster" with "scary."
 - **Horror + Literary Fiction:** Achievable via quiet horror and psychological depth. The prose quality and thematic ambition elevate the scare.
 - **Horror + Thriller:** Merges into techno-horror or psychological thriller. Must maintain visceral dread over plot momentum alone.
+
+## study-author: Positive Markers
+
+When studying a source text in this genre, explicitly look for and measure these positive craft patterns. These must become `style_principles` Writing Discoveries — not just notes in the analysis file.
+
+- **Dread escalation rate** — How many paragraphs of atmosphere or setup precede each tension peak or horror event? Measure the buildup-to-payoff ratio. Is it consistent or does the author vary it deliberately to prevent habituation?
+- **Atmosphere-to-event ratio** — What percentage of the text is pure atmosphere (sensory description, mood, foreboding) vs. active horror events? Specific ratio drives the genre's emotional effect.
+- **Sensory specificity density** — Count specific, unusual sensory details (a particular smell, a precise texture, a specific sound) vs. vague descriptors ("it was dark," "the smell was bad"). High specificity = visceral horror. Note which senses the author prioritizes.
+- **Information reveal pacing** — How many pages or scenes pass between each new revelation about the threat? What does the author withhold and for how long? Map the information structure.
+- **Recovery beat frequency** — How often does the author give the reader a genuine moment of safety or relief between horror peaks? The ratio of dread-relief-dread cycles determines exhaustion vs. sustained tension.
+- **Sentence compression under tension** — Do sentences get shorter and more fragmented as horror peaks approach? Measure average sentence length in calm scenes vs. peak scenes. The delta is a craft technique to adopt.
+- **Monster/threat reveal strategy** — How much is shown vs. implied? At what point in the narrative does the author fully reveal the threat vs. keeping it partial? Partial revelation is almost always more effective — note the specific ratio.
