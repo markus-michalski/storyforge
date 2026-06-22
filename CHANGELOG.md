@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [2.1.0] - 2026-06-22
+
+### Added
+- add positive style compliance verification skill (#261)
+- genre-driven positive style extraction (#259) (#260)
+
+### Changed
+- update mcp requirement in the pip-all group (#255)
+
 ## [2.0.1] - 2026-05-21
 
 ### Added
@@ -465,3 +474,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.26.2]: https://github.com/markus-michalski/storyforge/releases/tag/v1.26.2
 [2.0.0]: https://github.com/markus-michalski/storyforge/releases/tag/v2.0.0
 [2.0.1]: https://github.com/markus-michalski/storyforge/releases/tag/v2.0.1
+[2.1.0]: https://github.com/markus-michalski/storyforge/releases/tag/v2.1.0
