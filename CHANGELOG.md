@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [2.2.2] - 2026-06-23
+
+### Fixed
+- load previous chapter draft and activate style_principles (#265)
+
 ## [2.2.1] - 2026-06-23
 
 ### Fixed
@@ -491,3 +496,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [2.1.0]: https://github.com/markus-michalski/storyforge/releases/tag/v2.1.0
 [2.2.0]: https://github.com/markus-michalski/storyforge/releases/tag/v2.2.0
 [2.2.1]: https://github.com/markus-michalski/storyforge/releases/tag/v2.2.1
+[2.2.2]: https://github.com/markus-michalski/storyforge/releases/tag/v2.2.2
