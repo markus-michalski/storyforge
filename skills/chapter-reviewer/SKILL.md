@@ -98,6 +98,9 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 7. **Sensory details** — Are multiple senses engaged (not just visual)?
 8. **Specific details** — Concrete nouns and precise verbs, not generic descriptions?
 9. **Dialog quality** — Subtext present? Characters sound different? Minimal tags?
+
+**9b. Dialog punctuation — question marks (hard gate)** — Scan every line of dialogue. Any interrogative sentence (starting with or containing What, Who, Where, When, Why, How, Which, Would, Could, Should, Did, Do, Does, Is, Are, Was, Were, Has, Have, Had, Can, Will, Shall, May, Might) that ends with `.` instead of `?` is a **FAIL**. Quote every hit with location. The only exception: deliberate flat delivery where the surrounding narration explicitly marks it as a demand/statement (e.g. `"Who." / It wasn't a question.`). Unmarked flat delivery is always a punctuation error. Severity: **FAIL** on any hit — treat as Critical, same weight as an AI-tell banlist hit.
+
 10. **Conflict** — Is there tension in every scene? No filler?
 
 **10b. Simile discipline (craft sub-point)** — Apply the two-question test from `simile-discipline.md` to every `like`, `as if`, `as [adj] as`, `the way [X]`, `moved/felt/sounded like`, and `the kind of [noun] that [clause]` construction. For each: does the vehicle literally resemble the tenor? Does it do work a concrete beat couldn't? Flag illogical or decorative similes, stacked similes (2+ per paragraph without each doing distinct work), and dead similes. Respect author-voice bias.
@@ -221,6 +224,10 @@ Load `analyze_plot_logic(book_slug, scope="chapter", chapter_slug=...)` once bef
 - Internal time conflicts: [count] — [details]
 - Cross-chapter time conflicts: [count] — [details]
 
+### Dialog Punctuation Report
+- Question-as-statement hits: [count, or "none"]
+- [quote → location — fix: replace `.` with `?` / or mark as deliberate flat delivery]
+
 ### AI-Tell Report
 - Flagged words: [list]
 - Sentence length variance: [high/medium/low]
@@ -251,7 +258,7 @@ VERDICT: PASS | WARN | FAIL
 Verdict mapping:
 - **PASS** ↔ no Critical issues, no AI-tell banlist hits, all load-bearing first-chapter rows clear.
 - **WARN** ↔ Recommended issues exist but nothing blocks moving on after a single targeted pass.
-- **FAIL** ↔ at least one Critical issue, any AI-tell banlist hit, or any load-bearing first-chapter row at FAIL.
+- **FAIL** ↔ at least one Critical issue, any AI-tell banlist hit, any question-as-statement hit (9b), or any load-bearing first-chapter row at FAIL.
 
 ## Rules
 - Be BRUTALLY honest.
