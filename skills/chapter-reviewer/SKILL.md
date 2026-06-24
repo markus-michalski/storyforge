@@ -39,7 +39,8 @@ Honor every populated field. Empty lists / null means "file missing — degrade 
 
 ### Step 2 — Load author and craft context
 
-- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` (Issue #151) lists cross-book tics — flag any hit as Major findings. `style_principles` and `donts` feed the same review pass.
+- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` (Issue #151) lists cross-book tics — flag any hit as Major findings. `style_principles` (genre-filtered — skip entries whose `genres` list shares no genre with this book; entries without `genres` are universal) and `donts` feed the same review pass.
+- **World rules cheat sheet** — Read `{project}/world-rules.md` if it exists. **Why:** Canonically fragile facts (room inventories, biology details, dates) that `world/rules.md` documents in prose but the model still tends to get wrong. Use alongside check 20e. Missing file → skip silently.
 - **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Banned-word scan and preferred-word check both run against this list.
 - **Craft references** via MCP `get_craft_reference()`:
   - `dos-and-donts` — general craft baseline for the Craft section (5 points).
@@ -131,7 +132,7 @@ Load `analyze_plot_logic(book_slug, scope="chapter", chapter_slug=...)` once bef
 20b. **Information leak** — Does the POV character reference any fact established in a later chapter, or in an earlier chapter where the POV was absent? Severity: **high (FAIL)** if demonstrably absent; **WARN** otherwise.
 20c. **Motivation chain** — Does each significant decision follow from the character's established wants and knowledge? Flag contradictions without on-page justification. Severity: **WARN**.
 20d. **Causality direction** — Run static `causality_inversion` findings for this chapter. **FAIL** on any.
-20e. **World rule consistency** — Does the chapter break any rule from the canon log "World / Setting Facts" or `world/rules.md`? Look for negation patterns that the prose violates without an exception clause. Severity: **high (FAIL)**.
+20e. **World rule consistency** — Does the chapter break any rule from the canon log "World / Setting Facts", `world/rules.md`, or `world-rules.md` (fragile-facts cheat sheet)? Look for negation patterns that the prose violates without an exception clause. Severity: **high (FAIL)**.
 20f. **Chapter promise** — If the chapter places a setup-element, is it logged in `## Promises`? Suggest missing promises; on approval call `register_chapter_promises`. Severity: **WARN**.
 
 ### Tonal Consistency (5 points) — only if `plot/tone.md` exists
