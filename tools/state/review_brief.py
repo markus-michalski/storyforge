@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from tools.analysis.timeline_validator import parse_plot_timeline
+from tools.db.brief_helpers import load_canon_facts_for_brief
 from tools.state.chapter_timeline_parser import parse_chapter_timeline_grid
 
 
@@ -448,21 +449,12 @@ def build_review_brief(
                 [],
             )
 
-    # ----- canon log facts --------------------------------------------------
-    canon_log_facts: list[dict[str, str]] = []
-    canon_path = book_root / "plot" / "canon-log.md"
-    if canon_path.is_file():
-        canon_text = recorder.run(
-            "canon_log.read",
-            lambda: canon_path.read_text(encoding="utf-8"),
-            "",
-        )
-        if canon_text:
-            canon_log_facts = recorder.run(
-                "canon_log_facts",
-                lambda: _parse_canon_log_facts(canon_text),
-                [],
-            )
+    # ----- canon log facts — DB first, Markdown fallback (#280) ------------
+    canon_log_facts: list[dict] = recorder.run(
+        "canon_log_facts",
+        lambda: load_canon_facts_for_brief(book_root),
+        [],
+    )
 
     # ----- tonal rules ------------------------------------------------------
     tonal_rules: dict[str, list[str]] = {}
