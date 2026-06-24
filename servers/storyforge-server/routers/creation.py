@@ -13,8 +13,10 @@ from datetime import date
 from pathlib import Path
 
 from tools.shared.paths import (
+    resolve_book_in_series_path,
     resolve_chapter_path,
     resolve_project_path,
+    resolve_series_path,
     slugify,
 )
 
@@ -46,6 +48,7 @@ def create_book_structure(
     book_category: str = "fiction",
     language: str = "en",
     target_word_count: int = 80000,
+    series_slug: str = "",
 ) -> str:
     """Create a new book project with full directory scaffold.
 
@@ -57,6 +60,9 @@ def create_book_structure(
         book_category: Broad category (fiction, memoir). Default: fiction.
         language: Writing language
         target_word_count: Target word count
+        series_slug: Optional series slug. When provided, scaffolds the book
+            under series/{series_slug}/{book_slug}/ instead of projects/.
+            The series directory must already exist (Issue #279).
     """
     if book_category not in _ALLOWED_BOOK_CATEGORIES:
         allowed = ", ".join(_ALLOWED_BOOK_CATEGORIES)
@@ -64,7 +70,17 @@ def create_book_structure(
 
     config = _app.load_config()
     slug = slugify(title)
-    project_dir = resolve_project_path(config, slug)
+
+    if series_slug:
+        try:
+            series_dir = resolve_series_path(config, series_slug)
+        except ValueError as exc:
+            return json.dumps({"error": str(exc)})
+        if not series_dir.exists():
+            return json.dumps({"error": f"Series '{series_slug}' not found. Create it first with create_series()."})
+        project_dir = resolve_book_in_series_path(config, series_slug, slug)
+    else:
+        project_dir = resolve_project_path(config, slug)
 
     if project_dir.exists():
         return json.dumps({"error": f"Book '{slug}' already exists"})
@@ -95,7 +111,7 @@ book_category: "{book_category}"
 status: "Idea"
 language: "{language}"
 target_word_count: {target_word_count}
-series: ""
+series: "{series_slug}"
 series_number: 0
 description: ""
 created: "{today}"

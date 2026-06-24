@@ -15,6 +15,7 @@ from tools.shared.paths import (
     resolve_world_dir,
     find_projects,
     find_chapters,
+    find_series,
 )
 
 
@@ -188,3 +189,130 @@ class TestPathContainment:
         result = resolve_world_dir(project)
         assert result is not None
         assert result.is_relative_to(project)
+
+
+# ---------------------------------------------------------------------------
+# Issue #279 — Series directory layout
+# ---------------------------------------------------------------------------
+
+
+def _make_series_book(content_root: Path, series_slug: str, book_slug: str) -> Path:
+    """Create a minimal book dir inside a series directory."""
+    book_path = content_root / "series" / series_slug / book_slug
+    book_path.mkdir(parents=True)
+    (book_path / "README.md").write_text(f"---\ntitle: {book_slug}\n---\n", encoding="utf-8")
+    return book_path
+
+
+class TestFindProjectsSeriesAware:
+    """find_projects() must also discover books nested inside series/ dirs."""
+
+    def test_finds_books_inside_series_directories(self, tmp_path: Path):
+        config = {"paths": {"content_root": str(tmp_path)}}
+        _make_series_book(tmp_path, "blood-and-binary", "firelight")
+
+        result = find_projects(config)
+        assert any(p.name == "firelight" for p in result)
+
+    def test_standalone_books_still_found(self, tmp_path: Path):
+        config = {"paths": {"content_root": str(tmp_path)}}
+        proj = tmp_path / "projects" / "standalone"
+        proj.mkdir(parents=True)
+        (proj / "README.md").write_text("---\ntitle: Standalone\n---\n", encoding="utf-8")
+
+        result = find_projects(config)
+        assert any(p.name == "standalone" for p in result)
+
+    def test_books_from_both_locations_found(self, tmp_path: Path):
+        config = {"paths": {"content_root": str(tmp_path)}}
+        proj = tmp_path / "projects" / "solo-book"
+        proj.mkdir(parents=True)
+        (proj / "README.md").write_text("---\ntitle: Solo\n---\n", encoding="utf-8")
+        _make_series_book(tmp_path, "my-series", "series-book")
+
+        result = find_projects(config)
+        names = [p.name for p in result]
+        assert "solo-book" in names
+        assert "series-book" in names
+
+    def test_series_dir_itself_not_included(self, tmp_path: Path):
+        """The series root dir (series/blood-and-binary/) must not appear in results."""
+        config = {"paths": {"content_root": str(tmp_path)}}
+        _make_series_book(tmp_path, "blood-and-binary", "firelight")
+
+        result = find_projects(config)
+        assert not any(p.name == "blood-and-binary" for p in result)
+
+    def test_bare_series_subdir_without_readme_not_included(self, tmp_path: Path):
+        config = {"paths": {"content_root": str(tmp_path)}}
+        bare = tmp_path / "series" / "my-series" / "no-readme"
+        bare.mkdir(parents=True)
+
+        result = find_projects(config)
+        assert result == []
+
+
+class TestResolveProjectPathSeriesAware:
+    """resolve_project_path() must fall back to series/ when book not in projects/."""
+
+    def test_finds_book_in_series_dir(self, tmp_path: Path):
+        config = {"paths": {"content_root": str(tmp_path)}}
+        book_path = _make_series_book(tmp_path, "blood-and-binary", "firelight")
+
+        result = resolve_project_path(config, "firelight")
+        assert result == book_path
+
+    def test_prefers_projects_dir_when_both_exist(self, tmp_path: Path):
+        config = {"paths": {"content_root": str(tmp_path)}}
+        legacy = tmp_path / "projects" / "ambiguous"
+        legacy.mkdir(parents=True)
+        _make_series_book(tmp_path, "some-series", "ambiguous")
+
+        result = resolve_project_path(config, "ambiguous")
+        assert result == legacy
+
+    def test_falls_back_to_projects_for_new_book(self, tmp_path: Path):
+        """When book doesn't exist on disk yet, return the projects/ path."""
+        config = {"paths": {"content_root": str(tmp_path)}}
+        result = resolve_project_path(config, "brand-new-book")
+        assert result == tmp_path / "projects" / "brand-new-book"
+
+    def test_security_slug_validation_still_enforced(self, tmp_path: Path):
+        config = {"paths": {"content_root": str(tmp_path)}}
+        with pytest.raises(ValueError, match="must not"):
+            resolve_project_path(config, "../escape")
+
+
+class TestFindSeriesYaml:
+    """find_series() must recognise series.yaml (new format) and README.md (old format)."""
+
+    def test_detects_series_yaml(self, tmp_path: Path):
+        config = {"paths": {"content_root": str(tmp_path)}}
+        series_dir = tmp_path / "series" / "new-series"
+        series_dir.mkdir(parents=True)
+        (series_dir / "series.yaml").write_text(
+            "name: New Series\nslug: new-series\ntotal_books: 2\n",
+            encoding="utf-8",
+        )
+
+        result = find_series(config)
+        assert len(result) == 1
+        assert result[0].name == "new-series"
+
+    def test_backward_compat_readme_still_found(self, tmp_path: Path):
+        config = {"paths": {"content_root": str(tmp_path)}}
+        series_dir = tmp_path / "series" / "old-series"
+        series_dir.mkdir(parents=True)
+        (series_dir / "README.md").write_text("---\ntitle: Old Series\n---\n", encoding="utf-8")
+
+        result = find_series(config)
+        assert len(result) == 1
+        assert result[0].name == "old-series"
+
+    def test_bare_dir_without_marker_not_found(self, tmp_path: Path):
+        config = {"paths": {"content_root": str(tmp_path)}}
+        bare = tmp_path / "series" / "no-marker"
+        bare.mkdir(parents=True)
+
+        result = find_series(config)
+        assert result == []
