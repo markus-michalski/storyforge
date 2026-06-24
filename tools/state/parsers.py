@@ -266,11 +266,16 @@ _RE_ORIGIN = re.compile(
 )
 
 
+_RE_EXAMPLE_BLOCK = re.compile(r"`example:`\s*\n((?:[ \t]*>[ \t]*.+\n?)+)", re.MULTILINE)
+
+
 def _parse_writing_discoveries(body: str) -> dict[str, list[dict[str, Any]]]:
     """Extract structured discoveries from the profile body.
 
-    Returns a dict with three buckets — `recurring_tics`, `style_principles`,
-    `donts` — each a list of `{"text", "origins"}` entries.
+    Returns a dict with three buckets — ``recurring_tics``, ``style_principles``,
+    ``donts`` — each a list of ``{"text", "origins"}`` entries.
+    ``style_principles`` entries may carry an additional ``"example"`` key when
+    a `` `example:` `` block is present (Issue #268).
     """
     empty = {"recurring_tics": [], "style_principles": [], "donts": []}
     section = _RE_DISCOVERIES_SECTION.search(body)
@@ -279,33 +284,65 @@ def _parse_writing_discoveries(body: str) -> dict[str, list[dict[str, Any]]]:
 
     section_text = section.group(1)
 
-    # Walk the section line by line. Track which bucket we're currently in;
-    # bullets get appended to the active bucket. Sub-section headers switch
-    # buckets; anything outside a known bucket is ignored.
     result: dict[str, list[dict[str, Any]]] = {key: [] for key, _ in _DISCOVERY_BUCKETS}
     current_bucket: str | None = None
+    pending: list[str] = []  # accumulates lines for the current bullet
+
+    def _flush() -> None:
+        if not pending or current_bucket is None:
+            return
+        entry = _build_discovery_entry("\n".join(pending))
+        if entry:
+            result[current_bucket].append(entry)
+        pending.clear()
 
     for line in section_text.splitlines():
         stripped = line.strip()
-        # Sub-section header switches active bucket.
         bucket_match = _match_subsection(stripped)
         if bucket_match is not None:
+            _flush()
             current_bucket = bucket_match
             continue
         if current_bucket is None:
             continue
-        # Skip placeholder text ("_Frei._" etc.) so empty buckets stay empty.
         if _RE_PLACEHOLDER.match(stripped):
             continue
         if stripped.startswith("- "):
-            text = stripped[2:].strip()
-            origins = _extract_origins(text)
-            cleaned = _RE_ORIGIN.sub("", text).rstrip(" \t_")
-            cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
-            if cleaned:
-                result[current_bucket].append({"text": cleaned, "origins": origins})
+            _flush()
+            pending.append(stripped[2:].strip())
+        elif stripped and pending:
+            # Continuation line (example block, blockquote, extra description).
+            pending.append(stripped)
 
+    _flush()
     return result
+
+
+def _build_discovery_entry(raw: str) -> dict[str, Any] | None:
+    """Build a single discovery entry dict from accumulated bullet text lines."""
+    example = ""
+    ex_match = _RE_EXAMPLE_BLOCK.search(raw)
+    if ex_match:
+        example_raw = ex_match.group(1)
+        example = "\n".join(
+            ln.strip().lstrip(">").strip()
+            for ln in example_raw.splitlines()
+            if ln.strip()
+        )
+        # Origins may follow the example block — extract from the full raw before truncating.
+        origins = _extract_origins(raw)
+        raw = raw[: ex_match.start()].strip()
+    else:
+        origins = _extract_origins(raw)
+
+    cleaned = _RE_ORIGIN.sub("", raw).rstrip(" \t_").strip()
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+    if not cleaned:
+        return None
+    entry: dict[str, Any] = {"text": cleaned, "origins": origins}
+    if example:
+        entry["example"] = example
+    return entry
 
 
 def _match_subsection(line: str) -> str | None:

@@ -235,6 +235,17 @@ class TestScaffoldFictionLayout:
         assert (project / "world" / "glossary.md").is_file()
         assert not (project / "people").exists()
 
+    def test_fiction_scaffolds_world_rules_at_project_root(self, server_module, content_root: Path):
+        # Issue #270: world-rules.md lands at the book root, not inside world/
+        json.loads(server_module.create_book_structure(title="World Rules Fiction"))
+
+        project = content_root / "projects" / "world-rules-fiction"
+        assert (project / "world-rules.md").is_file(), "Fiction scaffold must create world-rules.md at project root"
+        content = (project / "world-rules.md").read_text(encoding="utf-8")
+        assert "World Rules" in content
+        assert "Species / Biology" in content
+        assert "Locations / Room Inventories" in content
+
     def test_fiction_plot_files_are_three_act(self, server_module, content_root: Path):
         json.loads(server_module.create_book_structure(title="Fiction Plot"))
 
@@ -269,6 +280,13 @@ class TestScaffoldMemoirLayout:
 
         project = content_root / "projects" / "no-world-memoir"
         assert not (project / "world").exists(), "Memoir scaffold must skip world/ entirely (#63 spec)"
+
+    def test_memoir_skips_world_rules_file(self, server_module, content_root: Path):
+        # Issue #270: world-rules.md is fiction-only; memoir must not receive it.
+        json.loads(server_module.create_book_structure(title="No Rules Memoir", book_category="memoir"))
+
+        project = content_root / "projects" / "no-rules-memoir"
+        assert not (project / "world-rules.md").exists(), "Memoir scaffold must not create world-rules.md"
 
     def test_memoir_people_index_mentions_consent(self, server_module, content_root: Path):
         # The INDEX must hint at memoir-specific concerns
