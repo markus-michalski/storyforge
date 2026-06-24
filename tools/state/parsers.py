@@ -267,6 +267,7 @@ _RE_ORIGIN = re.compile(
 
 
 _RE_EXAMPLE_BLOCK = re.compile(r"`example:`\s*\n((?:[ \t]*>[ \t]*.+\n?)+)", re.MULTILINE)
+_RE_WHEN_BLOCK = re.compile(r"`when:\s*([^`\n]+)`", re.MULTILINE)
 
 
 def _parse_writing_discoveries(body: str) -> dict[str, list[dict[str, Any]]]:
@@ -274,8 +275,8 @@ def _parse_writing_discoveries(body: str) -> dict[str, list[dict[str, Any]]]:
 
     Returns a dict with three buckets — ``recurring_tics``, ``style_principles``,
     ``donts`` — each a list of ``{"text", "origins"}`` entries.
-    ``style_principles`` entries may carry an additional ``"example"`` key when
-    a `` `example:` `` block is present (Issue #268).
+    ``style_principles`` entries may carry ``"example"`` (Issue #268) and/or
+    ``"genres"`` (Issue #266) keys when the corresponding blocks are present.
     """
     empty = {"recurring_tics": [], "style_principles": [], "donts": []}
     section = _RE_DISCOVERIES_SECTION.search(body)
@@ -320,7 +321,16 @@ def _parse_writing_discoveries(body: str) -> dict[str, list[dict[str, Any]]]:
 
 def _build_discovery_entry(raw: str) -> dict[str, Any] | None:
     """Build a single discovery entry dict from accumulated bullet text lines."""
+    genres: list[str] = []
     example = ""
+
+    # Extract when: genre tags before any other stripping.
+    when_match = _RE_WHEN_BLOCK.search(raw)
+    if when_match:
+        genres = [g.strip() for g in when_match.group(1).split(",") if g.strip()]
+        raw = _RE_WHEN_BLOCK.sub("", raw).strip()
+
+    # Extract example block; origins may follow it — extract before truncating.
     ex_match = _RE_EXAMPLE_BLOCK.search(raw)
     if ex_match:
         example_raw = ex_match.group(1)
@@ -329,7 +339,6 @@ def _build_discovery_entry(raw: str) -> dict[str, Any] | None:
             for ln in example_raw.splitlines()
             if ln.strip()
         )
-        # Origins may follow the example block — extract from the full raw before truncating.
         origins = _extract_origins(raw)
         raw = raw[: ex_match.start()].strip()
     else:
@@ -342,6 +351,8 @@ def _build_discovery_entry(raw: str) -> dict[str, Any] | None:
     entry: dict[str, Any] = {"text": cleaned, "origins": origins}
     if example:
         entry["example"] = example
+    if genres:
+        entry["genres"] = genres
     return entry
 
 

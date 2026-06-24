@@ -302,6 +302,65 @@ class TestWriteDiscoveryExample:
         assert "  > In a minute." in content
 
 
+class TestWriteDiscoveryGenres:
+    """Issue #266 — genre-tagging via `when:` field on style_principles."""
+
+    def test_genres_stored_as_when_block(self, author_dir: Path):
+        write_discovery(
+            profile_path=author_dir / "profile.md",
+            section="style_principles",
+            text="**Banter density** — 4–6 turns per scene with a partner.",
+            book_slug="fractured-doors",
+            year_month="2026-06",
+            genres=["light-fantasy", "comedy-fantasy"],
+        )
+        content = (author_dir / "profile.md").read_text(encoding="utf-8")
+        principles = _section_body(content, "Style Principles")
+        assert "`when: light-fantasy, comedy-fantasy`" in principles
+
+    def test_genres_only_for_style_principles(self, author_dir: Path):
+        write_discovery(
+            profile_path=author_dir / "profile.md",
+            section="recurring_tics",
+            text='**"math"** — analytical tic.',
+            book_slug="firelight",
+            year_month="2026-06",
+            genres=["dark-fantasy"],
+        )
+        content = (author_dir / "profile.md").read_text(encoding="utf-8")
+        tics = _section_body(content, "Recurring Tics")
+        assert "`when:" not in tics
+
+    def test_genres_and_example_combined(self, author_dir: Path):
+        write_discovery(
+            profile_path=author_dir / "profile.md",
+            section="style_principles",
+            text="**Banter density** — 4–6 turns.",
+            book_slug="fractured-doors",
+            year_month="2026-06",
+            example='"You\'re impossible." / "I know."',
+            genres=["light-fantasy"],
+        )
+        content = (author_dir / "profile.md").read_text(encoding="utf-8")
+        principles = _section_body(content, "Style Principles")
+        assert "`when: light-fantasy`" in principles
+        assert "`example:`" in principles
+        assert '> "You\'re impossible."' in principles
+
+    def test_idempotent_with_genres(self, author_dir: Path):
+        for _ in range(2):
+            write_discovery(
+                profile_path=author_dir / "profile.md",
+                section="style_principles",
+                text="**Banter density** — 4–6 turns.",
+                book_slug="fractured-doors",
+                year_month="2026-06",
+                genres=["light-fantasy"],
+            )
+        content = (author_dir / "profile.md").read_text(encoding="utf-8")
+        assert content.count("`when: light-fantasy`") == 1
+
+
 class TestRemoveBookRuleAfterPromotion:
     """Cleanup half: when the user accepts a promotion, the original rule
     should optionally disappear from the book CLAUDE.md."""

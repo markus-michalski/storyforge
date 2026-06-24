@@ -323,6 +323,67 @@ class TestParseWritingDiscoveriesExamples:
         assert principle["origins"] == [{"book": "firelight", "date": "2026-06"}]
 
 
+class TestParseWritingDiscoveriesGenres:
+    """Test that when: genre-tag blocks (Issue #266) are extracted correctly."""
+
+    def _write_profile(self, tmp_path: Path, body: str) -> Path:
+        fm = '---\nname: "Ethan Cole"\nslug: "ethan-cole"\n---\n\n'
+        profile = tmp_path / "profile.md"
+        profile.write_text(fm + body, encoding="utf-8")
+        return profile
+
+    def test_when_block_parsed_to_genres_list(self, tmp_path):
+        body = (
+            "# Ethan Cole\n\n## Writing Discoveries\n\n"
+            "### Style Principles\n\n"
+            "- **Banter density** — 4–6 turns.\n"
+            "  `when: light-fantasy, comedy-fantasy`\n"
+            "  _(emerged from fractured-doors, 2026-06)_\n"
+        )
+        profile = self._write_profile(tmp_path, body)
+        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
+        assert principle["genres"] == ["light-fantasy", "comedy-fantasy"]
+        assert "Banter density" in principle["text"]
+
+    def test_principle_without_when_has_no_genres_key(self, tmp_path):
+        body = (
+            "# Ethan Cole\n\n## Writing Discoveries\n\n"
+            "### Style Principles\n\n"
+            "- **Universal principle** — no genre tag. _(emerged from firelight, 2026-05)_\n"
+        )
+        profile = self._write_profile(tmp_path, body)
+        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
+        assert "genres" not in principle
+
+    def test_when_and_example_combined(self, tmp_path):
+        body = (
+            "# Ethan Cole\n\n## Writing Discoveries\n\n"
+            "### Style Principles\n\n"
+            "- **Banter density** — 4–6 turns.\n"
+            '  `when: light-fantasy`\n'
+            "  `example:`\n"
+            '  > "You\'re impossible."\n'
+            "  _(emerged from fractured-doors, 2026-06)_\n"
+        )
+        profile = self._write_profile(tmp_path, body)
+        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
+        assert principle["genres"] == ["light-fantasy"]
+        assert "impossible" in principle["example"]
+        assert principle["origins"] == [{"book": "fractured-doors", "date": "2026-06"}]
+
+    def test_when_block_stripped_from_text(self, tmp_path):
+        body = (
+            "# Ethan Cole\n\n## Writing Discoveries\n\n"
+            "### Style Principles\n\n"
+            "- **Banter density** — 4–6 turns.\n"
+            "  `when: light-fantasy`\n"
+            "  _(emerged from fractured-doors, 2026-06)_\n"
+        )
+        profile = self._write_profile(tmp_path, body)
+        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
+        assert "`when:" not in principle["text"]
+
+
 class TestCountWords:
     def test_count_words(self, tmp_path):
         f = tmp_path / "test.md"
