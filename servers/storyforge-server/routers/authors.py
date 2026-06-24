@@ -280,6 +280,7 @@ def write_author_discovery(
     year_month: str = "",
     validate: bool = True,
     example: str = "",
+    genres: str = "",
 ) -> str:
     """Append a discovery to ``profile.md`` ``## Writing Discoveries`` (Issue #151).
 
@@ -305,6 +306,10 @@ def write_author_discovery(
             (Issue #268). Only stored for ``style_principles``. Formatted as
             a blockquote block under the entry so the chapter-writer can quote
             it verbatim in Pre-Logic Audit 4.5.
+        genres: Optional comma-separated genre slugs (Issue #266). Only stored
+            for ``style_principles`` as `` `when: genre1, genre2` ``.
+            Chapter-writer skips the entry when the book's genres have no
+            overlap. Entries without ``genres`` are universal.
 
     Returns ``{written, already_present, path, message}`` on success — with
     ``warnings`` and ``extracted_patterns`` appended when ``validate=True``
@@ -331,6 +336,8 @@ def write_author_discovery(
         except ValueError as exc:
             return json.dumps({"error": str(exc)})
 
+    genres_list = [g.strip() for g in genres.split(",") if g.strip()] if genres else []
+
     try:
         result = write_discovery(
             profile_path=profile_path,
@@ -339,6 +346,7 @@ def write_author_discovery(
             book_slug=book_slug,
             year_month=year_month,
             example=example,
+            genres=genres_list or None,
         )
     except ValueError as exc:
         return json.dumps({"error": str(exc)})

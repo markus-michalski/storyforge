@@ -109,6 +109,7 @@ def write_discovery(
     book_slug: str,
     year_month: str,
     example: str = "",
+    genres: list[str] | None = None,
 ) -> WriteResult | AlreadyPresent:
     """Append a discovery to ``profile.md`` under the matching sub-section.
 
@@ -122,6 +123,10 @@ def write_discovery(
         example: Optional prose or dialogue demonstration of the principle.
             Stored as a blockquote block under the entry. Only valid for
             ``style_principles`` — silently ignored for other sections.
+        genres: Optional list of genre slugs (Issue #266). Stored as a
+            `` `when: genre1, genre2` `` line. Only valid for
+            ``style_principles`` — silently ignored for other sections.
+            Entries without genres are treated as universal by chapter-writer.
 
     Returns either ``WriteResult(written=True)`` on a real change, or
     ``AlreadyPresent`` when the entry plus the *same* origin tag already exist
@@ -191,9 +196,13 @@ def write_discovery(
     else:
         # Append new bullet. Strip placeholder if present.
         new_sub_body = _strip_placeholder(sub_body)
-        use_example = example.strip() and section == "style_principles"
-        if use_example:
-            bullet = _format_multiline_bullet(text, example, new_origin_tag)
+        use_multiline = section == "style_principles" and (example.strip() or genres)
+        if use_multiline:
+            bullet = _format_multiline_bullet(
+                text, new_origin_tag,
+                example=example if section == "style_principles" else "",
+                genres=genres if section == "style_principles" else None,
+            )
         else:
             bullet = f"- {text.strip()} {new_origin_tag}"
         if not new_sub_body.endswith("\n"):
@@ -213,25 +222,34 @@ def _format_origin_tag(book_slug: str, year_month: str) -> str:
     return f"_(emerged from {book_slug}, {year_month})_"
 
 
-def _format_multiline_bullet(text: str, example: str, origin_tag: str) -> str:
-    """Format a multi-line bullet with an example block.
+def _format_multiline_bullet(
+    text: str,
+    origin_tag: str,
+    *,
+    example: str = "",
+    genres: list[str] | None = None,
+) -> str:
+    """Format a multi-line style_principles bullet with optional blocks.
 
-    Output format::
+    Output format (all optional blocks shown)::
 
         - **Principle** — description
+          `when: genre1, genre2`
           `example:`
           > line 1
-          > line 2
           _(emerged from book, YYYY-MM)_
     """
     lines = [f"- {text.strip()}"]
-    lines.append("  `example:`")
-    for ln in example.strip().splitlines():
-        stripped = ln.strip()
-        if stripped.startswith("> "):
-            lines.append(f"  {stripped}")
-        else:
-            lines.append(f"  > {stripped}")
+    if genres:
+        lines.append(f"  `when: {', '.join(genres)}`")
+    if example:
+        lines.append("  `example:`")
+        for ln in example.strip().splitlines():
+            stripped = ln.strip()
+            if stripped.startswith("> "):
+                lines.append(f"  {stripped}")
+            else:
+                lines.append(f"  > {stripped}")
     lines.append(f"  {origin_tag}")
     return "\n".join(lines)
 
