@@ -162,6 +162,43 @@ Do NOT extract:
 - Verbatim source text (plagiarism risk — patterns only, not prose)
 - Plot-specific facts that don't generalize to the resolved author's writing
 
+### 5.3b Genre classification and example extraction (Issue #266 / #268)
+
+For each extracted pattern, answer two questions before writing:
+
+**1. Universal or genre-specific?**
+
+A pattern is **genre-specific** if it is clearly tied to the tone or
+register of this source book's genre and would be wrong or jarring in a
+different genre. Examples:
+- Banter frequency (light-fantasy/comedy) → genre-specific
+- Humor-as-structural-accelerant (comedy) → genre-specific
+- POV-integrity (no author-knowledge leak) → universal
+- Flavor-word tic discipline → universal
+
+For genre-specific patterns: determine the source book's genres. Read the
+first lines of the analysis file for a `genres:` field in frontmatter, or
+derive from context (title, tone descriptors). If unclear, ask the user:
+> "Is '{book_slug}' primarily light-fantasy / comedy / other? I'll tag genre-
+> specific patterns so chapter-writer skips them in different-genre books."
+
+Collect the `genres` value as a comma-separated slug list (e.g.
+`light-fantasy, comedy-fantasy`). Universal patterns get an empty `genres`.
+
+**2. Is there a prose example worth preserving?**
+
+Scan the analysis file for a short illustrative example (1–4 lines of
+prose or dialogue) that demonstrates the pattern in the source author's
+voice. These are typically in `## Positive Style Markers` subsections or
+`## Signature Techniques` evidence blocks.
+
+If a good example exists: extract it as plain text (no source attribution,
+no character names from the source). 1–4 lines, first-person or short
+exchange preferred. Do NOT invent examples; only use what the analysis file
+documents.
+
+If no clean example exists: leave `example` empty.
+
 ### 5.4 Persist discoveries
 
 For each extracted pattern, call:
@@ -171,7 +208,9 @@ write_author_discovery(
   author_slug=<slug>,
   section="style_principles",
   text=<formatted pattern>,
-  book_slug=<derived-slug>
+  book_slug=<derived-slug>,
+  genres=<comma-separated genre list or "" if universal>,
+  example=<illustrative prose/dialogue from analysis, or "" if none>
 )
 ```
 
