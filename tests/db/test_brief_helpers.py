@@ -8,7 +8,7 @@ import pytest
 
 from tools.db.brief_helpers import load_canon_facts_for_brief
 from tools.db.canon_facts import insert_fact
-from tools.db.connection import ensure_schema, open_db, open_canon_db
+from tools.db.connection import open_canon_db
 import tools.db.connection as _db_conn
 
 
