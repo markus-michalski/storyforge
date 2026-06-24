@@ -279,6 +279,7 @@ def write_author_discovery(
     book_slug: str,
     year_month: str = "",
     validate: bool = True,
+    example: str = "",
 ) -> str:
     """Append a discovery to ``profile.md`` ``## Writing Discoveries`` (Issue #151).
 
@@ -291,7 +292,7 @@ def write_author_discovery(
     Args:
         author_slug: Author whose profile gets the entry.
         section: One of ``recurring_tics``, ``style_principles``, ``donts``.
-        text: Entry body, e.g. ``**"thing"** — concretize on sight.``.
+        text: Entry body (single line), e.g. ``**"thing"** — concretize on sight.``.
             Origin tag is appended automatically.
         book_slug: Book the discovery emerged from.
         year_month: ``YYYY-MM`` stamp; defaults to today's year-month.
@@ -300,6 +301,10 @@ def write_author_discovery(
             :func:`tools.author.discovery_lint.lint_author_discovery`
             (Issue #218). Set ``False`` to skip lint and emit the legacy
             response shape.
+        example: Optional prose or dialogue demonstration of the principle
+            (Issue #268). Only stored for ``style_principles``. Formatted as
+            a blockquote block under the entry so the chapter-writer can quote
+            it verbatim in Pre-Logic Audit 4.5.
 
     Returns ``{written, already_present, path, message}`` on success — with
     ``warnings`` and ``extracted_patterns`` appended when ``validate=True``
@@ -333,6 +338,7 @@ def write_author_discovery(
             text=text,
             book_slug=book_slug,
             year_month=year_month,
+            example=example,
         )
     except ValueError as exc:
         return json.dumps({"error": str(exc)})

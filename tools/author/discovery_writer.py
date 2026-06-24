@@ -108,16 +108,20 @@ def write_discovery(
     text: str,
     book_slug: str,
     year_month: str,
+    example: str = "",
 ) -> WriteResult | AlreadyPresent:
     """Append a discovery to ``profile.md`` under the matching sub-section.
 
     Args:
         profile_path: Path to the author's ``profile.md``.
         section: One of ``recurring_tics``, ``style_principles``, ``donts``.
-        text: Entry body, e.g. ``**"math" as analytical metaphor** — cut on sight.``.
+        text: Entry body (single line), e.g. ``**"math"** — cut on sight.``.
             The origin tag is appended automatically.
         book_slug: Book the discovery emerged from (used in the origin tag).
         year_month: ``YYYY-MM`` date stamp (used in the origin tag).
+        example: Optional prose or dialogue demonstration of the principle.
+            Stored as a blockquote block under the entry. Only valid for
+            ``style_principles`` — silently ignored for other sections.
 
     Returns either ``WriteResult(written=True)`` on a real change, or
     ``AlreadyPresent`` when the entry plus the *same* origin tag already exist
@@ -187,7 +191,11 @@ def write_discovery(
     else:
         # Append new bullet. Strip placeholder if present.
         new_sub_body = _strip_placeholder(sub_body)
-        bullet = f"- {text.strip()} {new_origin_tag}"
+        use_example = example.strip() and section == "style_principles"
+        if use_example:
+            bullet = _format_multiline_bullet(text, example, new_origin_tag)
+        else:
+            bullet = f"- {text.strip()} {new_origin_tag}"
         if not new_sub_body.endswith("\n"):
             new_sub_body += "\n"
         new_sub_body += bullet + "\n"
@@ -203,6 +211,29 @@ def write_discovery(
 
 def _format_origin_tag(book_slug: str, year_month: str) -> str:
     return f"_(emerged from {book_slug}, {year_month})_"
+
+
+def _format_multiline_bullet(text: str, example: str, origin_tag: str) -> str:
+    """Format a multi-line bullet with an example block.
+
+    Output format::
+
+        - **Principle** — description
+          `example:`
+          > line 1
+          > line 2
+          _(emerged from book, YYYY-MM)_
+    """
+    lines = [f"- {text.strip()}"]
+    lines.append("  `example:`")
+    for ln in example.strip().splitlines():
+        stripped = ln.strip()
+        if stripped.startswith("> "):
+            lines.append(f"  {stripped}")
+        else:
+            lines.append(f"  > {stripped}")
+    lines.append(f"  {origin_tag}")
+    return "\n".join(lines)
 
 
 def _origin_matches(origin: dict[str, str], book_slug: str, year_month: str) -> bool:
@@ -224,18 +255,24 @@ def _find_matching_bullet(
     sub_body: str,
     normalized_target: str,
 ) -> tuple[re.Match[str] | None, str, list[dict[str, str]]]:
-    """Find a bullet in ``sub_body`` whose normalized text matches the target.
+    """Find a bullet in ``sub_body`` whose normalized first line matches the target.
 
-    Returns ``(match, body_text, origins)`` or ``(None, "", [])``.
+    Captures multi-line bullets (including example blocks) by matching up to
+    the next ``- `` bullet or end of body.
+
+    Returns ``(match, first_line_body, origins)`` or ``(None, "", [])``.
     """
-    bullet_re = re.compile(r"^-\s+(?P<body>.+?)\n", re.MULTILINE)
+    # Match a bullet + all its continuation lines up to the next bullet or EOF.
+    bullet_re = re.compile(r"^(-\s+.+?)(?=^-\s|\Z)", re.MULTILINE | re.DOTALL)
     for match in bullet_re.finditer(sub_body):
-        body = match.group("body")
+        full_bullet = match.group(0)
+        first_line = full_bullet.splitlines()[0]
+        body = first_line[2:].strip()  # strip leading "- "
         normalized_existing = _normalize_entry_text(body)
         if normalized_existing == normalized_target:
             origins = [
                 {"book": m.group("book"), "date": m.group("date")}
-                for m in _ORIGIN_TAG_RE.finditer(body)
+                for m in _ORIGIN_TAG_RE.finditer(full_bullet)
             ]
             return match, body, origins
     return None, "", []

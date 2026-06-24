@@ -241,6 +241,67 @@ _BOOK_CLAUDEMD = """\
 """
 
 
+# ---------------------------------------------------------------------------
+# write_discovery — example block (Issue #268)
+# ---------------------------------------------------------------------------
+
+
+class TestWriteDiscoveryExample:
+    def test_example_stored_as_blockquote_block(self, author_dir: Path):
+        write_discovery(
+            profile_path=author_dir / "profile.md",
+            section="style_principles",
+            text="**Short-register under pressure** — short, trust-based exchanges.",
+            book_slug="firelight",
+            year_month="2026-06",
+            example='"Get up."\n"In a minute."\n"Now."\nKael looked at him. Got up.',
+        )
+        content = (author_dir / "profile.md").read_text(encoding="utf-8")
+        principles = _section_body(content, "Style Principles")
+        assert "`example:`" in principles
+        assert '> "Get up."' in principles
+        assert "_(emerged from firelight, 2026-06)_" in principles
+
+    def test_example_only_for_style_principles(self, author_dir: Path):
+        write_discovery(
+            profile_path=author_dir / "profile.md",
+            section="recurring_tics",
+            text='**"math"** — analytical tic, cut on sight.',
+            book_slug="firelight",
+            year_month="2026-06",
+            example="Some example that should be ignored.",
+        )
+        content = (author_dir / "profile.md").read_text(encoding="utf-8")
+        tics = _section_body(content, "Recurring Tics")
+        assert "`example:`" not in tics
+
+    def test_idempotent_with_example(self, author_dir: Path):
+        for _ in range(2):
+            write_discovery(
+                profile_path=author_dir / "profile.md",
+                section="style_principles",
+                text="**Short-register under pressure** — trust-based.",
+                book_slug="firelight",
+                year_month="2026-06",
+                example='"Get up." / "Now."',
+            )
+        content = (author_dir / "profile.md").read_text(encoding="utf-8")
+        assert content.count("`example:`") == 1
+
+    def test_example_blockquote_prefix_applied(self, author_dir: Path):
+        write_discovery(
+            profile_path=author_dir / "profile.md",
+            section="style_principles",
+            text="**Short-register** — trust-based.",
+            book_slug="firelight",
+            year_month="2026-06",
+            example="Get up.\nIn a minute.",
+        )
+        content = (author_dir / "profile.md").read_text(encoding="utf-8")
+        assert "  > Get up." in content
+        assert "  > In a minute." in content
+
+
 class TestRemoveBookRuleAfterPromotion:
     """Cleanup half: when the user accepts a promotion, the original rule
     should optionally disappear from the book CLAUDE.md."""

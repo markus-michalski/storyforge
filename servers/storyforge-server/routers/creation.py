@@ -215,6 +215,27 @@ updated: "{today}"
         (project_dir / "world" / "glossary.md").write_text(
             f"# {title} — Glossary\n\n*Terms, places, concepts.*\n", encoding="utf-8"
         )
+        (project_dir / "world-rules.md").write_text(
+            f"# World Rules — {title}\n\n"
+            "Canonically fragile facts. The chapter-writer reads this file before drafting.\n"
+            "Any fact documented here overrides model defaults — if it's not here, surface the\n"
+            "gap to the user rather than inventing it.\n\n"
+            "---\n\n"
+            "## Species / Biology\n\n"
+            "*Document species-specific facts the model tends to invent incorrectly: healing rates,\n"
+            "temperature, senses, sleep, strength scaling, feeding mechanics.*\n\n"
+            "## Locations / Room Inventories\n\n"
+            "*List furniture and features for recurring rooms. The model invents armchairs.\n"
+            "Example: Palace guest suite: bed, writing desk, chair, wardrobe — NO armchairs.*\n\n"
+            "## Character Timelines\n\n"
+            "*Dates and durations that are easy to get wrong: when someone left, how long ago\n"
+            "something happened, age at specific events.*\n\n"
+            "## Setting Facts\n\n"
+            "*Climate, geography, wildlife, travel times, and other environmental facts.*\n\n"
+            "## Other Fragile Facts\n\n"
+            "*Anything else the model fills in with plausible-but-wrong details.*\n",
+            encoding="utf-8",
+        )
 
     # Research
     (project_dir / "research" / "sources.md").write_text(
