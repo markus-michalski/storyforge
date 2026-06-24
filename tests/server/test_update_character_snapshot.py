@@ -1,17 +1,17 @@
-"""Tests for the ``update_character_snapshot`` MCP tool (Issues #157 / #160).
+"""Tests for update_character_snapshot MCP tool — Issues #157 / #160 / #281.
 
-The tool persists end-of-chapter POV character state back to the character
-file's frontmatter so the next brief picks it up from the highest-priority
-``frontmatter`` source rather than falling through to timeline heuristics.
+Phase 3 rewrite: snapshots now write to character_snapshots in SQLite
+(per-series DB) instead of YAML frontmatter in characters/*.md.
+Character files still exist for validation; they are not modified.
 """
 
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
-import yaml
 
 import routers._app as _app
 from routers.claudemd import update_character_snapshot
@@ -40,15 +40,21 @@ def mock_config(content_root: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     }
     monkeypatch.setattr(_app, "load_config", lambda: cfg)
     _app._cache.invalidate()
+
+    import tools.db.connection as conn_mod
+    db_dir = content_root.parent / "db"
+    db_dir.mkdir(exist_ok=True)
+    monkeypatch.setattr(conn_mod, "DB_DIR", db_dir)
+
     return cfg
 
 
-def _make_char(content_root: Path, book: str, slug: str, extra: str = "") -> Path:
+def _make_char(content_root: Path, book: str, slug: str) -> Path:
     char_dir = content_root / "projects" / book / "characters"
     char_dir.mkdir(parents=True, exist_ok=True)
     char_file = char_dir / f"{slug}.md"
     char_file.write_text(
-        f"---\nname: {slug}\nrole: protagonist\n---\n\nProfile body.\n{extra}",
+        f"---\nname: {slug}\nrole: protagonist\n---\n\nProfile body.\n",
         encoding="utf-8",
     )
     return char_file
@@ -65,14 +71,40 @@ def _make_person(content_root: Path, book: str, slug: str) -> Path:
     return person_file
 
 
+def _get_snapshot(content_root: Path, book_slug: str, char_slug: str) -> dict | None:
+    """Read latest snapshot for char from the book's DB."""
+    db_dir = content_root.parent / "db"
+    db_path = db_dir / f"{book_slug}.db"
+    if not db_path.exists():
+        return None
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        "SELECT * FROM character_snapshots WHERE char_slug=? ORDER BY book_num DESC, chapter_num DESC LIMIT 1",
+        (char_slug,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    result = dict(row)
+    for field in ("injuries", "clothing", "inventory", "altered_states"):
+        raw = result.get(field)
+        if isinstance(raw, str):
+            try:
+                result[field] = json.loads(raw)
+            except json.JSONDecodeError:
+                result[field] = []
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Happy path — fiction
 # ---------------------------------------------------------------------------
 
 
 class TestUpdateCharacterSnapshotFiction:
-    def test_writes_inventory_list(self, mock_config, content_root: Path):
-        char_file = _make_char(content_root, "my-book", "theo")
+    def test_writes_inventory_to_db(self, mock_config, content_root: Path):
+        _make_char(content_root, "my-book", "theo")
 
         result = json.loads(
             update_character_snapshot(
@@ -84,11 +116,12 @@ class TestUpdateCharacterSnapshotFiction:
 
         assert result["success"] is True
         assert "current_inventory" in result["updated_fields"]
-        meta = yaml.safe_load(char_file.read_text(encoding="utf-8").split("---")[1])
-        assert meta["current_inventory"] == ["compass", "silver knife", "no-signal phone"]
+        snap = _get_snapshot(content_root, "my-book", "theo")
+        assert snap is not None
+        assert snap["inventory"] == ["compass", "silver knife", "no-signal phone"]
 
     def test_writes_all_snapshot_fields(self, mock_config, content_root: Path):
-        char_file = _make_char(content_root, "my-book", "theo")
+        _make_char(content_root, "my-book", "theo")
         snapshot = {
             "current_inventory": ["compass", "knife"],
             "current_clothing": ["tactical boots", "mission jacket"],
@@ -101,57 +134,57 @@ class TestUpdateCharacterSnapshotFiction:
         result = json.loads(update_character_snapshot("my-book", "theo", json.dumps(snapshot)))
 
         assert result["success"] is True
-        meta = yaml.safe_load(char_file.read_text(encoding="utf-8").split("---")[1])
-        assert meta["current_inventory"] == ["compass", "knife"]
-        assert meta["current_clothing"] == ["tactical boots", "mission jacket"]
-        assert meta["current_injuries"] == ["bandaged left hand"]
-        assert meta["altered_states"] == ["running on 3 hours sleep"]
-        assert meta["environmental_limiters"] == []
-        assert meta["as_of_chapter"] == "26-the-basement"
+        snap = _get_snapshot(content_root, "my-book", "theo")
+        assert snap is not None
+        assert snap["inventory"] == ["compass", "knife"]
+        assert snap["clothing"] == ["tactical boots", "mission jacket"]
+        assert snap["injuries"] == ["bandaged left hand"]
+        assert snap["altered_states"] == ["running on 3 hours sleep"]
+        assert snap["chapter_num"] == 26
 
-    def test_preserves_existing_non_snapshot_fields(self, mock_config, content_root: Path):
+    def test_character_file_not_modified(self, mock_config, content_root: Path):
         char_file = _make_char(content_root, "my-book", "theo")
+        original = char_file.read_text(encoding="utf-8")
 
         update_character_snapshot(
             "my-book", "theo", json.dumps({"current_inventory": ["compass"]})
         )
 
-        meta = yaml.safe_load(char_file.read_text(encoding="utf-8").split("---")[1])
-        assert meta["name"] == "theo"
-        assert meta["role"] == "protagonist"
+        assert char_file.read_text(encoding="utf-8") == original
 
-    def test_overwrites_stale_inventory(self, mock_config, content_root: Path):
-        char_dir = content_root / "projects" / "my-book" / "characters"
-        char_dir.mkdir(parents=True, exist_ok=True)
-        char_file = char_dir / "theo.md"
-        char_file.write_text(
-            "---\ncurrent_inventory:\n- old item\n---\nBody.\n", encoding="utf-8"
-        )
-
+    def test_overwrites_previous_snapshot_same_chapter(self, mock_config, content_root: Path):
+        _make_char(content_root, "my-book", "theo")
         update_character_snapshot(
-            "my-book", "theo", json.dumps({"current_inventory": ["new item"]})
+            "my-book", "theo",
+            json.dumps({"current_inventory": ["old item"], "as_of_chapter": "5-scene"}),
         )
-
-        meta = yaml.safe_load(char_file.read_text(encoding="utf-8").split("---")[1])
-        assert meta["current_inventory"] == ["new item"]
-
-    def test_partial_snapshot_only_updates_given_fields(self, mock_config, content_root: Path):
-        char_dir = content_root / "projects" / "my-book" / "characters"
-        char_dir.mkdir(parents=True, exist_ok=True)
-        char_file = char_dir / "theo.md"
-        char_file.write_text(
-            "---\ncurrent_inventory:\n- compass\ncurrent_clothing:\n- jacket\n---\nBody.\n",
-            encoding="utf-8",
-        )
-
         update_character_snapshot(
-            "my-book", "theo", json.dumps({"current_injuries": ["bruised ribs"]})
+            "my-book", "theo",
+            json.dumps({"current_inventory": ["new item"], "as_of_chapter": "5-scene"}),
         )
+        snap = _get_snapshot(content_root, "my-book", "theo")
+        assert snap is not None
+        assert snap["inventory"] == ["new item"]
 
-        meta = yaml.safe_load(char_file.read_text(encoding="utf-8").split("---")[1])
-        assert meta["current_inventory"] == ["compass"]
-        assert meta["current_clothing"] == ["jacket"]
-        assert meta["current_injuries"] == ["bruised ribs"]
+    def test_partial_snapshot_merges_with_existing(self, mock_config, content_root: Path):
+        _make_char(content_root, "my-book", "theo")
+        update_character_snapshot(
+            "my-book", "theo",
+            json.dumps({
+                "current_inventory": ["compass"],
+                "current_clothing": ["jacket"],
+                "as_of_chapter": "5-setup",
+            }),
+        )
+        update_character_snapshot(
+            "my-book", "theo",
+            json.dumps({"current_injuries": ["bruised ribs"], "as_of_chapter": "6-fight"}),
+        )
+        snap = _get_snapshot(content_root, "my-book", "theo")
+        assert snap is not None
+        assert snap["inventory"] == ["compass"]
+        assert snap["clothing"] == ["jacket"]
+        assert snap["injuries"] == ["bruised ribs"]
 
     def test_empty_list_is_valid(self, mock_config, content_root: Path):
         _make_char(content_root, "my-book", "theo")
@@ -164,15 +197,15 @@ class TestUpdateCharacterSnapshotFiction:
 
         assert result["success"] is True
 
-    def test_body_text_is_preserved(self, mock_config, content_root: Path):
-        char_file = _make_char(content_root, "my-book", "theo")
-
-        update_character_snapshot(
-            "my-book", "theo", json.dumps({"current_inventory": ["compass"]})
-        )
-
-        content = char_file.read_text(encoding="utf-8")
-        assert "Profile body." in content
+    def test_updated_fields_in_response(self, mock_config, content_root: Path):
+        _make_char(content_root, "my-book", "theo")
+        snapshot = {
+            "current_inventory": ["compass"],
+            "as_of_chapter": "26-the-basement",
+        }
+        result = json.loads(update_character_snapshot("my-book", "theo", json.dumps(snapshot)))
+        assert result["success"] is True
+        assert result["updated_fields"] == sorted(snapshot.keys())
 
 
 # ---------------------------------------------------------------------------
@@ -181,8 +214,8 @@ class TestUpdateCharacterSnapshotFiction:
 
 
 class TestUpdateCharacterSnapshotMemoir:
-    def test_writes_to_people_dir(self, mock_config, content_root: Path):
-        person_file = _make_person(content_root, "my-memoir", "jane")
+    def test_writes_to_db_for_memoir(self, mock_config, content_root: Path):
+        _make_person(content_root, "my-memoir", "jane")
 
         result = json.loads(
             update_character_snapshot(
@@ -194,13 +227,13 @@ class TestUpdateCharacterSnapshotMemoir:
         )
 
         assert result["success"] is True
-        meta = yaml.safe_load(person_file.read_text(encoding="utf-8").split("---")[1])
-        assert meta["current_inventory"] == ["notebook", "pen"]
-        assert meta["consent_status"] == "confirmed"
+        snap = _get_snapshot(content_root, "my-memoir", "jane")
+        assert snap is not None
+        assert snap["inventory"] == ["notebook", "pen"]
 
-    def test_memoir_does_not_touch_characters_dir(self, mock_config, content_root: Path):
-        _make_person(content_root, "my-memoir", "jane")
-        chars_dir = content_root / "projects" / "my-memoir" / "characters"
+    def test_memoir_does_not_touch_people_file(self, mock_config, content_root: Path):
+        person_file = _make_person(content_root, "my-memoir", "jane")
+        original = person_file.read_text(encoding="utf-8")
 
         update_character_snapshot(
             "my-memoir",
@@ -209,7 +242,7 @@ class TestUpdateCharacterSnapshotMemoir:
             book_category="memoir",
         )
 
-        assert not chars_dir.exists()
+        assert person_file.read_text(encoding="utf-8") == original
 
 
 # ---------------------------------------------------------------------------
@@ -302,7 +335,6 @@ class TestUpdateCharacterSnapshotSecurity:
     def test_rejects_traversal_via_character_slug(
         self, mock_config, content_root: Path, tmp_path: Path
     ):
-        """A slug with '..' must not escape content_root."""
         from tools.shared.paths import resolve_project_path
 
         import pytest as _pytest

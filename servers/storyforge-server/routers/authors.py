@@ -15,18 +15,21 @@ from typing import Any
 
 import yaml
 
-from tools.author.discovery_writer import (
-    AlreadyPresent,
-    SectionMissing,
-    WriteResult,
-    write_discovery,
-)
+from tools.author.discovery_lint import lint_author_discovery
 from tools.author.rule_harvester import harvest
 from tools.claudemd.rules_editor import (
     MarkersNotFoundError,
     list_rules,
 )
-from tools.rule_writer import write_author_rule
+from tools.db.author_discoveries import (
+    VALID_TYPES,
+    discoveries_as_writing_discoveries,
+    discovery_exists,
+    get_discoveries,
+    insert_discovery,
+    update_source_genres,
+)
+from tools.db.connection import open_authors_db
 from tools.shared.paths import (
     resolve_author_path,
     resolve_project_path,
@@ -57,17 +60,23 @@ def list_authors() -> str:
 
 @mcp.tool()
 def get_author(slug: str) -> str:
-    """Get full author profile data."""
+    """Get full author profile data — writing_discoveries read from SQLite (Issue #281)."""
     state = _cache.get()
     author = state.get("authors", {}).get(slug)
     if not author:
         return json.dumps({"error": f"Author '{slug}' not found"})
 
-    # Also load vocabulary if exists
     config = _app.load_config()
     vocab_path = resolve_author_path(config, slug) / "vocabulary.md"
     if vocab_path.exists():
         author["vocabulary"] = vocab_path.read_text(encoding="utf-8")
+
+    conn = open_authors_db()
+    try:
+        rows = get_discoveries(conn, slug)
+    finally:
+        conn.close()
+    author["writing_discoveries"] = discoveries_as_writing_discoveries(rows)
 
     return json.dumps(author)
 
@@ -281,41 +290,33 @@ def write_author_discovery(
     validate: bool = True,
     example: str = "",
     genres: str = "",
+    universal: bool = False,
 ) -> str:
-    """Append a discovery to ``profile.md`` ``## Writing Discoveries`` (Issue #151).
+    """Append a discovery to the author_discoveries SQLite table (Issue #281).
 
-    Writes through ``tools.author.discovery_writer.write_discovery`` and
-    invalidates the state cache so subsequent ``get_author`` calls pick up
-    the new entry without a session restart. The harvest skill should call
-    this MCP tool rather than the underlying Python function so the cache
-    invalidation happens automatically.
+    Replaces the profile.md Markdown write from Issue #151. Idempotent via
+    UNIQUE(author_slug, discovery_type, text). Cache is invalidated so
+    subsequent get_author() calls reflect the new entry immediately.
 
     Args:
         author_slug: Author whose profile gets the entry.
         section: One of ``recurring_tics``, ``style_principles``, ``donts``.
         text: Entry body (single line), e.g. ``**"thing"** — concretize on sight.``.
-            Origin tag is appended automatically.
         book_slug: Book the discovery emerged from.
         year_month: ``YYYY-MM`` stamp; defaults to today's year-month.
-        validate: When ``True`` (default), the response also carries
-            ``warnings`` and ``extracted_patterns`` fields populated by
-            :func:`tools.author.discovery_lint.lint_author_discovery`
-            (Issue #218). Set ``False`` to skip lint and emit the legacy
-            response shape.
-        example: Optional prose or dialogue demonstration of the principle
-            (Issue #268). Only stored for ``style_principles``. Formatted as
-            a blockquote block under the entry so the chapter-writer can quote
-            it verbatim in Pre-Logic Audit 4.5.
-        genres: Optional comma-separated genre slugs (Issue #266). Only stored
-            for ``style_principles`` as `` `when: genre1, genre2` ``.
-            Chapter-writer skips the entry when the book's genres have no
-            overlap. Entries without ``genres`` are universal.
+        validate: When ``True`` (default), attaches ``warnings`` and
+            ``extracted_patterns`` from the lint check (Issue #218).
+        example: Optional illustrative prose (Issue #268).
+        genres: Optional comma-separated genre slugs (Issue #266).
+        universal: When ``True``, the discovery applies across all genres.
 
-    Returns ``{written, already_present, path, message}`` on success — with
-    ``warnings`` and ``extracted_patterns`` appended when ``validate=True``
-    — or ``{error: ...}`` on failure (unknown author, invalid section,
-    missing profile, missing Writing Discoveries section).
+    Returns ``{written, already_present, message}`` on success — with
+    ``warnings`` and ``extracted_patterns`` when ``validate=True``
+    — or ``{error: ...}`` on failure.
     """
+    if section not in VALID_TYPES:
+        return json.dumps({"error": f"Invalid section '{section}'. Must be one of: {sorted(VALID_TYPES)}"})
+
     if not year_month:
         year_month = date.today().strftime("%Y-%m")
 
@@ -331,51 +332,42 @@ def write_author_discovery(
     lint_result: dict[str, Any] | None = None
     if validate:
         try:
-            from tools.author.discovery_lint import lint_author_discovery
             lint_result = lint_author_discovery(section, text)
         except ValueError as exc:
             return json.dumps({"error": str(exc)})
 
-    genres_list = [g.strip() for g in genres.split(",") if g.strip()] if genres else []
+    source_genres = ",".join(g.strip() for g in genres.split(",") if g.strip()) if genres else ""
 
+    conn = open_authors_db()
     try:
-        result = write_discovery(
-            profile_path=profile_path,
-            section=section,
-            text=text,
-            book_slug=book_slug,
-            year_month=year_month,
-            example=example,
-            genres=genres_list or None,
-        )
-    except ValueError as exc:
-        return json.dumps({"error": str(exc)})
-    except SectionMissing as exc:
-        return json.dumps({"error": f"section_missing: {exc}", "code": "section_missing"})
-    except FileNotFoundError as exc:
-        return json.dumps({"error": str(exc)})
+        already = discovery_exists(conn, author_slug, section, text)
+        if not already:
+            insert_discovery(
+                conn,
+                author_slug=author_slug,
+                discovery_type=section,
+                text=text,
+                book_slug=book_slug,
+                source_genres=source_genres,
+                example=example,
+                date_added=year_month,
+                universal=universal,
+            )
+        written = not already
+    finally:
+        conn.close()
 
-    # Invalidate so chapter-writer's get_author() picks up the new entry.
     _cache.invalidate()
 
-    if isinstance(result, WriteResult):
-        payload: dict[str, Any] = {
-            "written": True,
-            "already_present": False,
-            "path": str(result.path),
-            "message": result.message,
-        }
-    elif isinstance(result, AlreadyPresent):
-        payload = {
-            "written": False,
-            "already_present": True,
-            "path": str(result.path),
-            "message": result.message,
-        }
-    else:
-        # Unreachable, but keep mypy happy and the JSON contract well-formed.
-        return json.dumps({"error": "unexpected write result"})
-
+    payload: dict[str, Any] = {
+        "written": written,
+        "already_present": already,
+        "message": (
+            f"Discovery added for {author_slug} [{section}]."
+            if written
+            else f"Discovery already present for {author_slug} [{section}]."
+        ),
+    }
     if lint_result is not None:
         payload["warnings"] = lint_result["warnings"]
         payload["extracted_patterns"] = lint_result["extracted_patterns"]
@@ -384,42 +376,100 @@ def write_author_discovery(
 
 @mcp.tool()
 def write_author_banned_phrase(author_slug: str, phrase: str, reason: str = "") -> str:
-    """Append a banned phrase to the author's ``vocabulary.md`` (Issue #151).
+    """Append a banned phrase to author_discoveries (discovery_type='donts') — Issue #281.
 
-    Wraps :func:`tools.rule_writer.write_author_rule` and invalidates the
-    state cache. Idempotent — already-present phrases return
-    ``{written: false}`` without erroring.
+    Replaces the vocabulary.md write from Issue #151. Idempotent via the
+    UNIQUE constraint. Cache is invalidated on write.
 
     Args:
         author_slug: Target author.
         phrase: Phrase to ban (e.g. ``thing``).
-        reason: Short rationale shown in the metadata tag.
+        reason: Short rationale stored alongside the phrase.
 
-    Returns ``{written, path?, message}`` or ``{error: ...}``.
+    Returns ``{written, message}`` or ``{error: ...}``.
     """
     config = _app.load_config()
-    # Derive storyforge_home from authors_root so the writer hits the
-    # configured tree (test fixtures use a different home than ~/.storyforge).
     try:
-        authors_root = Path(config["paths"]["authors_root"])
-        storyforge_home = authors_root.parent
-    except (KeyError, TypeError):
-        storyforge_home = None
+        profile_path = resolve_author_path(config, author_slug) / "profile.md"
+    except (KeyError, ValueError) as exc:
+        return json.dumps({"error": str(exc)})
 
-    written, message = write_author_rule(
-        phrase=phrase,
-        reason=reason or "promoted from book findings",
-        author_slug=author_slug,
-        source_context="harvest-author-rules",
-        storyforge_home=storyforge_home,
-    )
-    if not written and "not found" in message.lower():
-        return json.dumps({"error": message})
+    if not profile_path.is_file():
+        return json.dumps({"error": f"Author '{author_slug}' not found at {profile_path}"})
 
-    # Invalidate so subsequent get_author / brief loads see the new phrase.
+    text = f"**{phrase}**" + (f" — {reason}" if reason else "")
+
+    conn = open_authors_db()
+    try:
+        already = discovery_exists(conn, author_slug, "donts", text)
+        if not already:
+            insert_discovery(
+                conn,
+                author_slug=author_slug,
+                discovery_type="donts",
+                text=text,
+            )
+        written = not already
+    finally:
+        conn.close()
+
     _cache.invalidate()
 
-    return json.dumps({"written": written, "message": message})
+    return json.dumps({
+        "written": written,
+        "message": (
+            f"Banned phrase '{phrase}' added for {author_slug}."
+            if written
+            else f"Banned phrase '{phrase}' already present."
+        ),
+    })
+
+
+@mcp.tool()
+def update_discovery_metadata(
+    author_slug: str,
+    book_slug: str,
+    source_genres: str,
+) -> str:
+    """Set source_genres for all discoveries from a specific book (Issue #277 / #281).
+
+    Replaces the complex migrate-source-genres skill with a single SQL UPDATE.
+
+    Args:
+        author_slug: Target author.
+        book_slug: Book whose discoveries get the genre tag.
+        source_genres: Comma-separated genre slugs, e.g. ``"shifter-romance,omega-verse"``.
+
+    Returns ``{updated, author_slug, book_slug, source_genres}`` or ``{error: ...}``.
+    """
+    config = _app.load_config()
+    try:
+        profile_path = resolve_author_path(config, author_slug) / "profile.md"
+    except (KeyError, ValueError) as exc:
+        return json.dumps({"error": str(exc)})
+
+    if not profile_path.is_file():
+        return json.dumps({"error": f"Author '{author_slug}' not found"})
+
+    conn = open_authors_db()
+    try:
+        updated = update_source_genres(
+            conn,
+            author_slug=author_slug,
+            book_slug=book_slug,
+            source_genres=source_genres,
+        )
+    finally:
+        conn.close()
+
+    _cache.invalidate()
+
+    return json.dumps({
+        "updated": updated,
+        "author_slug": author_slug,
+        "book_slug": book_slug,
+        "source_genres": source_genres,
+    })
 
 
 @mcp.tool()

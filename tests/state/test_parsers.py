@@ -123,9 +123,9 @@ class TestParseCharacterFile:
 
 
 class TestParseAuthorProfile:
-    """Issue #151 — parse_author_profile must extract the body's Writing
-    Discoveries section so chapter-writer / chapter-reviewer can load author
-    tics, style principles, and don'ts that emerged across books."""
+    """Issue #281 — parse_author_profile now returns only frontmatter metadata.
+    Writing Discoveries are read from SQLite via get_author() in the router,
+    not from the Markdown body."""
 
     def _write_profile(self, tmp_path: Path, body: str, frontmatter_extras: str = "") -> Path:
         author_dir = tmp_path / "ethan-cole"
@@ -140,248 +140,18 @@ class TestParseAuthorProfile:
         profile.write_text(fm + body, encoding="utf-8")
         return profile
 
-    def test_legacy_profile_without_discoveries_returns_empty_lists(self, tmp_path):
-        """Books written before #151 must keep working — empty discoveries OK."""
+    def test_returns_frontmatter_metadata(self, tmp_path):
+        """parse_author_profile returns frontmatter fields only (Issue #281).
+        Writing Discoveries are now in SQLite — parse_author_profile no longer parses the body."""
         profile = self._write_profile(tmp_path, "# Ethan Cole\n\n## Writing Style\n\nDark and lean.\n")
 
         result = parse_author_profile(profile)
 
         assert result["slug"] == "ethan-cole"
         assert result["name"] == "Ethan Cole"
-        assert result["writing_discoveries"] == {
-            "recurring_tics": [],
-            "style_principles": [],
-            "donts": [],
-        }
-
-    def test_parses_recurring_tics_with_origin(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "_Insights that emerged across books._\n\n"
-            "### Recurring Tics\n\n"
-            "- **\"math\" as analytical metaphor** — cut on sight unless POV demands. "
-            "_(emerged from firelight, 2026-05)_\n"
-            "- **Blocking pattern \"[Character] moved to [location]\"** — replace with sensory anchor. "
-            "_(emerged from firelight, 2026-05)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-
-        result = parse_author_profile(profile)
-
-        tics = result["writing_discoveries"]["recurring_tics"]
-        assert len(tics) == 2
-        assert "math" in tics[0]["text"]
-        assert tics[0]["origins"] == [{"book": "firelight", "date": "2026-05"}]
-        assert "Blocking pattern" in tics[1]["text"]
-
-    def test_parses_style_principles_and_donts(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Style Principles\n\n"
-            "- Fast dialog without tags works up to ~8 turns. _(emerged from firelight, 2026-05)_\n\n"
-            "### Don'ts (beyond banned phrases)\n\n"
-            "- Never start a chapter with weather. _(emerged from firelight, 2026-05)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-
-        result = parse_author_profile(profile)
-        disc = result["writing_discoveries"]
-
-        assert len(disc["style_principles"]) == 1
-        assert "Fast dialog" in disc["style_principles"][0]["text"]
-        assert len(disc["donts"]) == 1
-        assert "weather" in disc["donts"][0]["text"]
-
-    def test_multiple_origins_for_recurring_pattern(self, tmp_path):
-        """When a pattern resurfaces in a second book, both origin tags survive."""
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Recurring Tics\n\n"
-            "- **\"math\" as analytical metaphor** — cut on sight. "
-            "_(emerged from firelight, 2026-05)_ _(emerged from emberkeep, 2026-09)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-
-        tic = parse_author_profile(profile)["writing_discoveries"]["recurring_tics"][0]
-        assert tic["origins"] == [
-            {"book": "firelight", "date": "2026-05"},
-            {"book": "emberkeep", "date": "2026-09"},
-        ]
-
-    def test_entry_without_origin_tag_still_parses(self, tmp_path):
-        """User-edited entries may lack an origin tag — must not crash."""
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Recurring Tics\n\n"
-            "- **\"just\" as a hedge** — strike when not load-bearing.\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-
-        tic = parse_author_profile(profile)["writing_discoveries"]["recurring_tics"][0]
-        assert "just" in tic["text"]
-        assert tic["origins"] == []
-
-    def test_empty_subsections_are_tolerated(self, tmp_path):
-        """A bare `_Frei._` placeholder under a heading must not register as a finding."""
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Recurring Tics\n\n"
-            "- **\"math\"** — analytical tic. _(emerged from firelight, 2026-05)_\n\n"
-            "### Style Principles\n\n"
-            "_Frei._\n\n"
-            "### Don'ts (beyond banned phrases)\n\n"
-            "_Frei._\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-
-        disc = parse_author_profile(profile)["writing_discoveries"]
-        assert len(disc["recurring_tics"]) == 1
-        assert disc["style_principles"] == []
-        assert disc["donts"] == []
-
-
-class TestParseWritingDiscoveriesExamples:
-    """Test that example blocks (Issue #268) are extracted correctly."""
-
-    def _write_profile(self, tmp_path: Path, body: str) -> Path:
-        fm = '---\nname: "Ethan Cole"\nslug: "ethan-cole"\n---\n\n'
-        profile = tmp_path / "profile.md"
-        profile.write_text(fm + body, encoding="utf-8")
-        return profile
-
-    def test_style_principle_with_example_block(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Style Principles\n\n"
-            "- **Short-register under pressure** — trust-based exchanges.\n"
-            "  `example:`\n"
-            '  > "Get up."\n'
-            '  > "In a minute."\n'
-            "  _(emerged from firelight, 2026-06)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-        disc = parse_author_profile(profile)["writing_discoveries"]
-        principles = disc["style_principles"]
-        assert len(principles) == 1
-        assert "Short-register" in principles[0]["text"]
-        assert "example" in principles[0]
-        assert "Get up." in principles[0]["example"]
-        assert "In a minute." in principles[0]["example"]
-
-    def test_example_stripped_from_text(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Style Principles\n\n"
-            "- **Principle** — description.\n"
-            "  `example:`\n"
-            "  > Demo line.\n"
-            "  _(emerged from firelight, 2026-06)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
-        # The example block must NOT appear in the text field.
-        assert "`example:`" not in principle["text"]
-        assert "Demo line" not in principle["text"]
-
-    def test_principle_without_example_has_no_example_key(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Style Principles\n\n"
-            "- **Plain principle** — no example. _(emerged from firelight, 2026-05)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
-        assert "example" not in principle
-
-    def test_recurring_tic_never_has_example_key(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Recurring Tics\n\n"
-            "- **Tic** — cut on sight.\n"
-            "  `example:`\n"
-            "  > Some line.\n"
-            "  _(emerged from firelight, 2026-05)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-        tic = parse_author_profile(profile)["writing_discoveries"]["recurring_tics"][0]
-        # Parser extracts example from ANY section — but _build_discovery_entry
-        # strips the example block from `text`. The `example` key is allowed.
-        # What matters: text field does not include the example content.
-        assert "`example:`" not in tic["text"]
-
-    def test_origins_still_parsed_with_example(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Style Principles\n\n"
-            "- **Principle** — desc.\n"
-            "  `example:`\n"
-            "  > Line.\n"
-            "  _(emerged from firelight, 2026-06)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
-        assert principle["origins"] == [{"book": "firelight", "date": "2026-06"}]
-
-
-class TestParseWritingDiscoveriesGenres:
-    """Test that when: genre-tag blocks (Issue #266) are extracted correctly."""
-
-    def _write_profile(self, tmp_path: Path, body: str) -> Path:
-        fm = '---\nname: "Ethan Cole"\nslug: "ethan-cole"\n---\n\n'
-        profile = tmp_path / "profile.md"
-        profile.write_text(fm + body, encoding="utf-8")
-        return profile
-
-    def test_when_block_parsed_to_genres_list(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Style Principles\n\n"
-            "- **Banter density** — 4–6 turns.\n"
-            "  `when: light-fantasy, comedy-fantasy`\n"
-            "  _(emerged from fractured-doors, 2026-06)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
-        assert principle["genres"] == ["light-fantasy", "comedy-fantasy"]
-        assert "Banter density" in principle["text"]
-
-    def test_principle_without_when_has_no_genres_key(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Style Principles\n\n"
-            "- **Universal principle** — no genre tag. _(emerged from firelight, 2026-05)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
-        assert "genres" not in principle
-
-    def test_when_and_example_combined(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Style Principles\n\n"
-            "- **Banter density** — 4–6 turns.\n"
-            '  `when: light-fantasy`\n'
-            "  `example:`\n"
-            '  > "You\'re impossible."\n'
-            "  _(emerged from fractured-doors, 2026-06)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
-        assert principle["genres"] == ["light-fantasy"]
-        assert "impossible" in principle["example"]
-        assert principle["origins"] == [{"book": "fractured-doors", "date": "2026-06"}]
-
-    def test_when_block_stripped_from_text(self, tmp_path):
-        body = (
-            "# Ethan Cole\n\n## Writing Discoveries\n\n"
-            "### Style Principles\n\n"
-            "- **Banter density** — 4–6 turns.\n"
-            "  `when: light-fantasy`\n"
-            "  _(emerged from fractured-doors, 2026-06)_\n"
-        )
-        profile = self._write_profile(tmp_path, body)
-        principle = parse_author_profile(profile)["writing_discoveries"]["style_principles"][0]
-        assert "`when:" not in principle["text"]
+        assert result["narrative_voice"] == "third-limited"
+        assert result["tense"] == "past"
+        assert "writing_discoveries" not in result
 
 
 class TestCountWords:
