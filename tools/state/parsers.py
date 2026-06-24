@@ -198,21 +198,16 @@ def parse_person_file(path: Path) -> dict[str, Any]:
 
 
 def parse_author_profile(path: Path) -> dict[str, Any]:
-    """Parse an author profile.md into structured data.
+    """Parse an author profile.md into structured data — Issue #281.
 
-    Issue #151 — also extracts the body's ``## Writing Discoveries`` section
-    so chapter-writer and chapter-reviewer can apply author-level findings
-    that emerged across books. Three sub-sections are supported:
-
-    - ``### Recurring Tics`` — habitual word/metaphor/structure tics
-    - ``### Style Principles`` — positive craft heuristics
-    - ``### Don'ts`` (also matches "Don'ts (beyond banned phrases)")
-
-    Each entry is parsed into ``{"text": str, "origins": [{"book", "date"}, ...]}``.
-    Profiles without the section get empty lists (back-compat for legacy authors).
+    Writing Discoveries are no longer parsed from Markdown; they are read
+    from the author_discoveries SQLite table by get_author() in the router.
+    ``writing_discoveries`` is omitted here so the state cache does not carry
+    stale Markdown data — the router always merges fresh DB rows before
+    returning get_author() responses.
     """
     text = path.read_text(encoding="utf-8")
-    meta, body = parse_frontmatter(text)
+    meta, _ = parse_frontmatter(text)
 
     return {
         "slug": path.parent.name,
@@ -229,142 +224,9 @@ def parse_author_profile(path: Path) -> dict[str, Any]:
         "influences": meta.get("influences", []),
         "avoid": meta.get("avoid", []),
         "author_writing_mode": meta.get("author_writing_mode", "outliner"),
-        "writing_discoveries": _parse_writing_discoveries(body),
         "created": str(meta.get("created", "")),
         "updated": str(meta.get("updated", "")),
     }
-
-
-# --- Writing Discoveries parser (Issue #151) ---
-
-# Match the H2 section header. We capture everything until the next H2 or EOF.
-_RE_DISCOVERIES_SECTION = re.compile(
-    r"^##\s+Writing\s+Discoveries\s*$(.*?)(?=^##\s|\Z)",
-    re.MULTILINE | re.DOTALL | re.IGNORECASE,
-)
-
-# Sub-section headers map to canonical bucket keys. The "Don'ts" header is
-# matched loosely — "Don'ts", "Donts", and "Don'ts (beyond banned phrases)"
-# all bucket the same way.
-_DISCOVERY_BUCKETS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("recurring_tics", re.compile(r"^###\s+Recurring\s+Tics\s*$", re.IGNORECASE)),
-    ("style_principles", re.compile(r"^###\s+Style\s+Principles\s*$", re.IGNORECASE)),
-    ("donts", re.compile(r"^###\s+Don[’'`´]?ts.*$", re.IGNORECASE)),
-)
-
-# A bullet entry. Captures the text after `- ` and lets the origin parser
-# walk over what's there. A line that is just `_Frei._` (German) or `_Free._`
-# placeholder must NOT register as an entry.
-_RE_BULLET = re.compile(r"^-\s+(?P<text>.+?)\s*$", re.MULTILINE)
-_RE_PLACEHOLDER = re.compile(r"^_(?:frei|free|empty|tba|tbd)\.?_\s*$", re.IGNORECASE)
-
-# Origin tag: `_(emerged from {book-slug}, {YYYY-MM})_`. Multiple tags can be
-# stacked when a discovery resurfaces across books.
-_RE_ORIGIN = re.compile(
-    r"_\(\s*emerged\s+from\s+(?P<book>[a-z0-9][a-z0-9_-]*)\s*,\s*(?P<date>\d{4}-\d{2})\s*\)_",
-    re.IGNORECASE,
-)
-
-
-_RE_EXAMPLE_BLOCK = re.compile(r"`example:`\s*\n((?:[ \t]*>[ \t]*.+\n?)+)", re.MULTILINE)
-_RE_WHEN_BLOCK = re.compile(r"`when:\s*([^`\n]+)`", re.MULTILINE)
-
-
-def _parse_writing_discoveries(body: str) -> dict[str, list[dict[str, Any]]]:
-    """Extract structured discoveries from the profile body.
-
-    Returns a dict with three buckets — ``recurring_tics``, ``style_principles``,
-    ``donts`` — each a list of ``{"text", "origins"}`` entries.
-    ``style_principles`` entries may carry ``"example"`` (Issue #268) and/or
-    ``"genres"`` (Issue #266) keys when the corresponding blocks are present.
-    """
-    empty = {"recurring_tics": [], "style_principles": [], "donts": []}
-    section = _RE_DISCOVERIES_SECTION.search(body)
-    if not section:
-        return empty
-
-    section_text = section.group(1)
-
-    result: dict[str, list[dict[str, Any]]] = {key: [] for key, _ in _DISCOVERY_BUCKETS}
-    current_bucket: str | None = None
-    pending: list[str] = []  # accumulates lines for the current bullet
-
-    def _flush() -> None:
-        if not pending or current_bucket is None:
-            return
-        entry = _build_discovery_entry("\n".join(pending))
-        if entry:
-            result[current_bucket].append(entry)
-        pending.clear()
-
-    for line in section_text.splitlines():
-        stripped = line.strip()
-        bucket_match = _match_subsection(stripped)
-        if bucket_match is not None:
-            _flush()
-            current_bucket = bucket_match
-            continue
-        if current_bucket is None:
-            continue
-        if _RE_PLACEHOLDER.match(stripped):
-            continue
-        if stripped.startswith("- "):
-            _flush()
-            pending.append(stripped[2:].strip())
-        elif stripped and pending:
-            # Continuation line (example block, blockquote, extra description).
-            pending.append(stripped)
-
-    _flush()
-    return result
-
-
-def _build_discovery_entry(raw: str) -> dict[str, Any] | None:
-    """Build a single discovery entry dict from accumulated bullet text lines."""
-    genres: list[str] = []
-    example = ""
-
-    # Extract when: genre tags before any other stripping.
-    when_match = _RE_WHEN_BLOCK.search(raw)
-    if when_match:
-        genres = [g.strip() for g in when_match.group(1).split(",") if g.strip()]
-        raw = _RE_WHEN_BLOCK.sub("", raw).strip()
-
-    # Extract example block; origins may follow it — extract before truncating.
-    ex_match = _RE_EXAMPLE_BLOCK.search(raw)
-    if ex_match:
-        example_raw = ex_match.group(1)
-        example = "\n".join(
-            ln.strip().lstrip(">").strip()
-            for ln in example_raw.splitlines()
-            if ln.strip()
-        )
-        origins = _extract_origins(raw)
-        raw = raw[: ex_match.start()].strip()
-    else:
-        origins = _extract_origins(raw)
-
-    cleaned = _RE_ORIGIN.sub("", raw).rstrip(" \t_").strip()
-    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
-    if not cleaned:
-        return None
-    entry: dict[str, Any] = {"text": cleaned, "origins": origins}
-    if example:
-        entry["example"] = example
-    if genres:
-        entry["genres"] = genres
-    return entry
-
-
-def _match_subsection(line: str) -> str | None:
-    for bucket_key, pattern in _DISCOVERY_BUCKETS:
-        if pattern.match(line):
-            return bucket_key
-    return None
-
-
-def _extract_origins(text: str) -> list[dict[str, str]]:
-    return [{"book": m.group("book"), "date": m.group("date")} for m in _RE_ORIGIN.finditer(text)]
 
 
 def parse_series_readme(path: Path) -> dict[str, Any]:

@@ -32,6 +32,8 @@ from tools.claudemd.rules_lint import (
     lint_book_rules as _lint_book_rules_impl,
     lint_rule_text as _lint_rule_text_impl,
 )
+from tools.db.character_snapshots import upsert_snapshot
+from tools.db.connection import get_db_slug_for_book, get_book_num, open_canon_db
 from tools.shared.paths import (
     resolve_character_path,
     resolve_people_dir,
@@ -122,16 +124,14 @@ def update_character_snapshot(
     snapshot_json: str,
     book_category: str = "fiction",
 ) -> str:
-    """Persist end-of-chapter POV character snapshot to the character file.
+    """Persist end-of-chapter POV character snapshot to SQLite (Issue #281).
 
-    Writes the structured list fields that the chapter-writing brief extracts
-    (``pov_character_inventory`` from Issue #157; ``pov_character_state`` from
-    Issue #160) back to the character frontmatter so the *next* chapter's brief
-    picks them up from the highest-priority ``frontmatter`` source rather than
-    falling through to timeline regex or draft heuristics.
+    Writes inventory, clothing, injuries, altered_states, environmental_limiters,
+    and as_of_chapter to the ``character_snapshots`` table in the per-series DB
+    (``~/.storyforge/db/{series-slug}.db``). The character file is NOT modified.
 
-    Only the five snapshot fields (plus ``as_of_chapter``) are touched — all
-    other frontmatter fields are left unchanged.
+    The character file must still exist — its presence is used as a validity gate
+    to confirm the character is real (not a stale slug from a deleted file).
 
     Args:
         book_slug: Book project slug.
@@ -147,12 +147,7 @@ def update_character_snapshot(
         ``{success, character, book, updated_fields}`` on success, or
         ``{error}`` on validation / IO failure.
     """
-    import yaml
-
-    from tools.state.parsers import parse_frontmatter
-
     config = _app.load_config()
-    content_root = Path(config["paths"]["content_root"]).resolve()
 
     try:
         snapshot: dict[str, Any] = json.loads(snapshot_json)
@@ -193,21 +188,42 @@ def update_character_snapshot(
     else:
         char_file = resolve_character_path(config, book_slug, character_slug)
 
-    try:
-        resolved = char_file.resolve()
-    except (OSError, RuntimeError) as exc:
-        return json.dumps({"error": f"Invalid path: {exc}"})
-    if not resolved.is_relative_to(content_root):
-        return json.dumps({"error": "Resolved character path escapes content_root"})
-
+    # Validity gate: confirm the character slug refers to a real file even though
+    # we no longer write to it. Prevents snapshotting stale/deleted characters.
     if not char_file.exists():
         return json.dumps({"error": f"Character file not found: {char_file}"})
 
-    text = char_file.read_text(encoding="utf-8")
-    meta, body = parse_frontmatter(text)
-    meta.update(snapshot)
-    new_text = "---\n" + yaml.dump(meta, default_flow_style=False, allow_unicode=True) + "---\n" + body
-    char_file.write_text(new_text, encoding="utf-8")
+    # Parse chapter number from as_of_chapter (e.g. "26-the-basement" → 26).
+    chapter_num = 0
+    if "as_of_chapter" in snapshot:
+        raw_ch = snapshot["as_of_chapter"]
+        try:
+            chapter_num = int(str(raw_ch).split("-")[0])
+        except (ValueError, IndexError):
+            chapter_num = 0
+
+    db_slug = get_db_slug_for_book(project_dir)
+    book_num = get_book_num(project_dir)
+
+    conn = open_canon_db(db_slug)
+    try:
+        upsert_snapshot(
+            conn,
+            char_slug=character_slug,
+            book_num=book_num,
+            chapter_num=chapter_num,
+            injuries=snapshot.get("current_injuries"),
+            clothing=snapshot.get("current_clothing"),
+            inventory=snapshot.get("current_inventory"),
+            altered_states=snapshot.get("altered_states"),
+            environmental_limiters=(
+                ", ".join(snapshot["environmental_limiters"])
+                if isinstance(snapshot.get("environmental_limiters"), list)
+                else snapshot.get("environmental_limiters") or None
+            ),
+        )
+    finally:
+        conn.close()
 
     _app._cache.invalidate()
     return json.dumps(

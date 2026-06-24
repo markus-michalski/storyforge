@@ -17,6 +17,8 @@ from typing import Any
 
 from tools.analysis.timeline_validator import parse_plot_timeline
 from tools.db.brief_helpers import load_canon_facts_for_brief
+from tools.db.character_snapshots import get_all_latest_snapshots
+from tools.db.connection import get_db_slug_for_book, open_canon_db
 from tools.state.chapter_timeline_parser import parse_chapter_timeline_grid
 from tools.state.parsers import parse_frontmatter
 from tools.state.review_brief import (
@@ -177,6 +179,21 @@ def build_continuity_brief(
         [],
     )
 
+    # ----- character snapshots from DB (Issue #281) -------------------------
+    def _load_character_snapshots() -> list[dict]:
+        db_slug = get_db_slug_for_book(book_root)
+        conn = open_canon_db(db_slug)
+        try:
+            return get_all_latest_snapshots(conn)
+        finally:
+            conn.close()
+
+    character_snapshots: list[dict] = recorder.run(
+        "character_snapshots",
+        _load_character_snapshots,
+        [],
+    )
+
     return {
         "book_slug": book_slug,
         "canonical_calendar": canonical_calendar,
@@ -184,5 +201,6 @@ def build_continuity_brief(
         "canon_log_facts": canon_log_facts,
         "character_index": character_index,
         "chapter_timelines": chapter_timelines,
+        "character_snapshots": character_snapshots,
         "errors": list(recorder.errors),
     }

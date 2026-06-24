@@ -1,10 +1,11 @@
-"""SQLite connection management for StoryForge — Issue #280.
+"""SQLite connection management for StoryForge — Issues #280 / #281.
 
 DB layout:
-  ~/.storyforge/db/{series-slug}.db  — canon_facts per series
+  ~/.storyforge/db/{series-slug}.db  — canon_facts + character_snapshots per series
   ~/.storyforge/db/storyforge.db     — global sessions table
+  ~/.storyforge/db/authors.db        — author_discoveries (global, cross-series)
 
-All tables are created lazily via ensure_schema().
+All tables are created lazily via ensure_schema() / ensure_authors_schema().
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ def open_db(db_path: Path) -> sqlite3.Connection:
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
-    """Create all tables and indexes if they don't exist yet (idempotent)."""
+    """Create series/session tables and indexes if they don't exist yet (idempotent)."""
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS canon_facts (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,8 +59,65 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             notes             TEXT DEFAULT '{}',
             last_updated      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS character_snapshots (
+            char_slug               TEXT NOT NULL,
+            book_num                INTEGER NOT NULL,
+            chapter_num             INTEGER NOT NULL,
+            injuries                TEXT,
+            clothing                TEXT,
+            inventory               TEXT,
+            altered_states          TEXT,
+            environmental_limiters  TEXT DEFAULT '',
+            updated_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (char_slug, book_num, chapter_num)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_cs
+            ON character_snapshots(char_slug, book_num, chapter_num);
     """)
     conn.commit()
+
+
+def ensure_authors_schema(conn: sqlite3.Connection) -> None:
+    """Create the author_discoveries table and index (idempotent) — Issue #281."""
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS author_discoveries (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            author_slug    TEXT NOT NULL,
+            discovery_type TEXT NOT NULL,
+            text           TEXT NOT NULL,
+            book_slug      TEXT DEFAULT '',
+            source_genres  TEXT DEFAULT '',
+            universal      BOOLEAN DEFAULT FALSE,
+            example        TEXT DEFAULT '',
+            date_added     TEXT DEFAULT '',
+            created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(author_slug, discovery_type, text)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_ad
+            ON author_discoveries(author_slug, discovery_type);
+    """)
+    conn.commit()
+
+
+def get_authors_db_path() -> Path:
+    """Return the path to the global author_discoveries database."""
+    return DB_DIR / "authors.db"
+
+
+def open_authors_db() -> sqlite3.Connection:
+    """Open the global authors DB (author_discoveries table)."""
+    path = get_authors_db_path()
+    conn = open_db(path)
+    try:
+        ensure_authors_schema(conn)
+    except sqlite3.Error:
+        conn.close()
+        raise
+    return conn
 
 
 def get_canon_db_path(series_or_book_slug: str) -> Path:
