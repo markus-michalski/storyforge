@@ -49,6 +49,31 @@ If the user provides multiple prefixed lines in one message, use
 `sync_book_claudemd_from_text(book_slug, text)` to extract and persist all at once.
 Report counts per kind.
 
+## Threading Callbacks — Intensity Metadata
+
+When registering a callback that asks the chapter-writer to thread a **prop or motif**
+through specific chapters, add intensity metadata to control recurrence density:
+
+**Format:**
+```
+Callback: <prop> — Ch N: thread | intensity: <level> | max_mentions: <N> | <note>
+```
+
+**Intensity levels:**
+
+| Level | Meaning |
+|---|---|
+| `passive` | Background only. Max 1 mention per scene. No sensory close-up. No emotional emphasis. |
+| `active` | Present and noticed. 2–3 mentions allowed. Character may register it. **(default)** |
+| `prominent` | A scene beat. Close-up and emotional emphasis allowed. |
+
+**Example:**
+```
+Callback: Das Amulett — Ch 32: thread | intensity: passive | max_mentions: 1 | Do not explain before Ch 33.
+```
+
+Without intensity metadata the chapter-writer applies `active` behavior.
+
 ## Rules
 
 - Never invent a callback from context — only register what the user explicitly marks.

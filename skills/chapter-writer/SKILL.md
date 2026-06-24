@@ -26,6 +26,7 @@ Before writing a single word:
    - `consent_status_warnings` *(memoir only)* — if any `refused` tier → halt drafting immediately.
    - `review_handle` — store as `{review_handle}`.
 2. **Author profile** — MCP `get_author()`. **Why:** Drives tone, vocabulary, rhythm, voice. Memoirist's voice is the same load. Without it prose defaults to generic AI register. **The profile's `writing_discoveries` field (Issue #151) carries cross-book findings — `recurring_tics` to actively suppress, `style_principles` to lean into, `donts` to avoid. Apply these BEFORE drafting any prose; they are author identity, not optional.**
+   **Style Suppressions:** Check book CLAUDE.md `## Style Suppressions` section (available in brief or via `get_book_claudemd`). Any `style_principles` heading matching an entry is **skipped for this book** — omit from Audit 4.5, don't apply. Missing section = all principles apply.
 3. **Book data** — MCP `get_book_full()`. **Why:** Genres / category context, plot or scope, the frame the chapter must fit.
 
 ### Fiction mode (`book_category == "fiction"`)
@@ -41,8 +42,9 @@ Before writing a single word:
    - `simile-discipline` — **Why:** The two-question test for every comparison — mandatory for the pre-save scan in Step 6c.
 6. **World files** — Read `{project}/world/setting.md`. **Why:** Travel Matrix and location facts — invented travel times break continuity. Mandatory when the chapter involves travel or specific places.
 7. **Story timeline** — Read `{project}/plot/timeline.md`. **Why:** Canonical day/date calendar — the brief's `recent_chapter_timelines` covers intra-day grids; `timeline.md` covers the macro arc.
-8. **Canon log** — Use `canon_brief` from the chapter writing brief (Issue #161, #165, #170). **Why:** `plot/canon-log.md` grows large over a novel-length project and causes context-window truncation when read in full. The inlined `canon_brief` provides `pov_relevant_facts` (POV-filtered, your primary writing signal — trimmed newest-first to a 30k char budget) + `changed_facts` (ALL `CHANGED` entries regardless of age) — the facts most likely to affect the chapter being written. `warnings` non-empty = file missing, legacy format, or missing `pov_character` frontmatter; surface to user and do not invent. **For the unfiltered fact list within the scope window** (e.g. when `pov_relevant_facts` is empty or you need broader context), call standalone MCP `get_canon_brief(book_slug, chapter_slug, scope_chapters=N)`. The standalone tool returns the same projection plus `current_facts` — needed for review/continuity work, not for routine drafting. **When `pov_relevant_facts_truncated == true`** the inlined POV facts are the newest slice only; older POV facts still exist in the scope window — call standalone `get_canon_brief()` if continuity checks need them. To go beyond the scope window, pass a larger `N` or read the raw file.
+8. **Canon log** — Use `canon_brief` from the chapter writing brief. Provides `pov_relevant_facts` (POV-filtered primary signal) + `changed_facts` (all `CHANGED` entries). `warnings` non-empty → surface to user, do not invent. `pov_relevant_facts_truncated == true` or need broader context → call standalone `get_canon_brief(book_slug, chapter_slug, scope_chapters=N)`; returns same projection + `current_facts`.
 9. **Series canon** — If part of a series, read `{series}/world/canon.md`. **Why:** Series-level facts and constraints carry across books.
+9b. **World Rules** — Read `{project}/world-rules.md` if it exists. **Why:** Documents canonically fragile facts the model would otherwise fill with plausible-sounding inventions: species biology, room inventories, character-specific timeline details, distances, healing rates. Any fact documented here overrides model defaults and the "Abstain from invention" rule treats it as a valid source. Missing file → skip silently; do NOT invent rules for uncovered categories.
 10. **Previous chapter draft** — Read `{project}/chapters/{prev_chapter_slug}/draft.md`. **Why:** Canon-log gives you facts; the previous draft gives you voice-in-relationship. The prose reveals how these specific characters talk to each other — their sentence rhythm, physical shorthand, what gets left unsaid, who deflects and who pushes. Without this, reconstructed dialog defaults to briefing mode: characters explaining things both parties already know. Skip only if this is Chapter 1 (no predecessor) or if the prior draft does not exist yet.
 
 **Shared procedures** — MCP `get_craft_reference("chapter-writing-shared")`. Contains mode selection, scene-plan persistence, user review loop, chapter completion, POV snapshot procedure, and user feedback handling — all referenced inline later by section name (`§`).
@@ -72,10 +74,8 @@ Read the chapter README.md outline:
 **Emit a bulleted audit block to chat before any prose enters `draft.md`.** No exceptions, no inlining into the prose response. For each category, answer in one sentence citing the source; if the source is silent, say so — that is the gap to surface, not paper over.
 
 1. **Inventory (POV character).** What does the POV char physically carry? **Source:** brief's `pov_character_inventory`. If `extraction_method: "none"` or `warnings` non-empty → ask before any item-touching action; do not invent.
-   > *Example: "Theo (Ch26 ~12:55): compass, silver knife, phone, power bar, mission jacket. No pamphlet."*
 
 2. **Geography.** Which rooms, routes, and waypoints does this scene touch; which is the POV char familiar with? **Source:** `world/setting.md` Travel Matrix (fiction) or `research/sources.md` (memoir), plus `plot/timeline.md` and `recent_chapter_timelines`. Model the route before any movement verb.
-   > *Example: "Mine = basement chamber + adit chamber via working tunnel; external route via Bloodrunner corridor. POV in basement → internal tunnel is the only sensible path."*
 
 3. **Character biography & relationships.** For every character on the page: relationship to POV, what POV knows, what is canon-forbidden? **Source:** `characters/{slug}.md` (fiction) or `people/{slug}.md` (memoir), brief's `canon_brief.pov_relevant_facts` + `canon_brief.changed_facts`. For non-POV characters call standalone `get_canon_brief()` → `current_facts`. If `canon_brief.warnings` non-empty → surface and ask. **Also check from Prerequisite 10 (previous chapter prose):** How do these specific characters talk to each other in practice? Unfinished sentences? Physical shorthand before words? Who deflects, who presses? This texture — not the canon relationship summary — is what makes "two people who've been through N chapters together" sound different from "two people explaining things to each other."
    > *Example: "Caelan is Sera's father, NOT Theo's. Any 'reminds him of his father' framing is canon-break — cut."*
@@ -84,11 +84,10 @@ Read the chapter README.md outline:
 4. **Banned phrases + author tics.** Scan the *planned* beats against brief's `banned_phrases` and author profile's `writing_discoveries.recurring_tics` / `donts`. Replan offending beats before any prose.
    > *Example: "Planned 'Theo does mental math' → tic `math` → replan as 'Theo cross-checks timing against radio chatter'."*
 
-4.5 **style_principles activation.** From the author profile's `writing_discoveries.style_principles`, name 3 principles that this scene's beats can express. For each: (a) the principle, (b) which beat is the trigger, (c) the concrete action or line that delivers it. If you cannot name a specific beat for a principle, do not count it — an intention without a beat is a hope, not a plan. List the 3 active principles before drafting begins.
+4.5 **style_principles activation.** From the author profile's `writing_discoveries.style_principles`, **excluding any entries suppressed in the book's `## Style Suppressions` section**, name 3 principles that this scene's beats can express. For each: (a) the principle, (b) which beat is the trigger, (c) the concrete action or line that delivers it. If you cannot name a specific beat for a principle, do not count it — an intention without a beat is a hope, not a plan. List the 3 active principles before drafting begins.
    > *Example: "① Banter-exchange trigger (3-beat Q-deflect-call): beat = Theo announces the Lucien plan → Kael asks flat, Theo deflects with sarcasm, Kael names what Theo's doing. ② Sarcasm-deployment (setup/hit/physical): beat = tension peak after the feed scene → one-liner + body cue. ③ Humor-as-armor: beat = vulnerability reveal → Theo jokes instead of answering directly."*
 
 5. **Sensory plausibility.** Can the POV perceive what the planned beat requires? **Source:** brief's `pov_character_state` — `clothing`, `injuries`, `altered_states`, `environmental_limiters`. If any category has `extraction_methods[cat] == "none"` AND the planned beat depends on it → surface and ask.
-   > *Example: "`clothing` → tactical boots; 'steps colder than expected' → boots block direct sensation → rewrite as 'he gripped the railing — cold enough that even through gloves he felt it'."*
 
 6. **Scene arc (scene-level; Step 1 asks the chapter-level equivalent).** In one sentence: what does the POV character feel at the start of this scene, what shifts mid-scene, and where do they land emotionally? **Source:** scene PURPOSE from the `## Scene Plan` in the chapter README. If you can only answer by listing beats in order, re-read PURPOSE before writing.
 
@@ -122,7 +121,7 @@ Run the **Pre-Logic Audit** (above) **per scene**. Emit the bulleted block to ch
 
 #### Step A2: Write One Scene
 
-**Anti-Checklist Warning:** The Pre-Scene Audit operates per-beat — that is the planning phase. Prose does NOT follow that sequence. Read all beats from the chapter README's Scene Beats section, hold them as a constellation, then write the scene as one organic whole. Do NOT write beat 1, then beat 2, then beat 3 — that produces sequential paragraphs each rendering one beat in isolation, not prose. After writing, check whether each beat found its place naturally. If a beat did not surface, note it in the chat metadata line so the user can decide whether to add it or release it from the plan.
+**Anti-Checklist Warning:** The Pre-Scene Audit is planning — prose doesn't follow beat sequence. Hold all beats as a constellation and write the scene organically. After writing, check each beat found its place; note unplaced beats in chat metadata.
 
 Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene.
 
@@ -190,18 +189,7 @@ Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `
 1. Scan all prose in the current scene for the above markers.
 2. If **zero hits**: emit `EA-Scan: clean ✓` and proceed to append.
 3. If **5 or more hits**: stop and flag it. These shapes cluster — a scene with 5+ hits needs a rewrite, not spot-welding. Tell the user: "This scene has N EA-hits. Patching this many shapes risks losing coherence — recommend rewriting from scratch. Proceed with per-hit fixes or rewrite?" Wait for the user's choice before continuing.
-4. If **1–4 hits**: do NOT append yet. **EA-Scan display blocks are the documented exception to the prose-in-chat rule** — they appear in chat as diagnostic blocks, not as prose. Present each hit to the user, one at a time:
-
-```
-EA-Scan — hit N/M — Shape 11.X [Name]
---------------------------------------
-Original: "[flagged sentence, verbatim]"
-Fix:      "[proposed replacement — physical, specific, named body]"
-
-apply / skip / try again
-```
-
-   If this is the **second or later 11.5 hit** in the scene, add `[11.5 recurrence — pushback required before skip]` and offer a concrete alternative before accepting a skip.
+4. If **1–4 hits**: do NOT append yet. Present each hit to the user one at a time (chat, not prose): shape type, original sentence, proposed fix. Offer `apply / skip / try again`. If this is the **second or later 11.5 hit**, add `[11.5 recurrence — pushback required before skip]` and offer a concrete alternative before accepting a skip.
 
 5. Wait for user response per hit:
    - `apply` — write the fix into the scene text, proceed to next hit
@@ -212,9 +200,6 @@ apply / skip / try again
 
 **Fix direction (same for all shapes):** Route the emotional weight through a named body in the room. Whose eyes did not move. Whose hand stilled. Whose breath came faster. Specificity is the antidote.
 
-**Why Step 6d is interactive but Step 6c is not:** Simile failures are clear-cut (dead simile, stacked simile, illogical vehicle); the model can fix them reliably. Section 11 shapes are statistically respectable — they appear in published fiction and often sit at peak emotional moments, so whether a given instance is an AI-tell or a deliberate effect requires authorial judgment. The fix must stay in voice. Hence: interactive.
-
-Do not silently bypass the scan — these shapes are invisible to the vocabulary-scan in Step 6 and are the most common source of AI-register complaints from readers.
 
 ---
 
@@ -244,12 +229,7 @@ Before presenting to user (in full-chapter mode) or after all scenes assembled (
 Suggest: `/storyforge:chapter-reviewer` for detailed review.
 
 ### Step 9: Stop While Ahead (both modes)
-After the chapter is saved and the user signals satisfaction, end the session on momentum.
-
-**Closing reminder to the user:**
-> "Tipp für die nächste Session: Stopp jetzt, solange der Schwung da ist. Fang das nächste Kapitel NICHT an — hör mittendrin auf, wenn du weißt wie es weitergeht. So hast du beim nächsten Mal sofort einen Einstiegspunkt und kommst schneller in den Flow."
-
-This is not optional advice — it's a craft technique (Jerry Jenkins, Stephen King). Writers who stop mid-momentum have a warm entry into the next session. Writers who stop at a "logical ending point" face a blank page next time.
+After the chapter is saved and the user signals satisfaction, end the session. Remind the user: stop now, don't start the next chapter — stopping mid-momentum gives a warm entry next session (Jerry Jenkins / Stephen King technique).
 
 If the user is blocked or struggling: redirect to `/storyforge:unblock` instead of pushing through.
 
@@ -262,6 +242,7 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 - **Simile Discipline (Step 6c) is non-negotiable.** Every scene survives the two-question test before it enters `draft.md`. Author-voice bias = quality not quantity. See `simile-discipline.md`.
 - **Elegant Abstraction Scan (Step 6d) is a non-negotiable interactive hard-gate.** No scene enters `draft.md` until every Section 11 hit is either fixed or explicitly skipped by the user. The model does not fix autonomously — each hit is presented, a replacement proposed, user approves. These shapes look literary but render emotion through abstraction; they are the primary AI-register failure mode at high-stakes moments. See `anti-ai-patterns.md` Section 11.
 - Honor every entry in the brief's `rules_to_honor` (book CLAUDE.md ## Rules) — `severity: block` rules will be hard-blocked by the PostToolUse hook. Honor `tone_litmus_questions` (from `plot/tone.md`) when present.
+- **Callback threading constraints:** If a callback entry includes `intensity:` and `max_mentions:` metadata, treat these as hard constraints. `intensity: passive | max_mentions: 1` = mention the prop once, in passing, no sensory close-up, no emotional emphasis. After drafting, scan for all mentions of the prop — if the count exceeds `max_mentions`, cut or consolidate before the Step 6c scan. Without metadata, apply `active` behavior (2–3 mentions allowed).
 - Never write a relative time reference without checking against the brief's `story_anchor` and `recent_chapter_timelines`. If the math doesn't work, adjust the prose — not the timeline.
 - The Chapter Timeline section in `README.md` is MANDATORY at review status. Future chapters depend on it.
 - Full-chapter mode: write in ONE PASS, then offer revision. Don't second-guess mid-flow.
