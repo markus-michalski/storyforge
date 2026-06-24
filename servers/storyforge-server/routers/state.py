@@ -9,12 +9,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tools.db.connection import open_session_db
+from tools.db.sessions import get_session_from_db, update_session_in_db
 from tools.shared.paths import resolve_project_path, resolve_world_dir
 from tools.state.indexer import rebuild
 from tools.state.parsers import parse_frontmatter
 
 from . import _app
 from ._app import _cache, mcp
+
+_SESSION_USER_ID = "local"
 
 # Path E (#54): allowed book_category values for get_book_category_dir.
 # Phase 1 only ships fiction + memoir. Other non-fiction subtypes
@@ -24,9 +28,13 @@ _ALLOWED_BOOK_CATEGORIES = ("fiction", "memoir")
 
 @mcp.tool()
 def get_session() -> str:
-    """Get current session context."""
-    state = _cache.get()
-    return json.dumps(state.get("session", {}))
+    """Get current session context from DB (Issue #280)."""
+    conn = open_session_db()
+    try:
+        session = get_session_from_db(conn, _SESSION_USER_ID)
+    finally:
+        conn.close()
+    return json.dumps(session)
 
 
 @mcp.tool()
@@ -36,24 +44,20 @@ def update_session(
     last_phase: str = "",
     active_author: str = "",
 ) -> str:
-    """Update session context with current work info."""
-    state = _cache.get()
-    session = state.get("session", {})
-
-    if last_book:
-        session["last_book"] = last_book
-    if last_chapter:
-        session["last_chapter"] = last_chapter
-    if last_phase:
-        session["last_phase"] = last_phase
-    if active_author:
-        session["active_author"] = active_author
-
-    state["session"] = session
-    from tools.state.indexer import _write_state
-
-    _write_state(state)
-    _cache.invalidate()
+    """Update session context in DB (Issue #280)."""
+    conn = open_session_db()
+    try:
+        update_session_in_db(
+            conn,
+            _SESSION_USER_ID,
+            last_book=last_book,
+            last_chapter=last_chapter,
+            last_phase=last_phase,
+            active_author=active_author,
+        )
+        session = get_session_from_db(conn, _SESSION_USER_ID)
+    finally:
+        conn.close()
 
     return json.dumps({"success": True, "session": session})
 

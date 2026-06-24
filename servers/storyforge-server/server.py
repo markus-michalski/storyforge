@@ -115,6 +115,9 @@ from routers.series import (  # noqa: E402, F401
     read_tracker_for_bootstrap,
     write_series_evolution_section,
 )
+from routers.canon import (  # noqa: E402, F401
+    add_canon_fact,
+)
 from routers.state import (  # noqa: E402, F401
     get_book_category_dir,
     get_review_handle_config,
