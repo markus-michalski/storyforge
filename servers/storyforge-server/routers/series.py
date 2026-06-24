@@ -89,8 +89,16 @@ def _extract_relationships_text(body: str) -> str:
 
 
 @mcp.tool()
-def create_series(title: str, genres: str = "", planned_books: int = 3) -> str:
-    """Create a new series directory."""
+def create_series(title: str, genres: str = "", planned_books: int = 3, author: str = "") -> str:
+    """Create a new series directory with series.yaml (Issue #279).
+
+    Scaffolds:
+    - series.yaml     — plain YAML metadata (name, slug, total_books, author, created, books[])
+    - world/          — shared world-building (canon.md pre-seeded)
+    - characters/     — series-level character trackers
+    - series-arc.md   — overarching narrative
+    - timeline.md     — cross-book chronology
+    """
     config = _app.load_config()
     slug = slugify(title)
     series_dir = resolve_series_path(config, slug)
@@ -99,38 +107,39 @@ def create_series(title: str, genres: str = "", planned_books: int = 3) -> str:
         return json.dumps({"error": f"Series '{slug}' already exists"})
 
     genre_list = [g.strip() for g in genres.split(",") if g.strip()] if genres else []
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
 
     series_dir.mkdir(parents=True)
     (series_dir / "characters").mkdir()
     (series_dir / "world").mkdir()
-    (series_dir / "books").mkdir()
 
-    readme = f"""---
-title: "{title}"
-slug: "{slug}"
-genres: {json.dumps(genre_list)}
-planned_books: {planned_books}
-status: "Planning"
-description: ""
----
+    series_yaml_data: dict = {
+        "name": title,
+        "slug": slug,
+        "total_books": planned_books,
+        "status": "Planning",
+        "description": "",
+        "created": today,
+        "books": [],
+    }
+    if author:
+        series_yaml_data["author"] = author
+    if genre_list:
+        series_yaml_data["genres"] = genre_list
 
-# {title} — Series
-
-## Series Arc
-
-*The overarching story across all books.*
-
-## Books
-
-*Use /storyforge:series-planner to develop.*
-"""
-    (series_dir / "README.md").write_text(readme, encoding="utf-8")
-    (series_dir / "series-arc.md").write_text(f"# {title} — Series Arc\n\n*The big picture.*\n", encoding="utf-8")
+    (series_dir / "series.yaml").write_text(
+        yaml.dump(series_yaml_data, default_flow_style=False, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    (series_dir / "series-arc.md").write_text(
+        f"# {title} — Series Arc\n\n*The big picture.*\n", encoding="utf-8"
+    )
     (series_dir / "timeline.md").write_text(
         f"# {title} — Timeline\n\n*Chronology across all books.*\n", encoding="utf-8"
     )
     (series_dir / "world" / "canon.md").write_text(
-        f"# {title} — Canon\n\n*Established facts that cannot be contradicted.*\n", encoding="utf-8"
+        f"# {title} — Canon\n\n*Established facts that cannot be contradicted.*\n",
+        encoding="utf-8",
     )
 
     _cache.invalidate()
@@ -138,8 +147,14 @@ description: ""
 
 
 @mcp.tool()
-def add_book_to_series(series_slug: str, book_slug: str, number: int) -> str:
-    """Link a book to a series."""
+def add_book_to_series(series_slug: str, book_slug: str, number: int, status: str = "drafting") -> str:
+    """Link a book to a series.
+
+    Updates two sources of truth (Issue #279):
+    1. Book's README.md frontmatter — sets series/series_number fields.
+    2. series.yaml books[] list — appends or updates the entry for this book.
+       No books/ ref-file directory is created (obsoleted by #279).
+    """
     config = _app.load_config()
     series_dir = resolve_series_path(config, series_slug)
     book_dir = resolve_project_path(config, book_slug)
@@ -149,7 +164,7 @@ def add_book_to_series(series_slug: str, book_slug: str, number: int) -> str:
     if not book_dir.exists():
         return json.dumps({"error": f"Book '{book_slug}' not found"})
 
-    # Update book's frontmatter
+    # Update book's README.md frontmatter
     book_readme = book_dir / "README.md"
     text = book_readme.read_text(encoding="utf-8")
     meta, body = parse_frontmatter(text)
@@ -159,10 +174,22 @@ def add_book_to_series(series_slug: str, book_slug: str, number: int) -> str:
     new_text = "---\n" + yaml.dump(meta, default_flow_style=False, allow_unicode=True) + "---\n" + body
     book_readme.write_text(new_text, encoding="utf-8")
 
-    # Create reference in series/books/
-    ref_file = series_dir / "books" / f"{number:02d}-{book_slug}.md"
-    ref_file.parent.mkdir(parents=True, exist_ok=True)
-    ref_file.write_text(f"# Book {number}: {book_slug}\n\nPath: {book_dir}\n", encoding="utf-8")
+    # Update series.yaml books[] list (single source of truth for series membership)
+    series_yaml_path = series_dir / "series.yaml"
+    if series_yaml_path.exists():
+        series_data = yaml.safe_load(series_yaml_path.read_text(encoding="utf-8")) or {}
+        books_list: list = series_data.get("books", [])
+        existing = next((b for b in books_list if b.get("slug") == book_slug), None)
+        if existing:
+            existing["number"] = number
+            existing["status"] = status
+        else:
+            books_list.append({"slug": book_slug, "number": number, "status": status})
+        series_data["books"] = sorted(books_list, key=lambda b: b.get("number", 0))
+        series_yaml_path.write_text(
+            yaml.dump(series_data, default_flow_style=False, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+        )
 
     _cache.invalidate()
     return json.dumps({"success": True, "series": series_slug, "book": book_slug, "number": number})

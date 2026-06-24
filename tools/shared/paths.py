@@ -40,9 +40,25 @@ def slugify(text: str) -> str:
 
 
 def resolve_project_path(config: dict[str, Any], book_slug: str) -> Path:
-    """Resolve content root for a book project."""
+    """Resolve the filesystem path for a book project.
+
+    Checks projects/ first (standalone books), then scans series/*/
+    for books nested inside a series directory (Issue #279). Falls back
+    to the legacy projects/ path for new books that don't exist yet.
+    """
     _validate_slug(book_slug, "book_slug")
-    return Path(config["paths"]["content_root"]) / "projects" / book_slug
+    content_root = Path(config["paths"]["content_root"])
+    legacy = content_root / "projects" / book_slug
+    if legacy.exists():
+        return legacy
+    series_root = content_root / "series"
+    if series_root.exists():
+        for series_dir in sorted(series_root.iterdir()):
+            if series_dir.is_dir():
+                candidate = series_dir / book_slug
+                if candidate.is_dir():
+                    return candidate
+    return legacy
 
 
 def resolve_chapter_path(config: dict[str, Any], book_slug: str, chapter_slug: str) -> Path:
@@ -135,11 +151,27 @@ def resolve_author_path(config: dict[str, Any], author_slug: str) -> Path:
 
 
 def find_projects(config: dict[str, Any]) -> list[Path]:
-    """Find all book project directories under content root."""
-    root = Path(config["paths"]["content_root"]) / "projects"
-    if not root.exists():
-        return []
-    return sorted(p for p in root.iterdir() if p.is_dir() and (p / "README.md").exists())
+    """Find all book project directories under content root.
+
+    Scans both the legacy projects/ directory and books nested inside
+    series/ directories (Issue #279). Returns a unified sorted list.
+    """
+    content_root = Path(config["paths"]["content_root"])
+    found: list[Path] = []
+
+    projects_root = content_root / "projects"
+    if projects_root.exists():
+        found.extend(p for p in projects_root.iterdir() if p.is_dir() and (p / "README.md").exists())
+
+    series_root = content_root / "series"
+    if series_root.exists():
+        for series_dir in series_root.iterdir():
+            if series_dir.is_dir():
+                found.extend(
+                    p for p in series_dir.iterdir() if p.is_dir() and (p / "README.md").exists()
+                )
+
+    return sorted(found)
 
 
 def find_chapters(config: dict[str, Any], book_slug: str) -> list[Path]:
@@ -158,9 +190,24 @@ def find_authors(config: dict[str, Any]) -> list[Path]:
     return sorted(p for p in root.iterdir() if p.is_dir() and (p / "profile.md").exists())
 
 
+def resolve_book_in_series_path(config: dict[str, Any], series_slug: str, book_slug: str) -> Path:
+    """Resolve the path for a book nested inside a series directory (Issue #279)."""
+    _validate_slug(series_slug, "series_slug")
+    _validate_slug(book_slug, "book_slug")
+    return Path(config["paths"]["content_root"]) / "series" / series_slug / book_slug
+
+
 def find_series(config: dict[str, Any]) -> list[Path]:
-    """Find all series directories under content root."""
+    """Find all series directories under content root.
+
+    Recognises both series.yaml (new format, Issue #279) and README.md
+    (legacy format from old create_series()) for backward compatibility.
+    """
     root = Path(config["paths"]["content_root"]) / "series"
     if not root.exists():
         return []
-    return sorted(p for p in root.iterdir() if p.is_dir() and (p / "README.md").exists())
+    return sorted(
+        p
+        for p in root.iterdir()
+        if p.is_dir() and ((p / "series.yaml").exists() or (p / "README.md").exists())
+    )
