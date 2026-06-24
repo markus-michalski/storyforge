@@ -9,6 +9,16 @@ Per-book context file. Loaded automatically by StoryForge skills and persisted a
 - **Genre:** {{genre}}
 - **Writing Mode:** {{writing_mode}}
 
+## Style Suppressions
+
+Author-level `style_principles` that do NOT apply to this book. The chapter-writer skips
+any principle whose heading matches an entry here. The author profile entry is preserved
+for other books by the same author.
+
+<!-- STYLE_SUPPRESSIONS:START -->
+<!-- Add entries as: - `Principle Heading` — reason -->
+<!-- STYLE_SUPPRESSIONS:END -->
+
 ## Workflow
 
 - Writing mode: **{{writing_mode}}** (scene-by-scene | chapter | book)
