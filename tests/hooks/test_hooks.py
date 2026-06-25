@@ -20,9 +20,11 @@ from tools import banlist_loader
 
 def _make_book(tmp_path: Path, claudemd_body: str | None = None) -> Path:
     """Create a minimal book scaffold and return the book root."""
-    book = tmp_path / "blood-and-binary"
+    # Use a slug that has no real DB entry — avoids colliding with
+    # ~/.storyforge/db/blood-and-binary.db when _read_book_rules() tries SQLite first.
+    book = tmp_path / "test-hook-book"
     (book / "chapters" / "01-intro").mkdir(parents=True)
-    (book / "README.md").write_text("# Blood & Binary\n", encoding="utf-8")
+    (book / "README.md").write_text("# Test Hook Book\n", encoding="utf-8")
     if claudemd_body is not None:
         (book / "CLAUDE.md").write_text(claudemd_body, encoding="utf-8")
     return book

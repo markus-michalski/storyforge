@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from tools.author.discovery_writer import remove_book_rule_after_promotion
 
 

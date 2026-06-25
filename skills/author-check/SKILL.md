@@ -67,7 +67,7 @@ Look for `{project_path}/chapters/{chapter_slug}/review.md`. If it exists, extra
 
 ## Phase 2 — Parse Style Principles
 
-From `writing_discoveries.style_principles`, build a checklist. **Genre filter first:** skip any entry whose `genres` list has no overlap with this book's genres. Entries without a `genres` field are universal and always included.
+From `writing_discoveries.style_principles`, build a checklist. **Genre filter first:** skip any entry whose `genres` list has no overlap with this book's genres. Entries without a `genres` field are universal and always included. Entries with `universal: true` are always included regardless of `genres`.
 
 Each style principle is one of:
 - **Quantitative** — contains a specific number, minimum, ratio, or frequency target. Examples:

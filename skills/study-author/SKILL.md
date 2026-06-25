@@ -34,6 +34,9 @@ Alternatively, detect from context: if the book linked to the author slug has `b
 2. **Get author** — Which author profile to update? Show list via MCP `list_authors()`
 3. **Registry-Check** — Derive a `book_slug` from the file name (lowercase, hyphens). Check `~/.storyforge/authors/{slug}/studied-works/` for an existing `analysis-{book_slug}.md`. If found, warn the user: "This text has already been analyzed (`analysis-{book_slug}.md` exists). Re-analyzing may create duplicate Writing Discoveries. Continue anyway?"
 4. **Source genres** — Ask: *"What genre(s) is this text? (e.g. dark-fantasy, thriller, lgbtq-romance) — leave blank if unknown or cross-genre."* Store as `source_genres` (comma-separated slug list). Used to tag genre-specific Writing Discoveries so chapter-writer skips them in different-genre books.
+   After the user confirms the genres, validate each slug via MCP `get_genre(slug)`. For any slug not found in the registry:
+   > "Genre '{slug}' ist nicht in der StoryForge-Registry. Der Genre-Filter greift erst, sobald das Genre angelegt ist. Jetzt `/storyforge:genre-creator {slug}` ausführen, oder trotzdem fortfahren? (Kein Datenverlust — `source_genres` wird gespeichert, Filter aktiviert sich nach genre-creator.)"
+   User kann wählen: Pause für `genre-creator` oder fortfahren. Leeres Feld (unbekanntes/cross-genre Buch) überspringt die Validierung.
 5. **Read the file** — Use the Read tool for text/markdown/PDF files. For EPUB and DOCX, the MCP server's `extract_text_from_file()` handles extraction. Supported: PDF, EPUB, DOCX, TXT, MD. Max 50 MB, max 200k words (larger files are auto-sampled from beginning, middle, and end).
 
 ### Phase 1.5: Build Positive Extraction Checklist
