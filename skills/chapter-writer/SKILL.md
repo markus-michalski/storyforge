@@ -208,7 +208,7 @@ Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `
 3. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
 4. **Update `plot/timeline.md`** — one row per story-day. MANDATORY.
 5. **Update Travel Matrix** in `world/setting.md` if new routes appeared.
-6. **Update `plot/canon-log.md`** — new facts. Use `## Chapter NN — Title` section headers and `### Subject: topic` subsections so the `canon_brief` projector can parse them deterministically (Issue #161). If revising, write a `- **CHANGED**: old → new (revision_impact: 06-slug, 11-slug)` bullet inside the chapter where the change was made. The trailing `revision_impact` list names every downstream chapter the change propagates into; the projector reads it automatically.
+6. **Record new canon facts** — for each new or revised fact established in this chapter, call MCP `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)`. For revisions, include `is_revision=True`, `old_value`, and `revision_impacts=[slug, ...]` for downstream chapters that reference the old version. The `canon_brief` projector reads exclusively from DB (Issue #297) — writing to `plot/canon-log.md` is no longer sufficient. Run `scripts/migrate_canon_log_to_db.py` once on legacy books to import existing MD facts.
 7. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with `~HH:MM`. MANDATORY (future chapters depend on it).
 
 8. **Update POV character snapshot** — **§ POV Snapshot Procedure** in `chapter-writing-shared.md`.
@@ -252,7 +252,7 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 - Target word count from the chapter README.
 
 ### Fiction
-- Continuity is global: check `plot/timeline.md`, `canon_brief` (from brief — covers `plot/canon-log.md`), and `world/setting.md` Travel Matrix in addition to the brief's recent chapter timelines. Never invent travel times. Never contradict canon. Use the NEW version of any `CHANGED` fact — `canon_brief.changed_facts` lists all of them.
+- Continuity is global: check `plot/timeline.md`, `canon_brief` (DB-backed since #297), and `world/setting.md` Travel Matrix in addition to the brief's recent chapter timelines. Never invent travel times. Never contradict canon. Use the NEW version of any `CHANGED` fact — `canon_brief.changed_facts` lists all of them.
 - Respect genre conventions — they're the contract with the reader.
 
 ## User Feedback Handling — CRITICAL

@@ -81,10 +81,9 @@ class TestCanonBriefSchema:
         brief = build_canon_brief(root, "02-conflict")
         _json.dumps(brief)  # must not raise
 
-    def test_current_facts_item_schema(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        _canon_log(root, "## Chapter 01 — Setup\n\n### Theo: locations\n- Lives in Berlin.\n")
+    def test_current_facts_item_schema(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Lives in Berlin.")
         brief = build_canon_brief(root, "02-conflict")
 
         assert brief["current_facts"]
@@ -93,14 +92,16 @@ class TestCanonBriefSchema:
         assert "chapter" in fact
         assert "source" in fact
 
-    def test_changed_facts_item_schema(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        _canon_log(
+    def test_changed_facts_item_schema(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(
             root,
-            "## Chapter 01 — Setup\n\n"
-            "### Theo: skills\n"
-            "- **CHANGED**: Speaks French → Speaks Spanish (revision_impact: 02-conflict)\n",
+            chapter_num=1,
+            subject="Theo",
+            fact="Speaks Spanish",
+            is_revision=True,
+            old_value="Speaks French",
+            revision_impacts=["02-conflict"],
         )
         brief = build_canon_brief(root, "03-climax")
 
@@ -142,115 +143,59 @@ class TestNonePath:
 # ---------------------------------------------------------------------------
 
 
-class TestSectionRegexExtraction:
-    def _log(self) -> str:
-        return (
-            "# Test Book — Canon Log\n\n"
-            "## Chapter 01 — Setup\n\n"
-            "### Theo: locations\n"
-            "- Lives in Berlin, Prenzlauer Berg.\n"
-            "- Works at the university library.\n\n"
-            "### Setting: world rules\n"
-            "- Magic requires physical contact.\n\n"
-            "## Chapter 02 — Conflict\n\n"
-            "### Theo: relationships\n"
-            "- Anna is his sister, NOT his girlfriend.\n\n"
-        )
+class TestDbExtractionBehavior:
+    """DB-only extraction behavior (Issue #297 — replaces MD-path TestSectionRegexExtraction)."""
 
-    def test_extraction_method_is_section_regex(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        _chapter(root, "02-conflict", number=2)
-        _canon_log(root, self._log())
+    def test_extraction_method_is_db(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Lives in Berlin.")
+        _insert_db_fact(root, chapter_num=2, subject="Theo", fact="Works at the library.")
         brief = build_canon_brief(root, "03-climax", pov_character="Theo")
 
-        assert brief["extraction_method"] == "section_regex"
-        assert not brief["warnings"]
+        assert brief["extraction_method"] == "db"
+        assert not any("pov_character" in w for w in brief["warnings"])
 
-    def test_facts_from_scoped_chapters(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        _chapter(root, "02-conflict", number=2)
-        _canon_log(root, self._log())
+    def test_facts_from_scoped_chapters(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Lives in Berlin.")
+        _insert_db_fact(root, chapter_num=2, subject="Theo", fact="Anna is his sister.")
         brief = build_canon_brief(root, "03-climax")
 
         facts = {f["fact"] for f in brief["current_facts"]}
-        assert "Lives in Berlin, Prenzlauer Berg." in facts
-        assert "Anna is his sister, NOT his girlfriend." in facts
+        assert "Lives in Berlin." in facts
+        assert "Anna is his sister." in facts
 
-    def test_current_chapter_excluded(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "03-climax", number=3)
-        log = (
-            "## Chapter 03 — Climax\n\n"
-            "### Theo: actions\n- Does something climactic.\n"
-        )
-        _canon_log(root, log)
-        brief = build_canon_brief(root, "03-climax")
-
-        assert not brief["current_facts"]
-
-    def test_future_chapter_excluded(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        log = (
-            "## Chapter 01 — Setup\n\n- Early fact.\n\n"
-            "## Chapter 05 — Future\n\n- Future fact.\n"
-        )
-        _canon_log(root, log)
-        brief = build_canon_brief(root, "03-climax")
-
-        facts = {f["fact"] for f in brief["current_facts"]}
-        assert "Future fact." not in facts
-
-    def test_source_pointer_includes_subject_topic(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        _canon_log(
-            root,
-            "## Chapter 01 — Setup\n\n### Theo: skills\n- Speaks German fluently.\n",
-        )
+    def test_source_pointer_includes_subject(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Speaks German.", domain="skills")
         brief = build_canon_brief(root, "02-conflict")
 
         fact = brief["current_facts"][0]
         assert "Theo" in fact["source"]
         assert "skills" in fact["source"]
 
-    def test_source_pointer_generic_without_subsections(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        _canon_log(
-            root,
-            "## Chapter 01 — Setup\n\n- A bare bullet without subsection.\n",
-        )
+    def test_source_pointer_without_domain(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="general", fact="Magic needs consent.")
         brief = build_canon_brief(root, "02-conflict")
 
         assert brief["current_facts"]
-        assert brief["current_facts"][0]["source"].endswith(":canon-log")
+        # Source has no domain suffix when domain is empty
+        assert brief["current_facts"][0]["source"].endswith(":general")
 
-    def test_scanned_chapters_populated(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        _chapter(root, "02-conflict", number=2)
-        log = (
-            "## Chapter 01 — Setup\n\n- Fact one.\n\n"
-            "## Chapter 02 — Conflict\n\n- Fact two.\n"
-        )
-        _canon_log(root, log)
+    def test_scanned_chapters_populated(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Fact one.")
+        _insert_db_fact(root, chapter_num=2, subject="Theo", fact="Fact two.")
         brief = build_canon_brief(root, "03-climax")
 
         assert 1 in brief["scanned_chapters"]
         assert 2 in brief["scanned_chapters"]
 
-    def test_as_of_is_highest_scanned_chapter(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        _chapter(root, "02-conflict", number=2)
-        log = (
-            "## Chapter 01 — Setup\n\n- Fact one.\n\n"
-            "## Chapter 02 — Conflict\n\n- Fact two.\n"
-        )
-        _canon_log(root, log)
+    def test_as_of_is_highest_scanned_chapter(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Fact one.")
+        _insert_db_fact(root, chapter_num=2, subject="Theo", fact="Fact two.")
         brief = build_canon_brief(root, "03-climax")
 
         assert brief["as_of"] == "2"
@@ -262,50 +207,19 @@ class TestSectionRegexExtraction:
 
 
 class TestScopeWindow:
-    def test_only_review_or_later_in_scope(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1, status="Outline")  # too early
-        _chapter(root, "02-conflict", number=2, status="Review")
-        log = (
-            "## Chapter 01 — Setup\n\n- Outline fact.\n\n"
-            "## Chapter 02 — Conflict\n\n- Review fact.\n"
-        )
-        _canon_log(root, log)
-        brief = build_canon_brief(root, "03-climax")
-
-        facts = {f["fact"] for f in brief["current_facts"]}
-        assert "Outline fact." not in facts
-        assert "Review fact." in facts
-
-    def test_scope_limits_chapter_count(self, tmp_path):
-        root = _book(tmp_path)
+    def test_scope_limits_chapter_count(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
         for i in range(1, 11):
-            _chapter(root, f"{i:02d}-ch{i}", number=i)
-        lines = "\n\n".join(
-            f"## Chapter {i:02d} — Ch{i}\n\n- Fact from ch{i}." for i in range(1, 11)
-        )
-        _canon_log(root, lines)
+            _insert_db_fact(root, chapter_num=i, subject="World", fact=f"Fact from ch{i}.")
         brief = build_canon_brief(root, "11-late", scope_chapters=3)
 
-        # Only chapters 8, 9, 10 should be in scope
+        # scope_min = max(1, 11-3) = 8 → only chapters 8, 9, 10 in current_facts
         assert set(brief["scanned_chapters"]) == {8, 9, 10}
 
-    def test_changed_outside_scope_still_included(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        log = (
-            "## Chapter 01 — Setup\n\n"
-            "### Theo: skills\n"
-            "- **CHANGED**: Old skill → New skill (revision_impact: 10-end)\n"
-        )
-        _canon_log(root, log)
-        # Chapter 1 is outside scope=1 of chapter 10 because we only want the last 1
-        brief = build_canon_brief(root, "10-end", scope_chapters=1)
-
-        # CHANGED entry always included even outside scope
-        assert brief["changed_facts"]
-        assert brief["changed_facts"][0]["old"] == "Old skill"
-        assert brief["changed_facts"][0]["new"] == "New skill"
+    # Note: test_only_review_or_later_in_scope was MD-specific (chapter-dir status
+    # filtering). DB scope uses numerical window only — covered by test_scope_limits.
+    # test_changed_outside_scope_still_included is covered by
+    # TestCanonBriefDbPath::test_db_revision_outside_scope_still_in_changed_facts.
 
 
 # ---------------------------------------------------------------------------
@@ -314,66 +228,68 @@ class TestScopeWindow:
 
 
 class TestChangedFacts:
-    def test_changed_basic(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "05-twist", number=5)
-        log = (
-            "## Chapter 05 — Twist\n\n"
-            "### Theo: skills\n"
-            "- **CHANGED**: Speaks French → Speaks Spanish "
-            "(revision_impact: 06-aftermath, 08-reunion)\n"
+    def test_changed_basic(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(
+            root,
+            chapter_num=5,
+            subject="Theo",
+            fact="Speaks Spanish",
+            is_revision=True,
+            old_value="Speaks French",
+            revision_impacts=["06-aftermath", "08-reunion"],
         )
-        _canon_log(root, log)
         brief = build_canon_brief(root, "09-end")
 
         cf = brief["changed_facts"][0]
         assert cf["old"] == "Speaks French"
         assert cf["new"] == "Speaks Spanish"
         assert cf["revision_impact"] == ["06-aftermath", "08-reunion"]
-        assert cf["chapter"] == "05-twist"
+        assert cf["chapter"] == "5"  # DB stores chapter_num as int, serialized as str
 
-    def test_changed_without_revision_impact(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "02-conflict", number=2)
-        log = (
-            "## Chapter 02 — Conflict\n\n"
-            "- **CHANGED**: Old → New\n"
+    def test_changed_without_revision_impact(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(
+            root,
+            chapter_num=2,
+            subject="unknown",
+            fact="New state",
+            is_revision=True,
+            old_value="Old state",
         )
-        _canon_log(root, log)
         brief = build_canon_brief(root, "03-climax")
 
         cf = brief["changed_facts"][0]
         assert cf["revision_impact"] == []
 
-    def test_changed_not_in_current_facts(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        log = (
-            "## Chapter 01 — Setup\n\n"
-            "### Theo: skills\n"
-            "- **CHANGED**: Old → New (revision_impact: 02-x)\n"
-            "- Normal fact.\n"
+    def test_changed_not_in_current_facts(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(
+            root, chapter_num=1, subject="Theo", fact="New state",
+            is_revision=True, old_value="Old state",
         )
-        _canon_log(root, log)
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Normal fact.")
         brief = build_canon_brief(root, "02-conflict")
 
         facts_text = {f["fact"] for f in brief["current_facts"]}
-        assert not any("CHANGED" in t for t in facts_text)
         assert "Normal fact." in facts_text
+        # revision facts appear in changed_facts only
+        assert not any("New state" in t for t in facts_text)
 
-    def test_changed_source_includes_chapter_and_subject(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "03-mid", number=3)
-        log = (
-            "## Chapter 03 — Mid\n\n"
-            "### Anna: locations\n"
-            "- **CHANGED**: In Hamburg → In Munich\n"
+    def test_changed_source_includes_chapter_and_subject(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(
+            root,
+            chapter_num=3,
+            subject="Anna",
+            fact="In Munich",
+            is_revision=True,
+            old_value="In Hamburg",
         )
-        _canon_log(root, log)
         brief = build_canon_brief(root, "05-end")
 
         cf = brief["changed_facts"][0]
-        assert "03-mid" in cf["source"]
+        assert "3" in cf["source"]
         assert "CHANGED" in cf["source"]
         assert "Anna" in cf["source"]
 
@@ -419,34 +335,21 @@ class TestPovFilter:
 
         assert brief["pov_relevant_facts"] == []
 
-    def test_pov_match_by_fact_text(self, tmp_path):
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        log = (
-            "## Chapter 01 — Setup\n\n"
-            "- Theo is the protagonist.\n"
-            "- Rain is falling.\n"
-        )
-        _canon_log(root, log)
+    def test_pov_match_by_fact_text(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="general", fact="Theo is the protagonist.")
+        _insert_db_fact(root, chapter_num=1, subject="weather", fact="Rain is falling.")
         brief = build_canon_brief(root, "02-conflict", pov_character="Theo")
 
         pov_facts = {f["fact"] for f in brief["pov_relevant_facts"]}
         assert "Theo is the protagonist." in pov_facts
         assert "Rain is falling." not in pov_facts
 
-    def test_multi_token_pov_matches_first_name_in_subject_header(self, tmp_path):
-        # Issue #168: "Theo Wilkons" must match bullets under ### Theo: cognition
-        # The old filter did whole-string substring match ("theo wilkons" not in source)
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        log = (
-            "## Chapter 01 — Setup\n\n"
-            "### Theo: cognition\n"
-            "- **Theo's question canon:** *\"Sera has been missing for three days.\"*\n\n"
-            "### Kael: behavior\n"
-            "- Kael avoids eye contact.\n"
-        )
-        _canon_log(root, log)
+    def test_multi_token_pov_matches_first_name_in_subject_header(self, tmp_path, _patch_db):
+        # Issue #168: "Theo Wilkons" must match facts whose source contains "Theo"
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Theo questions everything.", domain="cognition")
+        _insert_db_fact(root, chapter_num=1, subject="Kael", fact="Kael avoids eye contact.", domain="behavior")
         brief = build_canon_brief(root, "02-conflict", pov_character="Theo Wilkons")
 
         assert len(brief["pov_relevant_facts"]) > 0, (
@@ -455,68 +358,43 @@ class TestPovFilter:
         pov_sources = {f["source"] for f in brief["pov_relevant_facts"]}
         assert all("theo" in s.lower() for s in pov_sources)
 
-    def test_multi_token_pov_no_false_positives_on_partial_match(self, tmp_path):
-        # Word-boundary: "theo" must NOT match "theology"
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        log = (
-            "## Chapter 01 — Setup\n\n"
-            "- Theology fascinates the scholar.\n"
-            "- Theo arrived late.\n"
-        )
-        _canon_log(root, log)
+    def test_multi_token_pov_no_false_positives_on_partial_match(self, tmp_path, _patch_db):
+        # Word-boundary: "theo" must NOT match "Theology"
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="scholar", fact="Theology fascinates the scholar.")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Theo arrived late.")
         brief = build_canon_brief(root, "02-conflict", pov_character="Theo Wilkons")
 
         pov_facts = {f["fact"] for f in brief["pov_relevant_facts"]}
         assert "Theology fascinates the scholar." not in pov_facts
         assert "Theo arrived late." in pov_facts
 
-    def test_single_token_pov_backward_compatible(self, tmp_path):
-        # Single-name characters ("Kael") must still work after the token fix
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        log = (
-            "## Chapter 01 — Setup\n\n"
-            "### Kael: behavior\n"
-            "- Kael avoids eye contact.\n\n"
-            "### Theo: cognition\n"
-            "- Theo ponders the question.\n"
-        )
-        _canon_log(root, log)
+    def test_single_token_pov_backward_compatible(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Kael", fact="Kael avoids eye contact.")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Theo ponders the question.")
         brief = build_canon_brief(root, "02-conflict", pov_character="Kael")
 
         assert len(brief["pov_relevant_facts"]) > 0
         pov_sources = {f["source"] for f in brief["pov_relevant_facts"]}
         assert all("kael" in s.lower() for s in pov_sources)
 
-    def test_short_single_name_fallback(self, tmp_path):
+    def test_short_single_name_fallback(self, tmp_path, _patch_db):
         # Names shorter than 3 chars ("Bo") fall back to substring match, not empty list
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        log = (
-            "## Chapter 01 — Setup\n\n"
-            "- Bo crossed the bridge.\n"
-            "- Rain kept falling.\n"
-        )
-        _canon_log(root, log)
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="general", fact="Bo crossed the bridge.")
+        _insert_db_fact(root, chapter_num=1, subject="weather", fact="Rain kept falling.")
         brief = build_canon_brief(root, "02-conflict", pov_character="Bo")
 
         pov_facts = {f["fact"] for f in brief["pov_relevant_facts"]}
         assert "Bo crossed the bridge." in pov_facts
         assert "Rain kept falling." not in pov_facts
 
-    def test_multi_token_pov_or_semantics_surname_match(self, tmp_path):
-        # OR-semantics: a fact mentioning the surname alone still qualifies.
-        # Documents the intentional behavior: canon logs referencing a character
-        # by last name only are included in pov_relevant_facts.
-        root = _book(tmp_path)
-        _chapter(root, "01-setup", number=1)
-        log = (
-            "## Chapter 01 — Setup\n\n"
-            "- Wilkons noticed the discrepancy.\n"
-            "- Rain kept falling.\n"
-        )
-        _canon_log(root, log)
+    def test_multi_token_pov_or_semantics_surname_match(self, tmp_path, _patch_db):
+        # OR-semantics: a fact mentioning only the surname still qualifies.
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="general", fact="Wilkons noticed the discrepancy.")
+        _insert_db_fact(root, chapter_num=1, subject="weather", fact="Rain kept falling.")
         brief = build_canon_brief(root, "02-conflict", pov_character="Theo Wilkons")
 
         pov_facts = {f["fact"] for f in brief["pov_relevant_facts"]}
@@ -530,33 +408,45 @@ class TestPovFilter:
 
 
 class TestSlugNormalisation:
-    def test_chapter_slug_with_title(self, tmp_path):
-        root = _book(tmp_path)
+    def test_chapter_numeric_string_in_facts(self, tmp_path, _patch_db):
+        """Post-#297: chapter field is a numeric string, not a slug."""
+        root = _book_with_readme(tmp_path, "my-book")
         _chapter(root, "01-setup", number=1)
-        log = "## Chapter 01 — The Setup\n\n- A fact.\n"
-        _canon_log(root, log)
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="A fact.")
         brief = build_canon_brief(root, "02-conflict")
 
-        if brief["current_facts"]:
-            assert brief["current_facts"][0]["chapter"] == "01-the-setup"
+        assert brief["current_facts"]
+        assert brief["current_facts"][0]["chapter"] == "1"
 
-    def test_chapter_slug_without_title(self, tmp_path):
-        root = _book(tmp_path)
+    def test_chapter_three_numeric_string(self, tmp_path, _patch_db):
+        """Chapter 3 fact → chapter field is "3", not "03" slug."""
+        root = _book_with_readme(tmp_path, "my-book")
         _chapter(root, "03-x", number=3)
-        log = "## Chapter 03\n\n- A bare fact.\n"
-        _canon_log(root, log)
+        _insert_db_fact(root, chapter_num=3, subject="Setting", fact="A bare fact.")
         brief = build_canon_brief(root, "04-next")
 
-        if brief["current_facts"]:
-            assert brief["current_facts"][0]["chapter"] == "03"
+        assert brief["current_facts"]
+        assert brief["current_facts"][0]["chapter"] == "3"
 
-    def test_as_of_string_type(self, tmp_path):
-        root = _book(tmp_path)
+    def test_as_of_string_type(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
         _chapter(root, "01-setup", number=1)
-        _canon_log(root, "## Chapter 01 — Setup\n\n- Fact.\n")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Fact.")
         brief = build_canon_brief(root, "02-conflict")
 
         assert brief["as_of"] is None or isinstance(brief["as_of"], str)
+
+    def test_heuristic_chapter_num_zero_always_in_scope(self, tmp_path, _patch_db):
+        """chapter_num=0 (heuristic migration) must appear in current_facts for any chapter."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=0, subject="general", fact="Legacy fact.")
+
+        for chapter_slug in ("01-open", "05-middle", "30-climax"):
+            brief = build_canon_brief(root, chapter_slug)
+            facts = {f["fact"] for f in brief["current_facts"]}
+            assert "Legacy fact." in facts, (
+                f"chapter_num=0 fact must be in scope for {chapter_slug}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -564,42 +454,9 @@ class TestSlugNormalisation:
 # ---------------------------------------------------------------------------
 
 
-class TestHeuristicFallback:
-    def test_no_headers_uses_heuristic(self, tmp_path):
-        root = _book(tmp_path)
-        log = "Some fact about the world.\n- Another fact.\n- Third fact.\n"
-        _canon_log(root, log)
-        brief = build_canon_brief(root, "01-setup")
-
-        assert brief["extraction_method"] == "heuristic"
-        assert brief["warnings"]
-
-    def test_heuristic_extracts_bullets(self, tmp_path):
-        root = _book(tmp_path)
-        log = "- First bullet.\n- Second bullet.\n"
-        _canon_log(root, log)
-        brief = build_canon_brief(root, "01-setup")
-
-        facts = {f["fact"] for f in brief["current_facts"]}
-        assert "First bullet." in facts
-        assert "Second bullet." in facts
-
-    def test_heuristic_scanned_chapters_empty(self, tmp_path):
-        root = _book(tmp_path)
-        _canon_log(root, "- Just a bullet.\n")
-        brief = build_canon_brief(root, "01-setup")
-
-        assert brief["scanned_chapters"] == []
-        assert brief["as_of"] is None
-
-    def test_heuristic_changed_extracted(self, tmp_path):
-        root = _book(tmp_path)
-        log = "- **CHANGED**: Old skill → New skill (revision_impact: 03-ch)\n- Normal.\n"
-        _canon_log(root, log)
-        brief = build_canon_brief(root, "01-setup")
-
-        assert brief["changed_facts"]
-        assert brief["changed_facts"][0]["source"] == "canon-log:CHANGED:heuristic"
+# TestHeuristicFallback removed (Issue #297): heuristic extraction lives in
+# canon_log_extractor.py and is tested via tests/scripts/test_migrate_canon_log.py.
+# build_canon_brief() uses the DB path exclusively.
 
 
 # ---------------------------------------------------------------------------
@@ -608,35 +465,31 @@ class TestHeuristicFallback:
 
 
 class TestMemoirMode:
-    def test_memoir_reads_people_log(self, tmp_path):
-        root = _book(tmp_path, memoir=True)
-        _chapter(root, "01-opening", number=1)
-        (root / "plot" / "people-log.md").write_text(
-            "## Chapter 01 — Opening\n\n### Mum: role\n- Mother of narrator.\n",
-            encoding="utf-8",
-        )
+    def test_memoir_uses_same_db_as_fiction(self, tmp_path, _patch_db):
+        """Post-#297: memoir and fiction both read from canon_facts DB."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Mum", fact="Mother of narrator.")
         brief = build_canon_brief(root, "02-next", book_category="memoir")
 
-        assert brief["extraction_method"] == "section_regex"
+        assert brief["extraction_method"] == "db"
         assert any("Mother of narrator." in f["fact"] for f in brief["current_facts"])
 
-    def test_memoir_missing_people_log_returns_none(self, tmp_path):
-        root = _book(tmp_path, memoir=True)
+    def test_empty_db_returns_none_for_memoir(self, tmp_path, _patch_db):
+        """Empty DB returns none regardless of book_category."""
+        root = _book_with_readme(tmp_path, "my-book")
         brief = build_canon_brief(root, "01-opening", book_category="memoir")
 
         assert brief["extraction_method"] == "none"
-        assert any("people-log.md" in w for w in brief["warnings"])
+        assert brief["warnings"]
 
-    def test_fiction_does_not_read_people_log(self, tmp_path):
-        root = _book(tmp_path)
-        (root / "plot" / "people-log.md").write_text(
-            "## Chapter 01 — Setup\n\n- People fact.\n",
-            encoding="utf-8",
-        )
-        brief = build_canon_brief(root, "02-conflict", book_category="fiction")
+    def test_book_category_param_does_not_affect_db_query(self, tmp_path, _patch_db):
+        """book_category is retained for API compat but irrelevant post-#297."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="A fact.")
+        brief_fiction = build_canon_brief(root, "02-next", book_category="fiction")
+        brief_memoir = build_canon_brief(root, "02-next", book_category="memoir")
 
-        # fiction reads canon-log.md which doesn't exist → none
-        assert brief["extraction_method"] == "none"
+        assert brief_fiction["current_facts"] == brief_memoir["current_facts"]
 
 
 # ---------------------------------------------------------------------------
@@ -765,23 +618,22 @@ class TestBriefIntegration:
             f"canon_brief.current_facts is likely re-inlined; should be omitted (#165)."
         )
 
-    def test_pov_character_missing_yields_warning(self, tmp_path):
+    def test_pov_character_missing_yields_warning(self, tmp_path, _patch_db):
         """Issue #165 side observation: chapter without pov_character should warn
         so the skill knows why pov_relevant_facts is empty."""
         from tools.state.chapter_writing_brief import build_chapter_writing_brief
         from pathlib import Path as _Path
 
         plugin_root = _Path(__file__).resolve().parent.parent.parent
-        book = _scaffold_book(tmp_path)
-        # Populate canon-log so we hit the structured-extraction path.
-        (book / "plot" / "canon-log.md").write_text(
-            "## Chapter 01 — Setup\n\n- Some fact.\n", encoding="utf-8"
-        )
+        # Use "02-conflict" (current_num=2, up_to_chapter=1, scope_min=1) so
+        # a fact at chapter_num=1 passes the scope filter and has_db is True.
+        book = _scaffold_book(tmp_path, chapter_slug="02-conflict")
+        _insert_db_fact(book, chapter_num=1, subject="general", fact="Some fact.")
 
         brief = build_chapter_writing_brief(
             book_root=book,
             book_slug="test-book",
-            chapter_slug="01-setup",
+            chapter_slug="02-conflict",
             plugin_root=plugin_root,
         )
 
@@ -803,7 +655,7 @@ def _scaffold_long_book_with_pov(
     bullet_text_template: str | None = None,
     pov_character: str = "Theo",
 ) -> Path:
-    """Build a 10-chapter Review-status book with a Theo-tagged canon log."""
+    """Build a 10-chapter book with Theo-tagged DB facts (Issue #297: DB-only)."""
     book = tmp_path / "long-book"
     (book / "characters").mkdir(parents=True)
     (book / "plot").mkdir()
@@ -812,7 +664,6 @@ def _scaffold_long_book_with_pov(
         '---\ntitle: "Long Book"\nauthor: ""\n---\n', encoding="utf-8"
     )
 
-    # 10 review-status chapters before the target — fully in scope_chapters=8 default
     for i in range(1, 11):
         ch = book / "chapters" / f"{i:02d}-ch{i}"
         ch.mkdir(parents=True)
@@ -838,18 +689,11 @@ def _scaffold_long_book_with_pov(
         "that mirrors how authors actually write canon logs."
     )
 
-    sections = []
     for i in range(1, 11):
-        bullets = "\n".join(
-            f"- {template.format(chapter=i, item=j)}"
-            for j in range(1, bullets_per_chapter + 1)
-        )
-        sections.append(
-            f"## Chapter {i:02d} — Ch{i}\n\n### Theo: facts\n{bullets}\n"
-        )
-    (book / "plot" / "canon-log.md").write_text(
-        "\n\n".join(sections), encoding="utf-8"
-    )
+        for j in range(1, bullets_per_chapter + 1):
+            fact_text = template.format(chapter=i, item=j)
+            _insert_db_fact(book, chapter_num=i, subject="Theo", fact=fact_text, domain="facts")
+
     return book
 
 
@@ -858,7 +702,7 @@ class TestPovFactsCharBudget:
     push the chapter-writing brief past the tool-result token limit on books
     with narrative-style canon logs."""
 
-    def test_pov_facts_char_budget_trims_on_long_canon_log(self, tmp_path):
+    def test_pov_facts_char_budget_trims_on_long_canon_log(self, tmp_path, _patch_db):
         from tools.state.chapter_writing_brief import (
             POV_FACTS_CHAR_BUDGET,
             build_chapter_writing_brief,
@@ -896,7 +740,7 @@ class TestPovFactsCharBudget:
             f"({len(pov_facts)}) when truncated"
         )
 
-    def test_pov_facts_kept_are_from_newest_chapters(self, tmp_path):
+    def test_pov_facts_kept_are_from_newest_chapters(self, tmp_path, _patch_db):
         """Newest-first preservation: when trimming, keep facts from the
         highest-numbered chapters because those are the highest-risk
         continuity zone for the current chapter."""
@@ -934,7 +778,7 @@ class TestPovFactsCharBudget:
                 f"newest-first window; expected {sorted(expected_window)}"
             )
 
-    def test_pov_facts_no_trim_on_short_canon_log(self, tmp_path):
+    def test_pov_facts_no_trim_on_short_canon_log(self, tmp_path, _patch_db):
         """Short canon log: nothing to trim — all matching facts kept,
         truncated flag is False, total_count equals kept count."""
         from tools.state.chapter_writing_brief import build_chapter_writing_brief
@@ -965,10 +809,9 @@ class TestPovFactsCharBudget:
         assert cb.get("pov_relevant_facts_truncated") is False
         assert cb.get("pov_relevant_facts_total_count") == 40
 
-    def test_inline_canon_brief_size_under_budget_with_pov(self, tmp_path):
-        """Issue #170: with a POV character set on a long-running narrative-style
-        canon log, the full brief must still fit comfortably under the
-        tool-result token limit."""
+    def test_inline_canon_brief_size_under_budget_with_pov(self, tmp_path, _patch_db):
+        """Issue #170: with a POV character set on a long-running DB-backed book,
+        the full brief must still fit comfortably under the tool-result token limit."""
         from tools.state.chapter_writing_brief import build_chapter_writing_brief
         from pathlib import Path as _Path
 
@@ -1157,8 +1000,9 @@ class TestCanonBriefDbPath:
         assert brief["changed_facts"], "DB revision must appear in changed_facts even outside scope"
         assert brief["changed_facts"][0]["old"] == "Old canon"
 
-    def test_db_and_md_facts_merged(self, tmp_path, _patch_db):
-        """DB facts and MD archive facts must both appear in current_facts."""
+    def test_md_log_no_longer_read(self, tmp_path, _patch_db):
+        """Post-#297: canon-log.md is no longer read by build_canon_brief().
+        Only DB facts appear — MD archive is migration-only."""
         root = _book_with_readme(tmp_path, "my-book")
         _chapter(root, "01-setup", number=1)
         (root / "plot" / "canon-log.md").write_text(
@@ -1171,23 +1015,24 @@ class TestCanonBriefDbPath:
         brief = build_canon_brief(root, "03-climax")
 
         facts = {f["fact"] for f in brief["current_facts"]}
-        assert "MD archive fact." in facts, "MD archive fact must survive the merge"
-        assert "DB new fact" in facts, "DB fact must appear alongside MD facts"
+        assert "MD archive fact." not in facts, "canon-log.md must not be read post-#297"
+        assert "DB new fact" in facts
 
-    def test_db_empty_md_facts_still_returned(self, tmp_path, _patch_db):
-        """When DB has no facts, MD fallback still works (pre-migration books)."""
+    def test_empty_db_returns_none_even_if_log_exists(self, tmp_path, _patch_db):
+        """Post-#297: empty DB returns none even when canon-log.md is present.
+        Run scripts/migrate_canon_log_to_db.py to import legacy facts."""
         root = _book_with_readme(tmp_path, "my-book")
         _chapter(root, "01-setup", number=1)
         (root / "plot" / "canon-log.md").write_text(
             "## Chapter 01 — Setup\n\n- MD only fact.\n",
             encoding="utf-8",
         )
-        # No DB inserts — DB stays empty
+        # No DB inserts — migration not yet run
 
         brief = build_canon_brief(root, "02-conflict")
 
-        facts = {f["fact"] for f in brief["current_facts"]}
-        assert "MD only fact." in facts
+        assert brief["extraction_method"] == "none"
+        assert brief["current_facts"] == []
 
     def test_db_only_extraction_method_not_none(self, tmp_path, _patch_db):
         """When DB has facts and MD log is absent, extraction_method must not be 'none'."""

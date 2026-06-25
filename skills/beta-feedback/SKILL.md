@@ -37,7 +37,7 @@ Beta-reader feedback is qualitatively different from inline review comments:
    - Default: `{project}/research/beta-feedback.md`
    - Custom: path from `--file` argument
 6. Read cross-reference sources:
-   - `{project}/plot/canon-log.md` — established facts, revision tracking
+   - Canon facts via `get_canon_brief(book_slug, chapter_slug)` — DB-backed established facts and revision tracking (Issue #297)
    - `{project}/plot/timeline.md` — canonical timeline
    - `{project}/plot/tone.md` — tonal rules, warning signs, litmus tests
    - `{project}/plot/arcs.md` — character arcs and motivation setup
@@ -113,7 +113,7 @@ FB-003: Kevin scene was perfect → positive
 For each **non-positive** item:
 
 1. **Read the affected chapter draft(s)** — `{project}/chapters/{slug}/draft.md`
-2. **Check against canon-log.md** — Is the reader pointing at something that's actually correct canon? Was there a revision that the reader's copy didn't include?
+2. **Check against canon brief (DB)** — Is the reader pointing at something that's actually correct canon? Was there a revision (`canon_brief.changed_facts`) that the reader's copy didn't include?
 3. **Check against timeline.md** — Is there a real timeline issue, or is the reader miscounting days?
 4. **Check against tone.md** — Is the pacing concern valid per the tonal arc for that chapter's position, or is the reader expecting the wrong genre mode? Check the Tonal Arc table, Warning Signs, and Non-Negotiable Rules.
 5. **Check against arcs.md** — Is the character motivation actually set up (just subtly)? Is the reader missing foreshadowing?
@@ -169,7 +169,7 @@ Output format:
 
 For each approved revision task:
 - **Prose/pacing fixes:** Use `/storyforge:chapter-writer` in rewrite mode for the affected scene
-- **Continuity fixes:** Update `plot/canon-log.md` first, then rewrite the affected passage
+- **Continuity fixes:** Call `add_canon_fact()` to update DB first (Issue #297), then rewrite the affected passage
 - **Character fixes:** Re-read the character file and `plot/arcs.md`, assess if the arc doc needs updating, then rewrite
 - **After all revisions:** Update `{project}/research/beta-feedback.md` with resolution status per item
 

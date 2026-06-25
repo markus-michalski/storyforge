@@ -31,14 +31,14 @@ Call MCP `get_continuity_brief(book_slug)`. This returns:
 
 - `canonical_calendar` — parsed `plot/timeline.md` events (story_day/real_date/chapter_slug/key_events)
 - `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (**fiction only** — empty for memoir)
-- `canon_log_facts` — parsed `plot/canon-log.md` facts (**fiction only** — empty for memoir)
+- `canon_log_facts` — canon facts from DB (**fiction only** — empty for memoir; Issue #297)
 - `character_index` — all character/people files as flat list (slug/name/role/description)
 - `chapter_timelines` — intra-day timeline grids for ALL chapters
 - `errors` — graceful degrade: non-empty means some files were missing or unreadable
 
 Honor every populated field. Empty lists mean "file missing — degrade gracefully, do not invent."
 
-**Memoir supplement:** If `book_category == "memoir"`, also directly read `{project}/plot/people-log.md` (analogue of canon-log for memoir). If it doesn't exist yet, note this in the report and proceed without it.
+**Memoir supplement:** If `book_category == "memoir"`, call `get_canon_brief(book_slug, chapter_slug)` to get people facts from DB (Issue #297). If `extraction_method == "none"`, the DB has no facts yet — note this and advise running `scripts/migrate_canon_log_to_db.py` to import from `plot/people-log.md`.
 
 ### Step 2 — Load book metadata
 
@@ -141,33 +141,33 @@ If Travel Matrix in `world/setting.md` is empty or has gaps (fiction only):
 
 Branch by `book_category`:
 
-**Fiction — Canon Log:**
+**Fiction — Canon Facts:**
 
-If `plot/canon-log.md` exists:
-1. For each fact marked `CHANGED`, scan all chapters AFTER the revision for references to the OLD version
-2. For each fact marked `ACTIVE`, verify it isn't contradicted in any chapter
+Use `canon_log_facts` from the brief (DB, Issue #297):
+1. For each `changed_facts` entry, scan all chapters AFTER the revision for references to the OLD version
+2. For each `current_facts` entry, verify it isn't contradicted in any chapter
 
-If `plot/canon-log.md` is empty or missing:
+If `canon_log_facts` is empty (`extraction_method == "none"`):
 1. Extract key facts from each chapter (character traits, abilities, relationships, rules)
-2. Build a proposed Canon Log organized by domain (Character, Relationship, World, Plot)
+2. Build a proposed fact set organized by domain (Character, Relationship, World, Plot)
 3. Identify contradictions between chapters
-4. Write to `{project}/plot/canon-log.md` with `[RECONSTRUCTED]` markers
+4. Insert facts into DB via `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)` with `[RECONSTRUCTED]` note in subject or fact
 
 Fact categories: character abilities/limitations, descriptions, relationship status, world rules, object ownership.
 
-**Memoir — People Log:**
+**Memoir — People Facts:**
 
-If `{project}/plot/people-log.md` exists:
-1. For each entry, verify that all chapters referencing that person are consistent with what the log records (what they did, said, believed in each chapter)
-2. Flag any chapter that contradicts an established people-log entry
+Call `get_canon_brief(book_slug, chapter_slug)` to get people facts from DB (Issue #297):
+1. For each `current_facts` entry, verify all chapters referencing that person are consistent
+2. Flag any chapter that contradicts an established fact entry
 
-If `people-log.md` is missing:
+If `extraction_method == "none"` (DB empty):
 1. Extract key facts about named people from each chapter (descriptions, behaviors, quotes attributed to them, relationship status)
-2. Build a proposed People Log organized by person
+2. Build a proposed People fact set organized by person
 3. Identify contradictions between chapters (e.g., Ch 3 says "she never spoke about the accident" but Ch 7 has her describing it)
-4. Write to `{project}/plot/people-log.md` with `[RECONSTRUCTED]` markers
+4. Insert into DB via `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)` with `[RECONSTRUCTED]` note
 
-People-log fact categories: physical description, relationship to author, what they said/did/believed in each chapter, consent_status if known.
+People fact categories: physical description, relationship to author, what they said/did/believed in each chapter, consent_status if known.
 
 Flag as **FACT CONFLICT** if:
 - Two chapters make contradictory claims about the same person or fact
@@ -253,13 +253,13 @@ Suggest: Fix conflicts manually or ask chapter-reviewer to address specific chap
 
 ### Step 9: Update Fact Log
 
-**Fiction:** If the Canon Log was reconstructed or new facts were discovered:
-1. Save to `{project}/plot/canon-log.md` using the section convention from `templates/canon-log.md` — `## Chapter NN — Title` headers, `### Subject: topic` subsections, and `**CHANGED**` bullets with a trailing `revision_impact: 06-slug, 11-slug` list.
-2. Report to the user which chapters appear in any `revision_impact` list — those drafts may now reference outdated facts and need a re-read against the new canon.
+**Fiction:** If the DB was reconstructed or new facts were discovered:
+1. All facts already inserted via `add_canon_fact()` in Step 6 (see above).
+2. Report to the user which chapters appear in any `revision_impacts` list — those drafts may now reference outdated facts and need a re-read against the new canon.
 
-**Memoir:** If the People Log was reconstructed or new facts were discovered:
-1. Save to `{project}/plot/people-log.md` using the same section + `**CHANGED**` convention as fiction (`templates/people-log.md`).
-2. Report which chapters appear in any `revision_impact` list — those drafts may contradict the new log and need a re-read.
+**Memoir:** If people facts were reconstructed or new facts were discovered:
+1. All facts already inserted via `add_canon_fact()` in Step 6 (see above).
+2. Report which chapters appear in any `revision_impacts` list — those drafts may contradict the new fact set and need a re-read.
 3. If any person with `consent_status: refused` appears in a chapter — flag as CRITICAL, route to `/storyforge:memoir-ethics-checker`
 
 ## Rules

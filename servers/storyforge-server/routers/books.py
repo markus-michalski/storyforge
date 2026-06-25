@@ -177,28 +177,28 @@ def get_canon_brief(
     pov_character: str = "",
     scope_chapters: int = 8,
 ) -> str:
-    """Return a bounded, structured canon-log brief for the chapter being written.
+    """Return a bounded, structured canon brief for the chapter being written.
 
-    Projects ``plot/canon-log.md`` (fiction) or ``plot/people-log.md`` (memoir)
-    into a scoped payload — only facts from the last ``scope_chapters``
-    review-or-later chapters plus all CHANGED entries (which can affect any
-    downstream chapter regardless of age).
+    Reads from the ``canon_facts`` SQLite DB exclusively (Issue #297).
+    Run ``scripts/migrate_canon_log_to_db.py`` once to import existing
+    ``plot/canon-log.md`` / ``plot/people-log.md`` facts.
 
     Args:
         book_slug: Book project slug.
         chapter_slug: Chapter being written — anchors the scope window.
         pov_character: Display name of the POV character; used to filter
             ``pov_relevant_facts``.  Pass empty string to skip POV filter.
-        scope_chapters: How many review-or-later chapters before the current
-            one to include in ``current_facts``.  Defaults to 8.
+        scope_chapters: How many prior chapters to include in ``current_facts``.
+            Defaults to 8.  Facts at ``chapter_num == 0`` (heuristic-migrated)
+            are always in scope.
 
     Returns JSON with:
-        current_facts       — facts within the scope window
-        changed_facts       — all CHANGED entries regardless of age
+        current_facts       — facts within the scope window (chapter numeric string)
+        changed_facts       — all revision entries regardless of age
         pov_relevant_facts  — subset of current_facts matching pov_character
-        scanned_chapters    — chapter numbers included in current_facts
-        as_of               — slug of the most-recent scanned chapter
-        extraction_method   — "section_regex" | "heuristic" | "none"
+        scanned_chapters    — chapter numbers (int) included in current_facts
+        as_of               — numeric string of the most-recent chapter with facts
+        extraction_method   — "db" | "none"
         warnings            — issues the skill should surface to the user
     """
     config = _app.load_config()

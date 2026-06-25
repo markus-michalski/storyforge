@@ -233,21 +233,9 @@ Ask the user per hit, or bulk-apply (A) after a sample. A good heuristic: if
 the surrounding paragraph already establishes the character's flat delivery,
 (B) may be redundant and (A) is cleaner.
 
-### 6. Update the canon log if the user fixed anything
+### 6. Record revision summary if the user fixed anything
 
-If edits were applied, append a brief note to `<book>/plot/canon-log.md`:
-
-```markdown
-## Revision: Manuscript pass — YYYY-MM-DD
-
-- N book-rule violations fixed
-- N clichés replaced
-- N question-as-statement hits converted to "?"
-- N filter-word passes tightened in chapters X, Y, Z
-- N repetitions pruned (categories: ...)
-```
-
-Keeps the canon log honest about what was changed during revision.
+If edits were applied, call `add_canon_fact(book_slug, chapter_slug="manuscript-pass", subject="manuscript-pass", fact="<summary>", domain="revision")` where `<summary>` lists: N book-rule violations fixed, N clichés replaced, N question-as-statement hits converted, N filter-word passes tightened, N repetitions pruned. The `canon_brief` projector reads from DB exclusively (Issue #297) — `plot/canon-log.md` is no longer read.
 
 ## Rules
 
