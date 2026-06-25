@@ -1,7 +1,14 @@
-"""State indexer for StoryForge — builds and maintains the state cache.
+"""State indexer for StoryForge — builds and maintains the filesystem index.
 
-Scans the content directory for books, chapters, characters, and authors,
-then writes a consolidated state.json for fast MCP tool queries.
+Scans the content directory for books, chapters, characters, series, and authors,
+reading YAML frontmatter only. Writes a consolidated state.json used by MCP tools
+for list/get operations.
+
+Scope (Phase 5 / Issue #283):
+Structured data (Writing Discoveries, character snapshots, book rules, canon facts,
+sessions) is owned by SQLite and always current — the indexer does not need to
+re-derive those. rebuild_state() is now a lightweight filesystem rescan: it tells
+you which books/authors exist and their basic metadata, nothing more.
 """
 
 from __future__ import annotations

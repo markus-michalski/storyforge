@@ -1,4 +1,17 @@
-"""Markdown and YAML frontmatter parsers for StoryForge project files."""
+"""Markdown and YAML frontmatter parsers for StoryForge project files.
+
+Scope (Phase 5 / Issue #283):
+- Book, chapter, character, series, and person file parsing (YAML frontmatter)
+- Status normalization and rank helpers
+- Word counting and book-status derivation from chapter aggregates
+
+NOT in scope — these live in SQLite (Issues #280–#282):
+- Writing Discoveries (author_discoveries table)
+- Character snapshots (character_snapshots table)
+- Book rules / callbacks (book_rules table)
+- Sessions (sessions table)
+- Canon facts (canon_facts table)
+"""
 
 from __future__ import annotations
 

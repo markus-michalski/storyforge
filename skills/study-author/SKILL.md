@@ -32,7 +32,9 @@ Alternatively, detect from context: if the book linked to the author slug has `b
 ### Phase 1: Input
 1. **Get file path** — User provides path to PDF, EPUB, DOCX, TXT, or MD file (max 50 MB)
 2. **Get author** — Which author profile to update? Show list via MCP `list_authors()`
-3. **Read the file** — Use the Read tool for text/markdown/PDF files. For EPUB and DOCX, the MCP server's `extract_text_from_file()` handles extraction. Supported: PDF, EPUB, DOCX, TXT, MD. Max 50 MB, max 200k words (larger files are auto-sampled from beginning, middle, and end).
+3. **Registry-Check** — Derive a `book_slug` from the file name (lowercase, hyphens). Check `~/.storyforge/authors/{slug}/studied-works/` for an existing `analysis-{book_slug}.md`. If found, warn the user: "This text has already been analyzed (`analysis-{book_slug}.md` exists). Re-analyzing may create duplicate Writing Discoveries. Continue anyway?"
+4. **Source genres** — Ask: *"What genre(s) is this text? (e.g. dark-fantasy, thriller, lgbtq-romance) — leave blank if unknown or cross-genre."* Store as `source_genres` (comma-separated slug list). Used to tag genre-specific Writing Discoveries so chapter-writer skips them in different-genre books.
+5. **Read the file** — Use the Read tool for text/markdown/PDF files. For EPUB and DOCX, the MCP server's `extract_text_from_file()` handles extraction. Supported: PDF, EPUB, DOCX, TXT, MD. Max 50 MB, max 200k words (larger files are auto-sampled from beginning, middle, and end).
 
 ### Phase 1.5: Build Positive Extraction Checklist
 
@@ -101,6 +103,7 @@ author_of_source: "Original Author Name"
 analyzed: "2026-04-03"
 word_count: 85000
 mode: fiction
+source_genres: "dark-fantasy, lgbtq"
 ---
 
 # Style Analysis: {Title}
@@ -128,8 +131,8 @@ mode: fiction
 Update the author's profile using MCP tools to ensure cache invalidation:
 
 - **Tone / sentence_style / other frontmatter fields** — MCP `update_author(slug, field, value)` per field
-- **Positive style markers found** — **MANDATORY for every checklist item where a pattern was found.** MCP `write_author_discovery(author_slug, section="style_principles", text=<marker>, book_slug=<analyzed-work-slug>)` per item. Format: `**[Marker name]** — [concrete observation from this text, with frequency or ratio if measurable].` A positive finding that only lives in `studied-works/analysis-{title}.md` is invisible to chapter-writer. Every found positive marker must become a `style_principles` Writing Discovery. "Not found" items are skipped.
-- **Signature Techniques discovered** (beyond the checklist) — MCP `write_author_discovery(author_slug, section="style_principles", text=<technique>, book_slug=<analyzed-work-slug>)`
+- **Positive style markers found** — **MANDATORY for every checklist item where a pattern was found.** MCP `write_author_discovery(author_slug, section="style_principles", text=<marker>, book_slug=<analyzed-work-slug>, genres=<source_genres from Phase 1 — empty string if unknown/universal>)` per item. Format: `**[Marker name]** — [concrete observation from this text, with frequency or ratio if measurable].` A positive finding that only lives in `studied-works/analysis-{title}.md` is invisible to chapter-writer. Every found positive marker must become a `style_principles` Writing Discovery. "Not found" items are skipped.
+- **Signature Techniques discovered** (beyond the checklist) — MCP `write_author_discovery(author_slug, section="style_principles", text=<technique>, book_slug=<analyzed-work-slug>, genres=<source_genres from Phase 1>)`
 - **Anti-patterns to avoid** — MCP `write_author_banned_phrase(author_slug, phrase, reason=<why-avoid>)` per phrase
 - **Preferred Words / Deliberate Imperfections** — Direct Write to `~/.storyforge/authors/{slug}/vocabulary.md` (no MCP tool for these sections)
 

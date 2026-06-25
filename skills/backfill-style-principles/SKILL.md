@@ -177,12 +177,14 @@ different genre. Examples:
 - Flavor-word tic discipline → universal
 
 For genre-specific patterns: determine the source book's genres. Read the
-first lines of the analysis file for a `genres:` field in frontmatter, or
-derive from context (title, tone descriptors). If unclear, ask the user:
+first lines of the analysis file for a `source_genres:` field in frontmatter
+(set by `study-author` Phase 1 since Phase 5 / #283). If the field is absent
+(older analysis files), fall back to a `genres:` field, or derive from context
+(title, tone descriptors). If still unclear, ask the user:
 > "Is '{book_slug}' primarily light-fantasy / comedy / other? I'll tag genre-
 > specific patterns so chapter-writer skips them in different-genre books."
 
-Collect the `genres` value as a comma-separated slug list (e.g.
+Collect the value as a comma-separated slug list (e.g.
 `light-fantasy, comedy-fantasy`). Universal patterns get an empty `genres`.
 
 **2. Is there a prose example worth preserving?**
