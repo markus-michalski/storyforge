@@ -15,7 +15,6 @@ from tools.claudemd.manager import append_rule, init_claudemd, resolve_claudemd_
 from tools.claudemd.rules_editor import (
     AmbiguousMatchError,
     DisagreeingResolutionError,
-    MarkersNotFoundError,
     list_rules,
     update_rule,
 )
