@@ -301,9 +301,20 @@ class TestFictionRegressionAfterPhase4:
         assert len(result["travel_matrix"]) == 1
         assert result["travel_matrix"][0]["from"] == "City"
 
-    def test_fiction_continuity_brief_has_canon_log_facts(self, tmp_path: Path):
+    def test_fiction_continuity_brief_has_canon_log_facts(self, tmp_path: Path, monkeypatch):
+        import tools.db.connection as _db_conn
+        from tools.db.canon_facts import insert_fact
+        from tools.db.connection import open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
         book = _make_fiction_book(tmp_path)
-        (book / "plot" / "canon-log.md").write_text(_CANON_LOG, encoding="utf-8")
+        conn = open_canon_db("test-fiction")
+        insert_fact(conn, book_num=1, chapter_num=1, subject="Alex",
+                    fact="Alex is left-handed", domain="Character Facts")
+        conn.close()
 
         result = build_continuity_brief(book_root=book, book_slug="test-fiction")
 
@@ -318,9 +329,21 @@ class TestFictionRegressionAfterPhase4:
 
         assert len(result["travel_matrix"]) == 1
 
-    def test_fiction_review_brief_has_canon_log_facts(self, tmp_path: Path):
+    def test_fiction_review_brief_has_canon_log_facts(self, tmp_path: Path, monkeypatch):
+        import tools.db.connection as _db_conn
+        from tools.db.canon_facts import insert_fact
+        from tools.db.connection import open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
         book = _make_fiction_book(tmp_path)
-        (book / "plot" / "canon-log.md").write_text(_CANON_LOG, encoding="utf-8")
+        conn = open_canon_db("test-fiction")
+        insert_fact(conn, book_num=1, chapter_num=1, subject="Alex",
+                    fact="Alex is left-handed", domain="Character Facts")
+        conn.close()
+
         _add_chapter(book, "01-opening", number=1)
 
         result = build_review_brief(book_root=book, book_slug="test-fiction", chapter_slug="01-opening")

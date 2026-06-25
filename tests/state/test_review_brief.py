@@ -295,10 +295,30 @@ def test_build_review_brief_travel_matrix_populated(tmp_path):
     assert result["travel_matrix"][0]["from"] == "City"
 
 
-def test_build_review_brief_canon_log_facts_populated(tmp_path):
+def test_build_review_brief_canon_log_facts_populated(tmp_path, monkeypatch):
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
     book, slug = _make_book(tmp_path)
     _make_chapter(book, "01-opening", number=1)
-    (book / "plot" / "canon-log.md").write_text(CANON_LOG_SAMPLE, encoding="utf-8")
+
+    # Insert facts via DB (matching the 3 rows from the old CANON_LOG_SAMPLE):
+    # 2 ACTIVE + 1 CHANGED
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    insert_fact(conn, book_num=1, chapter_num=1, subject="Marcus",
+                fact="Marcus is a vampire", domain="Character Facts")
+    insert_fact(conn, book_num=1, chapter_num=4, subject="Lena",
+                fact="Lena eats normal food", domain="Character Facts",
+                is_revision=True, old_value="Lena doesn't eat")
+    insert_fact(conn, book_num=1, chapter_num=1, subject="World",
+                fact="Vampires can walk in daylight", domain="World / Setting Facts")
+    conn.close()
 
     result = build_review_brief(
         book_root=book,

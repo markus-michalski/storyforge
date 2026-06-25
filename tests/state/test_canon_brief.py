@@ -10,6 +10,7 @@ Covers:
 - slug_from_sec: chapter slug normalisation
 - subject_before: nearest preceding ### header
 - Brief integration: canon_brief key present and JSON-serializable
+- DB read path: canon_facts table queried first, merged with MD archive (Issue #291)
 """
 
 from __future__ import annotations
@@ -991,3 +992,270 @@ class TestPovFactsCharBudget:
             f"brief is {len(serialized)} chars — exceeds size budget. "
             f"pov_relevant_facts trim is likely missing or too generous (#170)."
         )
+
+
+# ---------------------------------------------------------------------------
+# Issue #291: DB read path — build_canon_brief() must query canon_facts table
+# ---------------------------------------------------------------------------
+#
+# These tests are RED until the DB read path is added to build_canon_brief().
+# The fix: query canon_facts first, map DB rows to the brief schema, then
+# merge with any legacy MD content from the read-only archive.
+# ---------------------------------------------------------------------------
+
+import pytest
+import tools.db.connection as _db_conn
+
+
+def _book_with_readme(
+    root: Path,
+    slug: str,
+    *,
+    series: str = "",
+    series_number: int = 1,
+) -> Path:
+    book = root / slug
+    (book / "chapters").mkdir(parents=True)
+    (book / "plot").mkdir()
+    (book / "characters").mkdir()
+    readme = (
+        f"---\ntitle: {slug}\nslug: {slug}\n"
+        f"series: \"{series}\"\nseries_number: {series_number}\n---\n"
+    )
+    (book / "README.md").write_text(readme, encoding="utf-8")
+    return book
+
+
+def _insert_db_fact(
+    book_root: Path,
+    *,
+    chapter_num: int,
+    subject: str,
+    fact: str,
+    book_num: int = 1,
+    domain: str = "",
+    is_revision: bool = False,
+    old_value: str = "",
+    revision_impacts: list | None = None,
+) -> None:
+    import json
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+    db_slug = get_db_slug_for_book(book_root)
+    conn = open_canon_db(db_slug)
+    try:
+        insert_fact(
+            conn,
+            book_num=book_num,
+            chapter_num=chapter_num,
+            subject=subject,
+            fact=fact,
+            domain=domain,
+            is_revision=is_revision,
+            old_value=old_value or None,
+            revision_impacts=json.dumps(revision_impacts) if revision_impacts else None,
+        )
+    finally:
+        conn.close()
+
+
+@pytest.fixture()
+def _patch_db(tmp_path, monkeypatch):
+    """Redirect all DB operations to a fresh tmp_path/db/ directory."""
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+
+class TestCanonBriefDbPath:
+    """DB read path for build_canon_brief() — Issue #291.
+
+    RED until the DB query + merge is implemented in canon_brief.py.
+    """
+
+    def test_db_fact_appears_in_current_facts(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Theo is 26 years old")
+
+        brief = build_canon_brief(root, "02-conflict")
+
+        facts = {f["fact"] for f in brief["current_facts"]}
+        assert "Theo is 26 years old" in facts
+
+    def test_db_revision_fact_appears_in_changed_facts(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(
+            root,
+            chapter_num=5,
+            subject="Kael",
+            fact="Kael eats food",
+            is_revision=True,
+            old_value="Kael does not eat",
+            revision_impacts=["06-garlic-bread", "07-the-world"],
+        )
+
+        brief = build_canon_brief(root, "08-resolution")
+
+        assert brief["changed_facts"], "DB revision fact must appear in changed_facts"
+        cf = brief["changed_facts"][0]
+        assert cf["old"] == "Kael does not eat"
+        assert cf["new"] == "Kael eats food"
+        assert cf["revision_impact"] == ["06-garlic-bread", "07-the-world"]
+        assert "chapter" in cf
+        assert "source" in cf
+
+    def test_db_fact_chapter_number_in_source(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=3, subject="Anna", fact="Anna is Theo's sister")
+
+        brief = build_canon_brief(root, "05-end")
+
+        db_facts = [f for f in brief["current_facts"] if "db" in f.get("source", "")]
+        assert db_facts, "DB-sourced facts must have 'db' in their source pointer"
+        assert "Anna" in db_facts[0]["source"]
+
+    def test_current_chapter_db_facts_excluded(self, tmp_path, _patch_db):
+        """A fact inserted for chapter N must not appear when writing chapter N."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(
+            root, chapter_num=5, subject="Theo", fact="Fact from chapter five"
+        )
+
+        brief = build_canon_brief(root, "05-climax")
+
+        facts = {f["fact"] for f in brief["current_facts"]}
+        assert "Fact from chapter five" not in facts
+
+    def test_db_fact_outside_scope_excluded_from_current_facts(self, tmp_path, _patch_db):
+        """scope_chapters lower bound applies to DB facts, same as MD facts."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="World", fact="Early world fact")
+        _insert_db_fact(root, chapter_num=9, subject="World", fact="Recent world fact")
+
+        # scope=2 for chapter 11 → only chapters 9 and 10 in window
+        brief = build_canon_brief(root, "11-end", scope_chapters=2)
+
+        facts = {f["fact"] for f in brief["current_facts"]}
+        assert "Recent world fact" in facts
+        assert "Early world fact" not in facts
+
+    def test_db_revision_outside_scope_still_in_changed_facts(self, tmp_path, _patch_db):
+        """CHANGED facts always surface regardless of scope window — same rule as MD."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(
+            root,
+            chapter_num=1,
+            subject="Kael",
+            fact="New canon",
+            is_revision=True,
+            old_value="Old canon",
+        )
+
+        # scope=1 for chapter 10 → chapter 1 outside scope, but CHANGED still appears
+        brief = build_canon_brief(root, "10-end", scope_chapters=1)
+
+        assert brief["changed_facts"], "DB revision must appear in changed_facts even outside scope"
+        assert brief["changed_facts"][0]["old"] == "Old canon"
+
+    def test_db_and_md_facts_merged(self, tmp_path, _patch_db):
+        """DB facts and MD archive facts must both appear in current_facts."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _chapter(root, "01-setup", number=1)
+        (root / "plot" / "canon-log.md").write_text(
+            "## Chapter 01 — Setup\n\n- MD archive fact.\n",
+            encoding="utf-8",
+        )
+        _chapter(root, "02-action", number=2)
+        _insert_db_fact(root, chapter_num=2, subject="Theo", fact="DB new fact")
+
+        brief = build_canon_brief(root, "03-climax")
+
+        facts = {f["fact"] for f in brief["current_facts"]}
+        assert "MD archive fact." in facts, "MD archive fact must survive the merge"
+        assert "DB new fact" in facts, "DB fact must appear alongside MD facts"
+
+    def test_db_empty_md_facts_still_returned(self, tmp_path, _patch_db):
+        """When DB has no facts, MD fallback still works (pre-migration books)."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _chapter(root, "01-setup", number=1)
+        (root / "plot" / "canon-log.md").write_text(
+            "## Chapter 01 — Setup\n\n- MD only fact.\n",
+            encoding="utf-8",
+        )
+        # No DB inserts — DB stays empty
+
+        brief = build_canon_brief(root, "02-conflict")
+
+        facts = {f["fact"] for f in brief["current_facts"]}
+        assert "MD only fact." in facts
+
+    def test_db_only_extraction_method_not_none(self, tmp_path, _patch_db):
+        """When DB has facts and MD log is absent, extraction_method must not be 'none'."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Theo exists")
+
+        brief = build_canon_brief(root, "02-conflict")
+
+        assert brief["extraction_method"] != "none"
+
+    def test_db_pov_filter_applies_to_db_facts(self, tmp_path, _patch_db):
+        """POV filter must filter DB-sourced facts just like MD facts."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Theo likes coffee")
+        _insert_db_fact(root, chapter_num=1, subject="Anna", fact="Anna hates coffee")
+
+        brief = build_canon_brief(root, "02-conflict", pov_character="Theo")
+
+        pov_facts = {f["fact"] for f in brief["pov_relevant_facts"]}
+        assert "Theo likes coffee" in pov_facts
+        assert "Anna hates coffee" not in pov_facts
+
+    def test_db_changed_revision_impact_parsed_from_json(self, tmp_path, _patch_db):
+        """revision_impacts stored as JSON string in DB must be deserialized to list."""
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(
+            root,
+            chapter_num=3,
+            subject="Setting",
+            fact="Mine is closed",
+            is_revision=True,
+            old_value="Mine is open",
+            revision_impacts=["04-descent", "05-the-dark", "08-aftermath"],
+        )
+
+        brief = build_canon_brief(root, "10-end")
+
+        assert brief["changed_facts"]
+        cf = brief["changed_facts"][0]
+        assert isinstance(cf["revision_impact"], list)
+        assert cf["revision_impact"] == ["04-descent", "05-the-dark", "08-aftermath"]
+
+    def test_db_revision_without_impacts_yields_empty_list(self, tmp_path, _patch_db):
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(
+            root,
+            chapter_num=2,
+            subject="Theo",
+            fact="Changed fact",
+            is_revision=True,
+            old_value="Old fact",
+        )
+
+        brief = build_canon_brief(root, "05-end")
+
+        cf = brief["changed_facts"][0]
+        assert isinstance(cf["revision_impact"], list)
+        assert cf["revision_impact"] == []
+
+    def test_db_result_is_json_serializable(self, tmp_path, _patch_db):
+        import json as _json
+        root = _book_with_readme(tmp_path, "my-book")
+        _insert_db_fact(root, chapter_num=1, subject="Theo", fact="Some fact")
+        _insert_db_fact(
+            root, chapter_num=2, subject="Anna", fact="New state",
+            is_revision=True, old_value="Old state",
+            revision_impacts=["03-aftermath"],
+        )
+
+        brief = build_canon_brief(root, "05-end")
+        _json.dumps(brief)  # must not raise

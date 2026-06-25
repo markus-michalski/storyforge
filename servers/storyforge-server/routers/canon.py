@@ -31,8 +31,9 @@ def add_canon_fact(
     """Persist a structured canon fact to the series SQLite DB.
 
     Replaces manual editing of canon-log.md for new facts discovered
-    or confirmed during writing. The DB enables fast SQL lookups in
-    get_chapter_writing_brief() instead of parsing the full Markdown log.
+    or confirmed during writing. Facts are served to the chapter-writer
+    via get_chapter_writing_brief(), which queries the DB first and
+    merges results with any legacy Markdown archive (Issue #291).
 
     Facts are stored per-series (or per-book for standalone books).
     Duplicate (book_num, chapter_num, subject, fact) tuples are silently

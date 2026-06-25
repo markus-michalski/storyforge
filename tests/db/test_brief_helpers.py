@@ -67,7 +67,14 @@ class TestLoadCanonFactsForBrief:
         assert "WorldFact" in subjects
         assert "NewFact" in subjects
 
-    def test_falls_back_to_markdown_when_db_empty(self, tmp_path: Path):
+    def test_returns_empty_when_db_empty_no_md_fallback(self, tmp_path: Path):
+        """After Issue #291: MD fallback is removed — DB-empty means empty result.
+
+        If markdown content exists but the DB is empty, callers must migrate
+        first (run migrate_canon_log_to_db.py) before facts appear here.
+        Use build_canon_brief() for the chapter-writer path, which still reads
+        the MD archive alongside the DB.
+        """
         book_dir = _make_book(tmp_path, "standalone")
         (book_dir / "plot").mkdir()
         canon_log = (
@@ -79,5 +86,4 @@ class TestLoadCanonFactsForBrief:
         (book_dir / "plot" / "canon-log.md").write_text(canon_log, encoding="utf-8")
 
         facts = load_canon_facts_for_brief(book_dir)
-        assert len(facts) >= 1
-        assert any("silver" in f.get("fact", "") or "silver" in f.get("subject", "") for f in facts)
+        assert facts == [], "No MD fallback — empty DB must return empty list"
