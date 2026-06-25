@@ -36,9 +36,10 @@ def _make_author_home(
     *,
     slug: str = "ethan-cole",
     vocab_body: str = "",
-    discoveries_body: str = "",
+    tic_texts: list[str] | None = None,
 ) -> Path:
-    """Create a fake ~/.storyforge tree with vocabulary.md + profile.md."""
+    """Create a fake ~/.storyforge tree with vocabulary.md and DB tic rows."""
+    import sqlite3
     home = tmp_path / ".storyforge"
     author_dir = home / "authors" / slug
     author_dir.mkdir(parents=True)
@@ -51,14 +52,37 @@ def _make_author_home(
             encoding="utf-8",
         )
 
-    discoveries = discoveries_body or "_Frei._\n"
-    (author_dir / "profile.md").write_text(
-        '---\nname: "Ethan Cole"\nslug: "ethan-cole"\n---\n\n'
-        "# Ethan Cole\n\n"
-        "## Writing Discoveries\n\n"
-        f"{discoveries}",
-        encoding="utf-8",
-    )
+    if tic_texts:
+        db_dir = home / "db"
+        db_dir.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(db_dir / "authors.db"))
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS author_discoveries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author_slug TEXT NOT NULL,
+                discovery_type TEXT NOT NULL,
+                text TEXT NOT NULL,
+                book_slug TEXT DEFAULT '',
+                source_genres TEXT DEFAULT '',
+                universal BOOLEAN DEFAULT FALSE,
+                example TEXT DEFAULT '',
+                date_added TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(author_slug, discovery_type, text)
+            )
+            """
+        )
+        for text in tic_texts:
+            conn.execute(
+                "INSERT OR IGNORE INTO author_discoveries "
+                "(author_slug, discovery_type, text) VALUES (?, ?, ?)",
+                (slug, "recurring_tics", text),
+            )
+        conn.commit()
+        conn.close()
+
     return home
 
 
@@ -89,11 +113,7 @@ class TestWritingDiscoveriesSource:
         book = _make_book(tmp_path)
         _make_author_home(
             tmp_path,
-            discoveries_body=(
-                '### Recurring Tics\n\n'
-                '- **Vague-noun "thing" als Fallback** — concretize. '
-                '_(emerged from firelight, 2026-05)_\n'
-            ),
+            tic_texts=['**Vague-noun "thing" als Fallback** — concretize. _(emerged from firelight, 2026-05)_'],
         )
 
         result = collect_banned_phrases(book, PLUGIN_ROOT)
@@ -104,10 +124,7 @@ class TestWritingDiscoveriesSource:
         book = _make_book(tmp_path)
         _make_author_home(
             tmp_path,
-            discoveries_body=(
-                '### Recurring Tics\n\n'
-                '- **Vague-noun "thing" als Fallback** — concretize.\n'
-            ),
+            tic_texts=['**Vague-noun "thing" als Fallback** — concretize.'],
         )
         result = collect_banned_phrases(book, PLUGIN_ROOT)
         thing_entry = next(r for r in result if r["phrase"] == "thing")
@@ -117,31 +134,50 @@ class TestWritingDiscoveriesSource:
         book = _make_book(tmp_path)
         _make_author_home(
             tmp_path,
-            discoveries_body=(
-                '### Recurring Tics\n\n'
-                '- **"thing"** — concretize.\n'
-            ),
+            tic_texts=['**"thing"** — concretize.'],
         )
         result = collect_banned_phrases(book, PLUGIN_ROOT)
         thing_entry = next(r for r in result if r["phrase"] == "thing")
         assert "writing discoveries" in thing_entry["source"].lower()
 
     def test_dedups_against_book_rules(self, tmp_path, patch_storyforge_home):
-        """If a phrase is in both book CLAUDE.md ## Rules AND author Writing
-        Discoveries, it appears once — book wins (higher priority source)."""
-        book = _make_book(tmp_path, rules="- Avoid `thing` — concretize.\n")
+        """If a phrase is in both book_rules DB AND author Writing Discoveries,
+        it appears once — book wins (higher priority source)."""
+        import sqlite3
+
+        book = _make_book(tmp_path)
         _make_author_home(
             tmp_path,
-            discoveries_body=(
-                '### Recurring Tics\n\n'
-                '- **"thing"** — concretize.\n'
-            ),
+            tic_texts=['**"thing"** — concretize.'],
         )
+
+        # Seed the book's DB rule (DB_DIR already patched via patch_storyforge_home).
+        db_dir = patch_storyforge_home / "db"
+        db_dir.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(db_dir / "test-book.db"))
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS book_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_num INTEGER,
+                rule_type TEXT NOT NULL,
+                text TEXT NOT NULL,
+                added_at TEXT DEFAULT '',
+                UNIQUE(book_num, rule_type, text)
+            )
+            """
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO book_rules (book_num, rule_type, text) VALUES (?, ?, ?)",
+            (1, "rule", "Avoid `thing` — concretize."),
+        )
+        conn.commit()
+        conn.close()
 
         result = collect_banned_phrases(book, PLUGIN_ROOT)
         thing_entries = [r for r in result if r["phrase"] == "thing"]
         assert len(thing_entries) == 1
-        # Book CLAUDE.md is the higher-priority source.
+        # book_rules DB is the higher-priority source.
         assert "book" in thing_entries[0]["source"].lower()
 
     def test_dedups_against_author_vocabulary(self, tmp_path, patch_storyforge_home):
@@ -150,13 +186,8 @@ class TestWritingDiscoveriesSource:
         book = _make_book(tmp_path)
         _make_author_home(
             tmp_path,
-            vocab_body=(
-                "# Vocab\n\n## Banned Words\n\n### Absolutely Forbidden\n\n- thing\n"
-            ),
-            discoveries_body=(
-                '### Recurring Tics\n\n'
-                '- **"thing"** — concretize.\n'
-            ),
+            vocab_body="# Vocab\n\n## Banned Words\n\n### Absolutely Forbidden\n\n- thing\n",
+            tic_texts=['**"thing"** — concretize.'],
         )
         result = collect_banned_phrases(book, PLUGIN_ROOT)
         thing_entries = [r for r in result if r["phrase"] == "thing"]
@@ -167,10 +198,7 @@ class TestWritingDiscoveriesSource:
         book = _make_book(tmp_path)
         _make_author_home(
             tmp_path,
-            discoveries_body=(
-                '### Recurring Tics\n\n'
-                '- **Opened his mouth. Closed it.** — vary.\n'
-            ),
+            tic_texts=['**Opened his mouth. Closed it.** — vary.'],
         )
         result = collect_banned_phrases(book, PLUGIN_ROOT)
         phrases = [r["phrase"] for r in result]
@@ -184,13 +212,10 @@ class TestWritingDiscoveriesSource:
             "# No Author\n\n## Book Facts\n\n- **Genre:** test\n",
             encoding="utf-8",
         )
-        # Author still exists on disk, but the book doesn't point at them.
+        # DB rows exist for ethan-cole, but the book doesn't point at any author.
         _make_author_home(
             tmp_path,
-            discoveries_body=(
-                '### Recurring Tics\n\n'
-                '- **"thing"** — concretize.\n'
-            ),
+            tic_texts=['**"thing"** — concretize.'],
         )
         result = collect_banned_phrases(book, PLUGIN_ROOT)
         phrases = [r["phrase"] for r in result]

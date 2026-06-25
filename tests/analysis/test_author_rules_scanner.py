@@ -64,7 +64,7 @@ def _write_book(
 
 def _write_profile(home: Path, slug: str, discoveries_body: str) -> None:
     profile_dir = home / "authors" / slug
-    profile_dir.mkdir(parents=True)
+    profile_dir.mkdir(parents=True, exist_ok=True)
     (profile_dir / "profile.md").write_text(
         '---\nname: "Ethan Cole"\nslug: "ethan-cole"\n---\n\n'
         "# Ethan Cole\n\n"
@@ -458,7 +458,7 @@ class TestScanAuthorRules:
         assert _scan_author_rules(book) == []
 
     def test_both_donts_and_recurring_tics_yield_independent_findings(
-        self, tmp_path, patch_storyforge_home
+        self, tmp_path, patch_storyforge_home, seed_author_discoveries
     ):
         """When both subsections are populated, author_rules picks up the
         Don'ts; the existing _scan_writing_discoveries handles Recurring Tics.
@@ -475,15 +475,18 @@ class TestScanAuthorRules:
                 ),
             },
         )
+        # _scan_author_rules reads Don'ts from profile.md (still file-based).
         _write_profile(
             patch_storyforge_home,
             "ethan-cole",
-            (
-                "### Recurring Tics\n\n"
-                "- **Vague-noun \"thing\" als Fallback** — concretize.\n\n"
-                "### Don'ts\n\n"
-                "- **Never use rooms** — *The room received it.*\n"
-            ),
+            "### Don'ts\n\n- **Never use rooms** — *The room received it.*\n",
+        )
+        # _scan_writing_discoveries reads Recurring Tics from DB.
+        seed_author_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            "recurring_tics",
+            ['**Vague-noun "thing" als Fallback** — concretize.'],
         )
         dont_findings = _scan_author_rules(book)
         tic_findings = _scan_writing_discoveries(book)

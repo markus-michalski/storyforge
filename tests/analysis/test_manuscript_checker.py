@@ -13,6 +13,7 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 from pathlib import Path
 
 from tools.analysis.manuscript_checker import (
@@ -91,40 +92,88 @@ def _write_book(tmp_path: Path, claudemd: str, chapters: dict[str, str]) -> Path
     return book
 
 
+# Rules as stored in the DB (stripped of the leading "- " bullet).
+_BOOK_RULES = [
+    "**Imperial units only** — Pacific Northwest setting, no metric.",
+    '**Avoid vague-noun "thing" as a fallback** — banned: "doing a thing with his hand". How to apply: grep for ` thing ` in narration.',
+    '**Do not use "clocked" as a verb for noticing** — alternatives: noticed, saw, registered.',
+    "**Limit \"specific kind of X that Y\" construction** — scan for `the (specific|particular|kind of|sort of) [a-z]+ (that|of)`.",
+]
+
+
+@pytest.fixture
+def patch_db_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Redirect DB_DIR to tmp_path/db so tests never touch ~/.storyforge/db."""
+    import tools.db.connection as _conn
+
+    monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
+    return tmp_path / "db"
+
+
+def _seed_book_rules(db_dir: Path, book_slug: str, rules: list[str], book_num: int = 1) -> None:
+    """Create book.db and seed rule rows into book_rules."""
+    import sqlite3
+
+    db_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_dir / f"{book_slug}.db"))
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS book_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_num INTEGER,
+            rule_type TEXT NOT NULL,
+            text TEXT NOT NULL,
+            added_at TEXT DEFAULT '',
+            UNIQUE(book_num, rule_type, text)
+        )
+        """
+    )
+    for rule in rules:
+        conn.execute(
+            "INSERT OR IGNORE INTO book_rules (book_num, rule_type, text) VALUES (?, ?, ?)",
+            (book_num, "rule", rule),
+        )
+    conn.commit()
+    conn.close()
+
+
 # ---------------------------------------------------------------------------
 # _read_book_rules
 # ---------------------------------------------------------------------------
 
 
 class TestReadBookRules:
-    def test_parses_static_and_dynamic_entries(self, tmp_path: Path) -> None:
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, {})
+    def test_parses_static_and_dynamic_entries(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         rules = _read_book_rules(book)
         joined = " ".join(rules)
         assert "Imperial units only" in joined
         assert "vague-noun" in joined
         assert "clocked" in joined
         assert "specific kind of X that Y" in joined
-        # Callback section must NOT leak in
+        # Callbacks must NOT leak in
         assert "Gary the cat" not in joined
 
-    def test_returns_empty_when_claudemd_missing(self, tmp_path: Path) -> None:
+    def test_returns_empty_when_no_db_rules(self, tmp_path: Path, patch_db_dir: Path) -> None:
         book = tmp_path / "book"
         book.mkdir()
         assert _read_book_rules(book) == []
 
-    def test_returns_empty_when_rules_section_absent(self, tmp_path: Path) -> None:
-        book = _write_book(tmp_path, "# Book\n\nNo rules here.\n", {})
-        assert _read_book_rules(book) == []
-
-    def test_returns_empty_when_rules_section_is_empty(self, tmp_path: Path) -> None:
+    def test_returns_empty_when_db_has_no_matching_rows(self, tmp_path: Path, patch_db_dir: Path) -> None:
         book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
         assert _read_book_rules(book) == []
 
-    def test_strips_leading_bullet_marker(self, tmp_path: Path) -> None:
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, {})
+    def test_returns_empty_for_empty_db(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _seed_book_rules(patch_db_dir, "book", [])
+        assert _read_book_rules(book) == []
+
+    def test_strips_leading_bullet_marker(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         rules = _read_book_rules(book)
-        # No rule should still start with "- " after parsing
+        # DB stores pre-stripped text — no rule should start with "- "
         for r in rules:
             assert not r.startswith("- ")
 
@@ -209,71 +258,78 @@ class TestExtractPatterns:
 
 
 class TestScanBookRules:
-    def test_finds_literal_violation(self, tmp_path: Path) -> None:
+    def test_finds_literal_violation(self, tmp_path: Path, patch_db_dir: Path) -> None:
         chapters = {
             "01-open": "# Chapter 1\n\nHe was doing a thing with his hand, quietly.\n",
         }
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         findings = _scan_book_rules(book)
         assert findings, "expected at least one violation finding"
         assert any("thing" in f.phrase.lower() for f in findings)
 
-    def test_finds_regex_violation(self, tmp_path: Path) -> None:
+    def test_finds_regex_violation(self, tmp_path: Path, patch_db_dir: Path) -> None:
         chapters = {
             "01-open": "# Chapter 1\n\nIt had the specific quality of quiet that pubs knew.\n",
         }
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         findings = _scan_book_rules(book)
         assert any(f.category == "book_rule_violation" for f in findings)
 
-    def test_populates_source_rule(self, tmp_path: Path) -> None:
+    def test_populates_source_rule(self, tmp_path: Path, patch_db_dir: Path) -> None:
         chapters = {
             "01-open": "# Chapter 1\n\nShe clocked him across the room.\n",
         }
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         findings = _scan_book_rules(book)
         clocked_finding = next(f for f in findings if "clocked" in f.phrase.lower())
         assert clocked_finding.source_rule is not None
         assert "clocked" in clocked_finding.source_rule.lower()
 
-    def test_severity_always_high(self, tmp_path: Path) -> None:
+    def test_severity_always_high(self, tmp_path: Path, patch_db_dir: Path) -> None:
         # Even a single occurrence must be flagged — user-authored rules
         # override frequency thresholds.
         chapters = {
             "01-open": "# Chapter 1\n\nShe clocked him once, just once.\n",
         }
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         findings = _scan_book_rules(book)
         assert findings
         assert all(f.severity == "high" for f in findings)
 
-    def test_category_is_book_rule_violation(self, tmp_path: Path) -> None:
+    def test_category_is_book_rule_violation(self, tmp_path: Path, patch_db_dir: Path) -> None:
         chapters = {
             "01-open": "# Chapter 1\n\nShe clocked him across the room.\n",
         }
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         findings = _scan_book_rules(book)
         assert all(f.category == "book_rule_violation" for f in findings)
 
-    def test_no_violations_returns_empty(self, tmp_path: Path) -> None:
+    def test_no_violations_returns_empty(self, tmp_path: Path, patch_db_dir: Path) -> None:
         chapters = {
             "01-open": "# Chapter 1\n\nClean prose without any banned terms.\n",
         }
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         assert _scan_book_rules(book) == []
 
-    def test_missing_claudemd_returns_empty(self, tmp_path: Path) -> None:
+    def test_missing_rules_db_returns_empty(self, tmp_path: Path, patch_db_dir: Path) -> None:
         book = tmp_path / "book"
         (book / "chapters" / "01-x").mkdir(parents=True)
         (book / "chapters" / "01-x" / "draft.md").write_text("clocked him.", encoding="utf-8")
         assert _scan_book_rules(book) == []
 
-    def test_records_all_occurrences(self, tmp_path: Path) -> None:
+    def test_records_all_occurrences(self, tmp_path: Path, patch_db_dir: Path) -> None:
         chapters = {
             "01-open": "# Chapter 1\n\nShe clocked him.\nHe clocked her.\n",
             "02-mid": "# Chapter 2\n\nThey all clocked each other.\n",
         }
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         findings = _scan_book_rules(book)
         clocked = next(f for f in findings if "clocked" in f.phrase.lower())
         assert clocked.count >= 3
@@ -287,30 +343,33 @@ class TestScanBookRules:
 
 
 class TestScanRepetitionsIntegration:
-    def test_book_rule_findings_are_merged(self, tmp_path: Path) -> None:
+    def test_book_rule_findings_are_merged(self, tmp_path: Path, patch_db_dir: Path) -> None:
         chapters = {
             "01-open": "# Chapter 1\n\nShe clocked him at the counter.\n",
         }
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         result = scan_repetitions(book)
         categories = {f["category"] for f in result["findings"]}
         assert "book_rule_violation" in categories
 
-    def test_book_rule_findings_precede_ngram_findings(self, tmp_path: Path) -> None:
+    def test_book_rule_findings_precede_ngram_findings(self, tmp_path: Path, patch_db_dir: Path) -> None:
         # Rule violations must sort to the top even with severity=="high" ngrams.
         chapters = {
             "01-open": "# Chapter 1\n\nShe clocked him once.\n",
         }
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         result = scan_repetitions(book)
         assert result["findings"], "expected at least the rule finding"
         assert result["findings"][0]["category"] == "book_rule_violation"
 
-    def test_summary_contains_book_rule_category(self, tmp_path: Path) -> None:
+    def test_summary_contains_book_rule_category(self, tmp_path: Path, patch_db_dir: Path) -> None:
         chapters = {
             "01-open": "# Chapter 1\n\nShe clocked him.\n",
         }
-        book = _write_book(tmp_path, CLAUDEMD_WITH_RULES, chapters)
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         result = scan_repetitions(book)
         assert "book_rule_violation" in result["summary"]
 

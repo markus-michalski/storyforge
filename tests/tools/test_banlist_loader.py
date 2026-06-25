@@ -13,6 +13,7 @@ from tools.banlist_loader import (
     SEVERITY_WARN,
     _extract_phrases_from_bold_title,
     author_slug_from_book,
+    load_author_dont_rules,
     load_author_vocab,
     load_author_writing_discoveries,
     load_global_ai_tells,
@@ -67,251 +68,6 @@ class TestExtractPhrasesFromBoldTitle:
         assert _extract_phrases_from_bold_title("not a bold title") == []
         assert _extract_phrases_from_bold_title("") == []
 
-
-# ---------------------------------------------------------------------------
-# load_author_writing_discoveries — Issue #151 follow-up
-# ---------------------------------------------------------------------------
-
-
-def _make_profile(storyforge_home: Path, author_slug: str, discoveries_body: str) -> Path:
-    profile_dir = storyforge_home / "authors" / author_slug
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    profile_path = profile_dir / "profile.md"
-    profile_path.write_text(
-        '---\nname: "Ethan Cole"\nslug: "ethan-cole"\n---\n\n'
-        "# Ethan Cole\n\n"
-        "## Writing Discoveries\n\n"
-        f"{discoveries_body}\n",
-        encoding="utf-8",
-    )
-    return profile_path
-
-
-class TestLoadAuthorWritingDiscoveries:
-    def test_returns_empty_when_profile_missing(self, tmp_path):
-        result = load_author_writing_discoveries("missing-author", storyforge_home=tmp_path)
-        assert result == []
-
-    def test_returns_empty_when_no_discoveries_section(self, tmp_path):
-        profile_dir = tmp_path / "authors" / "x"
-        profile_dir.mkdir(parents=True)
-        (profile_dir / "profile.md").write_text(
-            '---\nname: x\n---\n\n# x\n\n## Writing Style\n\nSparse.\n',
-            encoding="utf-8",
-        )
-        result = load_author_writing_discoveries("x", storyforge_home=tmp_path)
-        assert result == []
-
-    def test_extracts_recurring_tic_quoted_phrases(self, tmp_path):
-        body = (
-            '### Recurring Tics\n\n'
-            '- **Vague-noun "thing" als Fallback** — concretize on sight. '
-            '_(emerged from blood-and-binary-firelight, 2026-05)_\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        labels = [p.label for p in patterns]
-        assert "thing" in labels
-        # Source string should make the origin obvious.
-        assert all(p.source.startswith("author profile") for p in patterns)
-        # Severity is block — discoveries are author-voice intent.
-        assert all(p.severity == SEVERITY_BLOCK for p in patterns)
-
-    def test_falls_back_to_bold_title_when_no_inner_quote(self, tmp_path):
-        body = (
-            '### Recurring Tics\n\n'
-            '- **Opened his mouth. Closed it.** — vary or skip. '
-            '_(emerged from firelight, 2026-05)_\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        labels = [p.label for p in patterns]
-        assert "Opened his mouth. Closed it." in labels
-
-    def test_skips_style_principles_and_donts(self, tmp_path):
-        """Only `recurring_tics` are scannable patterns. Style principles and
-        don'ts are prose-level rules, not phrase bans."""
-        body = (
-            '### Recurring Tics\n\n'
-            '- **"thing" als Fallback** — fix.\n\n'
-            '### Style Principles\n\n'
-            '- **POV-Wissens-Integrität** — kein POV-Charakter macht Fachbehauptungen.\n\n'
-            "### Don'ts (beyond banned phrases)\n\n"
-            '- **Avoid weather openings** — never start chapters with weather.\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        labels = [p.label for p in patterns]
-        assert "thing" in labels
-        assert "POV-Wissens-Integrität" not in labels
-        assert "Avoid weather openings" not in labels
-
-    def test_dedups_within_section(self, tmp_path):
-        body = (
-            '### Recurring Tics\n\n'
-            '- **"thing" als Fallback** — fix.\n'
-            '- **"thing" als zweiter Tic** — fix again.\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        labels = [p.label for p in patterns]
-        assert labels.count("thing") == 1
-
-    def test_preserves_origin_in_source_string(self, tmp_path):
-        body = (
-            '### Recurring Tics\n\n'
-            '- **"thing"** — fix. _(emerged from firelight, 2026-05)_\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        # Source should mention the discovery section so the brief can show
-        # users WHERE the rule came from.
-        assert "Writing Discoveries" in patterns[0].source
-
-
-# ---------------------------------------------------------------------------
-# load_author_writing_discoveries — body extraction (Issue #212)
-# ---------------------------------------------------------------------------
-#
-# Recurring Tic bullets whose bold title is the rule name (no embedded quotes)
-# but whose scannable example phrases live in the body prose were silently
-# un-scannable: the fallback path used the bold-title text as the pattern,
-# which never matches English chapter prose when the title is a German rule
-# name.
-
-
-class TestLoadAuthorWritingDiscoveriesBodyExtraction:
-    def test_extracts_body_quoted_phrases_when_title_has_no_quote(self, tmp_path):
-        """German rule-name title with English example phrases in body —
-        the very case from the issue (Ethan Cole's Abstrakte
-        Körperteil-Anthropomorphisierung tic).
-        """
-        body = (
-            '### Recurring Tics\n\n'
-            '- **Abstrakte Körperteil-Anthropomorphisierung** — '
-            'Körperteil als Subjekt + vages Prädikat: '
-            '"his hands were having a conversation with each other", '
-            '"his breath was not where he had left it", '
-            '"his stomach kept failing to file". Ersetzen mit konkreter '
-            'Empfindung.\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        labels = [p.label for p in patterns]
-        assert "his hands were having a conversation with each other" in labels
-        assert "his breath was not where he had left it" in labels
-        assert "his stomach kept failing to file" in labels
-        # The German title MUST NOT be promoted to a pattern when body quotes exist.
-        assert "Abstrakte Körperteil-Anthropomorphisierung" not in labels
-
-    def test_extracts_body_backtick_regex_when_title_has_no_quote(self, tmp_path):
-        """Backtick patterns inside a Recurring Tic body load as regex/literal
-        (same heuristic as `_extract_patterns_from_author_dont`)."""
-        body = (
-            '### Recurring Tics\n\n'
-            '- **Body part as subject anti-pattern** — '
-            'Körperteil-Subjekt + vages Prädikat: '
-            '`\\b(his|her) (hand|hands|breath|stomach) (was|were) '
-            '(having|not|kept)\\b`\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        assert patterns, "expected at least one pattern from body backtick"
-        # The compiled pattern must actually match the canonical example.
-        any_match = any(
-            p.pattern.search("his hands were having a conversation")
-            for p in patterns
-        )
-        assert any_match, "body-regex pattern must match canonical instance"
-
-    def test_title_quotes_take_priority_over_body_quotes(self, tmp_path):
-        """When the bold title already carries a quoted phrase, body quotes
-        are NOT merged in — preserves current behavior for tics that already
-        work."""
-        body = (
-            '### Recurring Tics\n\n'
-            '- **Vague-noun "thing" als Fallback** — concretize on sight. '
-            'Example: "the thing happened" should become specific.\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        labels = [p.label for p in patterns]
-        assert "thing" in labels
-        # Body quote MUST NOT pollute the pattern set when the title already
-        # carries the canonical scannable phrase.
-        assert "the thing happened" not in labels
-
-    def test_falls_back_to_title_text_when_nothing_extractable(self, tmp_path):
-        """English bold-title tics with no body quotes/backticks must still
-        fall back to the bold-title text as the pattern (regression for the
-        ``**Opened his mouth. Closed it.**`` style)."""
-        body = (
-            '### Recurring Tics\n\n'
-            '- **Opened his mouth. Closed it.** — vary or skip. '
-            '_(emerged from firelight, 2026-05)_\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        labels = [p.label for p in patterns]
-        assert "Opened his mouth. Closed it." in labels
-
-    def test_body_pattern_matches_chapter_prose(self, tmp_path):
-        """The compiled pattern from a body quoted phrase must actually
-        match the original line that would appear in a chapter draft."""
-        body = (
-            '### Recurring Tics\n\n'
-            '- **Hand-as-decider** — Hand als grammatisches Subjekt: '
-            '"the hand had been deciding something". Ersetzen mit konkretem '
-            'Subjekt.\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        decider = next(
-            (p for p in patterns if "deciding" in p.label.lower()),
-            None,
-        )
-        assert decider is not None, "expected the body-quoted phrase to be loaded"
-        assert decider.pattern.search(
-            "the hand had been deciding something the rest of Caelan had not yet caught up with"
-        ) is not None
-
-    def test_skips_short_body_quotes(self, tmp_path):
-        """Single-character or near-single-char body quotes are noise — must
-        not pollute the pattern set (and must not block the title-text
-        fallback)."""
-        body = (
-            '### Recurring Tics\n\n'
-            '- **Stylistic German Rule Name** — example: "a" is too short.\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        labels = [p.label for p in patterns]
-        # The short body quote must be ignored.
-        assert "a" not in labels
-        # And with nothing else extractable, the title text becomes the
-        # fallback pattern (consistent with current behavior).
-        assert "Stylistic German Rule Name" in labels
-
-    def test_multiple_bullets_independent_extraction(self, tmp_path):
-        """Two bullets, one title-quoted, one body-quoted — both must yield
-        their respective patterns without cross-contamination."""
-        body = (
-            '### Recurring Tics\n\n'
-            '- **Vague-noun "thing" als Fallback** — concretize.\n'
-            '- **German Rule Name** — example: "concrete English phrase". '
-            'rest of prose.\n'
-        )
-        _make_profile(tmp_path, "ethan-cole", body)
-        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
-        labels = [p.label for p in patterns]
-        assert "thing" in labels
-        assert "concrete English phrase" in labels
-        assert "German Rule Name" not in labels
 
 
 # ---------------------------------------------------------------------------
@@ -537,3 +293,311 @@ class TestLoadGlobalAITells:
         patterns = load_global_ai_tells(tmp_path)
         delve = next(p for p in patterns if p.label == "Delve")
         assert len(delve.reason) <= 120
+
+
+# ---------------------------------------------------------------------------
+# DB-first path: load_author_writing_discoveries from author_discoveries table
+# ---------------------------------------------------------------------------
+
+
+def _make_authors_db(storyforge_home: Path, author_slug: str, rows: list[dict]) -> None:
+    """Create authors.db with the minimal schema and insert test rows."""
+    import sqlite3
+    db_dir = storyforge_home / "db"
+    db_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_dir / "authors.db"))
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS author_discoveries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            author_slug TEXT NOT NULL,
+            discovery_type TEXT NOT NULL,
+            text TEXT NOT NULL,
+            book_slug TEXT DEFAULT '',
+            source_genres TEXT DEFAULT '',
+            universal BOOLEAN DEFAULT FALSE,
+            example TEXT DEFAULT '',
+            date_added TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(author_slug, discovery_type, text)
+        )
+        """
+    )
+    for row in rows:
+        conn.execute(
+            "INSERT OR IGNORE INTO author_discoveries "
+            "(author_slug, discovery_type, text) VALUES (?, ?, ?)",
+            (author_slug, row["discovery_type"], row["text"]),
+        )
+    conn.commit()
+    conn.close()
+
+
+class TestLoadAuthorWritingDiscoveriesFromDB:
+    """DB-first path: discoveries stored in author_discoveries table."""
+
+    def test_reads_from_db_when_present(self, tmp_path):
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [{"discovery_type": "recurring_tics", "text": '**"thing"** — concretize.'}],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert any(p.label == "thing" for p in patterns)
+
+    def test_db_wins_over_profile_md(self, tmp_path):
+        """When DB exists, profile.md body is ignored — no double-loading."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [{"discovery_type": "recurring_tics", "text": '**"db-phrase"** — from DB.'}],
+        )
+        # Write a conflicting phrase into profile.md body.
+        author_dir = tmp_path / "authors" / "ethan-cole"
+        author_dir.mkdir(parents=True, exist_ok=True)
+        (author_dir / "profile.md").write_text(
+            '---\nname: "Ethan Cole"\n---\n\n'
+            "## Writing Discoveries\n\n"
+            "### Recurring Tics\n\n"
+            "- **\"md-only-phrase\"** — only in profile.md.\n",
+            encoding="utf-8",
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "db-phrase" in labels
+        assert "md-only-phrase" not in labels  # profile.md ignored when DB present
+
+    def test_db_source_string_contains_writing_discoveries(self, tmp_path):
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [{"discovery_type": "recurring_tics", "text": '**"thing"** — fix.'}],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert all("writing discoveries" in p.source.lower() for p in patterns)
+
+    def test_empty_db_returns_empty_list(self, tmp_path):
+        """DB present but no rows → empty list (not fallback to profile.md)."""
+        _make_authors_db(tmp_path, "ethan-cole", [])
+        # Write discoveries into profile.md to confirm it's NOT used.
+        author_dir = tmp_path / "authors" / "ethan-cole"
+        author_dir.mkdir(parents=True, exist_ok=True)
+        (author_dir / "profile.md").write_text(
+            '---\nname: "Ethan Cole"\n---\n\n'
+            "## Writing Discoveries\n\n"
+            "### Recurring Tics\n\n"
+            "- **\"md-phrase\"** — should be ignored.\n",
+            encoding="utf-8",
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert patterns == []
+
+    def test_db_absent_returns_empty(self, tmp_path):
+        """No authors.db → empty list. profile.md is not consulted."""
+        author_dir = tmp_path / "authors" / "ethan-cole"
+        author_dir.mkdir(parents=True, exist_ok=True)
+        (author_dir / "profile.md").write_text(
+            '---\nname: "Ethan Cole"\n---\n\n'
+            "## Writing Discoveries\n\n"
+            "### Recurring Tics\n\n"
+            '- **"profile-phrase"** — must be ignored.\n',
+            encoding="utf-8",
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert patterns == []
+
+    def test_body_extraction_works_from_db(self, tmp_path):
+        """Body-quoted phrases (German rule name + English examples) work via DB too."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [
+                {
+                    "discovery_type": "recurring_tics",
+                    "text": (
+                        "**Abstrakte Körperteil-Anthropomorphisierung** — "
+                        '"his hands were having a conversation with each other".'
+                    ),
+                }
+            ],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "his hands were having a conversation with each other" in labels
+        assert "Abstrakte Körperteil-Anthropomorphisierung" not in labels
+
+    def test_body_backtick_regex_from_db(self, tmp_path):
+        """Backtick patterns in DB text load as regex — same heuristic as profile.md path."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [
+                {
+                    "discovery_type": "recurring_tics",
+                    "text": (
+                        r"**Body part as subject** — Körperteil-Subjekt: "
+                        r"`\b(his|her) (hand|hands|breath|stomach) (was|were) (having|not|kept)\b`"
+                    ),
+                }
+            ],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert patterns, "expected at least one pattern from body backtick"
+        assert any(
+            p.pattern.search("his hands were having a conversation") for p in patterns
+        )
+
+    def test_title_quotes_take_priority_over_body_quotes_db(self, tmp_path):
+        """Title-quoted phrase wins; body quotes are NOT added when title has quotes."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [
+                {
+                    "discovery_type": "recurring_tics",
+                    "text": (
+                        '**Vague-noun "thing" als Fallback** — concretize. '
+                        'Example: "the thing happened".'
+                    ),
+                }
+            ],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "thing" in labels
+        assert "the thing happened" not in labels
+
+    def test_falls_back_to_title_text_when_nothing_extractable_db(self, tmp_path):
+        """English-prose bold-title tic with no quotes/backticks → title text is pattern."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [
+                {
+                    "discovery_type": "recurring_tics",
+                    "text": "**Opened his mouth. Closed it.** — vary or skip.",
+                }
+            ],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "Opened his mouth. Closed it." in labels
+
+    def test_body_pattern_matches_chapter_prose_db(self, tmp_path):
+        """Body-quoted phrase compiles to a pattern that matches actual chapter prose."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [
+                {
+                    "discovery_type": "recurring_tics",
+                    "text": (
+                        '**Hand-as-decider** — grammatisches Subjekt: '
+                        '"the hand had been deciding something".'
+                    ),
+                }
+            ],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        decider = next((p for p in patterns if "deciding" in p.label.lower()), None)
+        assert decider is not None
+        assert decider.pattern.search(
+            "the hand had been deciding something the rest of Caelan had not yet caught up with"
+        ) is not None
+
+    def test_skips_short_body_quotes_db(self, tmp_path):
+        """Single-char body quotes are noise; title text becomes the fallback pattern."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [
+                {
+                    "discovery_type": "recurring_tics",
+                    "text": '**Stylistic German Rule Name** — example: "a" is too short.',
+                }
+            ],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "a" not in labels
+        assert "Stylistic German Rule Name" in labels
+
+    def test_multiple_bullets_independent_extraction_db(self, tmp_path):
+        """Two DB rows, one title-quoted, one body-quoted — no cross-contamination."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [
+                {
+                    "discovery_type": "recurring_tics",
+                    "text": '**Vague-noun "thing" als Fallback** — concretize.',
+                },
+                {
+                    "discovery_type": "recurring_tics",
+                    "text": '**German Rule Name** — example: "concrete English phrase".',
+                },
+            ],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "thing" in labels
+        assert "concrete English phrase" in labels
+        assert "German Rule Name" not in labels
+
+    def test_dedup_within_db(self, tmp_path):
+        """Two DB rows with the same quoted phrase → deduplicated to one pattern."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [
+                {"discovery_type": "recurring_tics", "text": '**"thing" als Fallback** — fix.'},
+                {"discovery_type": "recurring_tics", "text": '**"thing" als zweiter Tic** — fix again.'},
+            ],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert [p.label for p in patterns].count("thing") == 1
+
+
+class TestLoadAuthorDontRulesFromDB:
+    """DB-first path: dont-rules stored in author_discoveries table."""
+
+    def test_reads_donts_from_db(self, tmp_path):
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [{"discovery_type": "donts", "text": "**Never use rooms** — *The room received it.*"}],
+        )
+        patterns = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
+        assert len(patterns) > 0
+        assert all(p.severity == SEVERITY_BLOCK for p in patterns)
+
+    def test_db_wins_over_profile_md_for_donts(self, tmp_path):
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [{"discovery_type": "donts", "text": "**Avoid `db-pattern`** — from DB."}],
+        )
+        author_dir = tmp_path / "authors" / "ethan-cole"
+        author_dir.mkdir(parents=True, exist_ok=True)
+        (author_dir / "profile.md").write_text(
+            "---\nname: x\n---\n\n## Writing Discoveries\n\n"
+            "### Don'ts\n\n- **Avoid `md-pattern`** — profile only.\n",
+            encoding="utf-8",
+        )
+        patterns = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "db-pattern" in labels
+        assert "md-pattern" not in labels
+
+    def test_db_absent_returns_empty_for_donts(self, tmp_path):
+        """No authors.db → empty list. profile.md is not consulted."""
+        author_dir = tmp_path / "authors" / "ethan-cole"
+        author_dir.mkdir(parents=True, exist_ok=True)
+        (author_dir / "profile.md").write_text(
+            "---\nname: x\n---\n\n## Writing Discoveries\n\n"
+            "### Don'ts\n\n- **Avoid `profile-pattern`** — must be ignored.\n",
+            encoding="utf-8",
+        )
+        patterns = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
+        assert patterns == []

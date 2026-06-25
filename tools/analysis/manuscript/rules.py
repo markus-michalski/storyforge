@@ -103,12 +103,9 @@ _DONTS_HEADER_RE = re.compile(
 
 
 def _read_book_rules(book_path: Path) -> list[str]:
-    """Return rule texts for a book — reads from the book_rules DB (Phase 4).
+    """Return rule texts for a book — reads from the book_rules DB (sole source).
 
-    Falls back to parsing CLAUDE.md when the DB is unavailable or returns
-    nothing (e.g. pre-migration books).
-
-    Returns an empty list when no rules exist.
+    Returns an empty list when no rules exist or the DB is unavailable.
     """
     try:
         from tools.db.book_rules import list_rules as _db_list_rules
@@ -121,33 +118,9 @@ def _read_book_rules(book_path: Path) -> list[str]:
             rows = _db_list_rules(conn, book_num=book_num, rule_type="rule")
         finally:
             conn.close()
-
-        if rows:
-            return [r["text"] for r in rows]
+        return [r["text"] for r in rows]
     except Exception:  # pylint: disable=broad-except
-        pass
-
-    # Fallback: legacy CLAUDE.md parsing (pre-migration books)
-    claudemd = book_path / "CLAUDE.md"
-    if not claudemd.is_file():
         return []
-    try:
-        text = claudemd.read_text(encoding="utf-8")
-    except OSError:
-        return []
-
-    match = _RULES_SECTION_RE.search(text)
-    if not match:
-        return []
-    section = _COMMENT_RE.sub("", match.group(1))
-
-    rules: list[str] = []
-    for m in _RULE_BULLET_RE.finditer(section):
-        body = m.group("body").strip()
-        body = re.sub(r"\s+", " ", body)
-        if body:
-            rules.append(body)
-    return rules
 
 
 def _extract_patterns_from_rule(rule: str) -> list[tuple[str, re.Pattern[str]]]:

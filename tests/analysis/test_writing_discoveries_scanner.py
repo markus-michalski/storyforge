@@ -59,7 +59,7 @@ def _write_book(
 
 def _write_profile(home: Path, slug: str, discoveries_body: str) -> None:
     profile_dir = home / "authors" / slug
-    profile_dir.mkdir(parents=True)
+    profile_dir.mkdir(parents=True, exist_ok=True)
     (profile_dir / "profile.md").write_text(
         '---\nname: "Ethan Cole"\nslug: "ethan-cole"\n---\n\n'
         "# Ethan Cole\n\n"
@@ -75,56 +75,53 @@ def _write_profile(home: Path, slug: str, discoveries_body: str) -> None:
 
 
 class TestScanWritingDiscoveries:
-    def test_finds_quoted_tic_violation(self, tmp_path, patch_storyforge_home):
+    def test_finds_quoted_tic_violation(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             chapters={
                 "01-open": "# Chapter 1\n\nHe was doing a thing with his hand again.\n",
             },
         )
-        _write_profile(
+        seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
-            (
-                '### Recurring Tics\n\n'
-                '- **Vague-noun "thing" als Fallback** — concretize on sight.\n'
-            ),
+            "recurring_tics",
+            ['**Vague-noun "thing" als Fallback** — concretize on sight.'],
         )
 
         findings = _scan_writing_discoveries(book)
         assert findings, "expected at least one violation"
         assert any("thing" in f.phrase.lower() for f in findings)
 
-    def test_falls_back_to_bold_title_text(self, tmp_path, patch_storyforge_home):
+    def test_falls_back_to_bold_title_text(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             chapters={
                 "01-open": '# Chapter 1\n\n"Wait." Opened his mouth. Closed it.\n',
             },
         )
-        _write_profile(
+        seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
-            (
-                '### Recurring Tics\n\n'
-                '- **Opened his mouth. Closed it.** — vary or skip.\n'
-            ),
+            "recurring_tics",
+            ["**Opened his mouth. Closed it.** — vary or skip."],
         )
 
         findings = _scan_writing_discoveries(book)
         assert findings
 
-    def test_severity_high(self, tmp_path, patch_storyforge_home):
+    def test_severity_high(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             chapters={
                 "01-open": "# Chapter 1\n\nShe was doing a thing with the keys.\n",
             },
         )
-        _write_profile(
+        seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
-            '### Recurring Tics\n\n- **"thing"** — concretize.\n',
+            "recurring_tics",
+            ['**"thing"** — concretize.'],
         )
 
         findings = _scan_writing_discoveries(book)
@@ -147,15 +144,16 @@ class TestScanWritingDiscoveries:
         findings = _scan_writing_discoveries(book)
         assert all(f.category == "writing_discovery_violation" for f in findings)
 
-    def test_source_rule_points_to_writing_discoveries(self, tmp_path, patch_storyforge_home):
+    def test_source_rule_points_to_writing_discoveries(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             chapters={"01-open": "# Chapter 1\n\nA thing happened.\n"},
         )
-        _write_profile(
+        seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
-            '### Recurring Tics\n\n- **"thing"** — concretize.\n',
+            "recurring_tics",
+            ['**"thing"** — concretize.'],
         )
 
         findings = _scan_writing_discoveries(book)

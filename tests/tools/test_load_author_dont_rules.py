@@ -30,7 +30,7 @@ from tools.banlist_loader import (
 
 def _write_profile(storyforge_home: Path, slug: str, donts_body: str) -> None:
     profile_dir = storyforge_home / "authors" / slug
-    profile_dir.mkdir(parents=True)
+    profile_dir.mkdir(parents=True, exist_ok=True)
     (profile_dir / "profile.md").write_text(
         '---\nname: "Ethan Cole"\nslug: "ethan-cole"\n---\n\n'
         "# Ethan Cole\n\n"
@@ -56,12 +56,12 @@ class TestLoadAuthorDontRules:
         result = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
         assert result == []
 
-    def test_extracts_backtick_regex(self, tmp_path):
-        _write_profile(
+    def test_extracts_backtick_regex(self, tmp_path, seed_author_discoveries):
+        seed_author_discoveries(
             tmp_path,
             "ethan-cole",
-            "- **Never personify rooms** — `\\bthe (room|silence) "
-            "(received|held)\\b`\n",
+            "donts",
+            ["**Never personify rooms** — `\\bthe (room|silence) (received|held)\\b`"],
         )
         result = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
         assert result
@@ -69,11 +69,12 @@ class TestLoadAuthorDontRules:
         labels = [p.label for p in result]
         assert any("room|silence" in lab for lab in labels)
 
-    def test_extracts_italic_phrase_when_ban_cue_present(self, tmp_path):
-        _write_profile(
+    def test_extracts_italic_phrase_when_ban_cue_present(self, tmp_path, seed_author_discoveries):
+        seed_author_discoveries(
             tmp_path,
             "ethan-cole",
-            "- **Never use word-count meta-commentary** — *Two words.* / *One word.*\n",
+            "donts",
+            ["**Never use word-count meta-commentary** — *Two words.* / *One word.*"],
         )
         result = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
         assert result
@@ -91,21 +92,23 @@ class TestLoadAuthorDontRules:
         # No ban cue — italics are narrative emphasis only.
         assert result == []
 
-    def test_source_attribution_includes_donts(self, tmp_path):
-        _write_profile(
+    def test_source_attribution_includes_donts(self, tmp_path, seed_author_discoveries):
+        seed_author_discoveries(
             tmp_path,
             "ethan-cole",
-            "- **Never use rooms** — *The room received it.*\n",
+            "donts",
+            ["**Never use rooms** — *The room received it.*"],
         )
         result = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
         assert result
-        assert any("don't" in p.source.lower() or "donts" in p.source.lower() for p in result)
+        assert any("dont" in p.source.lower() for p in result)
 
-    def test_compiled_pattern_is_case_insensitive(self, tmp_path):
-        _write_profile(
+    def test_compiled_pattern_is_case_insensitive(self, tmp_path, seed_author_discoveries):
+        seed_author_discoveries(
             tmp_path,
             "ethan-cole",
-            "- **Never use rooms** — *The room received it.*\n",
+            "donts",
+            ["**Never use rooms** — *The room received it.*"],
         )
         result = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
         assert result
@@ -113,12 +116,13 @@ class TestLoadAuthorDontRules:
         assert pat.search("the room received it.")
         assert pat.search("THE ROOM RECEIVED IT.")
 
-    def test_does_not_pick_up_bold_title_as_italic(self, tmp_path):
+    def test_does_not_pick_up_bold_title_as_italic(self, tmp_path, seed_author_discoveries):
         """Double-asterisks (bold) must not be mistaken for italic patterns."""
-        _write_profile(
+        seed_author_discoveries(
             tmp_path,
             "ethan-cole",
-            "- **Never use rooms as receivers** — *The room received it.*\n",
+            "donts",
+            ["**Never use rooms as receivers** — *The room received it.*"],
         )
         result = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
         labels = [p.label for p in result]

@@ -141,7 +141,7 @@ class TestScanGlobalShapeBansDedupesWithAuthorDonts:
     warn-finding should be suppressed for that match — no double-flagging."""
 
     def test_global_finding_suppressed_when_author_dont_already_blocks(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ):
         plugin_root = tmp_path / "plugin"
         plugin_root.mkdir()
@@ -151,13 +151,21 @@ class TestScanGlobalShapeBansDedupesWithAuthorDonts:
             "## 11.\n\n**Banned shape:** `\\bthe room received\\b`.\n",
         )
         # Author profile ALSO bans the shape via Don'ts.
+        # _scan_author_rules reads from profile.md (still file-based).
         profile_dir = patch_storyforge_home / "authors" / "ethan-cole"
-        profile_dir.mkdir(parents=True)
+        profile_dir.mkdir(parents=True, exist_ok=True)
         (profile_dir / "profile.md").write_text(
             "## Writing Discoveries\n\n"
             "### Don'ts\n\n"
             "- **Never personify rooms** — `\\bthe room received\\b`\n",
             encoding="utf-8",
+        )
+        # _scan_global_shape_bans dedup reads Don'ts from DB.
+        seed_author_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            "donts",
+            ["**Never personify rooms** — `\\bthe room received\\b`"],
         )
         book = _write_book(
             tmp_path,

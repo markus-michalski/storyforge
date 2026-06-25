@@ -195,8 +195,8 @@ def _build_inflection_pattern(text: str) -> re.Pattern[str]:
 # Author Writing Discoveries — Issue #151 follow-up
 # ---------------------------------------------------------------------------
 #
-# Discoveries promoted via /storyforge:harvest-author-rules land under
-# `## Writing Discoveries / ### Recurring Tics` in the author profile. The
+# Discoveries promoted via /storyforge:harvest-author-rules are stored in the
+# ``author_discoveries`` table (``recurring_tics`` type, since #281). The
 # bullets are bold-titled (` - **Title** — rationale`); the scannable phrase
 # is typically wrapped in double-quotes inside the bold title (e.g.
 # `**Vague-noun "thing" als Fallback**`). Without this loader, those tics
@@ -393,60 +393,59 @@ def _extract_patterns_from_tic_body(body: str) -> list[tuple[str, re.Pattern[str
     return out
 
 
-def _author_profile_path(author_slug: str, storyforge_home: Path | None = None) -> Path:
+# ---------------------------------------------------------------------------
+# SQLite helpers — stdlib only (dependency-free for hook use)
+# ---------------------------------------------------------------------------
+
+
+def _author_db_path(storyforge_home: Path | None = None) -> Path:
     home = storyforge_home or (Path.home() / ".storyforge")
-    return home / "authors" / author_slug / "profile.md"
+    return home / "db" / "authors.db"
 
 
-def load_author_writing_discoveries(
+def _query_author_discoveries(
     author_slug: str,
-    *,
+    discovery_type: str,
     storyforge_home: Path | None = None,
-) -> list[BannedPattern]:
-    """Load scannable phrases from ``profile.md`` ``## Writing Discoveries``.
+) -> list[str] | None:
+    """Return ``text`` values from ``author_discoveries`` table, or ``None`` if
+    the DB file is absent.
 
-    Walks the ``### Recurring Tics`` sub-section only. ``### Style Principles``
-    and ``### Don'ts`` are prose-level rules, not phrase bans, so they're
-    out of scope for this loader.
-
-    Severity is always ``block`` — discoveries are user-asserted author voice
-    intent and were explicitly promoted via the harvest skill.
-
-    Returns ``[]`` when the profile is missing, has no Writing Discoveries
-    section, or the Recurring Tics sub-section is empty.
+    Returns ``None`` (not an empty list) when the DB does not exist — callers
+    treat ``None`` as "no data available" and return ``[]``.  An empty list
+    means the DB exists but the author has no entries of this type.
     """
-    profile_path = _author_profile_path(author_slug, storyforge_home)
-    if not profile_path.is_file():
-        return []
+    import sqlite3  # stdlib — keeps the module dependency-free for hook use
+    db_path = _author_db_path(storyforge_home)
+    if not db_path.is_file():
+        return None
     try:
-        text = profile_path.read_text(encoding="utf-8")
-    except OSError:
-        return []
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT text FROM author_discoveries"
+            " WHERE author_slug=? AND discovery_type=? ORDER BY id",
+            (author_slug, discovery_type),
+        ).fetchall()
+        conn.close()
+        return [r["text"] for r in rows]
+    except Exception:  # pragma: no cover
+        return None
 
-    section_match = _DISCOVERIES_SECTION_RE.search(text)
-    if not section_match:
-        return []
-    body = section_match.group("body")
 
-    tics_match = _RECURRING_TICS_HEADER_RE.search(body)
-    if not tics_match:
-        return []
-    tics_body = body[tics_match.end():]
-    next_subsection = re.search(r"^###\s+\S", tics_body, re.MULTILINE)
-    if next_subsection:
-        tics_body = tics_body[: next_subsection.start()]
+def _build_patterns_from_tic_db_texts(texts: list[str]) -> list[BannedPattern]:
+    """Convert ``author_discoveries`` DB rows (``recurring_tics``) to ``BannedPattern`` list.
 
-    patterns: list[BannedPattern] = []
-    seen: set[str] = set()
-    source = "author profile (## Writing Discoveries / Recurring Tics)"
+    The ``text`` column stores the bullet body without the leading ``- ``
+    prefix (e.g. ``**"thing"** — concretize on sight.``).  We reconstruct a
+    minimal bullet so the existing parsing helpers can be reused verbatim.
+    """
+    source = "author writing discoveries (DB)"
     reason = "recurring tic promoted from a finished book"
+    seen: set[str] = set()
+    patterns: list[BannedPattern] = []
 
-    def _emit(
-        label: str,
-        compiled: re.Pattern[str],
-        severity: str = SEVERITY_BLOCK,
-        chapter_limit: int = 0,
-    ) -> None:
+    def _emit(label: str, compiled: re.Pattern[str], severity: str, chapter_limit: int) -> None:
         cleaned = _strip_parenthetical(label).strip()
         if len(cleaned) < 2:
             return
@@ -465,18 +464,17 @@ def load_author_writing_discoveries(
             )
         )
 
-    for bullet_match in _RECURRING_TIC_BULLET_RE.finditer(tics_body):
+    for text in texts:
+        # Prepend "- " so _RECURRING_TIC_BULLET_RE can match; DB stores body only.
+        bullet_match = _RECURRING_TIC_BULLET_RE.match("- " + text + "\n")
+        if not bullet_match:
+            continue
         bold_title = bullet_match.group("title")
         body_text = bullet_match.group("body") or ""
-
-        # Severity and per-chapter limit are bullet-level metadata — extract
-        # once and apply to every pattern emitted from this bullet.
         full_bullet = bold_title + " " + body_text
         sev = _extract_discovery_severity(full_bullet)
         limit = _extract_discovery_limit(full_bullet)
 
-        # Priority 1: quoted phrases inside the bold title (primary path —
-        # unchanged from the pre-#212 behavior so existing tics keep working).
         title_quotes = _title_inner_quotes(bold_title)
         if title_quotes:
             for phrase in title_quotes:
@@ -488,26 +486,18 @@ def load_author_writing_discoveries(
                 )
             continue
 
-        # Priority 2: extract patterns from the bullet body — backticks and
-        # double-quoted phrases. Backticks ship their own compiled regex;
-        # quoted phrases get the same inflection-aware compilation as title
-        # quotes.
         body_patterns = _extract_patterns_from_tic_body(body_text)
         if body_patterns:
             for label, compiled in body_patterns:
                 if compiled is None:
-                    cleaned = _strip_parenthetical(label).strip()
-                    if len(cleaned) < 2:
+                    cleaned_lbl = _strip_parenthetical(label).strip()
+                    if len(cleaned_lbl) < 2:
                         continue
-                    _emit(label, _build_discovery_pattern(cleaned), sev, limit)
+                    _emit(label, _build_discovery_pattern(cleaned_lbl), sev, limit)
                 else:
                     _emit(label, compiled, sev, limit)
             continue
 
-        # Priority 3: fall back to the bold-title text as the pattern. This
-        # is the only path for English-prose bullets like
-        # ``**Opened his mouth. Closed it.**`` that have neither title quotes
-        # nor body patterns.
         for phrase in _extract_phrases_from_bold_title(bold_title):
             _emit(
                 phrase,
@@ -515,7 +505,25 @@ def load_author_writing_discoveries(
                 sev,
                 limit,
             )
+
     return patterns
+
+
+def load_author_writing_discoveries(
+    author_slug: str,
+    *,
+    storyforge_home: Path | None = None,
+) -> list[BannedPattern]:
+    """Load scannable recurring-tic phrases for an author from the DB.
+
+    Reads from the ``author_discoveries`` SQLite table (``recurring_tics``
+    type). Returns ``[]`` when the DB is absent or the author has no entries.
+    """
+    db_texts = _query_author_discoveries(author_slug, "recurring_tics", storyforge_home)
+    if db_texts is None:
+        return []
+    return _build_patterns_from_tic_db_texts(db_texts)
+
 
 
 def _build_discovery_pattern(text: str) -> re.Pattern[str]:
@@ -603,55 +611,12 @@ def _extract_dont_patterns(rule: str) -> list[tuple[str, re.Pattern[str]]]:
     return patterns
 
 
-def load_author_dont_rules(
-    author_slug: str,
-    *,
-    storyforge_home: Path | None = None,
-) -> list[BannedPattern]:
-    """Load scannable phrases from ``profile.md`` ``## Writing Discoveries /
-    ### Don'ts``.
-
-    Severity is always ``block`` — Don'ts are user-asserted author voice
-    intent and the strictest layer of the elegant-abstraction defense.
-
-    Returns ``[]`` when the profile is missing, has no Writing Discoveries
-    section, or the Don'ts subsection is empty.
-    """
-    profile_path = _author_profile_path(author_slug, storyforge_home)
-    if not profile_path.is_file():
-        return []
-    try:
-        text = profile_path.read_text(encoding="utf-8")
-    except OSError:
-        return []
-
-    section_match = _DISCOVERIES_SECTION_RE.search(text)
-    if not section_match:
-        return []
-    body = section_match.group("body")
-
-    donts_match = _DONTS_HEADER_RE.search(body)
-    if not donts_match:
-        return []
-    donts_body = body[donts_match.end():]
-    next_subsection = re.search(r"^###\s+\S", donts_body, re.MULTILINE)
-    if next_subsection:
-        donts_body = donts_body[: next_subsection.start()]
-
+def _build_patterns_from_dont_db_texts(texts: list[str]) -> list[BannedPattern]:
+    """Convert ``author_discoveries`` DB rows (``donts``) to ``BannedPattern`` list."""
     patterns: list[BannedPattern] = []
     seen: set[str] = set()
-
-    for bullet_match in _BOLD_TITLE_BULLET_RE.finditer(donts_body):
-        # Capture the full bullet body — the bold title is line 1 but we
-        # need the trailing prose for italics and explanatory backticks.
-        line_start = bullet_match.start()
-        next_bullet = re.search(r"\n-\s+", donts_body[bullet_match.end():])
-        line_end = (
-            bullet_match.end() + next_bullet.start() if next_bullet else len(donts_body)
-        )
-        bullet_text = donts_body[line_start:line_end]
-
-        for label, compiled in _extract_dont_patterns(bullet_text):
+    for text in texts:
+        for label, compiled in _extract_dont_patterns(text):
             key = compiled.pattern.lower()
             if key in seen:
                 continue
@@ -661,11 +626,27 @@ def load_author_dont_rules(
                     label=label,
                     pattern=compiled,
                     severity=SEVERITY_BLOCK,
-                    source="author profile (## Writing Discoveries / Don'ts)",
+                    source="author dont rules (DB)",
                     reason="forbidden shape across all books by this author",
                 )
             )
     return patterns
+
+
+def load_author_dont_rules(
+    author_slug: str,
+    *,
+    storyforge_home: Path | None = None,
+) -> list[BannedPattern]:
+    """Load scannable don't-rules for an author from the DB.
+
+    Reads from the ``author_discoveries`` SQLite table (``donts`` type).
+    Returns ``[]`` when the DB is absent or the author has no entries.
+    """
+    db_texts = _query_author_discoveries(author_slug, "donts", storyforge_home)
+    if db_texts is None:
+        return []
+    return _build_patterns_from_dont_db_texts(db_texts)
 
 
 # ---------------------------------------------------------------------------
