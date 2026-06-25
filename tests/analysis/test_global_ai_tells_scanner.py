@@ -175,20 +175,17 @@ class TestScanGlobalAITellsDedupesWithAuthorLayers:
         ]
         assert not delve_findings
 
-    @pytest.mark.skip("Tests reflect old profile.md read path — fix in #298")
     def test_dedup_with_author_dont(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ):
         plugin_root = tmp_path / "plugin"
         plugin_root.mkdir()
         _write_catalog(plugin_root, _MINIMAL_CATALOG)
-        author_dir = patch_storyforge_home / "authors" / "ethan-cole"
-        author_dir.mkdir(parents=True)
-        (author_dir / "profile.md").write_text(
-            "## Writing Discoveries\n\n"
-            "### Don'ts\n\n"
-            "- **Never use** — `\\bdelve\\b`\n",
-            encoding="utf-8",
+        seed_author_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            "donts",
+            ["**Never use** — `\\bdelve\\b`"],
         )
         book = _write_book(
             tmp_path,
@@ -200,20 +197,17 @@ class TestScanGlobalAITellsDedupesWithAuthorLayers:
         ]
         assert not delve_findings
 
-    @pytest.mark.skip("Tests reflect old profile.md read path — fix in #298")
     def test_dedup_with_recurring_tic(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ):
         plugin_root = tmp_path / "plugin"
         plugin_root.mkdir()
         _write_catalog(plugin_root, _MINIMAL_CATALOG)
-        author_dir = patch_storyforge_home / "authors" / "ethan-cole"
-        author_dir.mkdir(parents=True)
-        (author_dir / "profile.md").write_text(
-            "## Writing Discoveries\n\n"
-            "### Recurring Tics\n\n"
-            '- **"delve"** — concretize.\n',
-            encoding="utf-8",
+        seed_author_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            "recurring_tics",
+            ['**"delve"** — concretize.'],
         )
         book = _write_book(
             tmp_path,
