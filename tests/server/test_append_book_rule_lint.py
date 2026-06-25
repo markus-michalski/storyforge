@@ -34,10 +34,12 @@ def book_config(tmp_path: Path) -> dict:
 
 @pytest.fixture
 def initialized_book(
-    book_config: dict, monkeypatch: pytest.MonkeyPatch
+    book_config: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> dict:
     """Initialize CLAUDE.md and patch load_config so MCP tools see the
-    test config."""
+    test config. DB_DIR is redirected to tmp_path for isolation."""
+    import tools.db.connection as _conn
+    monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
     monkeypatch.setattr(_app, "load_config", lambda: book_config)
     init_book_claudemd("my-book", book_title="My Book")
     return book_config
@@ -98,8 +100,8 @@ class TestAppendStillHappensWithWarnings:
                 'Avoid these: *"clocked"*, *"registered"*',
             )
         )
-        # Append succeeded.
-        assert "path" in result
+        # Append succeeded (Phase 4: rule_id instead of path).
+        assert "rule_id" in result
         assert "error" not in result
         # And we got warnings back.
         assert len(result["warnings"]) > 0

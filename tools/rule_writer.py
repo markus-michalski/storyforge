@@ -69,24 +69,20 @@ def write_book_rule(
     book_slug: str,
     source_context: str = "report-issue",
 ) -> tuple[bool, str]:
-    """Append a banned phrase to the book's CLAUDE.md Rules section.
+    """Append a banned phrase to the book_rules DB for this book.
 
-    Returns ``(written, message)`` where ``written`` is False when the phrase
-    already existed (idempotent).
+    Returns ``(written, message)`` where ``written`` is False when the rule
+    text already exists in the DB (idempotent).
 
     The rule is formatted as:
         Avoid ``{phrase}`` — {reason} {metadata}
     """
-    from tools.claudemd.manager import resolve_claudemd_path
-
-    path = resolve_claudemd_path(config, book_slug)
-    if path.exists() and _phrase_already_present(path.read_text(encoding="utf-8"), phrase):
-        return False, f"Rule already present in book CLAUDE.md (skipped): {phrase}"
-
     tag = _metadata_tag(source_context)
     text = f"Avoid `{phrase}` — {reason} {tag}"
-    _claudemd_append_rule(config, book_slug, text)
-    return True, f"Rule written to book CLAUDE.md: {path}"
+    result = _claudemd_append_rule(config, book_slug, text)
+    if not result["inserted"]:
+        return False, f"Rule already present in book rules DB (skipped): {phrase}"
+    return True, f"Rule written to book rules DB: {phrase}"
 
 
 # ---------------------------------------------------------------------------
@@ -315,9 +311,20 @@ def _remove_from_scope(
         if scope == SCOPE_BOOK:
             if not config or not book_slug:
                 return
-            from tools.claudemd.manager import resolve_claudemd_path
+            # Phase 4: rules are in the book_rules DB, not in CLAUDE.md markers.
+            from tools.claudemd.manager import _open_book_db
+            from tools.db.book_rules import delete_rule, list_rules as _db_list_rules
 
-            path = resolve_claudemd_path(config, book_slug)
+            conn, book_num = _open_book_db(config, book_slug)
+            try:
+                rows = _db_list_rules(conn, book_num=book_num, rule_type="rule")
+                phrase_lower = phrase.lower()
+                for row in rows:
+                    if phrase_lower in row["text"].lower():
+                        delete_rule(conn, row["id"])
+            finally:
+                conn.close()
+            return
         elif scope == SCOPE_AUTHOR:
             if not author_slug:
                 return

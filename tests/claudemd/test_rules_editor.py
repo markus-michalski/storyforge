@@ -1,8 +1,8 @@
-"""Tests for editing existing rules in a book's CLAUDE.md.
+"""Tests for listing and editing rules in the book_rules DB.
 
-Issue #145 — `update_book_rule`, `list_book_rules`. The editor operates only
-inside the ``<!-- RULES:START --> ... <!-- RULES:END -->`` block; static rules
-above the marker are surfaced via list_rules but cannot be edited.
+Phase 4 (#282): rules/callbacks/workflows moved from CLAUDE.md marker blocks
+to SQLite. list_rules() / update_rule() now operate on the book_rules table;
+CLAUDE.md is prose-only and is never modified by these operations.
 """
 
 from __future__ import annotations
@@ -11,11 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from tools.claudemd.manager import init_claudemd
+from tools.claudemd.manager import append_rule, init_claudemd, resolve_claudemd_path
 from tools.claudemd.rules_editor import (
     AmbiguousMatchError,
     DisagreeingResolutionError,
-    MarkersNotFoundError,
     list_rules,
     update_rule,
 )
@@ -37,21 +36,18 @@ def book_config(tmp_path: Path) -> dict:
     return {"paths": {"content_root": str(content_root)}}
 
 
-def _seed_rules(book_config: dict, rules: list[str]) -> Path:
-    """Initialize CLAUDE.md and seed the RULES block with raw bullets."""
-    from tools.claudemd.manager import resolve_claudemd_path
+@pytest.fixture(autouse=True)
+def isolate_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Redirect DB_DIR to tmp_path so tests don't touch ~/.storyforge/db/."""
+    import tools.db.connection as _conn
+    monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
 
+
+def _seed_rules(book_config: dict, rules: list[str]) -> None:
+    """Initialize CLAUDE.md and seed rules into the book_rules DB."""
     init_claudemd(book_config, PLUGIN_ROOT, "my-book")
-    path = resolve_claudemd_path(book_config, "my-book")
-    content = path.read_text(encoding="utf-8")
-
-    bullets = "\n".join(f"- {r}" for r in rules)
-    new_content = content.replace(
-        "<!-- RULES:START -->\n<!-- RULES:END -->",
-        f"<!-- RULES:START -->\n{bullets}\n<!-- RULES:END -->",
-    )
-    path.write_text(new_content, encoding="utf-8")
-    return path
+    for rule_text in rules:
+        append_rule(book_config, "my-book", rule_text)
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +56,7 @@ def _seed_rules(book_config: dict, rules: list[str]) -> Path:
 
 
 class TestListRules:
-    def test_empty_block(self, book_config):
+    def test_empty_returns_no_rules(self, book_config):
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")
         assert list_rules(book_config, "my-book") == []
 
@@ -97,9 +93,9 @@ class TestListRules:
         _seed_rules(
             book_config,
             [
-                "**R1** — avoid `clocked` as a verb",  # literal
+                "**R1** — avoid `clocked` as a verb",       # literal
                 r"**R2** — avoid `\bsuddenly\b` patterns",  # regex (\b)
-                "**R3** — narrative discipline only",  # neither
+                "**R3** — narrative discipline only",        # neither
             ],
         )
         rules = list_rules(book_config, "my-book")
@@ -109,18 +105,9 @@ class TestListRules:
         assert rules[2].has_literals is False
         assert rules[2].has_regex is False
 
-    def test_raises_if_markers_missing(self, book_config, tmp_path):
-        from tools.claudemd.manager import resolve_claudemd_path
-
-        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
-        path = resolve_claudemd_path(book_config, "my-book")
-        # Strip the markers entirely.
-        content = path.read_text(encoding="utf-8")
-        content = content.replace("<!-- RULES:START -->\n", "")
-        content = content.replace("<!-- RULES:END -->", "")
-        path.write_text(content, encoding="utf-8")
-
-        with pytest.raises(MarkersNotFoundError):
+    def test_raises_if_claudemd_missing(self, book_config):
+        # No init_claudemd — CLAUDE.md does not exist.
+        with pytest.raises(FileNotFoundError):
             list_rules(book_config, "my-book")
 
 
@@ -336,30 +323,28 @@ class TestIdempotency:
 
 
 # ---------------------------------------------------------------------------
-# Marker preservation
+# File not modified (Phase 4: rules live in DB, CLAUDE.md is prose-only)
 # ---------------------------------------------------------------------------
 
 
-class TestMarkerPreservation:
-    def test_markers_unchanged_after_update(self, book_config):
-        path = _seed_rules(book_config, ["**R1** — first", "**R2** — second"])
-        update_rule(
-            book_config, "my-book",
-            rule_index=0, new_text="**R1** — replaced",
-        )
-        content = path.read_text(encoding="utf-8")
-        assert content.count("<!-- RULES:START -->") == 1
-        assert content.count("<!-- RULES:END -->") == 1
-        # Other markers also intact.
-        assert "<!-- WORKFLOW:START -->" in content
-        assert "<!-- CALLBACKS:END -->" in content
+class TestFileNotModified:
+    def test_claudemd_unchanged_after_rule_update(self, book_config):
+        _seed_rules(book_config, ["**R1** — first", "**R2** — second"])
+        path = resolve_claudemd_path(book_config, "my-book")
+        content_before = path.read_text(encoding="utf-8")
 
-    def test_markers_unchanged_after_delete(self, book_config):
-        path = _seed_rules(book_config, ["**R1** — first"])
+        update_rule(book_config, "my-book", rule_index=0, new_text="**R1** — replaced")
+
+        assert path.read_text(encoding="utf-8") == content_before
+
+    def test_claudemd_unchanged_after_delete(self, book_config):
+        _seed_rules(book_config, ["**R1** — first"])
+        path = resolve_claudemd_path(book_config, "my-book")
+        content_before = path.read_text(encoding="utf-8")
+
         update_rule(book_config, "my-book", rule_index=0, delete=True)
-        content = path.read_text(encoding="utf-8")
-        assert "<!-- RULES:START -->" in content
-        assert "<!-- RULES:END -->" in content
+
+        assert path.read_text(encoding="utf-8") == content_before
 
 
 # ---------------------------------------------------------------------------
@@ -368,61 +353,18 @@ class TestMarkerPreservation:
 
 
 class TestEdgeCases:
-    def test_no_markers_raises_on_update(self, book_config):
-        from tools.claudemd.manager import resolve_claudemd_path
-
-        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
-        path = resolve_claudemd_path(book_config, "my-book")
-        content = path.read_text(encoding="utf-8")
-        content = content.replace("<!-- RULES:START -->\n", "")
-        content = content.replace("<!-- RULES:END -->", "")
-        path.write_text(content, encoding="utf-8")
-
-        with pytest.raises(MarkersNotFoundError):
+    def test_update_raises_if_claudemd_missing(self, book_config):
+        # No init_claudemd — CLAUDE.md does not exist.
+        with pytest.raises(FileNotFoundError):
             update_rule(
                 book_config, "my-book",
                 rule_index=0, new_text="x",
             )
 
-    def test_static_rules_above_marker_invisible_to_editor(self, book_config):
-        """Rules outside the RULES:START/END block are not user-managed."""
-        from tools.claudemd.manager import resolve_claudemd_path
-
-        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
-        path = resolve_claudemd_path(book_config, "my-book")
-        content = path.read_text(encoding="utf-8")
-        # Insert a static bullet ABOVE the markers.
-        content = content.replace(
-            "<!-- RULES:START -->",
-            "- **Static** — unmanaged static rule\n<!-- RULES:START -->",
-        )
-        path.write_text(content, encoding="utf-8")
-
-        rules = list_rules(book_config, "my-book")
-        # Editor only sees managed (in-marker) rules.
-        assert all("Static" not in r.title for r in rules)
-
     def test_multiline_rule_body_preserved(self, book_config):
-        """A bullet that wraps across multiple lines is treated as one rule."""
-        from tools.claudemd.manager import resolve_claudemd_path
-
-        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
-        path = resolve_claudemd_path(book_config, "my-book")
-        content = path.read_text(encoding="utf-8")
-        # Manually inject a multi-line bullet block.
-        block = (
-            "<!-- RULES:START -->\n"
-            "- **R1** — first line of rule\n"
-            "  continuation on second line\n"
-            "  and third line\n"
-            "- **R2** — second rule\n"
-            "<!-- RULES:END -->"
-        )
-        content = content.replace(
-            "<!-- RULES:START -->\n<!-- RULES:END -->", block
-        )
-        path.write_text(content, encoding="utf-8")
-
+        """A rule with embedded newlines is stored and retrieved intact."""
+        multiline = "**R1** — first line of rule\n  continuation on second line\n  and third line"
+        _seed_rules(book_config, [multiline, "**R2** — second rule"])
         rules = list_rules(book_config, "my-book")
         assert len(rules) == 2
         assert "continuation on second line" in rules[0].raw_text

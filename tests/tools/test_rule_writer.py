@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from tools.claudemd.manager import get_claudemd
 from tools.rule_writer import (
     SCOPE_AUTHOR,
     SCOPE_BOOK,
@@ -70,6 +71,13 @@ They hedge commitment.
 """
 
 
+@pytest.fixture(autouse=True)
+def isolate_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Redirect DB_DIR to tmp_path so tests don't touch ~/.storyforge/db/."""
+    import tools.db.connection as _conn
+    monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
+
+
 @pytest.fixture
 def book_config(tmp_path: Path) -> dict:
     content_root = tmp_path / "books"
@@ -104,7 +112,7 @@ def anti_ai_file(tmp_path: Path) -> Path:
 
 
 class TestWriteBookRule:
-    def test_writes_phrase_to_claudemd(self, book_config, tmp_path):
+    def test_writes_phrase_to_claudemd(self, book_config):
         written, msg = write_book_rule(
             phrase="pulsed with energy",
             reason="overused metaphor",
@@ -113,9 +121,7 @@ class TestWriteBookRule:
             source_context="report-issue based on Ch 22 review",
         )
         assert written is True
-        content_root = Path(book_config["paths"]["content_root"])
-        claudemd = content_root / "projects" / "my-book" / "CLAUDE.md"
-        content = claudemd.read_text(encoding="utf-8")
+        content = get_claudemd(book_config, "my-book")
         assert "pulsed with energy" in content
         assert "overused metaphor" in content
         assert "report-issue based on Ch 22 review" in content
@@ -133,9 +139,7 @@ class TestWriteBookRule:
 
     def test_phrase_formatted_as_backtick(self, book_config):
         write_book_rule("razor edge", "cliche", book_config, "my-book")
-        content_root = Path(book_config["paths"]["content_root"])
-        claudemd = content_root / "projects" / "my-book" / "CLAUDE.md"
-        content = claudemd.read_text(encoding="utf-8")
+        content = get_claudemd(book_config, "my-book")
         assert "`razor edge`" in content
 
 
@@ -258,10 +262,8 @@ class TestPromoteRule:
         # Phrase should be in author vocabulary.
         vocab_path = author_vocab / "authors" / "test-author" / "vocabulary.md"
         assert "old phrase" in vocab_path.read_text(encoding="utf-8")
-        # Phrase should be removed from book CLAUDE.md.
-        content_root = Path(book_config["paths"]["content_root"])
-        claudemd = content_root / "projects" / "my-book" / "CLAUDE.md"
-        assert "old phrase" not in claudemd.read_text(encoding="utf-8")
+        # Phrase should be removed from book DB (Phase 4: rules live in DB).
+        assert "old phrase" not in get_claudemd(book_config, "my-book")
 
     def test_book_to_author_keep_source(self, book_config, author_vocab):
         write_book_rule("kept phrase", "reason", book_config, "my-book")
@@ -276,9 +278,8 @@ class TestPromoteRule:
             storyforge_home=author_vocab,
             remove_from_source=False,
         )
-        content_root = Path(book_config["paths"]["content_root"])
-        claudemd = content_root / "projects" / "my-book" / "CLAUDE.md"
-        assert "kept phrase" in claudemd.read_text(encoding="utf-8")
+        # Phase 4: rules live in DB, use get_claudemd() which renders DB sections.
+        assert "kept phrase" in get_claudemd(book_config, "my-book")
 
     def test_author_to_global(self, author_vocab, anti_ai_file):
         write_author_rule("author phrase", "reason", "test-author", storyforge_home=author_vocab)

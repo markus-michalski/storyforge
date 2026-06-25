@@ -1,19 +1,17 @@
-"""Edit existing rules in a book's CLAUDE.md.
+"""Edit existing rules in the book_rules DB — Issue #282.
 
-Issue #145 — companion to ``append_rule`` in ``manager.py``. Operates only on
-the bullets between ``<!-- RULES:START -->`` and ``<!-- RULES:END -->``;
-any static rules above the marker block are intentionally invisible to the
-editor (they're template boilerplate, not user-managed entries).
+Phase 4 migration: rules, callbacks, and workflow instructions moved from
+CLAUDE.md HTML-marker blocks to the book_rules SQLite table.
 
 The module exposes:
 
-- ``list_rules(config, book_slug)`` — returns ``ParsedRule`` objects with
-  index, title, raw_text, and pattern-extraction flags.
+- ``list_rules(config, book_slug)`` — returns ``ParsedRule`` objects from DB
+  with index (0-based position), rule_id (DB pk), title, raw_text, and
+  pattern-extraction flags.
 - ``update_rule(config, book_slug, *, rule_index, rule_match, new_text,
-  delete, validate)`` — replaces or removes a rule. Identifier resolution
-  prefers ``rule_match`` (against bold title, falling back to body
-  substring); ``rule_index`` is the unambiguous fallback for refactor
-  scripts. When both are given they must agree.
+  delete, validate)`` — replaces or removes a rule in the DB. Identifier
+  resolution uses the same positional-index / title-match semantics as
+  before, backed by DB ids rather than file offsets.
 """
 
 from __future__ import annotations
@@ -23,14 +21,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from tools.analysis.manuscript.rules import _extract_patterns_from_rule
-from tools.claudemd.manager import resolve_claudemd_path
-from tools.claudemd.parser import SECTION_MARKERS
-
-START_MARKER, END_MARKER = SECTION_MARKERS["rule"]
+from tools.claudemd.manager import _open_book_db, resolve_claudemd_path
+from tools.db.book_rules import delete_rule, list_rules as _db_list_rules, update_rule_text
 
 
 # ---------------------------------------------------------------------------
-# Errors
+# Errors  (kept for backward compat — MarkersNotFoundError no longer raised)
 # ---------------------------------------------------------------------------
 
 
@@ -39,7 +35,7 @@ class RulesError(Exception):
 
 
 class MarkersNotFoundError(RulesError):
-    """The CLAUDE.md is missing the RULES START/END markers."""
+    """Kept for backward compatibility — no longer raised after Phase 4."""
 
 
 class RuleNotFoundError(RulesError):
@@ -59,120 +55,25 @@ class DisagreeingResolutionError(RulesError):
 # ---------------------------------------------------------------------------
 
 
+_TITLE_RE = re.compile(r"^\*\*(?P<title>[^*]+)\*\*")
+_REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
+_BACKTICK_CONTENT_RE = re.compile(r"`([^`\n]+)`")
+
+
 @dataclass
 class ParsedRule:
     index: int
     title: str
     raw_text: str
+    rule_id: int = -1
     has_regex: bool = False
     has_literals: bool = False
     extracted_patterns: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# Parsing
+# Helpers
 # ---------------------------------------------------------------------------
-
-
-_TITLE_RE = re.compile(r"^\*\*(?P<title>[^*]+)\*\*")
-_REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
-_BACKTICK_CONTENT_RE = re.compile(r"`([^`\n]+)`")
-
-
-def _extract_block(content: str) -> tuple[str, int, int]:
-    """Return ``(block_text, start_offset, end_offset)`` for the inner
-    RULES block (between, but excluding, the marker lines).
-
-    Raises ``MarkersNotFoundError`` when either marker is missing.
-    """
-    start = content.find(START_MARKER)
-    end = content.find(END_MARKER)
-    if start == -1 or end == -1 or end <= start:
-        raise MarkersNotFoundError(
-            f"RULES markers missing or malformed (looking for "
-            f"{START_MARKER!r} and {END_MARKER!r})"
-        )
-    inner_start = start + len(START_MARKER)
-    # Skip a single trailing newline after the start marker so the inner
-    # block doesn't accidentally include it.
-    if content[inner_start : inner_start + 1] == "\n":
-        inner_start += 1
-    return content[inner_start:end], inner_start, end
-
-
-def _parse_bullets(block_text: str) -> list[str]:
-    """Split a RULES block body into bullet bodies.
-
-    A bullet starts at a line beginning with ``- ``. Continuation lines
-    (indented or non-list lines) are folded into the previous bullet.
-    Comment lines (``<!-- ... -->``) and blank lines act as separators.
-    Returns the bullet *bodies* (without the leading ``- ``).
-    """
-    bullets: list[list[str]] = []
-    current: list[str] | None = None
-
-    for raw_line in block_text.splitlines():
-        line = raw_line.rstrip("\n")
-        if line.lstrip().startswith("<!--"):
-            if current is not None:
-                bullets.append(current)
-                current = None
-            continue
-        if not line.strip():
-            if current is not None:
-                bullets.append(current)
-                current = None
-            continue
-        if line.startswith("- "):
-            if current is not None:
-                bullets.append(current)
-            current = [line[2:].rstrip()]
-        else:
-            if current is not None:
-                current.append(line.strip())
-            # Lines without a current bullet (orphans) are ignored.
-
-    if current is not None:
-        bullets.append(current)
-
-    return [_join_bullet_lines(parts) for parts in bullets]
-
-
-def _join_bullet_lines(parts: list[str]) -> str:
-    """Join multi-line bullet parts with single spaces (preserves text)."""
-    return " ".join(p for p in parts if p)
-
-
-def _build_parsed_rule(index: int, raw_text: str) -> ParsedRule:
-    title = _rule_title(raw_text)
-    patterns = _extract_patterns_from_rule(raw_text)
-    has_regex = False
-    has_literals = False
-    extracted: list[dict[str, Any]] = []
-    for label, compiled in patterns:
-        # Heuristic: the extractor escaped literal substrings. If the
-        # compiled pattern equals the escape of its label, it's a literal.
-        is_regex = compiled.pattern != re.escape(label)
-        if is_regex:
-            has_regex = True
-        else:
-            has_literals = True
-        extracted.append(
-            {"label": label, "pattern": compiled.pattern, "is_regex": is_regex}
-        )
-    # An additional check: explicit regex hint chars in any backtick body.
-    for m in _BACKTICK_CONTENT_RE.finditer(raw_text):
-        inner = m.group(1).strip()
-        if any(c in _REGEX_HINT_CHARS for c in inner):
-            has_regex = True
-    return ParsedRule(
-        index=index,
-        title=title,
-        raw_text=raw_text,
-        has_regex=has_regex,
-        has_literals=has_literals,
-        extracted_patterns=extracted,
-    )
 
 
 def _rule_title(raw_text: str, max_len: int = 80) -> str:
@@ -185,23 +86,59 @@ def _rule_title(raw_text: str, max_len: int = 80) -> str:
     return title
 
 
+def _build_parsed_rule(index: int, db_row: dict) -> ParsedRule:
+    raw_text = db_row["text"]
+    title = _rule_title(raw_text)
+    patterns = _extract_patterns_from_rule(raw_text)
+    has_regex = False
+    has_literals = False
+    extracted: list[dict[str, Any]] = []
+    for label, compiled in patterns:
+        is_regex = compiled.pattern != re.escape(label)
+        if is_regex:
+            has_regex = True
+        else:
+            has_literals = True
+        extracted.append(
+            {"label": label, "pattern": compiled.pattern, "is_regex": is_regex}
+        )
+    for m in _BACKTICK_CONTENT_RE.finditer(raw_text):
+        inner = m.group(1).strip()
+        if any(c in _REGEX_HINT_CHARS for c in inner):
+            has_regex = True
+    return ParsedRule(
+        index=index,
+        title=title,
+        raw_text=raw_text,
+        rule_id=db_row["id"],
+        has_regex=has_regex,
+        has_literals=has_literals,
+        extracted_patterns=extracted,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public: list
 # ---------------------------------------------------------------------------
 
 
 def list_rules(config: dict[str, Any], book_slug: str) -> list[ParsedRule]:
-    """Return the parsed rules from the RULES block in a book's CLAUDE.md.
+    """Return parsed rules from the book_rules DB for this book.
 
-    Raises ``MarkersNotFoundError`` if the markers are missing.
+    Returns an empty list when no rules exist (no error). Raises
+    FileNotFoundError if CLAUDE.md doesn't exist (book not initialized).
     """
     path = resolve_claudemd_path(config, book_slug)
     if not path.exists():
         raise FileNotFoundError(f"CLAUDE.md not found for book '{book_slug}'")
-    content = path.read_text(encoding="utf-8")
-    block_text, _, _ = _extract_block(content)
-    bodies = _parse_bullets(block_text)
-    return [_build_parsed_rule(i, body) for i, body in enumerate(bodies)]
+
+    conn, book_num = _open_book_db(config, book_slug)
+    try:
+        rows = _db_list_rules(conn, book_num=book_num, rule_type="rule")
+    finally:
+        conn.close()
+
+    return [_build_parsed_rule(i, row) for i, row in enumerate(rows)]
 
 
 # ---------------------------------------------------------------------------
@@ -219,27 +156,17 @@ def update_rule(
     delete: bool = False,
     validate: bool = True,
 ) -> dict[str, Any]:
-    """Replace or remove a single rule in the book's RULES block.
+    """Replace or remove a rule in the book_rules DB.
 
-    Returns a result dict; on a ``found: False`` outcome the file is left
-    unchanged.
-
-    Validation:
-    - At least one of ``rule_index`` or ``rule_match`` must be provided.
-    - ``delete=True`` and ``new_text`` are mutually exclusive.
-    - When neither delete nor new_text is given, ``ValueError`` is raised.
-    - ``new_text`` must be non-empty after ``strip()``.
-    - ``rule_index`` must be ``>= 0``.
+    Returns a result dict; on a ``found: False`` outcome the DB is unchanged.
     """
     _validate_args(rule_index, rule_match, new_text, delete)
 
     path = resolve_claudemd_path(config, book_slug)
     if not path.exists():
         raise FileNotFoundError(f"CLAUDE.md not found for book '{book_slug}'")
-    content = path.read_text(encoding="utf-8")
-    block_text, inner_start, inner_end = _extract_block(content)
-    bodies = _parse_bullets(block_text)
-    rules = [_build_parsed_rule(i, b) for i, b in enumerate(bodies)]
+
+    rules = list_rules(config, book_slug)
 
     target_index = _resolve_target_index(rules, rule_index, rule_match)
     if target_index is None:
@@ -253,31 +180,31 @@ def update_rule(
             "extracted_patterns": [],
         }
 
-    old_text = bodies[target_index]
+    rule = rules[target_index]
+    old_text = rule.raw_text
 
-    if delete:
-        new_bodies = bodies[:target_index] + bodies[target_index + 1 :]
-        result_new_text = ""
-    else:
-        assert new_text is not None
-        cleaned = _normalize_new_text(new_text)
-        if cleaned == old_text:
-            return {
-                "found": True,
-                "changed": False,
-                "rule_index": target_index,
-                "old_text": old_text,
-                "new_text": old_text,
-                "warnings": _maybe_lint(old_text, validate),
-                "extracted_patterns": _extracted_patterns_for(old_text),
-            }
-        new_bodies = list(bodies)
-        new_bodies[target_index] = cleaned
-        result_new_text = cleaned
-
-    new_block = _serialize_block(new_bodies)
-    new_content = content[:inner_start] + new_block + content[inner_end:]
-    path.write_text(new_content, encoding="utf-8")
+    conn, _ = _open_book_db(config, book_slug)
+    try:
+        if delete:
+            delete_rule(conn, rule.rule_id)
+            result_new_text = ""
+        else:
+            assert new_text is not None
+            cleaned = _normalize_new_text(new_text)
+            if cleaned == old_text:
+                return {
+                    "found": True,
+                    "changed": False,
+                    "rule_index": target_index,
+                    "old_text": old_text,
+                    "new_text": old_text,
+                    "warnings": _maybe_lint(old_text, validate),
+                    "extracted_patterns": _extracted_patterns_for(old_text),
+                }
+            update_rule_text(conn, rule.rule_id, cleaned)
+            result_new_text = cleaned
+    finally:
+        conn.close()
 
     return {
         "found": True,
@@ -286,9 +213,7 @@ def update_rule(
         "old_text": old_text,
         "new_text": result_new_text,
         "warnings": _maybe_lint(result_new_text, validate) if not delete else [],
-        "extracted_patterns": _extracted_patterns_for(result_new_text)
-        if not delete
-        else [],
+        "extracted_patterns": _extracted_patterns_for(result_new_text) if not delete else [],
     }
 
 
@@ -324,17 +249,13 @@ def _resolve_target_index(
     rule_index: int | None,
     rule_match: str | None,
 ) -> int | None:
-    """Resolve to a single rule index, or ``None`` if not found.
-
-    Raises ``AmbiguousMatchError`` or ``DisagreeingResolutionError``.
-    """
+    """Resolve to a single rule index, or ``None`` if not found."""
     by_index = None
     by_match = None
 
     if rule_index is not None:
         if 0 <= rule_index < len(rules):
             by_index = rule_index
-        # Out-of-range index -> resolve to None (handled by caller).
 
     if rule_match is not None:
         match_indices = _match_indices(rules, rule_match)
@@ -366,36 +287,17 @@ def _match_indices(rules: list[ParsedRule], needle: str) -> list[int]:
     if not needle_lower:
         return []
 
-    title_hits = [
-        r.index for r in rules if needle_lower in r.title.lower()
-    ]
+    title_hits = [r.index for r in rules if needle_lower in r.title.lower()]
     if title_hits:
         return title_hits
 
-    body_hits = [
-        r.index for r in rules if needle_lower in r.raw_text.lower()
-    ]
-    return body_hits
-
-
-def _serialize_block(bodies: list[str]) -> str:
-    """Render the inner block text given a list of bullet bodies.
-
-    Always starts with a newline and ends with a newline so the marker line
-    that follows is on its own line. An empty list collapses to a single
-    blank line so the markers stay adjacent.
-    """
-    if not bodies:
-        return ""
-    return "\n".join(f"- {b}" for b in bodies) + "\n"
+    return [r.index for r in rules if needle_lower in r.raw_text.lower()]
 
 
 def _maybe_lint(rule_text: str, validate: bool) -> list[dict[str, Any]]:
     if not validate or not rule_text:
         return []
-    # Imported lazily so the editor doesn't hard-depend on the lint module.
     from tools.claudemd.rules_lint import lint_rule_text
-
     return lint_rule_text(rule_text)["warnings"]
 
 
@@ -403,7 +305,6 @@ def _extracted_patterns_for(rule_text: str) -> list[dict[str, Any]]:
     if not rule_text:
         return []
     from tools.claudemd.rules_lint import lint_rule_text
-
     return lint_rule_text(rule_text)["extracted_patterns"]
 
 

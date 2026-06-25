@@ -34,6 +34,13 @@ def book_config(tmp_path: Path) -> dict:
     return {"paths": {"content_root": str(content_root)}}
 
 
+@pytest.fixture(autouse=True)
+def isolate_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Redirect DB_DIR to tmp_path so tests don't touch ~/.storyforge/db/."""
+    import tools.db.connection as _conn
+    monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
+
+
 class TestParser:
     def test_regel_prefix_german(self):
         assert parse_prefixed_entry("Regel: sparsam mit Adverbien") == (
@@ -162,13 +169,15 @@ class TestAppendRule:
         content = get_claudemd(book_config, "my-book")
         assert "avoid passive voice" in content
 
-    def test_rule_before_end_marker(self, book_config):
+    def test_rule_in_db_section(self, book_config):
+        # Phase 4: rules live in the DB-rendered section after the --- separator.
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")
         append_rule(book_config, "my-book", "new rule")
         content = get_claudemd(book_config, "my-book")
+        sep_pos = content.index("---")
         rule_pos = content.index("new rule")
-        end_pos = content.index("<!-- RULES:END -->")
-        assert rule_pos < end_pos
+        assert rule_pos > sep_pos
+        assert "## Rules (from DB)" in content
 
     def test_rule_not_in_callbacks_section(self, book_config):
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")
@@ -286,22 +295,24 @@ class TestAppendRuleNormalization:
 
 class TestAppendWorkflow:
     def test_appends_to_workflow_section(self, book_config):
+        # Phase 4: workflows live in the DB-rendered section after the --- separator.
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")
         append_workflow(book_config, "my-book", "scene-by-scene")
         content = get_claudemd(book_config, "my-book")
-        wf_start = content.index("<!-- WORKFLOW:START -->")
-        wf_end = content.index("<!-- WORKFLOW:END -->")
-        assert "scene-by-scene" in content[wf_start:wf_end]
+        assert "## Workflow Instructions (from DB)" in content
+        wf_pos = content.index("## Workflow Instructions (from DB)")
+        assert "scene-by-scene" in content[wf_pos:]
 
 
 class TestAppendCallback:
     def test_appends_to_callbacks_section(self, book_config):
+        # Phase 4: callbacks live in the DB-rendered section after the --- separator.
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")
         append_callback(book_config, "my-book", "Gary the cat")
         content = get_claudemd(book_config, "my-book")
-        cb_start = content.index("<!-- CALLBACKS:START -->")
-        cb_end = content.index("<!-- CALLBACKS:END -->")
-        assert "Gary the cat" in content[cb_start:cb_end]
+        assert "## Callback Register (from DB)" in content
+        cb_pos = content.index("## Callback Register (from DB)")
+        assert "Gary the cat" in content[cb_pos:]
 
     def test_callback_not_in_rules_section(self, book_config):
         init_claudemd(book_config, PLUGIN_ROOT, "my-book")

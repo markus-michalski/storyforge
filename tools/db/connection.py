@@ -1,7 +1,7 @@
-"""SQLite connection management for StoryForge — Issues #280 / #281.
+"""SQLite connection management for StoryForge — Issues #280 / #281 / #282.
 
 DB layout:
-  ~/.storyforge/db/{series-slug}.db  — canon_facts + character_snapshots per series
+  ~/.storyforge/db/{series-slug}.db  — canon_facts + character_snapshots + book_rules per series
   ~/.storyforge/db/storyforge.db     — global sessions table
   ~/.storyforge/db/authors.db        — author_discoveries (global, cross-series)
 
@@ -75,6 +75,18 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_cs
             ON character_snapshots(char_slug, book_num, chapter_num);
+
+        CREATE TABLE IF NOT EXISTS book_rules (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_num  INTEGER,
+            rule_type TEXT NOT NULL,
+            text      TEXT NOT NULL,
+            added_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(book_num, rule_type, text)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_br
+            ON book_rules(book_num, rule_type);
     """)
     conn.commit()
 

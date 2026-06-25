@@ -32,6 +32,8 @@ from routers.claudemd import init_book_claudemd, append_book_rule
 @pytest.fixture
 def book_with_rules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     """Set up a book + author + content_root and patch load_config."""
+    import tools.db.connection as _conn
+    monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
     content_root = tmp_path / "books"
     book_dir = content_root / "projects" / "firelight"
     book_dir.mkdir(parents=True)
