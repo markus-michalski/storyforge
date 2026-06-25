@@ -135,15 +135,23 @@ def main() -> None:
         config.setdefault("paths", {})["content_root"] = args.content_root
 
     content_root = Path(config["paths"]["content_root"])
-    projects_dir = content_root / "projects"
-    if not projects_dir.exists():
-        print(f"projects/ not found at {projects_dir}", file=sys.stderr)
-        sys.exit(1)
 
-    book_slugs = [d.name for d in sorted(projects_dir.iterdir()) if d.is_dir()]
+    # Collect book slugs from both legacy projects/ and series/*/ structure (Issue #279).
+    book_slugs: list[str] = []
+    projects_dir = content_root / "projects"
+    if projects_dir.exists():
+        book_slugs.extend(d.name for d in sorted(projects_dir.iterdir()) if d.is_dir())
+    series_root = content_root / "series"
+    if series_root.exists():
+        for series_dir in sorted(series_root.iterdir()):
+            if series_dir.is_dir():
+                book_slugs.extend(d.name for d in sorted(series_dir.iterdir()) if d.is_dir() and (d / "CLAUDE.md").exists())
+
+    book_slugs = list(dict.fromkeys(book_slugs))  # dedup, preserve order
+
     if not book_slugs:
-        print("No books found.")
-        return
+        print("No books found in projects/ or series/.", file=sys.stderr)
+        sys.exit(1)
 
     total_rules = total_callbacks = total_workflows = 0
     prefix = "[DRY RUN] " if args.dry_run else ""
