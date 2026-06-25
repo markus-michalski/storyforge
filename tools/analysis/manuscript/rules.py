@@ -103,15 +103,31 @@ _DONTS_HEADER_RE = re.compile(
 
 
 def _read_book_rules(book_path: Path) -> list[str]:
-    """Extract rule text entries from a book's CLAUDE.md.
+    """Return rule texts for a book — reads from the book_rules DB (Phase 4).
 
-    Returns one string per bullet item found under the ``## Rules`` section,
-    including entries inside the ``<!-- RULES:START --> ... <!-- RULES:END -->``
-    block and any static entries listed above it. Comment markers are stripped
-    before bullet parsing so they don't break list items.
+    Falls back to parsing CLAUDE.md when the DB is unavailable or returns
+    nothing (e.g. pre-migration books).
 
-    Returns an empty list when CLAUDE.md is missing or has no Rules section.
+    Returns an empty list when no rules exist.
     """
+    try:
+        from tools.db.book_rules import list_rules as _db_list_rules
+        from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
+
+        db_slug = get_db_slug_for_book(book_path)
+        book_num = get_book_num(book_path)
+        conn = open_canon_db(db_slug)
+        try:
+            rows = _db_list_rules(conn, book_num=book_num, rule_type="rule")
+        finally:
+            conn.close()
+
+        if rows:
+            return [r["text"] for r in rows]
+    except Exception:  # pylint: disable=broad-except
+        pass
+
+    # Fallback: legacy CLAUDE.md parsing (pre-migration books)
     claudemd = book_path / "CLAUDE.md"
     if not claudemd.is_file():
         return []

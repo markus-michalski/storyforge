@@ -33,19 +33,20 @@ def book_config(tmp_path: Path) -> dict:
     return {"paths": {"content_root": str(content_root)}}
 
 
-def _seed_rules(book_config: dict, rules: list[str]) -> Path:
-    from tools.claudemd.manager import resolve_claudemd_path
+@pytest.fixture(autouse=True)
+def isolate_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Redirect DB_DIR to tmp_path so tests don't touch ~/.storyforge/db/."""
+    import tools.db.connection as _conn
+    monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
+
+
+def _seed_rules(book_config: dict, rules: list[str]) -> None:
+    """Initialize CLAUDE.md and seed rules into the book_rules DB."""
+    from tools.claudemd.manager import append_rule
 
     init_claudemd(book_config, PLUGIN_ROOT, "my-book")
-    path = resolve_claudemd_path(book_config, "my-book")
-    content = path.read_text(encoding="utf-8")
-    bullets = "\n".join(f"- {r}" for r in rules)
-    new_content = content.replace(
-        "<!-- RULES:START -->\n<!-- RULES:END -->",
-        f"<!-- RULES:START -->\n{bullets}\n<!-- RULES:END -->",
-    )
-    path.write_text(new_content, encoding="utf-8")
-    return path
+    for rule_text in rules:
+        append_rule(book_config, "my-book", rule_text)
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +173,8 @@ class TestLintBookRules:
             [
                 "Avoid `clocked` as a verb",  # clean
                 "Avoid passive voice constructions",  # SCANNER_EXTRACTS_NOTHING
-                'Avoid "clocked" — replace with "noticed"',  # MIXED_QUOTES
+                # Two replacements survive normalization: "noticed" and "registered" remain quoted.
+                'Avoid "clocked" — replace with "noticed" or "registered"',  # MIXED_QUOTES
             ],
         )
         result = lint_book_rules(book_config, "my-book")
@@ -215,7 +217,8 @@ class TestLintBookRules:
 
 class TestLintConsistency:
     def test_single_and_bulk_warnings_identical(self, book_config):
-        rule_text = 'Avoid "clocked" — replace with "noticed"'
+        # Two replacements keep MIXED_QUOTES warning after normalization stores `clocked` as backtick.
+        rule_text = 'Avoid "clocked" — replace with "noticed" or "registered"'
         _seed_rules(book_config, [rule_text])
 
         bulk = lint_book_rules(book_config, "my-book")

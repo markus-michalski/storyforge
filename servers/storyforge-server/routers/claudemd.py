@@ -1,7 +1,9 @@
 """Per-book CLAUDE.md tools: rules, workflows, callbacks, and character snapshots.
 
-The CLAUDE.md tools wrap ``tools.claudemd.manager`` — they're the only
-state-mutating MCP entry points that touch the per-book CLAUDE.md.
+After Phase 4 (#282), structured entries (rules / callbacks / workflows) are
+stored in the book_rules SQLite table instead of CLAUDE.md marker blocks.
+append_book_rule / append_book_callback / append_book_workflow write to DB;
+get_book_claudemd returns prose + DB-rendered sections combined.
 
 ``update_character_snapshot`` writes back end-of-chapter POV state (Issues #157 / #160).
 """
@@ -238,17 +240,16 @@ def update_character_snapshot(
 
 @mcp.tool()
 def append_book_rule(book_slug: str, text: str, validate: bool = True) -> str:
-    """Append a rule to the Rules section of a book's CLAUDE.md.
+    """Append a rule to the book_rules DB for this book.
 
-    With ``validate=True`` (default) the rule text is run through the
-    same lint as ``update_book_rule`` and any warnings are returned in
-    the response. Warnings are advisory — the rule is appended either way.
+    With ``validate=True`` (default) the rule text is linted and any warnings
+    are returned. Warnings are advisory — the rule is stored either way.
 
-    Returns ``{path, kind, text, warnings, extracted_patterns}``.
+    Returns ``{rule_id, inserted, kind, text, warnings, extracted_patterns}``.
     """
     config = _app.load_config()
     try:
-        path = _append_rule_impl(config, book_slug, text)
+        result = _append_rule_impl(config, book_slug, text)
     except (FileNotFoundError, ValueError) as exc:
         return json.dumps({"error": str(exc)})
 
@@ -262,7 +263,8 @@ def append_book_rule(book_slug: str, text: str, validate: bool = True) -> str:
 
     return json.dumps(
         {
-            "path": str(path),
+            "rule_id": result["rule_id"],
+            "inserted": result["inserted"],
             "kind": "rule",
             "text": text,
             "warnings": warnings,
@@ -273,28 +275,23 @@ def append_book_rule(book_slug: str, text: str, validate: bool = True) -> str:
 
 @mcp.tool()
 def list_book_rules(book_slug: str) -> str:
-    """List all managed rules in the book's CLAUDE.md RULES block.
+    """List all rules stored in the book_rules DB for this book.
 
-    Returns one entry per bullet inside ``<!-- RULES:START -->`` /
-    ``<!-- RULES:END -->`` with index, title, raw_text, has_regex,
-    has_literals, and the patterns the manuscript-checker scanner
-    would extract from the rule.
-
-    Static rules above the marker block are intentionally not listed —
-    they're template boilerplate, not user-managed entries.
+    Returns one entry per rule with index, rule_id, title, raw_text,
+    has_regex, has_literals, and the patterns the manuscript-checker
+    scanner would extract from the rule.
     """
     config = _app.load_config()
     try:
         rules = _list_rules_impl(config, book_slug)
     except FileNotFoundError as exc:
         return json.dumps({"error": str(exc)})
-    except MarkersNotFoundError as exc:
-        return json.dumps({"error": str(exc)})
     return json.dumps(
         {
             "rules": [
                 {
                     "index": r.index,
+                    "rule_id": r.rule_id,
                     "title": r.title,
                     "raw_text": r.raw_text,
                     "has_regex": r.has_regex,
@@ -391,24 +388,24 @@ def lint_book_rules(book_slug: str) -> str:
 
 @mcp.tool()
 def append_book_workflow(book_slug: str, text: str) -> str:
-    """Append a workflow instruction to a book's CLAUDE.md."""
+    """Append a workflow instruction to the book_rules DB for this book."""
     config = _app.load_config()
     try:
-        path = _append_workflow_impl(config, book_slug, text)
+        result = _append_workflow_impl(config, book_slug, text)
     except (FileNotFoundError, ValueError) as exc:
         return json.dumps({"error": str(exc)})
-    return json.dumps({"path": str(path), "kind": "workflow", "text": text})
+    return json.dumps({"rule_id": result["rule_id"], "inserted": result["inserted"], "kind": "workflow", "text": text})
 
 
 @mcp.tool()
 def append_book_callback(book_slug: str, text: str) -> str:
-    """Append a callback to the Callback Register of a book's CLAUDE.md."""
+    """Append a callback to the book_rules DB for this book."""
     config = _app.load_config()
     try:
-        path = _append_callback_impl(config, book_slug, text)
+        result = _append_callback_impl(config, book_slug, text)
     except (FileNotFoundError, ValueError) as exc:
         return json.dumps({"error": str(exc)})
-    return json.dumps({"path": str(path), "kind": "callback", "text": text})
+    return json.dumps({"rule_id": result["rule_id"], "inserted": result["inserted"], "kind": "callback", "text": text})
 
 
 @mcp.tool()

@@ -24,12 +24,56 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from tools.claudemd.rules_editor import (
-    MarkersNotFoundError,
-    _extract_block,
-    _parse_bullets,
-    _serialize_block,
-)
+from tools.claudemd.rules_editor import MarkersNotFoundError
+
+# ---------------------------------------------------------------------------
+# CLAUDE.md RULES-block helpers (moved here from rules_editor in Phase 4;
+# remove_book_rule_after_promotion still uses the legacy marker format for
+# pre-migration books — harvest-author-rules will be updated in Phase 5).
+# ---------------------------------------------------------------------------
+
+_RULES_START = "<!-- RULES:START -->"
+_RULES_END = "<!-- RULES:END -->"
+
+
+def _extract_block(content: str) -> tuple[str, int, int]:
+    """Return (inner_text, inner_start, inner_end) for the RULES block."""
+    start = content.find(_RULES_START)
+    end = content.find(_RULES_END)
+    if start == -1 or end == -1:
+        raise MarkersNotFoundError("RULES:START/END markers not found in CLAUDE.md")
+    inner_start = start + len(_RULES_START)
+    inner_end = end
+    return content[inner_start:inner_end], inner_start, inner_end
+
+
+def _parse_bullets(block_text: str) -> list[str]:
+    """Parse bullet items from a RULES block into a list of body strings."""
+    bullets: list[str] = []
+    current: list[str] = []
+    for line in block_text.splitlines():
+        if line.startswith("- "):
+            if current:
+                bullets.append("\n".join(current))
+            current = [line[2:]]
+        elif line.startswith("  ") and current:
+            current.append(line[2:])
+    if current:
+        bullets.append("\n".join(current))
+    return bullets
+
+
+def _serialize_block(bodies: list[str]) -> str:
+    """Serialize rule body strings back to a RULES block inner text."""
+    if not bodies:
+        return "\n"
+    lines: list[str] = []
+    for body in bodies:
+        body_lines = body.split("\n")
+        lines.append(f"- {body_lines[0]}")
+        for cont in body_lines[1:]:
+            lines.append(f"  {cont}")
+    return "\n" + "\n".join(lines) + "\n"
 
 
 # ---------------------------------------------------------------------------

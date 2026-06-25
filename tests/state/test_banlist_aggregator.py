@@ -69,7 +69,10 @@ def patch_storyforge_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pa
     ``load_author_vocab`` and ``load_author_writing_discoveries`` accept a
     ``storyforge_home`` override but the public ``collect_banned_phrases``
     helper does not — patching ``Path.home`` is the smallest seam.
+    Also redirects DB_DIR so tests don't touch ~/.storyforge/db/.
     """
+    import tools.db.connection as _conn
+    monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     return tmp_path
 
