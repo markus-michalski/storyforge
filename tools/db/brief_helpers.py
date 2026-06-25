@@ -1,15 +1,13 @@
-"""Helpers to load canon_log_facts from DB — Issue #280, updated #291.
+"""Helpers to load canon_log_facts from DB — Issue #280, updated #291/#297.
 
 Usage in brief assemblers (continuity_brief, review_brief):
     from tools.db.brief_helpers import load_canon_facts_for_brief
     facts = load_canon_facts_for_brief(book_root)
     # book_num is auto-derived from README series_number (C1/H1 fix)
 
-Note: The MD fallback was removed in Issue #291. If the DB is empty,
-callers receive an empty list. Migrate existing canon-log.md content to
-the DB via scripts/migrate_canon_log_to_db.py before relying on this
-function. For the chapter-writer path, build_canon_brief() reads both
-the DB and the MD archive and merges them.
+Note: build_canon_brief() reads from DB exclusively (Issue #297 removed the MD
+read path). If the DB is empty, callers receive an empty list. Migrate existing
+canon-log.md / people-log.md content via scripts/migrate_canon_log_to_db.py.
 """
 
 from __future__ import annotations

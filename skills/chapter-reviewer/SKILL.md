@@ -29,7 +29,7 @@ Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
 - `previous_chapter_timeline` — same for the preceding chapter
 - `canonical_timeline_entries` — parsed `plot/timeline.md` events
 - `travel_matrix` — parsed `world/setting.md` Travel Matrix rows
-- `canon_log_facts` — parsed `plot/canon-log.md` facts
+- `canon_log_facts` — canon facts from DB (Issue #297; `plot/canon-log.md` no longer read by `get_review_brief`)
 - `tonal_rules` — non-negotiable rules, litmus test, banned patterns from `plot/tone.md`
 - `active_rules` — book CLAUDE.md ## Rules with severity
 - `active_callbacks` — book CLAUDE.md ## Callback Register items
@@ -121,7 +121,7 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 16. **Canon consistency** — Does the chapter contradict any fact in the Canon Log? Pay special attention to `CHANGED` facts.
 17. **Timeline accuracy** — Do day/date references match `plot/timeline.md`?
 18. **Travel consistency** — Do distances/travel times match the Travel Matrix?
-19. **Stale references** — Does this chapter's slug appear in the `revision_impact` list of any `**CHANGED**` bullet in `plot/canon-log.md`? If so, verify the chapter uses the NEW version of every changed fact.
+19. **Stale references** — Does this chapter's slug appear in the `revision_impact` list of any entry in `canon_brief.changed_facts` (from DB)? If so, verify the chapter uses the NEW version of every changed fact.
 20. **Character facts** — Do character descriptions/behaviors match established facts?
 20a. **POV knowledge boundary** — Does the narration attribute domain knowledge the POV character's profile says they don't have? Three remediation options: (a) move into dialog, (b) reframe as lay observation, (c) cut.
 

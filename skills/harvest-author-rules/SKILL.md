@@ -290,7 +290,7 @@ read `## Writing Discoveries` on every load.
   next book's CLAUDE.md. They live in the author profile and are picked up
   via skill load. This keeps book CLAUDE.md lean.
 - **World rules stay** — magic-system terms, character names, glossary
-  entries are detected via `world/glossary.md`, `plot/canon-log.md`, and
+  entries are detected via `world/glossary.md`, canon facts DB (Issue #297), and
   the characters/people directories. The harvester defaults them to
   `keep_book_only`.
 - **Origin tags survive edits** — the parser tolerates manual edits to the

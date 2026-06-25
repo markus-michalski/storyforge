@@ -41,7 +41,7 @@ Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
 - `active_callbacks` — book CLAUDE.md ## Callback Register items
 - `errors` — non-empty means some files missing; degrade gracefully, do not invent
 
-Also directly read `{project}/plot/people-log.md` if it exists — this is the memoir equivalent of canon-log.
+People facts are read from DB via `canon_brief` (Issue #297). `plot/people-log.md` is a legacy archive — use `get_canon_brief(book_slug, chapter_slug)` for the authoritative DB-backed fact list. Run `scripts/migrate_canon_log_to_db.py` on books whose people-log was not yet migrated.
 
 ### Step 1b — Consent Gate
 
@@ -128,10 +128,10 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 
 ### Continuity (5 points + 1 sub-point) — memoir mode
 
-16. **People-Log consistency** — Does the chapter contradict any established fact in `plot/people-log.md`? Pay special attention to descriptions, relationships, or events recorded in earlier chapters.
+16. **People fact consistency** — Does the chapter contradict any established fact in `canon_brief.current_facts` (DB)? Pay special attention to descriptions, relationships, or events recorded in earlier chapters.
 17. **Timeline accuracy** — Do date/year references match `plot/timeline.md`? In memoir this is real chronology — an error is not just a continuity problem, it's a factual error.
 18. **Real-world plausibility** — Do stated distances or travel times match real-world geography? (No Travel Matrix — use common sense. Flag implausible claims as WARNING.)
-19. **Stale references** — Does this chapter's slug appear in the `revision_impact` list of any `**CHANGED**` bullet in `plot/people-log.md`? Verify the chapter uses the updated version of every changed fact.
+19. **Stale references** — Does this chapter's slug appear in the `revision_impact` list of any entry in `canon_brief.changed_facts` (DB)? Verify the chapter uses the updated version of every changed fact.
 20. **Person facts** — Do descriptions and behaviors of named people match what was established in earlier chapters and the people-log?
 20a. **Dialog reconstruction honesty** — Is reconstructed dialog presented with appropriate epistemic humility? Does the chapter claim verbatim precision for conversations that happened years or decades ago? Flag any dialog rendered as if perfectly remembered without qualifying framing.
 
