@@ -13,6 +13,7 @@ from tools.banlist_loader import (
     SEVERITY_WARN,
     _extract_phrases_from_bold_title,
     author_slug_from_book,
+    load_author_dont_rules,
     load_author_vocab,
     load_author_writing_discoveries,
     load_global_ai_tells,
@@ -537,3 +538,168 @@ class TestLoadGlobalAITells:
         patterns = load_global_ai_tells(tmp_path)
         delve = next(p for p in patterns if p.label == "Delve")
         assert len(delve.reason) <= 120
+
+
+# ---------------------------------------------------------------------------
+# DB-first path: load_author_writing_discoveries from author_discoveries table
+# ---------------------------------------------------------------------------
+
+
+def _make_authors_db(storyforge_home: Path, author_slug: str, rows: list[dict]) -> None:
+    """Create authors.db with the minimal schema and insert test rows."""
+    import sqlite3
+    db_dir = storyforge_home / "db"
+    db_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_dir / "authors.db"))
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS author_discoveries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            author_slug TEXT NOT NULL,
+            discovery_type TEXT NOT NULL,
+            text TEXT NOT NULL,
+            book_slug TEXT DEFAULT '',
+            source_genres TEXT DEFAULT '',
+            universal BOOLEAN DEFAULT FALSE,
+            example TEXT DEFAULT '',
+            date_added TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(author_slug, discovery_type, text)
+        )
+        """
+    )
+    for row in rows:
+        conn.execute(
+            "INSERT OR IGNORE INTO author_discoveries "
+            "(author_slug, discovery_type, text) VALUES (?, ?, ?)",
+            (author_slug, row["discovery_type"], row["text"]),
+        )
+    conn.commit()
+    conn.close()
+
+
+class TestLoadAuthorWritingDiscoveriesFromDB:
+    """DB-first path: discoveries stored in author_discoveries table."""
+
+    def test_reads_from_db_when_present(self, tmp_path):
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [{"discovery_type": "recurring_tics", "text": '**"thing"** — concretize.'}],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert any(p.label == "thing" for p in patterns)
+
+    def test_db_wins_over_profile_md(self, tmp_path):
+        """When DB exists, profile.md body is ignored — no double-loading."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [{"discovery_type": "recurring_tics", "text": '**"db-phrase"** — from DB.'}],
+        )
+        # Write a conflicting phrase into profile.md body.
+        author_dir = tmp_path / "authors" / "ethan-cole"
+        author_dir.mkdir(parents=True, exist_ok=True)
+        (author_dir / "profile.md").write_text(
+            '---\nname: "Ethan Cole"\n---\n\n'
+            "## Writing Discoveries\n\n"
+            "### Recurring Tics\n\n"
+            "- **\"md-only-phrase\"** — only in profile.md.\n",
+            encoding="utf-8",
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "db-phrase" in labels
+        assert "md-only-phrase" not in labels  # profile.md ignored when DB present
+
+    def test_db_source_string_contains_writing_discoveries(self, tmp_path):
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [{"discovery_type": "recurring_tics", "text": '**"thing"** — fix.'}],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert all("writing discoveries" in p.source.lower() for p in patterns)
+
+    def test_empty_db_returns_empty_list(self, tmp_path):
+        """DB present but no rows → empty list (not fallback to profile.md)."""
+        _make_authors_db(tmp_path, "ethan-cole", [])
+        # Write discoveries into profile.md to confirm it's NOT used.
+        author_dir = tmp_path / "authors" / "ethan-cole"
+        author_dir.mkdir(parents=True, exist_ok=True)
+        (author_dir / "profile.md").write_text(
+            '---\nname: "Ethan Cole"\n---\n\n'
+            "## Writing Discoveries\n\n"
+            "### Recurring Tics\n\n"
+            "- **\"md-phrase\"** — should be ignored.\n",
+            encoding="utf-8",
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert patterns == []
+
+    def test_db_absent_falls_back_to_profile_md(self, tmp_path):
+        """No authors.db → fall back to profile.md as before."""
+        author_dir = tmp_path / "authors" / "ethan-cole"
+        author_dir.mkdir(parents=True, exist_ok=True)
+        (author_dir / "profile.md").write_text(
+            '---\nname: "Ethan Cole"\n---\n\n'
+            "## Writing Discoveries\n\n"
+            "### Recurring Tics\n\n"
+            '- **"fallback-phrase"** — from profile.md.\n',
+            encoding="utf-8",
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        assert any(p.label == "fallback-phrase" for p in patterns)
+
+    def test_body_extraction_works_from_db(self, tmp_path):
+        """Body-quoted phrases (German rule name + English examples) work via DB too."""
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [
+                {
+                    "discovery_type": "recurring_tics",
+                    "text": (
+                        "**Abstrakte Körperteil-Anthropomorphisierung** — "
+                        '"his hands were having a conversation with each other".'
+                    ),
+                }
+            ],
+        )
+        patterns = load_author_writing_discoveries("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "his hands were having a conversation with each other" in labels
+        assert "Abstrakte Körperteil-Anthropomorphisierung" not in labels
+
+
+class TestLoadAuthorDontRulesFromDB:
+    """DB-first path: dont-rules stored in author_discoveries table."""
+
+    def test_reads_donts_from_db(self, tmp_path):
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [{"discovery_type": "donts", "text": "**Never use rooms** — *The room received it.*"}],
+        )
+        patterns = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
+        assert len(patterns) > 0
+        assert all(p.severity == SEVERITY_BLOCK for p in patterns)
+
+    def test_db_wins_over_profile_md_for_donts(self, tmp_path):
+        _make_authors_db(
+            tmp_path,
+            "ethan-cole",
+            [{"discovery_type": "donts", "text": "**Avoid `db-pattern`** — from DB."}],
+        )
+        author_dir = tmp_path / "authors" / "ethan-cole"
+        author_dir.mkdir(parents=True, exist_ok=True)
+        (author_dir / "profile.md").write_text(
+            "---\nname: x\n---\n\n## Writing Discoveries\n\n"
+            "### Don'ts\n\n- **Avoid `md-pattern`** — profile only.\n",
+            encoding="utf-8",
+        )
+        patterns = load_author_dont_rules("ethan-cole", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "db-pattern" in labels
+        assert "md-pattern" not in labels

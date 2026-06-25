@@ -393,6 +393,122 @@ def _extract_patterns_from_tic_body(body: str) -> list[tuple[str, re.Pattern[str
     return out
 
 
+# ---------------------------------------------------------------------------
+# SQLite helpers — stdlib only (dependency-free for hook use)
+# ---------------------------------------------------------------------------
+
+
+def _author_db_path(storyforge_home: Path | None = None) -> Path:
+    home = storyforge_home or (Path.home() / ".storyforge")
+    return home / "db" / "authors.db"
+
+
+def _query_author_discoveries(
+    author_slug: str,
+    discovery_type: str,
+    storyforge_home: Path | None = None,
+) -> list[str] | None:
+    """Return ``text`` values from ``author_discoveries`` table, or ``None`` if
+    the DB file is absent.
+
+    Returns ``None`` (not an empty list) when the DB does not exist — callers
+    treat ``None`` as the signal to fall back to ``profile.md``.  An empty
+    list means the DB exists but the author has no entries of this type.
+    """
+    import sqlite3  # stdlib — keeps the module dependency-free for hook use
+    db_path = _author_db_path(storyforge_home)
+    if not db_path.is_file():
+        return None
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT text FROM author_discoveries"
+            " WHERE author_slug=? AND discovery_type=? ORDER BY id",
+            (author_slug, discovery_type),
+        ).fetchall()
+        conn.close()
+        return [r["text"] for r in rows]
+    except Exception:  # pragma: no cover
+        return None
+
+
+def _build_patterns_from_tic_db_texts(texts: list[str]) -> list[BannedPattern]:
+    """Convert ``author_discoveries`` DB rows (``recurring_tics``) to ``BannedPattern`` list.
+
+    The ``text`` column stores the bullet body without the leading ``- ``
+    prefix (e.g. ``**"thing"** — concretize on sight.``).  We reconstruct a
+    minimal bullet so the existing parsing helpers can be reused verbatim.
+    """
+    source = "author writing discoveries (DB)"
+    reason = "recurring tic promoted from a finished book"
+    seen: set[str] = set()
+    patterns: list[BannedPattern] = []
+
+    def _emit(label: str, compiled: re.Pattern[str], severity: str, chapter_limit: int) -> None:
+        cleaned = _strip_parenthetical(label).strip()
+        if len(cleaned) < 2:
+            return
+        key = cleaned.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        patterns.append(
+            BannedPattern(
+                label=cleaned,
+                pattern=compiled,
+                severity=severity,
+                source=source,
+                reason=reason,
+                chapter_limit=chapter_limit,
+            )
+        )
+
+    for text in texts:
+        # Prepend "- " so _RECURRING_TIC_BULLET_RE can match; DB stores body only.
+        bullet_match = _RECURRING_TIC_BULLET_RE.match("- " + text + "\n")
+        if not bullet_match:
+            continue
+        bold_title = bullet_match.group("title")
+        body_text = bullet_match.group("body") or ""
+        full_bullet = bold_title + " " + body_text
+        sev = _extract_discovery_severity(full_bullet)
+        limit = _extract_discovery_limit(full_bullet)
+
+        title_quotes = _title_inner_quotes(bold_title)
+        if title_quotes:
+            for phrase in title_quotes:
+                _emit(
+                    phrase,
+                    _build_discovery_pattern(_strip_parenthetical(phrase).strip()),
+                    sev,
+                    limit,
+                )
+            continue
+
+        body_patterns = _extract_patterns_from_tic_body(body_text)
+        if body_patterns:
+            for label, compiled in body_patterns:
+                if compiled is None:
+                    cleaned_lbl = _strip_parenthetical(label).strip()
+                    if len(cleaned_lbl) < 2:
+                        continue
+                    _emit(label, _build_discovery_pattern(cleaned_lbl), sev, limit)
+                else:
+                    _emit(label, compiled, sev, limit)
+            continue
+
+        for phrase in _extract_phrases_from_bold_title(bold_title):
+            _emit(
+                phrase,
+                _build_discovery_pattern(_strip_parenthetical(phrase).strip()),
+                sev,
+                limit,
+            )
+
+    return patterns
+
+
 def _author_profile_path(author_slug: str, storyforge_home: Path | None = None) -> Path:
     home = storyforge_home or (Path.home() / ".storyforge")
     return home / "authors" / author_slug / "profile.md"
@@ -403,17 +519,30 @@ def load_author_writing_discoveries(
     *,
     storyforge_home: Path | None = None,
 ) -> list[BannedPattern]:
-    """Load scannable phrases from ``profile.md`` ``## Writing Discoveries``.
+    """Load scannable recurring-tic phrases for an author.
 
-    Walks the ``### Recurring Tics`` sub-section only. ``### Style Principles``
-    and ``### Don'ts`` are prose-level rules, not phrase bans, so they're
-    out of scope for this loader.
+    Reads from the ``author_discoveries`` SQLite table (``recurring_tics``
+    type) when the DB exists.  Falls back to ``profile.md`` body parsing for
+    pre-#281 setups where the DB has not been populated yet.
 
-    Severity is always ``block`` — discoveries are user-asserted author voice
-    intent and were explicitly promoted via the harvest skill.
+    Returns ``[]`` when neither source yields data.
+    """
+    db_texts = _query_author_discoveries(author_slug, "recurring_tics", storyforge_home)
+    if db_texts is not None:
+        return _build_patterns_from_tic_db_texts(db_texts)
+    return _load_writing_discoveries_from_md(author_slug, storyforge_home=storyforge_home)
 
-    Returns ``[]`` when the profile is missing, has no Writing Discoveries
-    section, or the Recurring Tics sub-section is empty.
+
+def _load_writing_discoveries_from_md(
+    author_slug: str,
+    *,
+    storyforge_home: Path | None = None,
+) -> list[BannedPattern]:
+    """Fallback: load recurring-tic phrases from ``profile.md`` body.
+
+    Used when the ``author_discoveries`` DB is absent (pre-#281 setup).
+    Walks the ``### Recurring Tics`` sub-section of ``## Writing Discoveries``
+    only — Style Principles and Don'ts are prose-level rules, not phrase bans.
     """
     profile_path = _author_profile_path(author_slug, storyforge_home)
     if not profile_path.is_file():
@@ -603,20 +732,51 @@ def _extract_dont_patterns(rule: str) -> list[tuple[str, re.Pattern[str]]]:
     return patterns
 
 
+def _build_patterns_from_dont_db_texts(texts: list[str]) -> list[BannedPattern]:
+    """Convert ``author_discoveries`` DB rows (``donts``) to ``BannedPattern`` list."""
+    patterns: list[BannedPattern] = []
+    seen: set[str] = set()
+    for text in texts:
+        for label, compiled in _extract_dont_patterns(text):
+            key = compiled.pattern.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            patterns.append(
+                BannedPattern(
+                    label=label,
+                    pattern=compiled,
+                    severity=SEVERITY_BLOCK,
+                    source="author dont rules (DB)",
+                    reason="forbidden shape across all books by this author",
+                )
+            )
+    return patterns
+
+
 def load_author_dont_rules(
     author_slug: str,
     *,
     storyforge_home: Path | None = None,
 ) -> list[BannedPattern]:
-    """Load scannable phrases from ``profile.md`` ``## Writing Discoveries /
-    ### Don'ts``.
+    """Load scannable don't-rules for an author.
 
-    Severity is always ``block`` — Don'ts are user-asserted author voice
-    intent and the strictest layer of the elegant-abstraction defense.
-
-    Returns ``[]`` when the profile is missing, has no Writing Discoveries
-    section, or the Don'ts subsection is empty.
+    Reads from the ``author_discoveries`` SQLite table (``donts`` type) when
+    the DB exists.  Falls back to ``profile.md`` body parsing for pre-#281
+    setups where the DB has not been populated yet.
     """
+    db_texts = _query_author_discoveries(author_slug, "donts", storyforge_home)
+    if db_texts is not None:
+        return _build_patterns_from_dont_db_texts(db_texts)
+    return _load_dont_rules_from_md(author_slug, storyforge_home=storyforge_home)
+
+
+def _load_dont_rules_from_md(
+    author_slug: str,
+    *,
+    storyforge_home: Path | None = None,
+) -> list[BannedPattern]:
+    """Fallback: load don't-rules from ``profile.md`` body (pre-#281 setup)."""
     profile_path = _author_profile_path(author_slug, storyforge_home)
     if not profile_path.is_file():
         return []
