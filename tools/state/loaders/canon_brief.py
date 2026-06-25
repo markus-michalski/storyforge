@@ -46,10 +46,14 @@ Schema returned
 
 from __future__ import annotations
 
+import json
 import re
+import sqlite3
 from pathlib import Path
 from typing import Any
 
+from tools.db.canon_facts import query_facts
+from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
 from tools.state.parsers import _chapter_rank, parse_chapter_readme
 
 
@@ -96,6 +100,72 @@ _DEFAULT_SCOPE = 8
 # ---------------------------------------------------------------------------
 
 
+def _load_db_facts(
+    book_root: Path,
+    current_num: int,
+    scope_chapters: int,
+) -> dict[str, list[dict[str, Any]]]:
+    """Query canon_facts table and return facts in the brief schema.
+
+    Returns ``{"current": [...], "changed": [...]}`` — empty lists on any
+    DB error so the caller can continue with the Markdown path.
+
+    current_facts are bounded by the scope window (lower bound:
+    ``current_num - scope_chapters``).  changed facts (is_revision=True)
+    are always included regardless of scope, mirroring the MD CHANGED rule.
+    """
+    if not (book_root / "README.md").is_file():
+        return {"current": [], "changed": []}
+
+    try:
+        book_num = get_book_num(book_root)
+        db_slug = get_db_slug_for_book(book_root)
+        conn = open_canon_db(db_slug)
+        try:
+            rows = query_facts(
+                conn, book_num=book_num, up_to_chapter=max(0, current_num - 1)
+            )
+        finally:
+            conn.close()
+    except (sqlite3.Error, OSError):
+        return {"current": [], "changed": []}
+
+    scope_min = max(1, current_num - scope_chapters) if scope_chapters > 0 else 1
+    current: list[dict[str, Any]] = []
+    changed: list[dict[str, Any]] = []
+
+    for row in rows:
+        ch_num = row["chapter_num"]
+        subject = row.get("subject", "")
+        fact = row["fact"]
+        domain = row.get("domain", "")
+
+        if row["is_revision"]:
+            raw = row.get("revision_impacts") or ""
+            try:
+                impacts = json.loads(raw) if raw else []
+            except (ValueError, TypeError):
+                impacts = []
+            changed.append({
+                "old": row.get("old_value") or "",
+                "new": fact,
+                "chapter": str(ch_num),
+                "source": f"chapter:{ch_num}:db:CHANGED:{subject}",
+                "revision_impact": impacts,
+            })
+        elif ch_num >= scope_min:
+            source = f"chapter:{ch_num}:db:{subject}"
+            if domain:
+                source = f"{source}:{domain}"
+            current.append({
+                "fact": fact,
+                "chapter": str(ch_num),
+                "source": source,
+            })
+
+    return {"current": current, "changed": changed}
+
+
 def build_canon_brief(
     book_root: Path,
     chapter_slug: str,
@@ -104,7 +174,12 @@ def build_canon_brief(
     book_category: str = "fiction",
     scope_chapters: int = _DEFAULT_SCOPE,
 ) -> dict[str, Any]:
-    """Project the canon log into a bounded, structured brief.
+    """Project canon facts into a bounded, structured brief.
+
+    Queries the ``canon_facts`` SQLite table first (Issue #291), then reads
+    the Markdown log as a supplementary archive.  Both sources are merged
+    so that facts added via ``add_canon_fact()`` are visible to the
+    chapter-writer alongside historical facts stored in the log file.
 
     Args:
         book_root: Project root containing ``plot/``.
@@ -118,32 +193,83 @@ def build_canon_brief(
     Returns:
         Structured canon brief dict.
     """
+    current_num = _chapter_number(chapter_slug)
+    pov_name_lower = pov_character.lower().strip() if pov_character else ""
+
+    # --- Step 1: DB path ---
+    db_result = _load_db_facts(book_root, current_num, scope_chapters)
+    has_db = bool(db_result["current"] or db_result["changed"])
+
+    # --- Step 2: Markdown path ---
     log_path = _resolve_log_path(book_root, book_category)
+    log_name = "people-log.md" if book_category == "memoir" else "canon-log.md"
+
+    md_current: list[dict[str, Any]] = []
+    md_changed: list[dict[str, Any]] = []
+    scanned_chapters: list[int] = []
+    as_of: str | None = None
+    md_extraction: str = "none"
+    warnings: list[str] = []
 
     if not log_path.is_file():
-        return _empty(
-            f"{'people-log.md' if book_category == 'memoir' else 'canon-log.md'} not found"
-        )
-
-    try:
-        text = log_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        return _empty(f"could not read log: {exc}")
-
-    if not text.strip():
-        return _empty("log file is empty")
-
-    # Determine which chapter numbers fall within scope.
-    current_num = _chapter_number(chapter_slug)
-    chapters_dir = book_root / "chapters"
-    scope_nums = _scope_chapter_numbers(chapters_dir, current_num, scope_chapters)
-
-    sections = list(CHAPTER_SECTION_RE.finditer(text))
-
-    if sections:
-        return _extract_structured(text, sections, scope_nums, current_num, pov_character)
+        if not has_db:
+            return _empty(f"{log_name} not found")
+        md_extraction = "none"
     else:
-        return _extract_heuristic(text, pov_character)
+        try:
+            text = log_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            if not has_db:
+                return _empty(f"could not read log: {exc}")
+            text = ""
+
+        if not text.strip():
+            if not has_db:
+                return _empty("log file is empty")
+        else:
+            chapters_dir = book_root / "chapters"
+            scope_nums = _scope_chapter_numbers(chapters_dir, current_num, scope_chapters)
+            sections = list(CHAPTER_SECTION_RE.finditer(text))
+
+            if sections:
+                md_out = _extract_structured(
+                    text, sections, scope_nums, current_num, pov_character
+                )
+            else:
+                md_out = _extract_heuristic(text, pov_character)
+
+            md_current = md_out["current_facts"]
+            md_changed = md_out["changed_facts"]
+            scanned_chapters = md_out["scanned_chapters"]
+            as_of = md_out["as_of"]
+            warnings = md_out["warnings"]
+            md_extraction = md_out["extraction_method"]
+
+    # --- Step 3: Merge ---
+    current_facts = db_result["current"] + md_current
+    changed_facts = db_result["changed"] + md_changed
+    pov_facts = _filter_pov(current_facts, pov_name_lower)
+
+    if md_extraction == "none":
+        extraction_method = "db" if has_db else "none"
+    elif has_db:
+        extraction_method = f"db+{md_extraction}"
+    else:
+        extraction_method = md_extraction
+
+    # Ensure pov_character warning is present exactly once when needed
+    if not pov_name_lower and not any("pov_character" in w for w in warnings):
+        warnings = warnings + _pov_warnings(pov_name_lower)
+
+    return {
+        "current_facts": current_facts,
+        "changed_facts": changed_facts,
+        "pov_relevant_facts": pov_facts,
+        "scanned_chapters": scanned_chapters,
+        "as_of": as_of,
+        "extraction_method": extraction_method,
+        "warnings": warnings,
+    }
 
 
 # ---------------------------------------------------------------------------
