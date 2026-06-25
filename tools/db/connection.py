@@ -10,12 +10,14 @@ All tables are created lazily via ensure_schema() / ensure_authors_schema().
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
 from tools.shared.config import CACHE_DIR
 
-DB_DIR = CACHE_DIR.parent / "db"
+# Override with STORYFORGE_DB_DIR to redirect DB lookups (used in subprocess tests).
+DB_DIR: Path = Path(os.environ["STORYFORGE_DB_DIR"]) if "STORYFORGE_DB_DIR" in os.environ else CACHE_DIR.parent / "db"
 
 
 def open_db(db_path: Path) -> sqlite3.Connection:

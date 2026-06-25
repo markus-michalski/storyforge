@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 from hooks import validate_chapter as vc
 from hooks.validate_character import validate_character
@@ -28,6 +32,40 @@ def _make_book(tmp_path: Path, claudemd_body: str | None = None) -> Path:
     if claudemd_body is not None:
         (book / "CLAUDE.md").write_text(claudemd_body, encoding="utf-8")
     return book
+
+
+@pytest.fixture
+def patch_db_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Redirect DB_DIR so tests don't touch ~/.storyforge/db."""
+    import tools.db.connection as _conn
+
+    monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
+    return tmp_path / "db"
+
+
+def _seed_book_rules(db_dir: Path, book_slug: str, rules: list[str], book_num: int = 1) -> None:
+    """Create {slug}.db and seed rule rows — mirrors _read_book_rules DB layout."""
+    db_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_dir / f"{book_slug}.db"))
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS book_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_num INTEGER,
+            rule_type TEXT NOT NULL,
+            text TEXT NOT NULL,
+            added_at TEXT DEFAULT '',
+            UNIQUE(book_num, rule_type, text)
+        )
+        """
+    )
+    for rule in rules:
+        conn.execute(
+            "INSERT OR IGNORE INTO book_rules (book_num, rule_type, text) VALUES (?, ?, ?)",
+            (book_num, "rule", rule),
+        )
+    conn.commit()
+    conn.close()
 
 
 def _install_author_vocab(tmp_path: Path, author_slug: str, banned_words: list[str]) -> Path:
@@ -120,17 +158,12 @@ class TestValidateChapter:
         draft = _write_draft(book, "# Chapter 1\n\n")
         assert vc.validate_chapter(str(draft)) == []
 
-    def test_blocks_book_rule_violation(self, tmp_path):
-        # Book CLAUDE.md with a backtick-wrapped banned literal — the same
-        # syntax the existing manuscript-checker already understands.
-        book = _make_book(
-            tmp_path,
-            claudemd_body=(
-                "# Blood & Binary\n\n"
-                "## Rules\n"
-                "- Do not use `clocked` as a verb for noticing/realizing — "
-                "reader dislikes the word.\n"
-            ),
+    def test_blocks_book_rule_violation(self, tmp_path, patch_db_dir):
+        book = _make_book(tmp_path)
+        _seed_book_rules(
+            patch_db_dir,
+            "test-hook-book",
+            ["Do not use `clocked` as a verb for noticing/realizing — reader dislikes the word."],
         )
         draft = _write_draft(
             book,
@@ -192,11 +225,13 @@ class TestValidateChapter:
         # Quoted phrases are not block patterns — only backticks are.
         assert blocking == []
 
-    def test_backtick_regex_pattern_with_alternation(self, tmp_path):
+    def test_backtick_regex_pattern_with_alternation(self, tmp_path, patch_db_dir):
         """Backticks containing regex metacharacters compile as regex."""
-        book = _make_book(
-            tmp_path,
-            claudemd_body=("# Book\n\n## Rules\n- Avoid `the (specific|particular|certain) [a-z]+ that` as filler.\n"),
+        book = _make_book(tmp_path)
+        _seed_book_rules(
+            patch_db_dir,
+            "test-hook-book",
+            ["Avoid `the (specific|particular|certain) [a-z]+ that` as filler."],
         )
         draft = _write_draft(
             book,
@@ -805,22 +840,18 @@ class TestPerSceneCounter:
     """End-to-end tests: rule with limit + draft with hits → block when
     the scaled scene budget is exceeded, allow otherwise."""
 
-    def _book_with_limit_rule(self, tmp_path: Path) -> Path:
-        # Backtick contains regex metacharacters (\w), so it compiles as a
-        # regex — matches "kind of corridor that", "kind of silence that",
-        # etc.
-        return _make_book(
-            tmp_path,
-            claudemd_body=("# Book\n\n## Rules\n- Limit the `kind of \\w+ that` construction — max 3 per chapter.\n"),
-        )
+    _LIMIT_RULE = "Limit the `kind of \\w+ that` construction — max 3 per chapter."
 
-    def test_no_limit_pattern_still_blocks_on_first_hit(self, tmp_path):
+    def _book_with_limit_rule(self, tmp_path: Path, patch_db_dir: Path) -> Path:
+        book = _make_book(tmp_path)
+        _seed_book_rules(patch_db_dir, "test-hook-book", [self._LIMIT_RULE])
+        return book
+
+    def test_no_limit_pattern_still_blocks_on_first_hit(self, tmp_path, patch_db_dir):
         """Backwards compat: rules without 'max N per chapter' keep
         block-on-first-hit behavior."""
-        book = _make_book(
-            tmp_path,
-            claudemd_body=("# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"),
-        )
+        book = _make_book(tmp_path)
+        _seed_book_rules(patch_db_dir, "test-hook-book", ["Avoid `clocked` as a verb."])
         draft = _write_draft(
             book,
             "# Chapter 1\n\n" + ("Theo clocked the room. The bag slid off the bench. He counted three breaths. " * 5),
@@ -829,10 +860,10 @@ class TestPerSceneCounter:
         blocking = [f for f in findings if f.severity == vc.SEVERITY_BLOCK]
         assert any(f.category == "book_rule_violation" for f in blocking)
 
-    def test_one_hit_in_short_scene_passes(self, tmp_path):
+    def test_one_hit_in_short_scene_passes(self, tmp_path, patch_db_dir):
         """900 words toward 3200 target, max 3 per chapter → scaled to 1.
         One hit is allowed."""
-        book = self._book_with_limit_rule(tmp_path)
+        book = self._book_with_limit_rule(tmp_path, patch_db_dir)
         _write_chapter_readme(book, 3200)
         # Build ~900-word draft with exactly 1 banned hit.
         body = "# Chapter 1\n\n"
@@ -843,9 +874,9 @@ class TestPerSceneCounter:
         violations = [f for f in findings if f.category == "book_rule_violation"]
         assert violations == []
 
-    def test_five_hits_in_short_scene_blocks(self, tmp_path):
+    def test_five_hits_in_short_scene_blocks(self, tmp_path, patch_db_dir):
         """Beta-feedback case: 5 hits in 900-word scene must block."""
-        book = self._book_with_limit_rule(tmp_path)
+        book = self._book_with_limit_rule(tmp_path, patch_db_dir)
         _write_chapter_readme(book, 3200)
         body = "# Chapter 1\n\n"
         body += (
@@ -865,10 +896,10 @@ class TestPerSceneCounter:
         assert "5 times" in msg or "appears 5" in msg
         assert "Cut at least" in msg
 
-    def test_three_hits_at_full_chapter_passes(self, tmp_path):
+    def test_three_hits_at_full_chapter_passes(self, tmp_path, patch_db_dir):
         """At full chapter target (3200 words), the per-chapter cap of 3
         applies directly. Three hits is the limit, not a violation."""
-        book = self._book_with_limit_rule(tmp_path)
+        book = self._book_with_limit_rule(tmp_path, patch_db_dir)
         _write_chapter_readme(book, 3200)
         body = "# Chapter 1\n\n"
         body += (
@@ -883,8 +914,8 @@ class TestPerSceneCounter:
         violations = [f for f in findings if f.category == "book_rule_violation"]
         assert violations == []
 
-    def test_four_hits_at_full_chapter_blocks(self, tmp_path):
-        book = self._book_with_limit_rule(tmp_path)
+    def test_four_hits_at_full_chapter_blocks(self, tmp_path, patch_db_dir):
+        book = self._book_with_limit_rule(tmp_path, patch_db_dir)
         _write_chapter_readme(book, 3200)
         body = "# Chapter 1\n\n"
         body += (
@@ -899,10 +930,10 @@ class TestPerSceneCounter:
         violations = [f for f in findings if f.category == "book_rule_violation"]
         assert len(violations) >= 1
 
-    def test_message_includes_occurrence_lines(self, tmp_path):
+    def test_message_includes_occurrence_lines(self, tmp_path, patch_db_dir):
         """Block message should list line numbers + snippets so the user
         sees exactly which hits to cut."""
-        book = self._book_with_limit_rule(tmp_path)
+        book = self._book_with_limit_rule(tmp_path, patch_db_dir)
         _write_chapter_readme(book, 3200)
         body = "# Chapter 1\n\n"
         body += "She walked the kind of corridor that smelled like rain.\n\n"
@@ -1001,11 +1032,9 @@ class TestMainEntryPoint:
         assert rc == 0
         assert capsys.readouterr().err == ""
 
-    def test_block_exit_2_in_strict_mode(self, tmp_path, monkeypatch, capsys):
-        book = _make_book(
-            tmp_path,
-            claudemd_body=("# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"),
-        )
+    def test_block_exit_2_in_strict_mode(self, tmp_path, monkeypatch, capsys, patch_db_dir):
+        book = _make_book(tmp_path)
+        _seed_book_rules(patch_db_dir, "test-hook-book", ["Avoid `clocked` as a verb."])
         draft = _write_draft(
             book,
             "# Chapter 1\n\n"
@@ -1076,10 +1105,9 @@ class TestHookSubprocess:
         return Path(__file__).resolve().parent.parent.parent / "hooks" / "validate_chapter.py"
 
     def test_strict_block_via_subprocess(self, tmp_path):
-        book = _make_book(
-            tmp_path,
-            claudemd_body=("# Book\n\n## Rules\n- Avoid `clocked` as a verb.\n"),
-        )
+        book = _make_book(tmp_path)
+        db_dir = tmp_path / "db"
+        _seed_book_rules(db_dir, "test-hook-book", ["Avoid `clocked` as a verb."])
         draft = _write_draft(
             book,
             "# Chapter 1\n\n"
@@ -1096,6 +1124,7 @@ class TestHookSubprocess:
             text=True,
             capture_output=True,
             timeout=10,
+            env={**os.environ, "STORYFORGE_DB_DIR": str(db_dir)},
         )
         assert result.returncode == 2, result.stderr
         assert "clocked" in result.stderr

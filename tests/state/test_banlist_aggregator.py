@@ -141,18 +141,43 @@ class TestWritingDiscoveriesSource:
         assert "writing discoveries" in thing_entry["source"].lower()
 
     def test_dedups_against_book_rules(self, tmp_path, patch_storyforge_home):
-        """If a phrase is in both book CLAUDE.md ## Rules AND author Writing
-        Discoveries, it appears once — book wins (higher priority source)."""
-        book = _make_book(tmp_path, rules="- Avoid `thing` — concretize.\n")
+        """If a phrase is in both book_rules DB AND author Writing Discoveries,
+        it appears once — book wins (higher priority source)."""
+        import sqlite3
+
+        book = _make_book(tmp_path)
         _make_author_home(
             tmp_path,
             tic_texts=['**"thing"** — concretize.'],
         )
 
+        # Seed the book's DB rule (DB_DIR already patched via patch_storyforge_home).
+        db_dir = patch_storyforge_home / "db"
+        db_dir.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(db_dir / "test-book.db"))
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS book_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_num INTEGER,
+                rule_type TEXT NOT NULL,
+                text TEXT NOT NULL,
+                added_at TEXT DEFAULT '',
+                UNIQUE(book_num, rule_type, text)
+            )
+            """
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO book_rules (book_num, rule_type, text) VALUES (?, ?, ?)",
+            (1, "rule", "Avoid `thing` — concretize."),
+        )
+        conn.commit()
+        conn.close()
+
         result = collect_banned_phrases(book, PLUGIN_ROOT)
         thing_entries = [r for r in result if r["phrase"] == "thing"]
         assert len(thing_entries) == 1
-        # Book CLAUDE.md is the higher-priority source.
+        # book_rules DB is the higher-priority source.
         assert "book" in thing_entries[0]["source"].lower()
 
     def test_dedups_against_author_vocabulary(self, tmp_path, patch_storyforge_home):
