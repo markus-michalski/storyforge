@@ -7,6 +7,7 @@ knowledge bundles) since it's a thin filesystem-state helper.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from tools.db.connection import open_session_db
@@ -24,6 +25,13 @@ _SESSION_USER_ID = "local"
 # Phase 1 only ships fiction + memoir. Other non-fiction subtypes
 # (biography, how-to, academic, history) are deferred per #49 / #97.
 _ALLOWED_BOOK_CATEGORIES = ("fiction", "memoir")
+
+# Field-name format guard for update_field(). Accepts the same identifiers
+# that appear throughout the YAML frontmatter schema: letters, digits,
+# underscores, hyphens; must start with a letter; max 64 chars.
+# Rejects null bytes, shell metacharacters, path separators, and injected
+# YAML structure characters.
+_FIELD_NAME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$")
 
 
 @mcp.tool()
@@ -128,6 +136,9 @@ def update_field(file_path: str, field: str, value: str) -> str:
 
     if not any(resolved.is_relative_to(root) for root in allowed_roots):
         return json.dumps({"error": (f"file_path must be within content_root or authors_root (got: {file_path})")})
+
+    if not _FIELD_NAME_RE.match(field):
+        return json.dumps({"error": f"Invalid field name '{field}': must match [a-zA-Z][a-zA-Z0-9_-]{{0,63}}"})
 
     path = Path(file_path)
     if not path.exists():

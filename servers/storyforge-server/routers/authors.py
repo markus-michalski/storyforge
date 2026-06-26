@@ -45,6 +45,25 @@ from tools.state.parsers import parse_author_profile, parse_book_readme, parse_f
 from . import _app
 from ._app import _cache, mcp
 
+# Fields that may be written via update_author() — anything not in this set is
+# rejected. Keeps prompt-injection from adding arbitrary YAML keys to profiles.
+_ALLOWED_AUTHOR_FIELDS: frozenset[str] = frozenset({
+    # Core identity (set at creation)
+    "name", "updated",
+    # Narrative settings
+    "primary_genres", "narrative_voice", "tense", "tone",
+    "sentence_style", "vocabulary_level", "dialog_style", "pacing",
+    "themes", "influences", "avoid",
+    # Writing-mode config (set by create-author / new-book)
+    "author_writing_mode",
+    # Language / locale
+    "native_language", "preferred_writing_language",
+    # Memoir-specific (set by create-author memoir mode)
+    "subject_position", "off_limits", "relationship_to_material",
+    # Misc profile meta
+    "pen_name", "bio", "website", "social_media", "mood", "voice",
+})
+
 
 @mcp.tool()
 def list_authors() -> str:
@@ -595,6 +614,10 @@ def update_author(slug: str, field: str, value: str) -> str:
 
     if not profile_path.exists():
         return json.dumps({"error": f"Author '{slug}' not found"})
+
+    if field not in _ALLOWED_AUTHOR_FIELDS:
+        allowed = ", ".join(sorted(_ALLOWED_AUTHOR_FIELDS))
+        return json.dumps({"error": f"Field '{field}' is not an allowed author profile field. Allowed: {allowed}"})
 
     text = profile_path.read_text(encoding="utf-8")
     meta, body = parse_frontmatter(text)
