@@ -18,7 +18,14 @@ from tools.shared.config import CACHE_DIR
 from tools.shared.paths import _validate_slug
 
 # Override with STORYFORGE_DB_DIR to redirect DB lookups (used in subprocess tests).
-DB_DIR: Path = Path(os.environ["STORYFORGE_DB_DIR"]) if "STORYFORGE_DB_DIR" in os.environ else CACHE_DIR.parent / "db"
+# Validated to prevent null-byte and path-traversal tricks (Issue #329).
+if "STORYFORGE_DB_DIR" in os.environ:
+    _raw = os.environ["STORYFORGE_DB_DIR"]
+    if "\x00" in _raw or ".." in _raw.split(os.sep):
+        raise RuntimeError(f"STORYFORGE_DB_DIR contains invalid path components: {_raw!r}")
+    DB_DIR: Path = Path(_raw).resolve()
+else:
+    DB_DIR = CACHE_DIR.parent / "db"
 
 
 def open_db(db_path: Path) -> sqlite3.Connection:

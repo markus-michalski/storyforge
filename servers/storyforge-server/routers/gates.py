@@ -9,7 +9,10 @@ and merges the results into one ``GateResult`` envelope.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from tools.analysis.callback_validator import verify_callbacks as _verify_callbacks_impl
 from tools.analysis.chapter_validator import (
@@ -131,8 +134,9 @@ def validate_timeline_consistency(book_slug: str) -> str:
         return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
     try:
         result = validate_timeline(book_path)
-    except Exception as exc:  # noqa: BLE001
-        return json.dumps({"error": str(exc), "book_slug": book_slug})
+    except Exception:  # noqa: BLE001
+        logger.exception("Timeline validation failed for book %s", book_slug)
+        return json.dumps({"error": "Timeline validation failed due to an internal error", "book_slug": book_slug})
     gate = derive_from_timeline_validation(result)
     return json.dumps(wrap_legacy(result, gate), indent=2, ensure_ascii=False)
 
@@ -512,10 +516,11 @@ def run_quality_gates(book_slug: str) -> str:
         scan_gate = derive_from_manuscript_scan(scan_result)
         per_gate["manuscript"] = scan_gate.to_json_dict()
         gates.append(scan_gate)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
+        logger.exception("Manuscript scan failed for book %s", book_slug)
         per_gate["manuscript"] = {
             "status": "WARN",
-            "reasons": [f"manuscript scan skipped: {exc}"],
+            "reasons": ["manuscript scan skipped due to an internal error"],
             "findings": [],
             "metadata": {},
         }
@@ -526,10 +531,11 @@ def run_quality_gates(book_slug: str) -> str:
         timeline_gate = derive_from_timeline_validation(timeline_result)
         per_gate["timeline"] = timeline_gate.to_json_dict()
         gates.append(timeline_gate)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
+        logger.exception("Timeline validation failed for book %s", book_slug)
         per_gate["timeline"] = {
             "status": "WARN",
-            "reasons": [f"timeline validation skipped: {exc}"],
+            "reasons": ["timeline validation skipped due to an internal error"],
             "findings": [],
             "metadata": {},
         }
@@ -542,10 +548,11 @@ def run_quality_gates(book_slug: str) -> str:
             cb_gate = derive_from_callback_verification(cb_result)
             per_gate["callbacks"] = cb_gate.to_json_dict()
             gates.append(cb_gate)
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
+            logger.exception("Callback verification failed for book %s", book_slug)
             per_gate["callbacks"] = {
                 "status": "WARN",
-                "reasons": [f"callback verification skipped: {exc}"],
+                "reasons": ["callback verification skipped due to an internal error"],
                 "findings": [],
                 "metadata": {},
             }
@@ -556,10 +563,11 @@ def run_quality_gates(book_slug: str) -> str:
         plot_gate = GateResult.from_dict(plot_result["gate"])
         per_gate["plot_logic"] = plot_gate.to_json_dict()
         gates.append(plot_gate)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
+        logger.exception("Plot-logic analysis failed for book %s", book_slug)
         per_gate["plot_logic"] = {
             "status": "WARN",
-            "reasons": [f"plot-logic analysis skipped: {exc}"],
+            "reasons": ["plot-logic analysis skipped due to an internal error"],
             "findings": [],
             "metadata": {},
         }
