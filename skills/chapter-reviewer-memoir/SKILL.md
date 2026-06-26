@@ -37,8 +37,8 @@ Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
 - `canon_log_facts` — empty for memoir; use `people-log` instead
 - `consent_status_warnings` — people with non-approved consent status
 - `tonal_rules` — non-negotiable rules, litmus test, banned patterns from `plot/tone.md`
-- `active_rules` — book CLAUDE.md ## Rules with severity
-- `active_callbacks` — book CLAUDE.md ## Callback Register items
+- `active_rules` — book_rules DB (rule_type: rule) with severity
+- `active_callbacks` — book_rules DB (rule_type: callback)
 - `errors` — non-empty means some files missing; degrade gracefully, do not invent
 
 People facts are read from DB via `canon_brief` (Issue #297). `plot/people-log.md` is a legacy archive — use `get_canon_brief(book_slug, chapter_slug)` for the authoritative DB-backed fact list. Run `scripts/migrate_canon_log_to_db.py` on books whose people-log was not yet migrated.
