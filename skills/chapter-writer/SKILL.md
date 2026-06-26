@@ -71,26 +71,9 @@ Read the chapter README.md outline:
 
 ### Pre-Logic Audit (MANDATORY, both modes)
 
-**Emit a bulleted audit block to chat before any prose enters `draft.md`.** No exceptions, no inlining into the prose response. For each category, answer in one sentence citing the source; if the source is silent, say so — that is the gap to surface, not paper over.
+→ **§ Pre-Logic Audit** in `chapter-writing-shared.md`.
 
-1. **Inventory (POV character).** What does the POV char physically carry? **Source:** brief's `pov_character_inventory`. If `extraction_method: "none"` or `warnings` non-empty → ask before any item-touching action; do not invent.
-
-2. **Geography.** Which rooms, routes, and waypoints does this scene touch; which is the POV char familiar with? **Source:** `world/setting.md` Travel Matrix (fiction) or `research/sources.md` (memoir), plus `plot/timeline.md` and `recent_chapter_timelines`. Model the route before any movement verb.
-
-3. **Character biography & relationships.** For every character on the page: relationship to POV, what POV knows, what is canon-forbidden? **Source:** `characters/{slug}.md` (fiction) or `people/{slug}.md` (memoir), brief's `canon_brief.pov_relevant_facts` + `canon_brief.changed_facts`. For non-POV characters call standalone `get_canon_brief()` → `current_facts`. If `canon_brief.warnings` non-empty → surface and ask. **Also check from Prerequisite 10 (previous chapter prose):** How do these specific characters talk to each other in practice? Unfinished sentences? Physical shorthand before words? Who deflects, who presses? This texture — not the canon relationship summary — is what makes "two people who've been through N chapters together" sound different from "two people explaining things to each other."
-   > *Example: "Caelan is Sera's father, NOT Theo's. Any 'reminds him of his father' framing is canon-break — cut."*
-   > *Texture example: "Ch 31 prose shows Kael asks flat one-word questions when he already knows the answer — he's checking Theo's state, not fishing for info. Theo answers short when he's steady, long when he's scared. They don't explain — they confirm."*
-
-4. **Banned phrases + author tics.** Scan the *planned* beats against brief's `banned_phrases` and author profile's `writing_discoveries.recurring_tics` / `donts`. Replan offending beats before any prose.
-   > *Example: "Planned 'Theo does mental math' → tic `math` → replan as 'Theo cross-checks timing against radio chatter'."*
-
-4.5 **style_principles activation.** From the author profile's `writing_discoveries.style_principles`, **excluding entries suppressed in the book's `## Style Suppressions` section and entries whose `genres` list shares no genre with this book** (entries without `genres` are universal; entries with `universal: true` always apply regardless of `genres`), name 3 principles that this scene's beats can express. For each: (a) the principle heading, (b) which beat is the trigger, (c) the concrete action or line that delivers it. If the principle has an `example` field, **quote it verbatim** immediately after naming it — that example is what the principle sounds like in this author's voice. If you cannot name a specific beat for a principle, do not count it — an intention without a beat is a hope, not a plan. List the 3 active principles before drafting begins.
-
-5. **Sensory plausibility.** Can the POV perceive what the planned beat requires? **Source:** brief's `pov_character_state` — `clothing`, `injuries`, `altered_states`, `environmental_limiters`. If any category has `extraction_methods[cat] == "none"` AND the planned beat depends on it → surface and ask.
-
-6. **Scene arc (scene-level; Step 1 asks the chapter-level equivalent).** In one sentence: what does the POV character feel at the start of this scene, what shifts mid-scene, and where do they land emotionally? **Source:** scene PURPOSE from the `## Scene Plan` in the chapter README. If you can only answer by listing beats in order, re-read PURPOSE before writing.
-
-If any category surfaces a gap, surface it explicitly and ask the user — never paper over it.
+Emit bulleted block before any prose. Mode A: per scene (Step A1b). Mode B: once per chapter (Step 2c). If any category surfaces a gap, ask the user — never paper over it.
 
 ---
 
@@ -116,7 +99,7 @@ If no `## Scene Plan` section exists (and proceeding directly): break the chapte
 → **§ Scene Plan Persistence** in `chapter-writing-shared.md`.
 
 #### Step A1b: Pre-Scene Logic Audit
-Run the **Pre-Logic Audit** (above) **per scene**. Emit the bulleted block to chat before appending to `draft.md`, then proceed to Step A2.
+Run **§ Pre-Logic Audit** from `chapter-writing-shared.md` **per scene**. Emit the bulleted block to chat before appending to `draft.md`, then proceed to Step A2.
 
 #### Step A2: Write One Scene
 
@@ -146,7 +129,7 @@ After writing:
 ### Mode B: Full Chapter Writing
 
 #### Step 2c: Pre-Chapter Logic Audit
-Run the **Pre-Logic Audit** (above) **once per chapter**, covering the chapter as a whole. Emit the bulleted block before any prose enters `draft.md`.
+Run **§ Pre-Logic Audit** from `chapter-writing-shared.md` **once per chapter**, covering the chapter as a whole. Emit the bulleted block before any prose enters `draft.md`.
 
 #### Step 3: Opening Hook
 Open with action/voice/tension (not weather or waking-up). Ground the reader subtly. Create a micro-question. Match the author's voice from the FIRST sentence. See `openings-and-endings.md`. If Chapter 1: review and plan the 13-Point First Chapter Checklist from `openings-and-endings.md`.
@@ -179,25 +162,11 @@ For clean scenes, silence is fine. When cuts happen, optionally note "Simile-Sca
 
 ### Step 6d: Elegant Abstraction Scan — Interactive Hard-Gate (MANDATORY, both modes, pre-save)
 
-Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `draft.md` until this scan is fully resolved.** Reference: `anti-ai-patterns.md` Section 11 for the full shape catalog and examples.
+Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `draft.md` until this scan is fully resolved.**
 
-**Shape catalog:** `anti-ai-patterns.md` Section 11 has the full catalog, markers, and examples (11.1–11.10). Quick-scan markers: *One/Two/Three words.* narrator commentary (11.1); *the words/line landed* (11.2); *the room received / silence held* (11.3); *most expensive sentence / paid in silence* (11.4); *did not quite become* — flag 2+ per scene (11.5); body-part + deciding/refusing/knowing (11.6); *trust his/her/my face/hands* trust-split variants (11.6); backward-negation refusal clauses (11.7); same logical constraint in two consecutive sentences (11.8).
+→ **§ EA-Scan Protocol** in `chapter-writing-shared.md`.
 
-**Scan protocol:**
-
-1. Scan all prose in the current scene for the above markers.
-2. If **zero hits**: emit `EA-Scan: clean ✓` and proceed to append.
-3. If **5 or more hits**: stop and flag it. These shapes cluster — a scene with 5+ hits needs a rewrite, not spot-welding. Tell the user: "This scene has N EA-hits. Patching this many shapes risks losing coherence — recommend rewriting from scratch. Proceed with per-hit fixes or rewrite?" Wait for the user's choice before continuing.
-4. If **1–4 hits**: do NOT append yet. Present each hit to the user one at a time (chat, not prose): shape type, original sentence, proposed fix. Offer `apply / skip / try again`. If this is the **second or later 11.5 hit**, add `[11.5 recurrence — pushback required before skip]` and offer a concrete alternative before accepting a skip.
-
-5. Wait for user response per hit:
-   - `apply` — write the fix into the scene text, proceed to next hit
-   - `skip` — keep original, proceed to next hit (shape remains; user accepts it deliberately)
-   - `try again` or free text — user proposes an alternative or requests a different angle; iterate. After **3 try-again iterations** on the same hit, ask: "Provide the replacement text directly, or type `skip`."
-
-6. After ALL hits are resolved (applied or explicitly skipped), append the corrected scene to `draft.md`. In the chat metadata line (scene number / word count / summary) add: `EA-Scan: N fixed, M skipped`.
-
-**Fix direction (same for all shapes):** Route the emotional weight through a named body in the room. Whose eyes did not move. Whose hand stilled. Whose breath came faster. Specificity is the antidote.
+After all hits resolved: append to `draft.md` and add `EA-Scan: N fixed, M skipped` to the chat metadata line.
 
 
 ---
@@ -205,10 +174,34 @@ Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `
 ### Step 7: Save and Update (both modes)
 1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
 2. **Extract promises (Issue #150)** — Before flipping status to `Review` or `Final`, walk the completed draft and identify setup-elements (locked drawers, character claims, cryptic warnings, unresolved clues — full taxonomy in `reference/craft/plot-logic.md`). For each: short concrete description (8–14 words), target chapter slug if the chapter outline names it else `unfired`, status `active`. Cap at 8 per chapter. Persist via MCP `register_chapter_promises(book_slug, chapter_slug, promises)`. If the chapter places no promises, pass an empty list — this writes a placeholder so the index knows the chapter was processed. Skip this step when staying at `Draft` (mid-chapter saves don't lock in promises).
-3. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
-4. **Update `plot/timeline.md`** — one row per story-day. MANDATORY.
-5. **Update Travel Matrix** in `world/setting.md` if new routes appeared.
-6. **Record new canon facts** — for each new or revised fact established in this chapter, call MCP `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)`. For revisions, include `is_revision=True`, `old_value`, and `revision_impacts=[slug, ...]` for downstream chapters that reference the old version. The `canon_brief` projector reads exclusively from DB (Issue #297) — writing to `plot/canon-log.md` is no longer sufficient. Run `scripts/migrate_canon_log_to_db.py` once on legacy books to import existing MD facts.
+3. **Canon Fact Recording Gate — required before advancing to Review or Final. Skip only when staying at `Draft`.** This gate blocks the status update in step 4 — do not call `update_field()` until the gate is complete.
+
+   a. **Check existing coverage** — Call `get_canon_brief(book_slug, chapter_slug)`. Note the `facts_count` for the current chapter slug. Even when facts already exist (incremental save), still scan the current session's prose for anything added since the last save.
+
+   b. **Scan the completed draft** for canon-relevant events. Check every category:
+      - **Characters** — new names, physical descriptions, abilities, injuries, deaths, status changes
+      - **Locations** — new rooms, buildings, routes, distances, first-visit establishments
+      - **Relationships** — connections established or changed between characters
+      - **Objects** — named items introduced, ownership transfers, destruction
+      - **Timeline** — exact dates/times, durations, relative anchors established
+      - **Events** — plot-significant actions, revelations, decisions with lasting consequences
+      - **Backstory** — origins, histories, past events first revealed in this chapter
+
+   c. **Record each fact** — Call `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)` for every item identified above.
+      - `domain`: `character` | `location` | `relationship` | `object` | `timeline` | `event` | `backstory`
+      - For revisions to existing facts: add `is_revision=True`, `old_value=<previous text>`, `revision_impacts=[downstream_chapter_slug, ...]`
+
+   d. **Emit a Canon Fact Checklist** in chat — mandatory, even when the list is short:
+      ```
+      Canon Facts Recorded — Ch. {N}:
+      [✓] subject: <X> | fact: <...> | domain: <...>
+      [✓] subject: <Y> | fact: <...> | domain: <...>
+      ```
+      If zero canon-relevant events exist, declare it explicitly: *"Canon Recording: no new facts established in this chapter beyond what is already in DB."* This is a deliberate statement, not a silent skip.
+
+4. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
+5. **Update `plot/timeline.md`** — one row per story-day. MANDATORY.
+6. **Update Travel Matrix** in `world/setting.md` if new routes appeared.
 7. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with `~HH:MM`. MANDATORY (future chapters depend on it).
 
 8. **Update POV character snapshot** — **§ POV Snapshot Procedure** in `chapter-writing-shared.md`.

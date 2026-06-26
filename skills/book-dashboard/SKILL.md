@@ -27,11 +27,11 @@ Author: [author] | Genres: [genres] | Length: [book_type]
 Words: [current]/[target] [████████░░░░] [%]%
 
 Chapters ([final]/[total] final):
-| #  | Title          | Status   | Words |
-|----|----------------|----------|-------|
-| 1  | The Beginning  | Final    | 3,200 |
-| 2  | Into the Dark  | Draft    | 2,800 |
-| 3  | —              | Outline  | 0     |
+| #  | Title          | Status   | Words | Canon |
+|----|----------------|----------|-------|-------|
+| 1  | The Beginning  | Final    | 3,200 | 12    |
+| 2  | Into the Dark  | Draft    | 2,800 | 0 ✗   |
+| 3  | —              | Outline  | 0     | —     |
 
 Characters ([count]):  ← header reads "Real People" when book_category == "memoir"
 | Name      | Role        | Status      |
@@ -47,6 +47,12 @@ Memoir-aware adjustments:
 - Header says **Length:** instead of **Type:** so `book_type` (length class) and `book_category` are not confused.
 - Characters table header reads **Real People** for memoir (Phase 2 #59 will move the underlying data to `people/`; until then the indexer still scans `characters/` for both categories).
 - Suggest the matching memoir-mode next-step skill once Phase 2 lands; for now mirror the fiction routing.
+
+**Canon column:**
+- Source: `canon_facts_count` per chapter from `get_book_progress()`. If the field is absent (older MCP versions), call `get_canon_brief(book_slug, chapter_slug)` per chapter as fallback and read `facts_count`.
+- `0 ✗` — chapter has prose (status > Outline) but no recorded facts → gap, action needed
+- A number — facts recorded, all good
+- `—` — chapter still at Outline, no prose to record from yet
 
 ### If no specific book:
 
