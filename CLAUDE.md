@@ -94,6 +94,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "I'm stuck" / "Ich komme nicht weiter" / "blockiert" / "kann nicht schreiben" / "keine Motivation" / "Schreibblockade" / "keine Lust" | `/storyforge:unblock` — emotional/creative block, NOT a workflow question |
 | "Rolling planner" / "Next scene" / "Was kommt als nächstes?" / "Nächste Szene planen" / "Discovery writer" | `/storyforge:rolling-planner` |
 | `Regel:` / `Workflow:` / `Callback:` prefix, "merke dir" | `/storyforge:register-callback` |
+| "Session starten" / "Start session" / "StoryForge starten" / `/storyforge:start` | `/storyforge:start-session` |
 | "Hilfe" / "Help" | `/storyforge:help` |
 | "Setup" / "Einrichten" | `/storyforge:setup` |
 | "Config" / "Konfiguration" | `/storyforge:configure` |
@@ -142,10 +143,10 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 10d. `/storyforge:manuscript-checker` — (At drafting → revision transition) Scan the whole manuscript for book-rule violations, clichés, dialogue punctuation, filter words, adverb density, and cross-chapter repetition
 10e. `/storyforge:beta-feedback` — (After eBook/ARC stage) Process curated beta-reader feedback, triage, revision plan
 11. `/storyforge:voice-checker` — (Optional) Holistic AI-authenticity score (0–100) across 7 dimensions; use when you want a scorecard rather than targeted fixes; not a required step in the standard workflow
-11. `/storyforge:cover-artist` — Generate cover prompts
-12. `/storyforge:export-engineer` — EPUB/PDF/MOBI via Pandoc
-13. `/storyforge:promo-writer` — Social media campaign (FB, Instagram, TikTok, X, Bluesky, Newsletter)
-14. `/storyforge:translator` — Translate to other languages
+12. `/storyforge:cover-artist` — Generate cover prompts
+13. `/storyforge:export-engineer` — EPUB/PDF/MOBI via Pandoc
+14. `/storyforge:promo-writer` — Social media campaign (FB, Instagram, TikTok, X, Bluesky, Newsletter)
+15. `/storyforge:translator` — Translate to other languages
 
 ### Memoir Workflows
 
