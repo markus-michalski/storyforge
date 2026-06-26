@@ -11,7 +11,21 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+import tools.db.connection as _db_conn
+from tools.db.book_rules import insert_rule
+from tools.db.connection import open_canon_db
 from tools.state.chapter_writing_brief import build_chapter_writing_brief
+
+
+@pytest.fixture()
+def db_dir(tmp_path, monkeypatch):
+    """Redirect DB_DIR to tmp_path/db so tests don't touch the real DB."""
+    d = tmp_path / "db"
+    d.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", d)
+    return d
 
 
 # ---------------------------------------------------------------------------
@@ -196,21 +210,20 @@ class TestBriefAssemblyMinimal:
         assert "knowledge" in theo
         assert "forensics" in theo["knowledge"]["none"]
 
-    def test_rules_and_callbacks_from_claudemd(self, tmp_path):
+    def test_rules_and_callbacks_from_db(self, tmp_path, db_dir):
         book, plugin_root = _setup_book(tmp_path)
         _make_chapter(book, "01-intro", number=1, title="Intro", pov="Theo")
         _add_character(book, "theo", name="Theo")
-        _add_claudemd(
-            book,
-            rules=[
-                "Avoid passive voice",
-                "Banned phrase: `the kind of X that Y` — max 2 per chapter",
-            ],
-            callbacks=[
-                "Gary the cat — last seen Ch 9, weave back in",
-                "Jace's apartment plant — Theo never mentions",
-            ],
-        )
+
+        conn = open_canon_db("test-book")
+        insert_rule(conn, book_num=1, rule_type="rule", text="Avoid passive voice")
+        insert_rule(conn, book_num=1, rule_type="rule",
+                    text="Banned phrase: `the kind of X that Y` — max 2 per chapter")
+        insert_rule(conn, book_num=1, rule_type="callback",
+                    text="Gary the cat — last seen Ch 9, weave back in")
+        insert_rule(conn, book_num=1, rule_type="callback",
+                    text="Jace's apartment plant — Theo never mentions")
+        conn.close()
 
         brief = build_chapter_writing_brief(
             book_root=book,
@@ -313,7 +326,7 @@ class TestBriefAssemblyMinimal:
 
 
 class TestBriefGracefulDegrade:
-    def test_missing_claudemd_returns_empty_rules_and_callbacks(self, tmp_path):
+    def test_missing_claudemd_returns_empty_rules_and_callbacks(self, tmp_path, db_dir):
         book, plugin_root = _setup_book(tmp_path)
         _make_chapter(book, "01-intro", number=1, title="Intro", pov="Theo")
         _add_character(book, "theo", name="Theo")
@@ -390,11 +403,14 @@ class TestBriefGracefulDegrade:
 
 
 class TestBriefDeterminism:
-    def test_brief_round_trips_through_json(self, tmp_path):
+    def test_brief_round_trips_through_json(self, tmp_path, db_dir):
         book, plugin_root = _setup_book(tmp_path)
         _make_chapter(book, "01-intro", number=1, title="Intro", pov="Theo")
         _add_character(book, "theo", name="Theo")
-        _add_claudemd(book, rules=["Be terse"], callbacks=["Gary the cat"])
+        conn = open_canon_db("test-book")
+        insert_rule(conn, book_num=1, rule_type="rule", text="Be terse")
+        insert_rule(conn, book_num=1, rule_type="callback", text="Gary the cat")
+        conn.close()
 
         brief = build_chapter_writing_brief(
             book_root=book,
@@ -405,11 +421,14 @@ class TestBriefDeterminism:
         # No datetime, Path, or non-JSON values may leak into the brief.
         json.dumps(brief)
 
-    def test_brief_is_deterministic_across_calls(self, tmp_path):
+    def test_brief_is_deterministic_across_calls(self, tmp_path, db_dir):
         book, plugin_root = _setup_book(tmp_path)
         _make_chapter(book, "01-intro", number=1, title="Intro", pov="Theo")
         _add_character(book, "theo", name="Theo")
-        _add_claudemd(book, rules=["Be terse"], callbacks=["Gary"])
+        conn = open_canon_db("test-book")
+        insert_rule(conn, book_num=1, rule_type="rule", text="Be terse")
+        insert_rule(conn, book_num=1, rule_type="callback", text="Gary")
+        conn.close()
 
         brief_a = build_chapter_writing_brief(
             book_root=book,

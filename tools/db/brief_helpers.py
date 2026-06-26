@@ -1,22 +1,40 @@
-"""Helpers to load canon_log_facts from DB — Issue #280, updated #291/#297.
+"""Helpers to load canon_log_facts and book_rules from DB — Issue #280/#304.
 
-Usage in brief assemblers (continuity_brief, review_brief):
-    from tools.db.brief_helpers import load_canon_facts_for_brief
+Usage in brief assemblers (continuity_brief, review_brief, chapter_writing_brief):
+    from tools.db.brief_helpers import (
+        load_canon_facts_for_brief,
+        load_rules_for_brief,
+        load_callbacks_for_brief,
+    )
     facts = load_canon_facts_for_brief(book_root)
+    rules = load_rules_for_brief(book_root)
+    callbacks = load_callbacks_for_brief(book_root)
     # book_num is auto-derived from README series_number (C1/H1 fix)
 
-Note: build_canon_brief() reads from DB exclusively (Issue #297 removed the MD
-read path). If the DB is empty, callers receive an empty list. Migrate existing
-canon-log.md / people-log.md content via scripts/migrate_canon_log_to_db.py.
+Note: both canon_facts and book_rules read from DB exclusively (Issue #291/#304).
+If the DB is empty, callers receive an empty list.
 """
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from pathlib import Path
 
+from tools.db.book_rules import list_rules
 from tools.db.canon_facts import query_facts
 from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
+
+_BAN_CUE_RE = re.compile(
+    r"\b(banned|ban|avoid|never|don['']?t\s+use|do\s+not\s+use|limit|stop\s+using)\b",
+    re.IGNORECASE,
+)
+
+
+def _classify_rule(text: str) -> str:
+    if "`" in text and _BAN_CUE_RE.search(text):
+        return "block"
+    return "advisory"
 
 _ALL_CHAPTERS = 10**9  # sentinel: "all chapters written so far"
 
@@ -69,3 +87,41 @@ def _db_row_to_legacy_fact(row: dict) -> dict:
         "notes": row.get("old_value") or "",
         "domain": row.get("domain") or "",
     }
+
+
+def load_rules_for_brief(book_root: Path) -> list[dict]:
+    """Return rule-type entries from the book_rules DB for a brief.
+
+    Returns list of {"text": str, "severity": "block" | "advisory"}.
+    Empty list if DB is unreachable or empty.
+    """
+    book_num = get_book_num(book_root)
+    db_slug = get_db_slug_for_book(book_root)
+    try:
+        conn = open_canon_db(db_slug)
+        try:
+            rows = list_rules(conn, book_num=book_num, rule_type="rule")
+        finally:
+            conn.close()
+        return [{"text": r["text"], "severity": _classify_rule(r["text"])} for r in rows]
+    except (sqlite3.Error, OSError):
+        return []
+
+
+def load_callbacks_for_brief(book_root: Path) -> list[str]:
+    """Return callback-type entries from the book_rules DB for a brief.
+
+    Returns list of callback text strings.
+    Empty list if DB is unreachable or empty.
+    """
+    book_num = get_book_num(book_root)
+    db_slug = get_db_slug_for_book(book_root)
+    try:
+        conn = open_canon_db(db_slug)
+        try:
+            rows = list_rules(conn, book_num=book_num, rule_type="callback")
+        finally:
+            conn.close()
+        return [r["text"] for r in rows]
+    except (sqlite3.Error, OSError):
+        return []

@@ -374,18 +374,24 @@ def test_build_review_brief_no_previous_for_first_chapter(tmp_path):
     assert result["previous_chapter_timeline"] is None
 
 
-def test_build_review_brief_active_rules_from_claudemd(tmp_path):
+def test_build_review_brief_active_rules_from_db(tmp_path, monkeypatch):
+    import tools.db.connection as _db_conn
+    from tools.db.book_rules import insert_rule
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
     book, slug = _make_book(tmp_path)
     _make_chapter(book, "01-opening", number=1)
-    (book / "CLAUDE.md").write_text(
-        "# Book Rules\n\n"
-        "## Rules\n\n"
-        "- Never contradict the canon log\n"
-        "- Always load the timeline before writing\n\n"
-        "## Callback Register\n\n"
-        "- Marcus must reveal his secret by Ch 10\n",
-        encoding="utf-8",
-    )
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    insert_rule(conn, book_num=1, rule_type="rule", text="Never contradict the canon log")
+    insert_rule(conn, book_num=1, rule_type="rule", text="Always load the timeline before writing")
+    insert_rule(conn, book_num=1, rule_type="callback", text="Marcus must reveal his secret by Ch 10")
+    conn.close()
 
     result = build_review_brief(
         book_root=book,
