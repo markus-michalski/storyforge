@@ -123,9 +123,9 @@ class TestParseCharacterFile:
 
 
 class TestParseAuthorProfile:
-    """Issue #281 — parse_author_profile now returns only frontmatter metadata.
-    Writing Discoveries are read from SQLite via get_author() in the router,
-    not from the Markdown body."""
+    """Issue #281 / #294 — parse_author_profile returns frontmatter metadata + style_notes.
+    Writing Discoveries are read from SQLite via get_author() in the router, not from
+    the Markdown body. style_notes contains the body above ## Writing Discoveries."""
 
     def _write_profile(self, tmp_path: Path, body: str, frontmatter_extras: str = "") -> Path:
         author_dir = tmp_path / "ethan-cole"
@@ -141,8 +141,7 @@ class TestParseAuthorProfile:
         return profile
 
     def test_returns_frontmatter_metadata(self, tmp_path):
-        """parse_author_profile returns frontmatter fields only (Issue #281).
-        Writing Discoveries are now in SQLite — parse_author_profile no longer parses the body."""
+        """parse_author_profile returns frontmatter fields (Issue #281)."""
         profile = self._write_profile(tmp_path, "# Ethan Cole\n\n## Writing Style\n\nDark and lean.\n")
 
         result = parse_author_profile(profile)
@@ -152,6 +151,41 @@ class TestParseAuthorProfile:
         assert result["narrative_voice"] == "third-limited"
         assert result["tense"] == "past"
         assert "writing_discoveries" not in result
+
+    def test_style_notes_contains_body_above_writing_discoveries(self, tmp_path):
+        """style_notes includes Voice/Tone/Signature content; excludes ## Writing Discoveries (Issue #294)."""
+        body = (
+            "## Voice\n\nDark and lean.\n\n"
+            "## Tone Profile\n\nBrooding.\n\n"
+            "## Writing Discoveries\n\n### Recurring Tics\n\n- **thing** — avoid.\n"
+        )
+        profile = self._write_profile(tmp_path, body)
+
+        result = parse_author_profile(profile)
+
+        assert "style_notes" in result
+        assert "## Voice" in result["style_notes"]
+        assert "## Tone Profile" in result["style_notes"]
+        assert "## Writing Discoveries" not in result["style_notes"]
+        assert "Recurring Tics" not in result["style_notes"]
+
+    def test_style_notes_empty_body(self, tmp_path):
+        """style_notes is empty string when profile has no body."""
+        profile = self._write_profile(tmp_path, "")
+
+        result = parse_author_profile(profile)
+
+        assert result["style_notes"] == ""
+
+    def test_style_notes_no_writing_discoveries_section(self, tmp_path):
+        """style_notes returns full body when ## Writing Discoveries is absent."""
+        body = "## Voice\n\nLean and direct.\n\n## Signature Moves\n\nShort sentences.\n"
+        profile = self._write_profile(tmp_path, body)
+
+        result = parse_author_profile(profile)
+
+        assert "## Voice" in result["style_notes"]
+        assert "## Signature Moves" in result["style_notes"]
 
 
 class TestCountWords:
