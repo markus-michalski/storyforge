@@ -274,6 +274,10 @@ def resolve_mode(file_path: Path) -> str:
 
 _BACKTICK_PATTERN_RE = re.compile(r"`([^`\n]+)`")
 _REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
+# Detects nested quantifiers on groups — the primary ReDoS trigger.
+# Matches ) or ] followed by +, *, or { (e.g. (a+)+, ([a-z]+)+).
+# Safe patterns like (room|silence) have no quantifier after ), so they pass.
+_REDOS_RISK_RE = re.compile(r"[)\]][+*{]")
 
 
 def _extract_block_patterns_from_rule(
@@ -299,7 +303,7 @@ def _extract_block_patterns_from_rule(
             continue
         seen.add(key)
         try:
-            if any(c in _REGEX_HINT_CHARS for c in inner):
+            if any(c in _REGEX_HINT_CHARS for c in inner) and not _REDOS_RISK_RE.search(inner):
                 compiled = re.compile(raw, re.IGNORECASE)
             else:
                 compiled = re.compile(re.escape(raw), re.IGNORECASE)
