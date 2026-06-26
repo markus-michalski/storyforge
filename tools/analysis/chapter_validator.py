@@ -275,9 +275,9 @@ def resolve_mode(file_path: Path) -> str:
 _BACKTICK_PATTERN_RE = re.compile(r"`([^`\n]+)`")
 _REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
 # Detects nested quantifiers on groups — the primary ReDoS trigger.
-# Matches ) or ] followed by +, *, or { (e.g. (a+)+, ([a-z]+)+).
-# Safe patterns like (room|silence) have no quantifier after ), so they pass.
-_REDOS_RISK_RE = re.compile(r"[)\]][+*{]")
+# Matches ) followed by +, *, or { (e.g. (a+)+, ([a-z]+)*, (word){3,}).
+# Does NOT match ] — [a-z]+ is a safe character class, not a ReDoS pattern.
+_REDOS_RISK_RE = re.compile(r"\)[+*{]")
 
 
 def _extract_block_patterns_from_rule(

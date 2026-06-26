@@ -44,7 +44,8 @@ class TestReDoSProtection:
     def test_character_class_with_outer_quantifier_is_literal(self) -> None:
         rule = "Avoid `[aeiou]+` repeated as `[aeiou]+{2}`."
         patterns = _extract_block_patterns_from_rule(rule)
-        # The second pattern ][{ triggers the guard
+        # [aeiou]+{2} is invalid regex (quantifier on quantifier) — raises re.error, skipped.
+        # [aeiou]+ has no ) before quantifier, so the guard does not fire; compiled as regex.
         for _, compiled in patterns:
             if "{" in compiled.pattern and "aeiou" in compiled.pattern:
                 # Escaped — no raw { quantifier on ]
