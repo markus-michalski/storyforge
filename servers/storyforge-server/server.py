@@ -1,6 +1,6 @@
 """StoryForge MCP Server — entry point and tool surface.
 
-The 60 @mcp.tool() handlers live in domain modules under routers/ (#120).
+The @mcp.tool() handlers live in domain modules under routers/ (#120).
 This file bootstraps the server and re-exports every tool function so tests
 and callers can reach them via ``import server``.
 
@@ -31,11 +31,15 @@ import routers  # noqa: E402, F401
 # ---------------------------------------------------------------------------
 
 from routers.authors import (  # noqa: E402, F401
+    add_vocabulary_entry,
     create_author,
+    delete_discovery,
+    extract_text_from_file,
     get_author,
     harvest_book_rules,
     list_authors,
     update_author,
+    update_discovery_metadata,
     write_author_banned_phrase,
     write_author_discovery,
 )
@@ -65,7 +69,10 @@ from routers.claudemd import (  # noqa: E402, F401
     append_book_workflow,
     get_book_claudemd,
     init_book_claudemd,
+    lint_book_rules,
+    list_book_rules,
     sync_book_claudemd_from_text,
+    update_book_rule,
     update_character_snapshot,
 )
 from routers.creation import (  # noqa: E402, F401
@@ -109,6 +116,7 @@ from routers.series import (  # noqa: E402, F401
     add_book_to_series,
     bootstrap_character_for_new_book,
     copy_recurring_chars_to_new_book,
+    create_character_tracker,
     create_series,
     list_series_trackers_for_book,
     read_character_for_harvest,
