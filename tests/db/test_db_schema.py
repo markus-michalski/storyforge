@@ -129,6 +129,9 @@ class TestGetCanonDbPathSlugValidation:
 # ---------------------------------------------------------------------------
 
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
 class TestStoryforgeDbDirValidation:
     """Issue #329 — STORYFORGE_DB_DIR must be sanitized against traversal."""
 
@@ -140,7 +143,7 @@ class TestStoryforgeDbDirValidation:
             [sys.executable, "-c",
              "from tools.db.connection import DB_DIR; print(DB_DIR)"],
             capture_output=True, text=True,
-            cwd="/home/markus/projekte/storyforge",
+            cwd=str(_PROJECT_ROOT),
             env=env,
         )
         assert result.returncode == 0, result.stderr
@@ -152,7 +155,7 @@ class TestStoryforgeDbDirValidation:
         result = __import__("subprocess").run(
             [sys.executable, "-c", "from tools.db.connection import DB_DIR"],
             capture_output=True, text=True,
-            cwd="/home/markus/projekte/storyforge",
+            cwd=str(_PROJECT_ROOT),
             env=env,
         )
         assert result.returncode != 0
