@@ -50,6 +50,7 @@ Call MCP `get_author(author_slug)`. From the result, extract:
   - `single_line_paragraph_ratio_target` (format: "15–25%")
   - `avg_sentence_length_target` (format: "11–15 words")
   - If these fields are absent, fall back to defaults (see Phase 3).
+- **Style notes** (`style_notes`) — Voice tables, Tone Profile, Signature Moves from `profile.md` (Issue #294). Read if non-empty; use as qualitative context for the tone and positive-marker checks. Empty → skip silently.
 
 - **Tone descriptors** (`tone`) — e.g. "sarcastic, playful, warm". Used as a soft lens for qualitative checks.
 

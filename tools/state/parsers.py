@@ -211,16 +211,26 @@ def parse_person_file(path: Path) -> dict[str, Any]:
 
 
 def parse_author_profile(path: Path) -> dict[str, Any]:
-    """Parse an author profile.md into structured data — Issue #281.
+    """Parse an author profile.md into structured data — Issue #281 / #294.
 
     Writing Discoveries are no longer parsed from Markdown; they are read
     from the author_discoveries SQLite table by get_author() in the router.
     ``writing_discoveries`` is omitted here so the state cache does not carry
     stale Markdown data — the router always merges fresh DB rows before
     returning get_author() responses.
+
+    ``style_notes`` contains the profile body above ``## Writing Discoveries``
+    (Voice tables, Tone Profile, Signature Moves, Dialog Voice, etc.) — rich
+    hand-crafted content that has never been in the DB and must be surfaced to
+    chapter-writer and author-check via get_author() (Issue #294).
     """
     text = path.read_text(encoding="utf-8")
-    meta, _ = parse_frontmatter(text)
+    meta, body = parse_frontmatter(text)
+
+    # Strip ## Writing Discoveries section — that content lives in DB (Issue #281).
+    # Everything above it (Voice tables, Tone Profile, Signature Moves) becomes style_notes.
+    discoveries_match = re.search(r"^## Writing Discoveries\b", body, re.MULTILINE)
+    style_notes = body[: discoveries_match.start()].strip() if discoveries_match else body.strip()
 
     return {
         "slug": path.parent.name,
@@ -239,6 +249,7 @@ def parse_author_profile(path: Path) -> dict[str, Any]:
         "author_writing_mode": meta.get("author_writing_mode", "outliner"),
         "created": str(meta.get("created", "")),
         "updated": str(meta.get("updated", "")),
+        "style_notes": style_notes,
     }
 
 
