@@ -18,7 +18,11 @@ from pathlib import Path
 from typing import Any
 
 from tools.analysis.timeline_validator import parse_plot_timeline
-from tools.db.brief_helpers import load_canon_facts_for_brief
+from tools.db.brief_helpers import (
+    load_callbacks_for_brief,
+    load_canon_facts_for_brief,
+    load_rules_for_brief,
+)
 from tools.state.chapter_timeline_parser import parse_chapter_timeline_grid
 
 
@@ -263,67 +267,6 @@ def _parse_tonal_rules(tone_text: str) -> dict[str, list[str]]:
     }
 
 
-# ---------------------------------------------------------------------------
-# Book CLAUDE.md rules + callbacks (shared logic)
-# ---------------------------------------------------------------------------
-
-_RULES_SECTION_RE = re.compile(
-    r"^##\s+Rules\s*$(.*?)^##\s+",
-    re.MULTILINE | re.DOTALL,
-)
-_CALLBACKS_SECTION_RE = re.compile(
-    r"^##\s+Callback Register\s*$(.*?)(?=^---\s*$|\Z)",
-    re.MULTILINE | re.DOTALL,
-)
-_BAN_CUE_RE = re.compile(
-    r"\b(banned|ban|avoid|never|don['']?t\s+use|do\s+not\s+use|"
-    r"limit|stop\s+using)\b",
-    re.IGNORECASE,
-)
-
-
-def _classify_rule(rule: str) -> str:
-    if "`" in rule and _BAN_CUE_RE.search(rule):
-        return "block"
-    return "advisory"
-
-
-def _section_bullets(text: str, section_re: re.Pattern) -> list[str]:
-    match = section_re.search(text)
-    if not match:
-        return []
-    body = _COMMENT_RE.sub("", match.group(1))
-    items = []
-    for m in _BULLET_RE.finditer(body):
-        item = re.sub(r"\s+", " ", m.group("body")).strip()
-        if item:
-            items.append(item)
-    return items
-
-
-def _load_book_rules_and_callbacks(
-    book_root: Path,
-    recorder: _Recorder,
-) -> tuple[list[dict[str, str]], list[str]]:
-    """Extract active_rules and active_callbacks from book CLAUDE.md."""
-    rules: list[dict[str, str]] = []
-    callbacks: list[str] = []
-    claudemd_path = book_root / "CLAUDE.md"
-    if not claudemd_path.is_file():
-        return rules, callbacks
-
-    text = recorder.run(
-        "claudemd.read",
-        lambda: claudemd_path.read_text(encoding="utf-8"),
-        "",
-    )
-    if not text:
-        return rules, callbacks
-
-    for rule_text in _section_bullets(text, _RULES_SECTION_RE):
-        rules.append({"text": rule_text, "severity": _classify_rule(rule_text)})
-    callbacks = _section_bullets(text, _CALLBACKS_SECTION_RE)
-    return rules, callbacks
 
 
 # ---------------------------------------------------------------------------
@@ -472,8 +415,9 @@ def build_review_brief(
                 {},
             )
 
-    # ----- rules + callbacks from book CLAUDE.md ----------------------------
-    active_rules, active_callbacks = _load_book_rules_and_callbacks(book_root, recorder)
+    # ----- rules + callbacks from book_rules DB (#304) ----------------------
+    active_rules = load_rules_for_brief(book_root)
+    active_callbacks = load_callbacks_for_brief(book_root)
 
     return {
         "book_slug": book_slug,

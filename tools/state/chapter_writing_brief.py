@@ -39,12 +39,8 @@ from tools.state.loaders.chapter_meta import (
     load_chapter_meta,
     serialize_chapter_meta,
 )
-from tools.state.loaders.claudemd_sections import (
-    callback_register_bullets,
-    classify_rule,
-    litmus_questions,
-    rule_bullets,
-)
+from tools.db.brief_helpers import load_callbacks_for_brief, load_rules_for_brief
+from tools.state.loaders.claudemd_sections import litmus_questions
 from tools.state.loaders.people import (
     character_payload,
     consent_status_warnings,
@@ -231,35 +227,6 @@ def _gather_recent(
     return recent_endings, simile_counts
 
 
-def _gather_claudemd(
-    book_root: Path,
-    *,
-    recorder: _Recorder,
-) -> tuple[list[dict[str, str]], list[str]]:
-    """Rules (with severity) and callbacks from the book CLAUDE.md."""
-    rules_to_honor: list[dict[str, str]] = []
-    callbacks_in_register: list[str] = []
-    claudemd_path = book_root / "CLAUDE.md"
-    if not claudemd_path.is_file():
-        return rules_to_honor, callbacks_in_register
-
-    claudemd_text = recorder.run(
-        "claudemd.read",
-        lambda: claudemd_path.read_text(encoding="utf-8"),
-        "",
-    )
-    if not claudemd_text:
-        return rules_to_honor, callbacks_in_register
-
-    for rule_text in rule_bullets(claudemd_text):
-        rules_to_honor.append(
-            {
-                "text": rule_text,
-                "severity": classify_rule(rule_text),
-            }
-        )
-    callbacks_in_register = callback_register_bullets(claudemd_text)
-    return rules_to_honor, callbacks_in_register
 
 
 def _gather_tone(
@@ -454,10 +421,9 @@ def build_chapter_writing_brief(
         recorder=recorder,
     )
 
-    rules_to_honor, callbacks_in_register = _gather_claudemd(
-        book_root,
-        recorder=recorder,
-    )
+    # ----- rules + callbacks from book_rules DB (#304) ----------------------
+    rules_to_honor = load_rules_for_brief(book_root)
+    callbacks_in_register = load_callbacks_for_brief(book_root)
 
     banned_phrases = recorder.run(
         "banned_phrases",
