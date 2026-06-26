@@ -5,7 +5,7 @@ description: |
   Use when: (1) User types a line starting with `Regel:`, `Workflow:`, or `Callback:`,
   (2) User says "merke dir", "callback", "neue Regel", "ab jetzt immer",
   (3) User wants to persist a detail across sessions (e.g. "Gary soll wiederkommen").
-  The entry is appended to the book's CLAUDE.md and survives context compaction.
+  The entry is stored in the book_rules database and survives context compaction.
 model: claude-haiku-4-5
 user-invocable: true
 argument-hint: "<Regel|Workflow|Callback>: <text>"
@@ -41,7 +41,7 @@ Deterministic persistence of per-book context. No creativity needed — just ext
    - workflow → `append_book_workflow(book_slug, text)`
    - callback → `append_book_callback(book_slug, text)`
 
-5. **Confirm** — One-line confirmation: `✅ [kind] gespeichert in CLAUDE.md: "[text]"`
+5. **Confirm** — One-line confirmation: `✅ [kind] gespeichert in der Book-Rules-Datenbank: "[text]"`
 
 ## Batch Mode
 

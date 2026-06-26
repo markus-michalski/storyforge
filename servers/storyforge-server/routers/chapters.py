@@ -205,8 +205,8 @@ def get_chapter_writing_brief(book_slug: str, chapter_slug: str) -> str:
           items with source pointers; extraction_method ∈ {frontmatter,
           timeline_regex, draft_heuristic, none}; warnings surface gaps
           so the writer asks instead of inventing — Issue #157)
-        - rules_to_honor (book CLAUDE.md ## Rules with severity)
-        - callbacks_in_register (book CLAUDE.md ## Callback Register)
+        - rules_to_honor (book_rules DB rule entries with severity)
+        - callbacks_in_register (book_rules DB callback entries)
         - banned_phrases (deduplicated book + author + global banlist)
         - recent_simile_count_per_chapter
         - tone_litmus_questions (from plot/tone.md if present)
@@ -261,8 +261,8 @@ def get_review_brief(book_slug: str, chapter_slug: str) -> str:
         travel_matrix           — parsed world/setting.md Travel Matrix rows
         canon_log_facts         — parsed plot/canon-log.md Established Facts
         tonal_rules             — non-negotiable rules, litmus, banned patterns
-        active_rules            — book CLAUDE.md ## Rules with severity
-        active_callbacks        — book CLAUDE.md ## Callback Register items
+        active_rules            — book_rules DB (rule_type: rule) with severity
+        active_callbacks        — book_rules DB (rule_type: callback)
         errors                  — partial failures (brief ships with degraded data)
     """
     book_root = resolve_project_path(_app.load_config(), book_slug)

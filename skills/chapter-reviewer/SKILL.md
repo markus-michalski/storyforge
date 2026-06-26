@@ -31,8 +31,8 @@ Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
 - `travel_matrix` — parsed `world/setting.md` Travel Matrix rows
 - `canon_log_facts` — canon facts from DB (Issue #297; `plot/canon-log.md` no longer read by `get_review_brief`)
 - `tonal_rules` — non-negotiable rules, litmus test, banned patterns from `plot/tone.md`
-- `active_rules` — book CLAUDE.md ## Rules with severity
-- `active_callbacks` — book CLAUDE.md ## Callback Register items
+- `active_rules` — book_rules DB (rule_type: rule) with severity
+- `active_callbacks` — book_rules DB (rule_type: callback)
 - `errors` — non-empty means some files missing; degrade gracefully, do not invent
 
 Honor every populated field. Empty lists / null means "file missing — degrade gracefully."

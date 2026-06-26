@@ -43,11 +43,11 @@ Ask (AskUserQuestion, up to 3 questions in one call):
 
 3. **Scope** — "Where should this rule apply?"
    Options:
-   - This book only — writes to book CLAUDE.md `## Rules`
+   - This book only — writes to book_rules DB
    - This author only — writes to author `vocabulary.md` (applies to all books by this author)
    - Global (all books, all authors) — writes to `reference/craft/anti-ai-patterns.md`
 
-For structural rules (walking order, POV boundary) that cannot be expressed as a phrase: scope defaults to book CLAUDE.md and severity to warn. Skip Step 4 (no scan).
+For structural rules (walking order, POV boundary) that cannot be expressed as a phrase: scope defaults to book_rules DB and severity to warn. Skip Step 4 (no scan).
 
 ## Step 4: Scan for Existing Occurrences
 
@@ -120,6 +120,6 @@ Rule added:
 ## Important Behavior
 
 - **Never blindly accept user's first phrasing.** If the regex is too broad (e.g. `"the"`) or the description is vague, ask for a more specific trigger. A rule that fires on everything is worse than no rule.
-- **Structural rules** (walking order, POV boundary) go in book CLAUDE.md as freeform rules, not phrase patterns. The manuscript-checker cannot scan them, but the skill prompts (chapter-writer, chapter-reviewer) will honor them.
+- **Structural rules** (walking order, POV boundary) go in book_rules DB as freeform rules, not phrase patterns. The manuscript-checker cannot scan them, but the skill prompts (chapter-writer, chapter-reviewer) will honor them.
 - **Dedup**: If the phrase already exists at the requested scope, report this and offer to escalate scope instead of adding a duplicate.
 - **Phase ordering**: Clarify first → scan → confirm → write. Never write without explicit confirmation.
