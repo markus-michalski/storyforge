@@ -69,6 +69,8 @@ _SHARED_CHAPTER_ANCHORS = [
     "## § Chapter Completion",
     "## § POV Snapshot Procedure",
     "## § User Feedback Handling",
+    "## § Pre-Logic Audit",
+    "## § EA-Scan Protocol",
 ]
 
 

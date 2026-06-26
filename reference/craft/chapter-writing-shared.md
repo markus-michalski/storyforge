@@ -87,3 +87,48 @@ The user explicitly values being challenged over being blindly agreed with. Befo
 5. **Propose alternatives** — If the concern is valid but the suggested fix isn't, offer a better one.
 
 Only after validation should the correction be applied.
+
+## § Pre-Logic Audit
+
+**Emit a bulleted audit block to chat before any prose enters `draft.md`.** No exceptions, no inlining into the prose response. For each category, answer in one sentence citing the source; if the source is silent, say so — that is the gap to surface, not paper over.
+
+1. **Inventory (POV character).** What does the POV char physically carry? **Source:** brief's `pov_character_inventory`. If `extraction_method: "none"` or `warnings` non-empty → ask before any item-touching action; do not invent.
+
+2. **Geography.** Which rooms, routes, and waypoints does this scene touch; which is the POV char familiar with? **Source:** `world/setting.md` Travel Matrix (fiction) or `research/sources.md` (memoir), plus `plot/timeline.md` and `recent_chapter_timelines`. Model the route before any movement verb.
+
+3. **Character biography & relationships.** For every character on the page: relationship to POV, what POV knows, what is canon-forbidden? **Source:** `characters/{slug}.md` (fiction) or `people/{slug}.md` (memoir), brief's `canon_brief.pov_relevant_facts` + `canon_brief.changed_facts`. For non-POV characters call standalone `get_canon_brief()` → `current_facts`. If `canon_brief.warnings` non-empty → surface and ask. **Also check from Prerequisite 10 (previous chapter prose):** How do these specific characters talk to each other in practice? Unfinished sentences? Physical shorthand before words? Who deflects, who presses? This texture — not the canon relationship summary — is what makes "two people who've been through N chapters together" sound different from "two people explaining things to each other."
+   > *Example: "Caelan is Sera's father, NOT Theo's. Any 'reminds him of his father' framing is canon-break — cut."*
+   > *Texture example: "Ch 31 prose shows Kael asks flat one-word questions when he already knows the answer — he's checking Theo's state, not fishing for info. Theo answers short when he's steady, long when he's scared. They don't explain — they confirm."*
+
+4. **Banned phrases + author tics.** Scan the *planned* beats against brief's `banned_phrases` and author profile's `writing_discoveries.recurring_tics` / `donts`. Replan offending beats before any prose.
+   > *Example: "Planned 'Theo does mental math' → tic `math` → replan as 'Theo cross-checks timing against radio chatter'."*
+
+4.5 **style_principles activation.** From the author profile's `writing_discoveries.style_principles`, **excluding entries suppressed in the book's `## Style Suppressions` section and entries whose `genres` list shares no genre with this book** (entries without `genres` are universal; entries with `universal: true` always apply regardless of `genres`), name 3 principles that this scene's beats can express. For each: (a) the principle heading, (b) which beat is the trigger, (c) the concrete action or line that delivers it. If the principle has an `example` field, **quote it verbatim** immediately after naming it — that example is what the principle sounds like in this author's voice. If you cannot name a specific beat for a principle, do not count it — an intention without a beat is a hope, not a plan. List the 3 active principles before drafting begins.
+
+5. **Sensory plausibility.** Can the POV perceive what the planned beat requires? **Source:** brief's `pov_character_state` — `clothing`, `injuries`, `altered_states`, `environmental_limiters`. If any category has `extraction_methods[cat] == "none"` AND the planned beat depends on it → surface and ask.
+
+6. **Scene arc (scene-level; Step 1 asks the chapter-level equivalent).** In one sentence: what does the POV character feel at the start of this scene, what shifts mid-scene, and where do they land emotionally? **Source:** scene PURPOSE from the `## Scene Plan` in the chapter README. If you can only answer by listing beats in order, re-read PURPOSE before writing.
+
+If any category surfaces a gap, surface it explicitly and ask the user — never paper over it.
+
+## § EA-Scan Protocol
+
+Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `draft.md` until this scan is fully resolved.** Reference: `anti-ai-patterns.md` Section 11 for the full shape catalog and examples.
+
+**Shape catalog:** `anti-ai-patterns.md` Section 11 has the full catalog, markers, and examples (11.1–11.10). Quick-scan markers: *One/Two/Three words.* narrator commentary (11.1); *the words/line landed* (11.2); *the room received / silence held* (11.3); *most expensive sentence / paid in silence* (11.4); *did not quite become* — flag 2+ per scene (11.5); body-part + deciding/refusing/knowing (11.6); *trust his/her/my face/hands* trust-split variants (11.6); backward-negation refusal clauses (11.7); same logical constraint in two consecutive sentences (11.8).
+
+**Scan protocol:**
+
+1. Scan all prose in the current scene for the above markers.
+2. If **zero hits**: emit `EA-Scan: clean ✓` and proceed to append.
+3. If **5 or more hits**: stop and flag it. These shapes cluster — a scene with 5+ hits needs a rewrite, not spot-welding. Tell the user: "This scene has N EA-hits. Patching this many shapes risks losing coherence — recommend rewriting from scratch. Proceed with per-hit fixes or rewrite?" Wait for the user's choice before continuing.
+4. If **1–4 hits**: do NOT append yet. Present each hit to the user one at a time (chat, not prose): shape type, original sentence, proposed fix. Offer `apply / skip / try again`. If this is the **second or later 11.5 hit**, add `[11.5 recurrence — pushback required before skip]` and offer a concrete alternative before accepting a skip.
+
+5. Wait for user response per hit:
+   - `apply` — write the fix into the scene text, proceed to next hit
+   - `skip` — keep original, proceed to next hit (shape remains; user accepts it deliberately)
+   - `try again` or free text — user proposes an alternative or requests a different angle; iterate. After **3 try-again iterations** on the same hit, ask: "Provide the replacement text directly, or type `skip`."
+
+6. After ALL hits are resolved (applied or explicitly skipped), append the corrected scene to `draft.md`. In the chat metadata line (scene number / word count / summary) add: `EA-Scan: N fixed, M skipped`.
+
+**Fix direction (same for all shapes):** Route the emotional weight through a named body in the room. Whose eyes did not move. Whose hand stilled. Whose breath came faster. Specificity is the antidote.
