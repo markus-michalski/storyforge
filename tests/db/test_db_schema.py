@@ -122,3 +122,39 @@ class TestGetCanonDbPathSlugValidation:
 
         path = get_canon_db_path("")
         assert path.name == ".db"
+
+
+# ---------------------------------------------------------------------------
+# STORYFORGE_DB_DIR validation (Issue #329)
+# ---------------------------------------------------------------------------
+
+
+class TestStoryforgeDbDirValidation:
+    """Issue #329 — STORYFORGE_DB_DIR must be sanitized against traversal."""
+
+    def test_valid_tmp_path_accepted(self, tmp_path: Path):
+        import importlib
+        import sys
+
+        env = {**__import__("os").environ, "STORYFORGE_DB_DIR": str(tmp_path)}
+        result = __import__("subprocess").run(
+            [sys.executable, "-c",
+             "from tools.db.connection import DB_DIR; print(DB_DIR)"],
+            capture_output=True, text=True,
+            cwd="/home/markus/projekte/storyforge",
+            env=env,
+        )
+        assert result.returncode == 0, result.stderr
+        assert str(tmp_path) in result.stdout
+
+    def test_dotdot_traversal_rejected(self, tmp_path: Path):
+        import sys
+        env = {**__import__("os").environ, "STORYFORGE_DB_DIR": "/tmp/../etc/evil"}
+        result = __import__("subprocess").run(
+            [sys.executable, "-c", "from tools.db.connection import DB_DIR"],
+            capture_output=True, text=True,
+            cwd="/home/markus/projekte/storyforge",
+            env=env,
+        )
+        assert result.returncode != 0
+        assert "invalid path components" in result.stderr
