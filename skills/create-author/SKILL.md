@@ -4,7 +4,7 @@ description: |
   Create a new author profile with writing style, voice, and preferences.
   Use when: (1) User says "Autor anlegen", "create author", "Autorenprofil",
   (2) Before starting a first book project.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<author-name>"
 ---
@@ -24,6 +24,8 @@ Ask: *"Will this author primarily write fiction, memoir, or both?"*
 - **Memoir** → Phase 1–3 branch into memoir-specific questions (memoir path)
 - **Both** → run fiction path first; then add memoir-specific fields at the end of Phase 3
 
+**Wait for user answer before proceeding to Phase 1.**
+
 ---
 
 ## Fiction Path
@@ -35,6 +37,8 @@ Ask the user:
 3. **Writing influences** — Which published authors inspire this persona? (e.g., "Stephen King meets Carmen Maria Machado")
 4. **Native language** — What is the author's mother tongue? (ISO 639-1 code, e.g. `de`, `fr`, `es`, `ja`) — used for explanations in language-aware skills like the proofreader
 5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `book_language` set. (default: `en`)
+
+**Wait for user to answer all Phase 1 questions before moving to Phase 2.**
 
 ### Phase 2: Voice Definition
 Guide the user through voice choices (use AskUserQuestion):
@@ -51,11 +55,15 @@ Guide the user through voice choices (use AskUserQuestion):
    - **Plantser (Hybrid)** — Knows the key story beats, discovers the rest scene by scene
    - **Discovery Writer (Pantser)** — Finds the story as they write; no outline before drafting
 
+**Do not ask Phase 3 questions until Phase 2 answers are confirmed.**
+
 ### Phase 3: Deeper Character
 Ask open-ended questions:
 - "What themes keep pulling this author back?" (e.g., isolation, identity, power)
 - "What does this author NEVER do?" (e.g., happy endings, love triangles, info-dumps)
 - "What's this author's signature move?" (e.g., unreliable narrators, gut-punch endings, dry wit in dark moments)
+
+**Wait for user confirmation before executing Phase 4 MCP calls.**
 
 ### Phase 5: Study (Fiction Optional)
 Ask: "Do you have PDFs or text files from authors whose style you want to channel? → `/storyforge:study-author`"
@@ -73,6 +81,8 @@ Ask the user:
 3. **Writing influences** — Which memoirists or essayists inspire this voice? (e.g., Mary Karr, Tara Westover, Carmen Maria Machado, Ta-Nehisi Coates, Kiese Laymon, Roxane Gay, Paul Kalanithi)
 4. **Native language** — What is the author's mother tongue? (ISO 639-1 code, e.g. `de`, `fr`, `es`, `ja`) — used for explanations in language-aware skills like the proofreader
 5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `book_language` set. (default: `en`)
+
+**Wait for user to answer all Phase 1 questions before moving to Phase 2.**
 
 ### Phase 2: Voice Definition (Memoir)
 Same universal voice questions as fiction, plus memoir-specific additions:
@@ -107,12 +117,16 @@ Same universal voice questions as fiction, plus memoir-specific additions:
     - Information that would harm living people if published?
     Save these in the profile as `off_limits` — the chapter-writer and ethics-checker will honor them.
 
+**Do not ask Phase 3 questions until Phase 2 answers are confirmed.**
+
 ### Phase 3: Deeper Character (Memoir)
 Ask open-ended questions tailored to memoir:
 - "What do you want readers to understand that only YOU could tell them?" (The unique access — what only this author could have witnessed or lived)
 - "What are you afraid to write?" (The avoidance points — often the most important material)
 - "What is your 'why now'?" (Why is this the right moment to write this memoir? What changed?)
 - "What will you protect?" (What relationships or people are you not willing to damage — and how does that shape the story you can tell?)
+
+**Wait for user confirmation before executing Phase 4 MCP calls.**
 
 ---
 
@@ -123,16 +137,16 @@ Ask open-ended questions tailored to memoir:
 3. Call MCP `update_author(slug, "native_language", value)` and `update_author(slug, "preferred_writing_language", value)`
 4. For memoir authors, also call `update_author(slug, "subject_position", value)` and `update_author(slug, "off_limits", value)`
 4. Load the generated `profile.md` and `vocabulary.md`
-5. Review the banned words list (AI tells) — ask if user wants to add/remove any
+5. Review the banned words list (AI tells) — ask if user wants to add/remove any (brief: list entries only, no prose commentary)
 6. For memoir: pre-populate memoir-specific AI tells from `book_categories/memoir/craft/memoir-anti-ai-patterns.md` (reflective platitudes, "looking back I realize", tidy lesson endings)
-7. Show the complete profile to the user
+7. Show the complete profile as a compact YAML-style summary (~150 words). Do not add prose commentary.
 
 ## Shared Phase 5: Study (Optional)
 - **Fiction:** "Do you have PDFs from authors whose style you want to channel? → `/storyforge:study-author`"
 - **Memoir:** "Do you have personal journals, letters, or old writing to analyze for your authentic voice? → `/storyforge:study-author` (memoir mode)"
 
 ## Rules
-- **MANDATORY:** Every profile must have the "avoid" list pre-populated with AI-tell words from `anti-ai-patterns.md`. For memoir, additionally pre-populate with memoir-specific AI tells.
+- **MANDATORY — Why:** Anti-AI vocabulary is the primary defense against generic output. Always pre-populate the avoid list from `anti-ai-patterns.md` before showing the profile. For memoir, additionally load `memoir-anti-ai-patterns.md`.
 - Tone descriptors should be SPECIFIC, not generic ("searching with dry wit" beats "introspective").
 - Influences should be REAL authors the user has actually read.
 - The profile is a living document — it evolves as the author writes.

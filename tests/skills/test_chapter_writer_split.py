@@ -77,13 +77,13 @@ class TestSkillFiles:
     def test_fiction_frontmatter_correct(self) -> None:
         fm = _read_frontmatter(SKILL_FICTION)
         assert fm["name"] == "chapter-writer"
-        assert fm["model"] == "claude-opus-4-7"
+        assert fm["model"] == "claude-opus-4-8"
         assert fm["user-invocable"] == "true"
 
     def test_memoir_frontmatter_correct(self) -> None:
         fm = _read_frontmatter(SKILL_MEMOIR)
         assert fm["name"] == "chapter-writer-memoir"
-        assert fm["model"] == "claude-opus-4-7"
+        assert fm["model"] == "claude-opus-4-8"
         assert fm["user-invocable"] == "true"
 
 

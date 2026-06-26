@@ -7,7 +7,7 @@ description: |
   Use when: (1) User says "humanize chapter", "AI-Tells entfernen", "chapter humanizer",
   (2) After chapter-reviewer craft fixes are applied and the prose still feels AI-generated,
   (3) As a mandatory step in the standard writing workflow between review and proofread.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> <chapter-slug>"
 ---
@@ -55,13 +55,13 @@ Scan every sentence for the following constructions. For each hit, record: line 
 
 Scan for the 60 flagged words and phrases from Section 1 of anti-ai-patterns.md. Entries 1–55 include core AI-vocabulary (`delve`, `tapestry`, `nuanced`, `vibrant`, `landscape` (metaphorical), `embark`, `resonate`, `pivotal`, `realm`, `testament`, `intricate`, `myriad`, `unprecedented`, `foster`, `navigate` (metaphorical), etc.). Entries 56–60 are formal transition tells: `Furthermore`, `Moreover`, `In addition`, `Conversely`, `On the other hand`.
 
-For each hit: record word, sentence, context. Do not flag words that are clearly literal or in-character dialect.
+For each hit: record word, sentence, context. Flag only non-literal uses — words that are clearly literal or in-character dialect are excluded from the scan.
 
 Also check author profile's `writing_discoveries.donts` and `vocabulary.md` banned list — these are book/author-specific additions.
 
 ## Output: Scan Report
 
-After both passes, present the findings as a numbered list. Do NOT apply any changes yet.
+After both passes, present the findings as a numbered list. All changes are held until the user's approval response below.
 
 ```
 ## Humanizer Scan — {book-slug} / {chapter-slug}
@@ -95,7 +95,7 @@ Proposed fix: *"...the tension between them, which neither named..."*
 **Instructions:** Reply with the hit numbers you want to apply as-is, numbers you want a different alternative for (e.g. "3: shorter"), and numbers you want to skip. Example: "apply 1, 2, 4 / rework 3: make it one sentence / skip none"
 ```
 
-**Do not present more than 20 hits at once.** If the chapter has more, present the first 20, apply those, then continue with the next batch.
+**Present hits in batches of ≤ 20.** If the chapter has more, present the first 20, apply those, then continue with the next batch.
 
 ## Interaction Loop
 
@@ -123,7 +123,7 @@ Present the rework for confirmation before applying: *"Rework for [N]: '[revised
 After the user approves (or applies with reworks confirmed):
 
 1. Read the full `draft.md` again before writing (GH#27 — file may have changed if the session has been long).
-2. Apply ALL approved changes in a single write pass — do not write the file multiple times.
+2. Apply ALL approved changes in a single write pass — one write, all changes together.
 3. Report: *"Applied N changes. Skipped M. Draft updated."*
 4. If flagged vocabulary was accepted to stay, note it: *"[word] kept at your request."*
 
@@ -133,11 +133,17 @@ After applying, offer: *"Möchtest du noch eine Runde? Oder weiter zu `/storyfor
 
 If the user wants another pass: re-scan the updated draft (the fixes may have introduced new issues — rare but possible). Cap at 2 iterations per session.
 
+## Surgical Mode — Core Constraints
+
+All fixes in this skill operate under the following four rules:
+
+1. **Touch only the flagged construction.** The replacement covers the hit and nothing else — surrounding prose, style, and content remain as the chapter-reviewer left them.
+2. **Verify alternatives before proposing.** Confirm that the proposed replacement is free of Section 11 shapes, flagged vocabulary, and other known AI-tells before presenting it.
+3. **Author voice is mandatory.** Every proposed alternative must match the author's documented tone, rhythm, and vocabulary. An alternative that sounds like a different author is a regression, not a fix.
+4. **Read the full file before writing.** GH#27 applies here. Always re-read `draft.md` before the write pass, then write once with all approved changes.
+
 ## Rules
 
-- **Surgical only.** Change only the flagged construction. Do not improve surrounding prose, fix style, or add content. The chapter-reviewer already handled craft.
-- **Author voice is mandatory.** Every proposed alternative must match the author's documented tone, rhythm, and vocabulary. An alternative that sounds like a different author is a regression, not a fix.
+- **Surgical only.** Apply Surgical Mode above. The chapter-reviewer already handled craft.
 - **No wholesale rewrites.** If a passage has so many Section 11 shapes that individual fixes would require reconstructing the scene, stop and tell the user: *"Szene [N] hat [X] overlapping shapes — eine gezielte Überarbeitung der ganzen Szene wäre effizienter als Einzelfixes. Soll ich Vorschläge für die ganze Szene machen?"* Then wait for explicit confirmation before proceeding.
-- **Do not create new AI-tells.** Before proposing any fix, run a quick mental check: does the proposed alternative introduce a new Section 11 shape, flagged vocabulary word, or other known tell?
-- **Read the full file before writing.** GH#27 applies here. Always re-read `draft.md` before the write pass.
 - **voice-checker is optional after humanizing.** If the user wants a holistic score after this pass, suggest `/storyforge:voice-checker`. But the humanizer's targeted pass is more actionable for the patterns it covers.

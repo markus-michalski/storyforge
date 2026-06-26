@@ -5,7 +5,7 @@ description: |
   For fantasy/sci-fi/supernatural/historical: run after `/storyforge:character-creator`, before `/storyforge:chapter-writer`. Optional for contemporary, romance, mystery, drama, literary.
   Use when: (1) User says "Welt", "world", "Setting", "Magic System",
   (2) For fantasy, sci-fi, supernatural, or historical genres.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug>"
 ---
@@ -45,15 +45,17 @@ Ask the user:
 - "Is the setting a character in this story, or just a backdrop?"
 - "Are there systems (magic, technology, supernatural) that need rules?"
 
+**Wait for user response before proceeding to Step 2.**
+
 ### Step 2: Setting Foundation
-For `{project}/world/setting.md`:
+For `{project}/world/setting.md` (~300-500 words total for this section):
 - **Where:** Geography, climate, key locations
 - **When:** Time period, era, season
 - **Sensory palette:** What does this world look/sound/smell/feel like?
 - **Key locations:** Create a table of important places with significance
 
 ### Step 3: Systems & Rules (if applicable)
-For `{project}/world/rules.md`:
+For `{project}/world/rules.md` (concise bullets, not prose paragraphs — 1-2 sentences per point):
 
 **Magic System** (reference `world-building.md` — Sanderson's Laws):
 - Hard or Soft magic?
@@ -74,7 +76,7 @@ For `{project}/world/rules.md`:
 - What do mortals know vs. not know?
 
 ### Step 4: Society & Culture
-For `{project}/world/setting.md`:
+For `{project}/world/setting.md` (~300-500 words total for this section):
 - Social structure, class system, power dynamics
 - Government/politics — who holds power and why?
 - Religion/beliefs — how they shape behavior
@@ -93,7 +95,7 @@ For `{project}/world/history.md`:
 Target: ~500-1000 Wörter total für die History-Sektion, als Richtwert. Wenn die Story eine 5000-jährige Imperien-Geschichte braucht, darf es mehr werden — aber dann mit klarer Verbindung zu Plot-Konflikten.
 
 ### Step 6: Glossary
-For `{project}/world/glossary.md`:
+For `{project}/world/glossary.md` (keep to 10-20 core terms — expand later if needed):
 - Terms unique to this world
 - Place names with pronunciations if unusual
 - Cultural concepts that need definition
@@ -134,6 +136,8 @@ Memoir books typically have no `world/` directory — settings live in `research
 
 #### Step 1: Identify Significant Places
 Ask the user: "Which locations in your memoir are emotionally or narratively significant? List them — even briefly."
+
+**Wait for user response before proceeding.**
 
 For each location, assess whether it deserves a setting note:
 - Places where key events happen (ALWAYS document)

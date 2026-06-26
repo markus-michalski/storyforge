@@ -5,7 +5,7 @@ description: |
   Use when: (1) User says "Recherche", "research", "find out about",
   (2) Story requires factual accuracy (historical periods, locations, professions, etc.),
   (3) Memoir author needs to verify dates, period details, or remembered facts.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<topic> [book-slug]"
 ---
@@ -54,6 +54,7 @@ Use WebSearch to find authoritative sources:
 ### Step 3: Synthesize
 
 Write findings to `{project}/research/notes/{topic-slug}.md`.
+**Scope: ~300–500 words per topic; bullet-point style; depth over length.**
 
 **Fiction captures:**
 - Key facts relevant to the story

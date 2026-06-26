@@ -4,7 +4,7 @@ description: |
   Write a chapter in the author's voice, guided by craft knowledge and genre conventions.
   THE core creative skill. Use when: (1) User says "Kapitel schreiben", "write chapter",
   (2) Book is in Drafting status with chapters outlined.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> <chapter-number>"
 ---
@@ -115,6 +115,12 @@ After writing:
 1. **Append directly to `{project}/chapters/{chapter}/draft.md`** — never paste prose into chat. If `draft.md` doesn't exist, create it with `# Chapter N: Title` above the first scene. Separate scenes with a blank line.
 2. Report in chat ONLY: scene number, word count, one-line summary.
 3. **WAIT for user feedback** as `{review_handle}:` blocks inside `draft.md`.
+
+> **--- WAIT GATE ---**
+> Stop here. Do NOT proceed to the next scene or any Step A3/A4 actions.
+> Resume only when the user provides explicit written approval or a `{review_handle}:` block in `draft.md`.
+> Silence is not approval.
+> **--- END GATE ---**
 
 #### Step A3: User Review Loop
 
@@ -235,17 +241,17 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 - **Elegant Abstraction Scan (Step 6d) is a non-negotiable interactive hard-gate.** No scene enters `draft.md` until every Section 11 hit is either fixed or explicitly skipped by the user. The model does not fix autonomously — each hit is presented, a replacement proposed, user approves. These shapes look literary but render emotion through abstraction; they are the primary AI-register failure mode at high-stakes moments. See `anti-ai-patterns.md` Section 11.
 - Honor every entry in the brief's `rules_to_honor` (book CLAUDE.md ## Rules) — `severity: block` rules will be hard-blocked by the PostToolUse hook. Honor `tone_litmus_questions` (from `plot/tone.md`) when present.
 - **Callback threading constraints:** If a callback entry includes `intensity:` and `max_mentions:` metadata, treat these as hard constraints. `intensity: passive | max_mentions: 1` = mention the prop once, in passing, no sensory close-up, no emotional emphasis. After drafting, scan for all mentions of the prop — if the count exceeds `max_mentions`, cut or consolidate before the Step 6c scan. Without metadata, apply `active` behavior (2–3 mentions allowed).
-- Never write a relative time reference without checking against the brief's `story_anchor` and `recent_chapter_timelines`. If the math doesn't work, adjust the prose — not the timeline.
+- Honor the brief's `story_anchor` and `recent_chapter_timelines` for every relative time reference. Adjust prose when the math conflicts — the timeline is ground truth, not the draft.
 - The Chapter Timeline section in `README.md` is MANDATORY at review status. Future chapters depend on it.
-- Full-chapter mode: write in ONE PASS, then offer revision. Don't second-guess mid-flow.
-- Scene-by-scene mode: write ONLY the current scene, then STOP and WAIT for explicit user approval (silence does not count). Scene text goes into `draft.md`, never chat — chat gets only metadata (scene number, word count, one-line summary). The user's inline-review workflow (`` ```textile {review_handle}: ... ``` `` blocks) breaks if prose sits in chat.
+- Full-chapter mode: write in ONE PASS, then offer revision. Commit to the flow — course-correct after the scene is complete, not during.
+- Scene-by-scene mode: write ONLY the current scene, then STOP at the WAIT GATE (Step A2). Scene text goes into `draft.md`; chat receives only metadata (scene number, word count, one-line summary). The WAIT GATE enforces this — see Step A2.
 - **Read the full `draft.md` for review (GH#27).** When the user signals `{review_handle}:` blocks are ready (keywords: "kommentiert", "gelesen", "Feedback", "lies mal", "schau dir an"), ALWAYS call `Read` on the whole file first. The file-change system-reminder diff truncates for long files; trailing comments get silently dropped. Count the blocks you see and report the count.
 - **Max. 2 scenes per session (Mode A).** Correction cycles burn context fast — after 2 approved scenes, proactively tell the user to start a new session before continuing with the next scene. Do not wait for compaction to hit silently; degraded context means degraded prose. The `## Scene Plan` in README.md preserves state across sessions.
 - **Stop if context pressure mounts.** A scene written after partial context loss degrades silently. End the session and resume fresh rather than shipping a degraded scene.
 - Target word count from the chapter README.
 
 ### Fiction
-- Continuity is global: check `plot/timeline.md`, `canon_brief` (DB-backed since #297), and `world/setting.md` Travel Matrix in addition to the brief's recent chapter timelines. Never invent travel times. Never contradict canon. Use the NEW version of any `CHANGED` fact — `canon_brief.changed_facts` lists all of them.
+- Continuity is global: check `plot/timeline.md`, `canon_brief` (DB-backed since #297), and `world/setting.md` Travel Matrix in addition to the brief's recent chapter timelines. Honor the Travel Matrix as the ground truth for all distances and travel durations. Honor the canon log as ground truth — use the NEW version of any `CHANGED` fact (`canon_brief.changed_facts` lists all of them).
 - Respect genre conventions — they're the contract with the reader.
 
 ## User Feedback Handling — CRITICAL

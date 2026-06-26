@@ -4,7 +4,7 @@ description: |
   Plan a book series: overarching arc, book connections, canon management.
   Use when: (1) User says "Serie planen", "series", "book series",
   (2) User wants to write multiple connected books.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<series-name>"
 ---
@@ -45,6 +45,8 @@ For sequential/trilogy series — plan the OVERARCHING arc with the user:
 - **Escalation Map**: What raises the stakes between each book?
 - **Protagonist Growth Arc**: How does the main character change across the entire series?
 
+Present each arc element as a **concise proposal (1–2 sentences each)**. Do not elaborate further until the user reacts — avoid walls of text during the planning phase.
+
 Once agreed, use the Write tool to populate `series-arc.md` at the path returned by `create_series()`. Structure the file as:
 
 ```markdown
@@ -74,6 +76,8 @@ For each planned book:
 - Where it sits in the overarching arc
 - New characters introduced
 - Plot threads carried from previous books
+
+Present each book plan as a **~50-word summary**. Do not elaborate further until the user reacts. List all planned books before asking for confirmation.
 
 **Wait for user approval of the book plan before proceeding to Step 5 (Canon Management).** Canon facts are derived from book plans — building canon before plans exist creates orphan facts.
 
@@ -106,7 +110,7 @@ create_character_tracker(
 
 `tracker_type: thin` is correct for characters whose full profile lives in their home book. Use `full` only for characters that span books equally without a "home" book — this is rare.
 
-**Wait for user review of each tracker before creating the next.** The `recurs_in` list is load-bearing for bootstrap, harvest, and brief-source tooling.
+**STOP after presenting the proposed tracker data for each character. Do NOT call `create_character_tracker()` until the user explicitly confirms the `recurs_in` list.** The `recurs_in` list is load-bearing for bootstrap, harvest, and brief-source tooling — wrong values cascade into broken series continuity tools. Do not proceed to the next character until the current tracker is confirmed.
 
 ### Step 6: Link Books
 As books are created, link them via MCP `add_book_to_series(series_slug, book_slug, number)`.

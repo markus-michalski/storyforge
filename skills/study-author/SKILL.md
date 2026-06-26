@@ -5,7 +5,7 @@ description: |
   Use when: (1) User says "Buch studieren", "study this PDF", "Stil analysieren",
   (2) User wants to feed reference material to an author profile,
   (3) Memoir author wants to analyze their own journals, letters, or past writing.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<file-path> [author-slug]"
 ---
@@ -52,6 +52,8 @@ Before analyzing the text, compile a genre-specific checklist of positive craft 
 
 > Example output: "For lgbtq-supernatural-romance I'll specifically track: banter exchange frequency and triggers, sarcasm deployment points, vulnerability reveal pattern, mate/bond tension escalation, pack/found-family dynamic scenes. Additionally from your author's tone profile (sarcastic, playful, warm): humor-as-armor patterns, warmth signals after sarcasm drops."
 
+**Wait for user to confirm or modify the checklist before proceeding to Phase 2. Do not begin text analysis until the user explicitly approves the checklist.**
+
 This checklist drives Phase 2. Every item must be answered — "not found" is a valid answer, but the checklist must be worked through.
 
 ### Phase 2: Analysis
@@ -96,6 +98,8 @@ Before writing analysis to disk, ask: **"Has this author profile already had an 
 - **If No:** Stop here. Direct the user to `/storyforge:create-author` first. Style-extraction is meant to *refine* an existing profile, not to bootstrap one — bootstrapping from a single studied work risks copying that author's signature too closely.
 - **If Yes:** Proceed to Phase 3.
 
+**Wait for explicit Yes/No answer before proceeding. Do not write any files until confirmed.**
+
 ### Phase 3: Write Analysis
 Save analysis as `~/.storyforge/authors/{slug}/studied-works/analysis-{title}.md`
 
@@ -111,22 +115,22 @@ source_genres: "dark-fantasy, lgbtq"
 
 # Style Analysis: {Title}
 
-## Quantitative Metrics
+## Quantitative Metrics (~150 words; tables preferred)
 [Tables with numbers]
 
-## Positive Style Markers
+## Positive Style Markers (~80 words per checklist item)
 [One section per checklist item from Phase 1.5. For each: what was found, frequency/ratio if measurable, concrete examples from the text. "Not found" is a valid answer — record it so the absence is documented, not silently skipped.]
 
-## Distinctive Patterns
+## Distinctive Patterns (~200 words total)
 [Qualitative observations beyond the checklist]
 
-## Signature Techniques
+## Signature Techniques (~150 words total)
 [What makes this writing unique]
 
-## Words & Phrases to Adopt
+## Words & Phrases to Adopt (~100 words; bullet list)
 [Specific vocabulary to incorporate]
 
-## Anti-Patterns Observed
+## Anti-Patterns Observed (~100 words; bullet list)
 [What this author avoids]
 ```
 
@@ -135,13 +139,18 @@ Update the author's profile using MCP tools to ensure cache invalidation:
 
 - **Tone / sentence_style / other frontmatter fields** — MCP `update_author(slug, field, value)` per field
 - **Positive style markers found** — **MANDATORY for every checklist item where a pattern was found.** MCP `write_author_discovery(author_slug, section="style_principles", text=<marker>, book_slug=<analyzed-work-slug>, genres=<source_genres from Phase 1 — empty string if unknown/universal>)` per item. Format: `**[Marker name]** — [concrete observation from this text, with frequency or ratio if measurable].` A positive finding that only lives in `studied-works/analysis-{title}.md` is invisible to chapter-writer. Every found positive marker must become a `style_principles` Writing Discovery. "Not found" items are skipped.
+  **Why:** Writing Discoveries are the only data chapter-writer reads at runtime. A positive marker that lives only in the analysis file has zero effect on prose generation — it is permanently invisible to chapter-writer.
 - **Signature Techniques discovered** (beyond the checklist) — MCP `write_author_discovery(author_slug, section="style_principles", text=<technique>, book_slug=<analyzed-work-slug>, genres=<source_genres from Phase 1>)`
+  **Why:** Signature techniques not written as Discoveries never reach chapter-writer — analysis files are archives, not active guidance.
 - **Anti-patterns to avoid** — MCP `write_author_banned_phrase(author_slug, phrase, reason=<why-avoid>)` per phrase
+  **Why:** Banned phrases only block AI-tells in prose when registered in the author profile — analysis file entries are never checked at write time.
 - **Preferred Words** — MCP `write_author_discovery(author_slug, section="style_principles", text=<entry>, book_slug=<analyzed-work-slug>, genres=<source_genres>)` per word/phrase. Format: `**{word}** — {usage context or frequency observation}.`
+  **Why:** Vocabulary preferences in the analysis file are inert; only profile-level entries influence chapter-writer's word choices.
 - **Deliberate Imperfections** — MCP `write_author_discovery(author_slug, section="recurring_tics", text=<entry>, book_slug=<analyzed-work-slug>, genres=<source_genres>)` per pattern. Format: `**{pattern}** — intentional; {why it works for this author}.`
+  **Why:** Recurring tics must be in the author profile so chapter-writer can reproduce them rather than smoothing them away as errors.
 
 ### Phase 5: Report
-Show the user a summary of what was learned and what changed in the profile.
+Show a concise summary (~200 words total): top 3 findings, count of banned phrases added, count of Writing Discoveries written.
 
 ---
 
@@ -235,7 +244,7 @@ Update the author's profile using MCP tools to ensure cache invalidation:
 - **Preoccupation themes** — MCP `write_author_discovery(author_slug, section="style_principles", text=<entry>, book_slug=<analyzed-work-slug>)` per theme. Format: `**{theme}** — {how it surfaces in this author's writing, vocabulary cluster if applicable}.`
 
 ### Phase 5: Report
-Show the user what was found and what changed. Specifically: which phrases are uniquely theirs and should survive editing, and which patterns (hedging, reflective platitudes) the memoir-anti-ai checker will flag.
+Show a concise summary (~200 words total): top 3 voice findings, count of Writing Discoveries written, count of banned phrases added. Specifically: which phrases are uniquely theirs and should survive editing, and which patterns (hedging, reflective platitudes) the memoir-anti-ai checker will flag.
 
 ---
 

@@ -9,7 +9,7 @@ description: |
   "character", "Figur", "Person", "real people",
   (2) After plot/structure is outlined, to populate the memoir's cast.
   Fiction books → use `/storyforge:character-creator` instead.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> [name]"
 ---
@@ -50,6 +50,8 @@ Ask the user (use AskUserQuestion when the answers branch downstream choices):
 - **Real name**: If a pseudonym, what is the real name? (Stored privately in frontmatter; never rendered into prose.)
 - **Relationship to the memoirist**: Free-text. *"My sister. My third-grade teacher. The neighbor who watched me on Saturdays. The doctor who gave me the diagnosis."* Specificity here drives every other decision.
 
+**Wait for user to confirm name, real name (if any), and relationship before proceeding to Step M2.**
+
 ### Step M2: Person category
 
 Reference `real-people-ethics.md` four-category model. Pick one:
@@ -62,6 +64,8 @@ Reference `real-people-ethics.md` four-category model. Pick one:
 | `anonymized-or-composite` | Identity actively obscured or merged across multiple real people |
 
 If the user is unsure between `private-living-person` and `anonymized-or-composite`, that is itself a flag — push them to commit before continuing. A person whose category is undecided cannot be ethically rendered.
+
+**Wait for user to confirm the chosen `person_category` before proceeding to Step M3.**
 
 ### Step M3: Consent decision
 
@@ -77,6 +81,8 @@ Pick one of five consent statuses:
 
 If `refused` or `not-asking`, ask the user the follow-up: *"What is the path forward — cut, anonymize, or re-frame?"* Capture the answer in the people file's "Consent and ethics notes" section.
 
+**Wait for user to confirm `consent_status` before proceeding to Step M4.**
+
 ### Step M4: Anonymization decision
 
 Pick one:
@@ -89,6 +95,8 @@ Pick one:
 | `composite` | This entry merges two or more real people into one; disclose in author's note |
 
 If anonymization is not `none`, surface the test from `real-people-ethics.md`: *would someone who knew the real person still identify them from the rendered details?* If yes, the anonymization is too thin — push the user to change another identifier or move to `composite`.
+
+**Wait for user to confirm anonymization level before proceeding to Step M5.**
 
 ### Step M5: Memory anchors
 
@@ -123,12 +131,12 @@ Ask: *"Ready to write? → `/storyforge:chapter-writer-memoir`"*
 
 ### Universal
 - Resolve `book_category` in Step 0 before any prerequisite load.
-- Fiction books belong in `/storyforge:character-creator`. Do not blend the two flows.
+- Fiction books belong in `/storyforge:character-creator`. This skill handles only memoir real-people work — the two flows are separate by design.
 
 ### Memoir
-- Real people are captured, not invented. Imposing GMC / want-need / fatal-flaw frames on a real person produces fictionalization — which is the failure mode memoir avoids.
+- Real people are captured, not invented. Use only what the author observed and remembers. GMC / want-need / fatal-flaw frames belong in fiction; applying them to a real person produces fictionalization — which is the failure mode memoir avoids.
 - Every named living person needs a `consent_status` decision before they appear in any scene. `pending` is acceptable during drafting; `unknown` is not.
 - Anonymization that does not actually anonymize is worse than no anonymization — it provides legal exposure with the appearance of safety. Apply the "would someone who knew them identify them" test.
-- The `real_name` field stays in frontmatter only. Never render it into prose. Downstream skills (chapter-writer in memoir mode, #57) read the on-page `name`, not `real_name`.
-- Composites must be disclosed in the export's author's note (#64). Don't composite to obscure identity — that's anonymizing badly. Composite for narrative economy only.
+- The `real_name` field stays in frontmatter only — prose always uses the on-page `name`. Downstream skills (chapter-writer in memoir mode, #57) read `name`, not `real_name`.
+- Composites must be disclosed in the export's author's note (#64). Composite only for narrative economy; identity-obscuring composites that still point to one real person are thin anonymization and carry the same legal exposure.
 - For your own children, anonymize aggressively or wait until they can consent — see `real-people-ethics.md` "Special cases".

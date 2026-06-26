@@ -4,7 +4,7 @@ description: |
   Create social media promotional content for books across all platforms.
   Use when: (1) User says "Promo", "Social Media", "Marketing", "bewerben",
   (2) Book is near completion or published, (3) User wants teasers, announcements, or campaigns.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> [platform]"
 ---
@@ -13,12 +13,19 @@ argument-hint: "<book-slug> [platform]"
 
 ## Prerequisites
 - Load book data via MCP `get_book_full()` — read `book_category`
+  **Why:** `book_category` gates every structural branch in Steps 1–4; without it the blurb structure, quote card rules, and content-type menus are wrong.
 - Read `{project}/synopsis.md` for pitch material
+  **Why:** The Short Synopsis section is the raw material for Step 1; without it the blurb has no factual anchor.
 - Load author profile via MCP `get_author()` — promo voice should match author brand
+  **Why:** Promo voice must match the author brand and respect the banned-word list; mismatches break authenticity and can violate hard author rules.
 - Load genre README(s) — genre audiences have different platform habits
+  **Why:** Genre expectations shape blurb tone and platform strategy; wrong tone signals repel the target readership.
 - **Fiction:** Read `{project}/characters/INDEX.md` for character-driven content
+  **Why:** Character names and defining traits are required for Step 3 character-introduction posts; guessing them risks canon errors.
 - **Memoir:** Read `{project}/people/INDEX.md` (or `{project}/characters/INDEX.md` for legacy projects) — use real names as they appear in the memoir (or their anonymization aliases)
+  **Why:** Anonymization aliases must be used consistently in all public promo; using real names for protected persons is an ethics violation.
 - Read `{plugin_root}/reference/promo/platforms.md` — platform characteristics and content-type templates
+  **Why:** Platform-native format and character limits are required for Step 3 content generation; without this file Steps 3–6 cannot produce native per-platform content.
 
 ## Workflow
 
@@ -105,6 +112,8 @@ Ask the user:
   - Launch announcement
   - Review/testimonial templates (especially for readers who share similar experiences)
 
+**Gate (HARD):** Present the campaign strategy summary (phase, platforms, tone, selected content types). **Wait for explicit user approval before proceeding to Step 3.** Implicit agreement ("sure", "looks fine") does not count — the user must confirm platform selection and content types.
+
 ### Step 3: Generate Platform-Specific Content
 
 Create `{project}/promo/` directory with per-platform files.
@@ -113,8 +122,18 @@ For each selected platform, apply the characteristics and content-type templates
 from `reference/promo/platforms.md` (loaded in Prerequisites).
 Generate native content — never cross-post identical text across platforms.
 
+**Per-post length targets:**
+- Instagram: ~150 words
+- Twitter/X: ~280 characters
+- Facebook: ~200 words
+- TikTok script: ~60 seconds / ~120 words
+- Bluesky: ~300 characters
+- Newsletter: ~300 words
+
 **Output files:** `{project}/promo/{platform}.md`
 Available platforms: `facebook.md`, `instagram.md`, `twitter.md`, `tiktok.md`, `bluesky.md`, `newsletter.md`
+
+**Gate:** Present the generated platform files. **Wait for user review and explicit confirmation before proceeding to Step 4.**
 
 ---
 
@@ -136,15 +155,18 @@ Extract 5-10 compelling quotes from the book for visual content.
 
 Write to `{project}/promo/quotes.md`.
 
+**Gate:** Present the quote cards. **Wait for user confirmation before proceeding to Step 5.**
+
 ### Step 5: Hashtag Strategy
-Research and compile genre-specific hashtags:
+Research and compile genre-specific hashtags. **Max 20 hashtags per category set** — quality over quantity; bloated sets read as spam.
+
 - **Broad:** #bookstagram, #booktok, #readersofinstagram, #bookish
 - **Genre:** #horrorbooks, #fantasyreads, #romancebooks, etc.
 - **Trope:** #enemiestoloverss, #foundFamily, #vampirefiction, etc.
 - **Community:** #indieauthor, #writerscommunity, #amreading
 - **Book-specific:** Create a unique hashtag for the book/series
 
-Write to `{project}/promo/hashtags.md`.
+Write to `{project}/promo/hashtags.md`. Steps 5–6 (hashtags → calendar) can be generated together — present both and wait for combined user confirmation.
 
 ### Step 6: Content Calendar
 Suggest a posting schedule:

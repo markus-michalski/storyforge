@@ -11,7 +11,7 @@ description: |
   check", "Wiederholungen prüfen", "prose tics", "Buch prüfen",
   (2) Book status transitions from Drafting to Revision, (3) Full-manuscript
   revision pass, (4) User wants a craft-level health check before export.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> [--interactive]"
 ---
@@ -91,6 +91,8 @@ Call MCP `get_book_full(book_slug)` and read `book_category`. If it is
 `book_categories/memoir/craft/memoir-anti-ai-patterns.md` before presenting
 findings — memoir-specific recommendations need that context.
 
+**Why:** Memoir-specific recommendations (anonymization blockers, tidy-lesson patterns, reflective-platitude classification) require this context — without it findings will be misclassified and privacy blockers may be downgraded to craft suggestions.
+
 **Memoir mode differences in presentation:**
 - Surface `anonymization_leak` findings first and mark them as
   **pre-publication blockers** — these are not craft suggestions, they are
@@ -156,6 +158,8 @@ instead of re-counting findings.
 
 ### 3. Read the generated report
 
+**Why:** The report contains all ranked findings with per-occurrence snippets that the MCP response summary omits — without reading it, interactive fix mode in Step 5 will miss lower-ranked items and lack the line context needed to propose accurate rewrites.
+
 Read `report_path` so you have the full Markdown context. The detector
 groups findings by category, ranks them, and writes a recommendation per
 finding.
@@ -193,6 +197,10 @@ you want to revise on your own?
 
 If the user says yes (or passes `--interactive`):
 
+**Process ONE finding at a time. Wait for user response (keep / accept / skip / quit) before showing the next finding.**
+
+**After presenting all findings for a category, STOP and wait for the user to respond before moving to the next category.**
+
 Process findings in **category priority order**:
 
 1. `book_rule_violation` (user explicitly wants these fixed)
@@ -205,6 +213,8 @@ Process findings in **category priority order**:
 8. `real_people_consistency` (last — name-form cleanup, no prose rewrite needed)
 
 For each high-severity finding:
+
+**Per finding: snippet + recommendation in ≤3 sentences. Do not expand unless the user asks.**
 
 1. Show the phrase, category, and ALL occurrences with chapter + line + snippet.
 2. Recommend which one to keep (if any) — explain reasoning anchored in the
