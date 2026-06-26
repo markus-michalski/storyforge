@@ -628,8 +628,19 @@ def extract_text_from_file(file_path: str) -> str:
         paragraph_count, character_count, estimated_pages, and sampled flag.
         ``{error}`` on file-not-found, unsupported format, or size limit breach.
     """
+    config = _app.load_config()
+    allowed_roots = [
+        Path(config["paths"]["content_root"]).resolve(),
+        Path(config["paths"]["authors_root"]).resolve(),
+    ]
     try:
-        text = _extract_text_impl(Path(file_path))
+        resolved = Path(file_path).resolve()
+    except (OSError, RuntimeError, ValueError) as exc:
+        return json.dumps({"error": f"Invalid file_path: {exc}"})
+    if not any(resolved.is_relative_to(root) for root in allowed_roots):
+        return json.dumps({"error": "file_path must be within content_root or authors_root"})
+    try:
+        text = _extract_text_impl(resolved)
     except (FileNotFoundError, ValueError, ImportError) as exc:
         return json.dumps({"error": str(exc)})
     return json.dumps({"text": text, "stats": get_text_stats(text)})

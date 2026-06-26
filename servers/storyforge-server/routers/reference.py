@@ -26,7 +26,12 @@ def list_genres() -> str:
 @mcp.tool()
 def get_genre(name: str) -> str:
     """Get genre README content."""
-    genre_path = _app.get_genres_dir() / name / "README.md"
+    if ".." in name or "/" in name or "\\" in name or "\x00" in name:
+        return json.dumps({"error": f"Invalid genre name: '{name}'"})
+    genres_dir = _app.get_genres_dir().resolve()
+    genre_path = (genres_dir / name / "README.md").resolve()
+    if not genre_path.is_relative_to(genres_dir):
+        return json.dumps({"error": f"Invalid genre name: '{name}'"})
     if not genre_path.exists():
         return json.dumps({"error": f"Genre '{name}' not found"})
     return genre_path.read_text(encoding="utf-8")
@@ -39,10 +44,17 @@ def get_craft_reference(name: str) -> str:
     Args:
         name: Reference filename without .md extension
     """
-    ref_path = _app.get_reference_dir() / "craft" / f"{name}.md"
+    if ".." in name or "/" in name or "\\" in name or "\x00" in name:
+        return json.dumps({"error": f"Invalid reference name: '{name}'"})
+    ref_base = _app.get_reference_dir().resolve()
+    ref_path = (ref_base / "craft" / f"{name}.md").resolve()
+    if not ref_path.is_relative_to(ref_base):
+        return json.dumps({"error": f"Invalid reference name: '{name}'"})
     if not ref_path.exists():
         # Try genre subfolder
-        ref_path = _app.get_reference_dir() / "genre" / f"{name}.md"
+        ref_path = (ref_base / "genre" / f"{name}.md").resolve()
+        if not ref_path.is_relative_to(ref_base):
+            return json.dumps({"error": f"Invalid reference name: '{name}'"})
     if not ref_path.exists():
         return json.dumps({"error": f"Reference '{name}' not found"})
     return ref_path.read_text(encoding="utf-8")
