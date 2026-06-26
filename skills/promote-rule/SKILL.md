@@ -31,7 +31,7 @@ Ask (AskUserQuestion):
 
 Options:
 - **This book** — book CLAUDE.md `## Rules`
-- **This author** — author `vocabulary.md`
+- **This author** — author `author_discoveries` DB
 
 (Global → higher is not possible. If the user requests it, explain and offer to improve the reason or pattern instead.)
 
@@ -47,7 +47,11 @@ Options:
 
 ## Step 4: Verify Rule Is Not Already Present
 
-Check the target file for the phrase. If already present:
+- **Target is author scope**: Load `mcp__storyforge-mcp__get_author(slug)` and scan
+  `writing_discoveries.donts` for the phrase (case-insensitive substring).
+- **Target is global scope**: Read `{plugin_root}/reference/craft/anti-ai-patterns.md` directly.
+
+If already present:
 
 > "This phrase already exists in the target scope. No action needed."
 
@@ -87,7 +91,7 @@ The `reason` is extracted from the existing rule entry or asked if not present:
 
 **Remove from source (only when user chose "Yes, promote" in Step 5):**
 - **From book scope**: Read the book's CLAUDE.md via `get_book_claudemd(book_slug)`. Remove the rule entry via direct Edit. Call `get_book_claudemd(book_slug)` once more to confirm.
-- **From author scope**: Read `~/.storyforge/authors/{slug}/vocabulary.md` directly. Remove the phrase entry via direct Edit.
+- **From author scope**: Call `mcp__storyforge-mcp__delete_discovery(author_slug, discovery_type="donts", text=phrase_text)` where `phrase_text` is the **exact `.text` field value** as returned by `get_author().writing_discoveries.donts[n].text` (full formatted string including any Markdown bold, reason clause, and promotion annotation — not the bare phrase). Check `result.deleted` — if `False`, inform the user the entry was not found (may have been removed already).
 
 Write to target first — confirm success before removing from source.
 

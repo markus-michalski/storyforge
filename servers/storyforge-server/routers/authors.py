@@ -27,6 +27,7 @@ from tools.db.author_discoveries import (
     discovery_exists,
     get_discoveries,
     insert_discovery,
+    remove_discovery,
     update_source_genres,
 )
 from tools.db.connection import open_authors_db
@@ -469,6 +470,116 @@ def update_discovery_metadata(
         "author_slug": author_slug,
         "book_slug": book_slug,
         "source_genres": source_genres,
+    })
+
+
+_VOCAB_ENTRY_TYPE_MAP: dict[str, str] = {
+    "banned": "donts",
+    "preferred": "style_principles",
+    "phrase": "style_principles",
+}
+
+
+@mcp.tool()
+def add_vocabulary_entry(author_slug: str, entry_type: str, text: str, source: str = "") -> str:
+    """Add a vocabulary entry for an author — user-facing shortcut (Issue #293).
+
+    Maps ``entry_type`` to the appropriate ``author_discoveries`` type and
+    delegates to ``insert_discovery``. Idempotent. Cache invalidated on write.
+
+    Args:
+        author_slug: Target author.
+        entry_type: ``"banned"`` (→ donts), ``"preferred"`` or ``"phrase"`` (→ style_principles).
+        text: The vocabulary entry text, stored as-is.
+        source: Optional book slug the entry comes from.
+
+    Returns ``{written, already_present, discovery_type, message}`` or ``{error: ...}``.
+    """
+    discovery_type = _VOCAB_ENTRY_TYPE_MAP.get(entry_type)
+    if discovery_type is None:
+        valid = sorted(_VOCAB_ENTRY_TYPE_MAP)
+        return json.dumps({"error": f"Invalid entry_type '{entry_type}'. Must be one of: {valid}"})
+
+    config = _app.load_config()
+    try:
+        profile_path = resolve_author_path(config, author_slug) / "profile.md"
+    except (KeyError, ValueError) as exc:
+        return json.dumps({"error": str(exc)})
+
+    if not profile_path.is_file():
+        return json.dumps({"error": f"Author '{author_slug}' not found at {profile_path}"})
+
+    conn = open_authors_db()
+    try:
+        already = discovery_exists(conn, author_slug, discovery_type, text)
+        if not already:
+            insert_discovery(
+                conn,
+                author_slug=author_slug,
+                discovery_type=discovery_type,
+                text=text,
+                book_slug=source,
+            )
+        written = not already
+    finally:
+        conn.close()
+
+    _cache.invalidate()
+
+    return json.dumps({
+        "written": written,
+        "already_present": already,
+        "discovery_type": discovery_type,
+        "message": (
+            f"Vocabulary entry added for {author_slug} [{discovery_type}]."
+            if written
+            else f"Entry already present for {author_slug} [{discovery_type}]."
+        ),
+    })
+
+
+@mcp.tool()
+def delete_discovery(author_slug: str, discovery_type: str, text: str) -> str:
+    """Remove a discovery from author_discoveries by exact text match (Issue #293).
+
+    Used by promote-rule to remove a book-scoped entry when promoting to
+    author scope. Validates author existence and discovery_type before deleting.
+    Cache invalidated regardless of whether a row was found.
+
+    Args:
+        author_slug: Target author.
+        discovery_type: One of ``recurring_tics``, ``style_principles``, ``donts``.
+        text: Exact text of the entry to remove.
+
+    Returns ``{deleted, message}`` or ``{error: ...}``.
+    """
+    if discovery_type not in VALID_TYPES:
+        return json.dumps({"error": f"Invalid discovery_type '{discovery_type}'. Must be one of: {sorted(VALID_TYPES)}"})
+
+    config = _app.load_config()
+    try:
+        profile_path = resolve_author_path(config, author_slug) / "profile.md"
+    except (KeyError, ValueError) as exc:
+        return json.dumps({"error": str(exc)})
+
+    if not profile_path.is_file():
+        return json.dumps({"error": f"Author '{author_slug}' not found at {profile_path}"})
+
+    conn = open_authors_db()
+    try:
+        deleted = remove_discovery(conn, author_slug=author_slug, discovery_type=discovery_type, text=text)
+    finally:
+        conn.close()
+
+    _cache.invalidate()
+
+    return json.dumps({
+        "deleted": deleted,
+        "message": (
+            f"Discovery removed for {author_slug} [{discovery_type}]."
+            if deleted
+            else f"No matching discovery found for {author_slug} [{discovery_type}]."
+        ),
     })
 
 

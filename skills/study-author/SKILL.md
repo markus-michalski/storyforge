@@ -137,7 +137,8 @@ Update the author's profile using MCP tools to ensure cache invalidation:
 - **Positive style markers found** — **MANDATORY for every checklist item where a pattern was found.** MCP `write_author_discovery(author_slug, section="style_principles", text=<marker>, book_slug=<analyzed-work-slug>, genres=<source_genres from Phase 1 — empty string if unknown/universal>)` per item. Format: `**[Marker name]** — [concrete observation from this text, with frequency or ratio if measurable].` A positive finding that only lives in `studied-works/analysis-{title}.md` is invisible to chapter-writer. Every found positive marker must become a `style_principles` Writing Discovery. "Not found" items are skipped.
 - **Signature Techniques discovered** (beyond the checklist) — MCP `write_author_discovery(author_slug, section="style_principles", text=<technique>, book_slug=<analyzed-work-slug>, genres=<source_genres from Phase 1>)`
 - **Anti-patterns to avoid** — MCP `write_author_banned_phrase(author_slug, phrase, reason=<why-avoid>)` per phrase
-- **Preferred Words / Deliberate Imperfections** — Direct Write to `~/.storyforge/authors/{slug}/vocabulary.md` (no MCP tool for these sections)
+- **Preferred Words** — MCP `write_author_discovery(author_slug, section="style_principles", text=<entry>, book_slug=<analyzed-work-slug>, genres=<source_genres>)` per word/phrase. Format: `**{word}** — {usage context or frequency observation}.`
+- **Deliberate Imperfections** — MCP `write_author_discovery(author_slug, section="recurring_tics", text=<entry>, book_slug=<analyzed-work-slug>, genres=<source_genres>)` per pattern. Format: `**{pattern}** — intentional; {why it works for this author}.`
 
 ### Phase 5: Report
 Show the user a summary of what was learned and what changed in the profile.
@@ -229,7 +230,9 @@ Update the author's profile using MCP tools to ensure cache invalidation:
 - **Tense / self-reference style / other frontmatter fields** — MCP `update_author(slug, field, value)` per field
 - **Unguarded phrases to preserve** — MCP `write_author_discovery(author_slug, section="style_principles", text=<phrase>, book_slug=<analyzed-work-slug>)`
 - **Hedging / avoidance patterns to flag** — MCP `write_author_banned_phrase(author_slug, phrase, reason="memoir-anti-ai: avoidance pattern")` per phrase
-- **Preferred Words / Signature Phrases / preoccupation themes** — Direct Write to `~/.storyforge/authors/{slug}/vocabulary.md` (no MCP tool for these sections)
+- **Preferred Words** — MCP `write_author_discovery(author_slug, section="style_principles", text=<entry>, book_slug=<analyzed-work-slug>)` per word. Format: `**{word}** — {usage context, how often, what it signals}.`
+- **Signature Phrases** — MCP `write_author_discovery(author_slug, section="style_principles", text=<entry>, book_slug=<analyzed-work-slug>)` per phrase. Format: `**{phrase}** — {context in which it appears, why it's characteristic}.`
+- **Preoccupation themes** — MCP `write_author_discovery(author_slug, section="style_principles", text=<entry>, book_slug=<analyzed-work-slug>)` per theme. Format: `**{theme}** — {how it surfaces in this author's writing, vocabulary cluster if applicable}.`
 
 ### Phase 5: Report
 Show the user what was found and what changed. Specifically: which phrases are uniquely theirs and should survive editing, and which patterns (hedging, reflective platitudes) the memoir-anti-ai checker will flag.

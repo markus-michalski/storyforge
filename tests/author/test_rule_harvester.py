@@ -3,8 +3,8 @@
 The harvester collects buchspezifische findings (book CLAUDE.md rules,
 manuscript-checker findings) and classifies each into one of three buckets:
 
-- ``banned_phrase`` — single-word/phrase ban → ``vocabulary.md``
-- ``style_principle`` — pattern/structural rule → ``profile.md`` Writing Discoveries
+- ``banned_phrase`` — single-word/phrase ban → ``author_discoveries`` DB (donts)
+- ``style_principle`` — pattern/structural rule → ``author_discoveries`` DB (style_principles)
 - ``world_rule`` — book-canon term → ``keep_book_only``
 
 Tests use the pure layer that takes pre-loaded inputs so they don't need a
@@ -61,7 +61,7 @@ class TestClassifyRule:
         )
         kind, target = classify_rule(rule, world_terms=set())
         assert kind == "banned_phrase"
-        assert target == "vocabulary"
+        assert target == "donts"
 
     def test_regex_rule_is_style_principle(self):
         rule = _rule(
@@ -127,12 +127,12 @@ class TestClassifyFinding:
     def test_signature_phrase_is_banned_phrase(self):
         kind, target = classify_finding(self._finding("the silence stretched", "signature_phrase"))
         assert kind == "banned_phrase"
-        assert target == "vocabulary"
+        assert target == "donts"
 
     def test_simile_is_banned_phrase(self):
         kind, target = classify_finding(self._finding("like a stone", "simile"))
         assert kind == "banned_phrase"
-        assert target == "vocabulary"
+        assert target == "donts"
 
     def test_blocking_tic_is_style_principle(self):
         kind, target = classify_finding(self._finding("opened it closed", "blocking_tic"))
@@ -244,7 +244,7 @@ class TestDeduplicateAgainstAuthor:
             rationale="",
             source="book_rule",
             source_rule_index=0,
-            target_section="vocabulary" if kind == "banned_phrase" else "recurring_tics",
+            target_section="donts" if kind == "banned_phrase" else "recurring_tics",
         )
 
     def test_drops_phrase_already_in_vocabulary(self):
