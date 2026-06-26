@@ -455,7 +455,7 @@ def register_chapter_promises(
             Promise(
                 description=str(p.get("description", "")),
                 target=str(p.get("target", "")),
-                status=str(p.get("status", "active")).lower(),
+                status=str(p.get("status", "active")).lower(),  # type: ignore[arg-type]
             )
             for p in promises
         ]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 
 def count_words(text: str) -> int:
@@ -37,13 +38,13 @@ def count_chapter_words(chapter_dir: Path) -> int:
     return count_words(draft.read_text(encoding="utf-8"))
 
 
-def count_book_words(project_dir: Path) -> dict[str, int]:
+def count_book_words(project_dir: Path) -> dict[str, Any]:
     """Count words per chapter and total for a book project."""
     chapters_dir = project_dir / "chapters"
     if not chapters_dir.exists():
         return {"total": 0, "chapters": {}}
 
-    chapters = {}
+    chapters: dict[str, int] = {}
     total = 0
     for ch_dir in sorted(chapters_dir.iterdir()):
         if ch_dir.is_dir():

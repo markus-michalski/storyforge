@@ -771,8 +771,10 @@ def _scan_author_banlist(
         (dont_patterns, "author_rule_violation"),
     ]
 
+    from tools.banlist_loader import BannedPattern as _BannedPattern
+
     seen_labels: set[str] = set()
-    patterns_with_category: list[tuple[object, str]] = []
+    patterns_with_category: list[tuple[_BannedPattern, str]] = []
     for plist, category in sources:
         for p in plist:
             key = p.label.lower()

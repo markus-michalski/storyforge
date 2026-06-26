@@ -26,7 +26,7 @@ def check_character_consistency(project_dir: Path) -> list[dict[str, Any]]:
     Looks for characters mentioned in chapters that don't have character files,
     and characters with files that are never mentioned.
     """
-    issues = []
+    issues: list[dict[str, Any]] = []
 
     # Get character names from character files
     chars_dir = project_dir / "characters"
