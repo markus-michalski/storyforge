@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json as _json
+import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +36,24 @@ _FONT_SIZE_PATTERN = re.compile(r"^\d{1,2}(pt|em)$")
 
 # margin: integer or decimal + cm/mm/in/em/pt, e.g. "1in", "2.5cm", "20mm"
 _MARGIN_PATTERN = re.compile(r"^\d{1,2}(\.\d+)?(cm|mm|in|em|pt)$")
+
+
+def _write_metadata_file(metadata: dict) -> Path:
+    """Write metadata dict to a temp JSON file for --metadata-file.
+
+    Using a file avoids shell-level splitting of --metadata key=value args,
+    which lets LaTeX special characters in title/author reach the template
+    unescaped. JSON metadata files are passed verbatim and handled by Pandoc
+    before any LaTeX processing.
+    """
+    fd, path = tempfile.mkstemp(suffix=".json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            _json.dump(metadata, f, ensure_ascii=False)
+    except Exception:
+        os.unlink(path)
+        raise
+    return Path(path)
 
 
 def _validate_pdf_args(pdf_engine: str, font: str, font_size: str, margin: str) -> str | None:
@@ -89,29 +110,28 @@ def generate_epub(
     css_path: Path | None = None,
 ) -> dict[str, Any]:
     """Generate EPUB from a Markdown manuscript."""
-    cmd = [
-        "pandoc",
-        str(manuscript_path),
-        "-o",
-        str(output_path),
-        "--metadata",
-        f"title={title}",
-        "--metadata",
-        f"author={author}",
-        "--metadata",
-        f"lang={language}",
-        "--toc",
-        "--toc-depth=1",
-        "--epub-chapter-level=1",
-    ]
+    meta_path = _write_metadata_file({"title": title, "author": author, "lang": language})
+    try:
+        cmd = [
+            "pandoc",
+            str(manuscript_path),
+            "-o",
+            str(output_path),
+            f"--metadata-file={meta_path}",
+            "--toc",
+            "--toc-depth=1",
+            "--epub-chapter-level=1",
+        ]
 
-    if cover_image and cover_image.exists():
-        cmd.extend(["--epub-cover-image", str(cover_image)])
+        if cover_image and cover_image.exists():
+            cmd.extend(["--epub-cover-image", str(cover_image)])
 
-    if css_path and css_path.exists():
-        cmd.extend(["--css", str(css_path)])
+        if css_path and css_path.exists():
+            cmd.extend(["--css", str(css_path)])
 
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    finally:
+        meta_path.unlink(missing_ok=True)
 
     if result.returncode != 0:
         return {"success": False, "error": result.stderr}
@@ -140,28 +160,29 @@ def generate_pdf(
     if error is not None:
         return {"success": False, "error": error}
 
-    cmd = [
-        "pandoc",
-        str(manuscript_path),
-        "-o",
-        str(output_path),
-        f"--pdf-engine={pdf_engine}",
-        "--metadata",
-        f"title={title}",
-        "--metadata",
-        f"author={author}",
-        "--toc",
-        "-V",
-        f"geometry:margin={margin}",
-        "-V",
-        f"fontsize={font_size}",
-        "-V",
-        f"mainfont={font}",
-        "-V",
-        "documentclass=book",
-    ]
+    meta_path = _write_metadata_file({"title": title, "author": author})
+    try:
+        cmd = [
+            "pandoc",
+            str(manuscript_path),
+            "-o",
+            str(output_path),
+            f"--pdf-engine={pdf_engine}",
+            f"--metadata-file={meta_path}",
+            "--toc",
+            "-V",
+            f"geometry:margin={margin}",
+            "-V",
+            f"fontsize={font_size}",
+            "-V",
+            f"mainfont={font}",
+            "-V",
+            "documentclass=book",
+        ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    finally:
+        meta_path.unlink(missing_ok=True)
 
     if result.returncode != 0:
         return {"success": False, "error": result.stderr}

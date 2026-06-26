@@ -96,6 +96,33 @@ class TestParser:
         assert extract_prefixed_lines("") == []
         assert extract_prefixed_lines("no prefixes here\nnothing") == []
 
+    def test_body_at_max_length_accepted(self):
+        # Bodies exactly at the limit are fine — real rules can be verbose.
+        from tools.claudemd.parser import MAX_RULE_BODY_LEN
+
+        body = "x" * MAX_RULE_BODY_LEN
+        result = parse_prefixed_entry(f"Regel: {body}")
+        assert result is not None
+        assert result[1] == body
+
+    def test_body_exceeding_max_length_rejected(self):
+        # Prompt-injection bodies are typically long — reject them silently
+        # (Issue #325).
+        from tools.claudemd.parser import MAX_RULE_BODY_LEN
+
+        body = "x" * (MAX_RULE_BODY_LEN + 1)
+        assert parse_prefixed_entry(f"Regel: {body}") is None
+
+    def test_injection_body_filtered_in_extract(self):
+        # An injected long rule must not appear in the extracted list.
+        from tools.claudemd.parser import MAX_RULE_BODY_LEN
+
+        evil = "x" * (MAX_RULE_BODY_LEN + 1)
+        text = f"Normal line.\nRegel: {evil}\nCallback: Gary\n"
+        result = extract_prefixed_lines(text)
+        assert len(result) == 1
+        assert result[0] == ("callback", "Gary")
+
 
 class TestResolvePath:
     def test_resolve_claudemd_path(self, book_config):

@@ -68,3 +68,57 @@ class TestEnsureSchema:
         conn.close()
         assert "idx_cf" in indexes
         assert "idx_cf_subject" in indexes
+
+
+# ---------------------------------------------------------------------------
+# get_canon_db_path — slug validation (Issue #323)
+# ---------------------------------------------------------------------------
+
+
+class TestGetCanonDbPathSlugValidation:
+    """Issue #323 — get_canon_db_path() must reject traversal slugs."""
+
+    def test_valid_slug_returns_path(self):
+        from tools.db.connection import get_canon_db_path
+
+        path = get_canon_db_path("my-series")
+        assert path.name == "my-series.db"
+
+    def test_rejects_dotdot_traversal(self):
+        import pytest
+
+        from tools.db.connection import get_canon_db_path
+
+        with pytest.raises(ValueError, match="Invalid"):
+            get_canon_db_path("../../.bashrc")
+
+    def test_rejects_slash_in_slug(self):
+        import pytest
+
+        from tools.db.connection import get_canon_db_path
+
+        with pytest.raises(ValueError, match="Invalid"):
+            get_canon_db_path("good/evil")
+
+    def test_rejects_backslash_in_slug(self):
+        import pytest
+
+        from tools.db.connection import get_canon_db_path
+
+        with pytest.raises(ValueError, match="Invalid"):
+            get_canon_db_path("good\\evil")
+
+    def test_rejects_null_byte(self):
+        import pytest
+
+        from tools.db.connection import get_canon_db_path
+
+        with pytest.raises(ValueError, match="Invalid"):
+            get_canon_db_path("slug\x00evil")
+
+    def test_empty_slug_passes_through(self):
+        # _validate_slug treats empty as a no-op sentinel used by callers
+        from tools.db.connection import get_canon_db_path
+
+        path = get_canon_db_path("")
+        assert path.name == ".db"
