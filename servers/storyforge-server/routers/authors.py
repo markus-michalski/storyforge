@@ -16,6 +16,10 @@ from typing import Any
 import yaml
 
 from tools.author.discovery_lint import lint_author_discovery
+from tools.author.pdf_extractor import (
+    extract_text_from_file as _extract_text_impl,
+    get_text_stats,
+)
 from tools.author.rule_harvester import harvest
 from tools.claudemd.rules_editor import (
     MarkersNotFoundError,
@@ -602,3 +606,30 @@ def update_author(slug: str, field: str, value: str) -> str:
 
     _cache.invalidate()
     return json.dumps({"success": True, "field": field, "value": value})
+
+
+@mcp.tool()
+def extract_text_from_file(file_path: str) -> str:
+    """Extract text from PDF, EPUB, DOCX, TXT, or MD files for style analysis.
+
+    Used by the study-author skill to read binary formats (EPUB, DOCX) that
+    Claude's native Read tool cannot parse. Text files and PDFs can be read
+    via the Read tool directly, but EPUB and DOCX require this extraction step.
+
+    Supported formats: .pdf, .epub, .docx, .txt, .md
+    Max file size: 50 MB. Max extracted text: 200,000 words.
+    Large texts are automatically sampled (beginning / middle / end).
+
+    Args:
+        file_path: Absolute path to the file.
+
+    Returns:
+        ``{text, stats}`` on success where ``stats`` contains word_count,
+        paragraph_count, character_count, estimated_pages, and sampled flag.
+        ``{error}`` on file-not-found, unsupported format, or size limit breach.
+    """
+    try:
+        text = _extract_text_impl(Path(file_path))
+    except (FileNotFoundError, ValueError, ImportError) as exc:
+        return json.dumps({"error": str(exc)})
+    return json.dumps({"text": text, "stats": get_text_stats(text)})
