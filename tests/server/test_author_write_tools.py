@@ -14,6 +14,8 @@ import pytest
 
 import routers._app as _app
 from routers.authors import (
+    add_vocabulary_entry,
+    delete_discovery,
     write_author_banned_phrase,
     write_author_discovery,
 )
@@ -389,5 +391,190 @@ class TestCacheInvalidation:
             author_slug="ethan-cole",
             phrase="thing",
             reason="vague-noun fallback",
+        )
+        assert invalidate_called["count"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# add_vocabulary_entry — user-facing wrapper (Issue #293)
+# ---------------------------------------------------------------------------
+
+
+class TestAddVocabularyEntry:
+    def test_banned_maps_to_donts(self, author_setup):
+        result = json.loads(
+            add_vocabulary_entry(
+                author_slug="ethan-cole",
+                entry_type="banned",
+                text="thing",
+            )
+        )
+        assert result["written"] is True
+        assert result["discovery_type"] == "donts"
+
+        conn = _open_authors_db(author_setup)
+        rows = conn.execute(
+            "SELECT * FROM author_discoveries WHERE discovery_type='donts'"
+        ).fetchall()
+        conn.close()
+        assert len(rows) == 1
+        assert rows[0]["text"] == "thing"
+
+    def test_preferred_maps_to_style_principles(self, author_setup):
+        result = json.loads(
+            add_vocabulary_entry(
+                author_slug="ethan-cole",
+                entry_type="preferred",
+                text="said",
+            )
+        )
+        assert result["written"] is True
+        assert result["discovery_type"] == "style_principles"
+
+        conn = _open_authors_db(author_setup)
+        rows = conn.execute(
+            "SELECT * FROM author_discoveries WHERE discovery_type='style_principles'"
+        ).fetchall()
+        conn.close()
+        assert len(rows) == 1
+        assert rows[0]["text"] == "said"
+
+    def test_phrase_maps_to_style_principles(self, author_setup):
+        result = json.loads(
+            add_vocabulary_entry(
+                author_slug="ethan-cole",
+                entry_type="phrase",
+                text="He let out a breath he hadn't known he was holding.",
+            )
+        )
+        assert result["written"] is True
+        assert result["discovery_type"] == "style_principles"
+
+    def test_invalid_entry_type_returns_error(self, author_setup):
+        result = json.loads(
+            add_vocabulary_entry(
+                author_slug="ethan-cole",
+                entry_type="bogus",
+                text="thing",
+            )
+        )
+        assert "error" in result
+
+    def test_unknown_author_returns_error(self, author_setup):
+        result = json.loads(
+            add_vocabulary_entry(
+                author_slug="ghost-author",
+                entry_type="banned",
+                text="thing",
+            )
+        )
+        assert "error" in result
+
+    def test_idempotent_returns_already_present(self, author_setup):
+        add_vocabulary_entry(author_slug="ethan-cole", entry_type="banned", text="thing")
+        result = json.loads(
+            add_vocabulary_entry(author_slug="ethan-cole", entry_type="banned", text="thing")
+        )
+        assert result["written"] is False
+        assert result.get("already_present") is True
+
+        conn = _open_authors_db(author_setup)
+        count = conn.execute("SELECT COUNT(*) FROM author_discoveries").fetchone()[0]
+        conn.close()
+        assert count == 1
+
+    def test_cache_invalidated(self, author_setup, monkeypatch):
+        from routers._app import _cache
+
+        invalidate_called = {"count": 0}
+        original = _cache.invalidate
+
+        def spy() -> None:
+            invalidate_called["count"] += 1
+            original()
+
+        monkeypatch.setattr(_cache, "invalidate", spy)
+        add_vocabulary_entry(author_slug="ethan-cole", entry_type="banned", text="thing")
+        assert invalidate_called["count"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# delete_discovery — remove an entry from author_discoveries (Issue #293)
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteDiscovery:
+    def test_deletes_existing_entry(self, author_setup):
+        write_author_discovery(
+            author_slug="ethan-cole",
+            section="donts",
+            text="**thing** — vague noun",
+            book_slug="firelight",
+        )
+        result = json.loads(
+            delete_discovery(
+                author_slug="ethan-cole",
+                discovery_type="donts",
+                text="**thing** — vague noun",
+            )
+        )
+        assert result["deleted"] is True
+
+        conn = _open_authors_db(author_setup)
+        count = conn.execute("SELECT COUNT(*) FROM author_discoveries").fetchone()[0]
+        conn.close()
+        assert count == 0
+
+    def test_nonexistent_entry_returns_deleted_false(self, author_setup):
+        result = json.loads(
+            delete_discovery(
+                author_slug="ethan-cole",
+                discovery_type="donts",
+                text="does not exist",
+            )
+        )
+        assert result["deleted"] is False
+
+    def test_invalid_discovery_type_returns_error(self, author_setup):
+        result = json.loads(
+            delete_discovery(
+                author_slug="ethan-cole",
+                discovery_type="bogus",
+                text="thing",
+            )
+        )
+        assert "error" in result
+
+    def test_unknown_author_returns_error(self, author_setup):
+        result = json.loads(
+            delete_discovery(
+                author_slug="ghost-author",
+                discovery_type="donts",
+                text="thing",
+            )
+        )
+        assert "error" in result
+
+    def test_cache_invalidated_on_delete(self, author_setup, monkeypatch):
+        write_author_discovery(
+            author_slug="ethan-cole",
+            section="donts",
+            text="**thing** — vague noun",
+            book_slug="firelight",
+        )
+        from routers._app import _cache
+
+        invalidate_called = {"count": 0}
+        original = _cache.invalidate
+
+        def spy() -> None:
+            invalidate_called["count"] += 1
+            original()
+
+        monkeypatch.setattr(_cache, "invalidate", spy)
+        delete_discovery(
+            author_slug="ethan-cole",
+            discovery_type="donts",
+            text="**thing** — vague noun",
         )
         assert invalidate_called["count"] >= 1

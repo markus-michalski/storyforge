@@ -86,6 +86,22 @@ def update_source_genres(
     return cur.rowcount
 
 
+def remove_discovery(
+    conn: sqlite3.Connection,
+    *,
+    author_slug: str,
+    discovery_type: str,
+    text: str,
+) -> bool:
+    """Delete a single discovery by exact match. Returns True if a row was removed."""
+    cur = conn.execute(
+        "DELETE FROM author_discoveries WHERE author_slug=? AND discovery_type=? AND text=?",
+        (author_slug, discovery_type, text),
+    )
+    conn.commit()
+    return cur.rowcount == 1
+
+
 def discoveries_as_writing_discoveries(rows: list[dict]) -> dict[str, list[dict]]:
     """Convert DB rows to the writing_discoveries format consumed by get_author().
 

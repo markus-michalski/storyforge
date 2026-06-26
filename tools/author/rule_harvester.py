@@ -14,9 +14,8 @@ in the skill, where the user walks each candidate.
 
 Three classification buckets:
 
-- ``banned_phrase`` — single-word/short-phrase ban → ``vocabulary.md``
-- ``style_principle`` — pattern, regex, or prose-rule → ``profile.md`` Writing
-  Discoveries
+- ``banned_phrase`` — single-word/short-phrase ban → ``author_discoveries`` DB (donts)
+- ``style_principle`` — pattern, regex, or prose-rule → ``author_discoveries`` DB
 - ``world_rule`` — magic-system / canon term → keeps book scope (no promotion)
 
 The classifier inspects:
@@ -43,7 +42,7 @@ from tools.claudemd.rules_editor import ParsedRule
 
 CANDIDATE_TYPES: tuple[str, ...] = ("banned_phrase", "style_principle", "world_rule")
 RECOMMENDATIONS: tuple[str, ...] = ("promote", "keep_book_only", "discuss")
-TARGET_SECTIONS: tuple[str, ...] = ("vocabulary", "recurring_tics", "style_principles", "donts")
+TARGET_SECTIONS: tuple[str, ...] = ("recurring_tics", "style_principles", "donts")
 
 # Default thresholds for manuscript-finding promotion. A finding promotes only
 # when it occurs in at least this many distinct chapters AND its severity is
@@ -64,7 +63,7 @@ class Candidate:
     recommendation: str  # promote | keep_book_only | discuss
     rationale: str
     source: str  # book_rule | manuscript_finding
-    target_section: str | None  # vocabulary | recurring_tics | style_principles | donts | None
+    target_section: str | None  # recurring_tics | style_principles | donts | None
     source_rule_index: int | None = None  # only for source == "book_rule"
     occurrences: list[dict[str, Any]] = field(default_factory=list)  # for manuscript findings
 
@@ -102,7 +101,7 @@ def classify_rule(rule: ParsedRule, *, world_terms: set[str]) -> tuple[str, str 
 
     Returns ``("world_rule", None)`` for canon/magic-system terms.
     Otherwise returns one of ``banned_phrase``/``style_principle`` plus the
-    matching target section (``vocabulary`` or ``recurring_tics`` /
+    matching target section (``donts``, ``recurring_tics``, or
     ``style_principles``).
     """
     if _matches_world_term(rule.raw_text, world_terms):
@@ -127,7 +126,7 @@ def classify_rule(rule: ParsedRule, *, world_terms: set[str]) -> tuple[str, str 
         for label in literal_labels
     )
     if short_phrase_only:
-        return "banned_phrase", "vocabulary"
+        return "banned_phrase", "donts"
 
     return "style_principle", "recurring_tics"
 
@@ -149,24 +148,24 @@ def _matches_world_term(text: str, world_terms: set[str]) -> bool:
 # bans; ``blocking_tic`` / ``structural`` / ``character_tell`` / ``sensory``
 # are recurring structural tics.
 _FINDING_CATEGORY_MAP: dict[str, tuple[str, str]] = {
-    "signature_phrase": ("banned_phrase", "vocabulary"),
-    "simile": ("banned_phrase", "vocabulary"),
+    "signature_phrase": ("banned_phrase", "donts"),
+    "simile": ("banned_phrase", "donts"),
     "blocking_tic": ("style_principle", "recurring_tics"),
     "structural": ("style_principle", "recurring_tics"),
     "character_tell": ("style_principle", "recurring_tics"),
     "sensory": ("style_principle", "recurring_tics"),
-    "book_rule_violation": ("banned_phrase", "vocabulary"),
+    "book_rule_violation": ("banned_phrase", "donts"),
 }
 
 
 def classify_finding(finding: Finding) -> tuple[str, str]:
     """Classify a manuscript Finding into ``(type, target_section)``.
 
-    Unknown categories default to ``("banned_phrase", "vocabulary")`` because
+    Unknown categories default to ``("banned_phrase", "donts")`` because
     that is the conservative fallback — the user can always re-classify in
     the skill walk.
     """
-    return _FINDING_CATEGORY_MAP.get(finding.category, ("banned_phrase", "vocabulary"))
+    return _FINDING_CATEGORY_MAP.get(finding.category, ("banned_phrase", "donts"))
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +223,7 @@ def _extract_rule_value(rule: ParsedRule) -> str:
 
 def _rule_rationale(kind: str) -> str:
     if kind == "banned_phrase":
-        return "Short literal phrase ban — typical author-vocabulary entry."
+        return "Short literal phrase ban — stored as donts in author_discoveries DB."
     return "Structural / pattern rule — recurring author habit, not book-specific."
 
 

@@ -77,7 +77,7 @@ Returns:
       "recommendation": "promote | keep_book_only",
       "rationale": "...",
       "source": "book_rule",
-      "target_section": "vocabulary | recurring_tics | style_principles | donts",
+      "target_section": "recurring_tics | style_principles | donts",
       "source_rule_index": 7
     }
   ],
@@ -135,7 +135,7 @@ worldbuilding-specific and rarely transfer.
 
 ## Step 5: Execute the user's choice
 
-### Promote (banned_phrase → vocabulary.md)
+### Promote (banned_phrase → author_discoveries DB)
 
 ```python
 mcp__storyforge-mcp__write_author_banned_phrase(
@@ -149,7 +149,7 @@ The MCP tool wraps the rule-writer AND invalidates the state cache, so the
 next `get_author()` and the next chapter-writing brief reflect the new
 phrase without a session restart.
 
-### Promote (style_principle / donts → profile.md ## Writing Discoveries)
+### Promote (style_principle / donts → author_discoveries DB)
 
 ```python
 result = mcp__storyforge-mcp__write_author_discovery(
@@ -254,8 +254,8 @@ After the walk:
 Harvest complete.
 
 Promoted to {author_slug}:
-  - "{value}" → vocabulary.md
-  - "{value}" → profile.md ## Writing Discoveries / Recurring Tics
+  - "{value}" → author_discoveries DB [donts]
+  - "{value}" → author_discoveries DB [recurring_tics]
   - ...
 
 Removed from book CLAUDE.md:
@@ -280,8 +280,7 @@ read `## Writing Discoveries` on every load.
 ## Important behavior
 
 - **Dedup is automatic** — the harvester drops candidates that already exist
-  in `vocabulary.md` or `profile.md ## Writing Discoveries`. The user never
-  sees them.
+  in the `author_discoveries` DB. The user never sees them.
 - **Recurrence handling** — when a discovery resurfaces in a new book, the
   writer appends a second origin tag (`_(emerged from book-2, YYYY-MM)_`)
   rather than duplicating the bullet. This signals "stable pattern across
