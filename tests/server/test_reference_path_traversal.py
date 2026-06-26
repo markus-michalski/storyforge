@@ -10,8 +10,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from routers.reference import get_craft_reference, get_genre
 
 
