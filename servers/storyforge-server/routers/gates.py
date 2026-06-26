@@ -134,7 +134,7 @@ def validate_timeline_consistency(book_slug: str) -> str:
         return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
     try:
         result = validate_timeline(book_path)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.exception("Timeline validation failed for book %s", book_slug)
         return json.dumps({"error": "Timeline validation failed due to an internal error", "book_slug": book_slug})
     gate = derive_from_timeline_validation(result)
