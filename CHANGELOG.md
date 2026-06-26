@@ -25,6 +25,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [3.0.0] - 2026-06-26
+
+### Added
+- Cluster C — vocabulary DB consolidation (#293) (#303)
+- complete #277 — universal override + genre registry validation (#290)
+- book_rules SQLite — migrate rules/callbacks/workflows out of CLAUDE.md markers (#282) (#287)
+- SQLite schema + canon_facts + session DB (Issue #280) (#285)
+- add genre-tagging and example extraction to backfill-style-principles (#276)
+- series directory layout — books live in series/{slug}/{book}/ (Issue #279) (#284)
+- genre-tagging for style_principles via when: field (#274)
+- phase 2 — voice demonstration layer and world-rules scaffold (#273)
+- Phase 1 — style control, world rules, callback intensity
+
+### Changed
+- pin security-relevant transitive deps to CVE-fixed versions
+- fix duplicate step 11 in Plantser workflow, add start-session routing (#319)
+- migrate 29 skills to claude-opus-4-8 with body-hardening (#318)
+- add mypy to CI, fix 16 type errors (#317)
+- document add_vocabulary_entry as user-callable utility tool (#316)
+- fix stale CLAUDE.md storage refs in skills after #282 DB migration (#305)
+- DB-only canon_brief — remove MD read path (#297) (#300)
+- Phase 5 — parser cleanup + source_genres skill chain (#283) (#288)
+- author_discoveries + character_snapshots in SQLite (Issue #281) (#286)
+
+### Fixed
+- register extract_text_from_file as MCP tool, complete server.py re-exports (#315)
+- enforce canon fact recording before chapter status advancement (#307)
+- read active_rules and callbacks from book_rules DB in brief assemblers (#306)
+- surface profile.md body as style_notes in get_author() (#294) (#302)
+- update author Don't test suite after DB migration (#298) (#299)
+- wire DB canon facts into chapter-writer brief (#296)
+- sync genre-filter and world-rules.md to chapter-reviewer and author-check (#275)
+
+### Security
+- field allowlist for update_author, format guard for update_field (#328)
+- sanitize exception messages and STORYFORGE_DB_DIR (#327 #329)
+- fix DB slug traversal, pandoc metadata injection, rule body limit
+- fix ReDoS risk in book rules regex compilation (#322)
+- fix path traversal in extract_text_from_file, get_genre, get_craft_reference (#320, #321) (#332)
+
 ## [2.2.2] - 2026-06-23
 
 ### Fixed
@@ -497,3 +537,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [2.2.0]: https://github.com/markus-michalski/storyforge/releases/tag/v2.2.0
 [2.2.1]: https://github.com/markus-michalski/storyforge/releases/tag/v2.2.1
 [2.2.2]: https://github.com/markus-michalski/storyforge/releases/tag/v2.2.2
+[3.0.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.0.0
