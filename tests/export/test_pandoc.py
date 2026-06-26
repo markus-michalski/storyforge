@@ -291,13 +291,34 @@ class TestGenerateEpub:
         assert "path" in result
         assert result["size_bytes"] > 0
 
-    def test_includes_metadata_flags(self, mock_epub_subprocess, tmp_path: Path):
+    def test_includes_metadata_via_file(self, mock_epub_subprocess, tmp_path: Path):
+        # Metadata must flow through --metadata-file (not raw --metadata key=value)
+        # to prevent LaTeX injection via title/author (Issue #324).
         mock_run, output = mock_epub_subprocess
-        pandoc.generate_epub(tmp_path / "in.md", output, "My Book", "Test Author", language="de")
+        captured: dict = {}
+
+        real_write = pandoc._write_metadata_file
+
+        def capture_write(metadata: dict) -> Path:
+            captured.update(metadata)
+            return real_write(metadata)
+
+        with patch.object(pandoc, "_write_metadata_file", side_effect=capture_write):
+            pandoc.generate_epub(tmp_path / "in.md", output, "My Book", "Test Author", language="de")
+
         cmd = mock_run.call_args[0][0]
-        assert "title=My Book" in " ".join(cmd)
-        assert "author=Test Author" in " ".join(cmd)
-        assert "lang=de" in " ".join(cmd)
+        assert any(arg.startswith("--metadata-file=") for arg in cmd), "must use --metadata-file"
+        assert "--metadata" not in cmd, "raw --metadata must not appear"
+        assert captured == {"title": "My Book", "author": "Test Author", "lang": "de"}
+
+    def test_latex_injection_in_title_does_not_appear_in_cmd(self, mock_epub_subprocess, tmp_path: Path):
+        # LaTeX payload in title must not reach cmd args directly (Issue #324).
+        mock_run, output = mock_epub_subprocess
+        evil_title = r"}\newcommand{\x}{}\input{/etc/passwd}\title{"
+        pandoc.generate_epub(tmp_path / "in.md", output, evil_title, "Author")
+        cmd_str = " ".join(mock_run.call_args[0][0])
+        assert "\\input" not in cmd_str
+        assert "/etc/passwd" not in cmd_str
 
     def test_cover_image_included_when_exists(self, mock_epub_subprocess, tmp_path: Path):
         mock_run, output = mock_epub_subprocess

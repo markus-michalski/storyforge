@@ -15,6 +15,7 @@ import sqlite3
 from pathlib import Path
 
 from tools.shared.config import CACHE_DIR
+from tools.shared.paths import _validate_slug
 
 # Override with STORYFORGE_DB_DIR to redirect DB lookups (used in subprocess tests).
 DB_DIR: Path = Path(os.environ["STORYFORGE_DB_DIR"]) if "STORYFORGE_DB_DIR" in os.environ else CACHE_DIR.parent / "db"
@@ -136,6 +137,7 @@ def open_authors_db() -> sqlite3.Connection:
 
 def get_canon_db_path(series_or_book_slug: str) -> Path:
     """Return the DB path for a given series or standalone book slug."""
+    _validate_slug(series_or_book_slug, "series_or_book_slug")
     return DB_DIR / f"{series_or_book_slug}.db"
 
 

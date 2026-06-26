@@ -16,6 +16,12 @@ from typing import Literal
 
 EntryKind = Literal["rule", "workflow", "callback"]
 
+# Genuine user-authored rules are concise. Bodies above this limit are likely
+# accidental captures (pasted manuscript text, injected content) rather than
+# intentional rules — reject them silently to prevent prompt injection via
+# persisted book rules (Issue #325).
+MAX_RULE_BODY_LEN = 300
+
 PREFIX_MAP: dict[str, EntryKind] = {
     "regel": "rule",
     "rule": "rule",
@@ -46,7 +52,7 @@ def parse_prefixed_entry(line: str) -> tuple[EntryKind, str] | None:
         return None
     kind = PREFIX_MAP[match.group("prefix").lower()]
     body = match.group("body").strip()
-    if not body:
+    if not body or len(body) > MAX_RULE_BODY_LEN:
         return None
     return kind, body
 
