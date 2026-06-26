@@ -205,10 +205,34 @@ Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `
 ### Step 7: Save and Update (both modes)
 1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
 2. **Extract promises (Issue #150)** — Before flipping status to `Review` or `Final`, walk the completed draft and identify setup-elements (locked drawers, character claims, cryptic warnings, unresolved clues — full taxonomy in `reference/craft/plot-logic.md`). For each: short concrete description (8–14 words), target chapter slug if the chapter outline names it else `unfired`, status `active`. Cap at 8 per chapter. Persist via MCP `register_chapter_promises(book_slug, chapter_slug, promises)`. If the chapter places no promises, pass an empty list — this writes a placeholder so the index knows the chapter was processed. Skip this step when staying at `Draft` (mid-chapter saves don't lock in promises).
-3. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
-4. **Update `plot/timeline.md`** — one row per story-day. MANDATORY.
-5. **Update Travel Matrix** in `world/setting.md` if new routes appeared.
-6. **Record new canon facts** — for each new or revised fact established in this chapter, call MCP `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)`. For revisions, include `is_revision=True`, `old_value`, and `revision_impacts=[slug, ...]` for downstream chapters that reference the old version. The `canon_brief` projector reads exclusively from DB (Issue #297) — writing to `plot/canon-log.md` is no longer sufficient. Run `scripts/migrate_canon_log_to_db.py` once on legacy books to import existing MD facts.
+3. **Canon Fact Recording Gate — required before advancing to Review or Final. Skip only when staying at `Draft`.** This gate blocks the status update in step 4 — do not call `update_field()` until the gate is complete.
+
+   a. **Check existing coverage** — Call `get_canon_brief(book_slug, chapter_slug)`. Note the `facts_count` for the current chapter slug. Even when facts already exist (incremental save), still scan the current session's prose for anything added since the last save.
+
+   b. **Scan the completed draft** for canon-relevant events. Check every category:
+      - **Characters** — new names, physical descriptions, abilities, injuries, deaths, status changes
+      - **Locations** — new rooms, buildings, routes, distances, first-visit establishments
+      - **Relationships** — connections established or changed between characters
+      - **Objects** — named items introduced, ownership transfers, destruction
+      - **Timeline** — exact dates/times, durations, relative anchors established
+      - **Events** — plot-significant actions, revelations, decisions with lasting consequences
+      - **Backstory** — origins, histories, past events first revealed in this chapter
+
+   c. **Record each fact** — Call `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)` for every item identified above.
+      - `domain`: `character` | `location` | `relationship` | `object` | `timeline` | `event` | `backstory`
+      - For revisions to existing facts: add `is_revision=True`, `old_value=<previous text>`, `revision_impacts=[downstream_chapter_slug, ...]`
+
+   d. **Emit a Canon Fact Checklist** in chat — mandatory, even when the list is short:
+      ```
+      Canon Facts Recorded — Ch. {N}:
+      [✓] subject: <X> | fact: <...> | domain: <...>
+      [✓] subject: <Y> | fact: <...> | domain: <...>
+      ```
+      If zero canon-relevant events exist, declare it explicitly: *"Canon Recording: no new facts established in this chapter beyond what is already in DB."* This is a deliberate statement, not a silent skip.
+
+4. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
+5. **Update `plot/timeline.md`** — one row per story-day. MANDATORY.
+6. **Update Travel Matrix** in `world/setting.md` if new routes appeared.
 7. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with `~HH:MM`. MANDATORY (future chapters depend on it).
 
 8. **Update POV character snapshot** — **§ POV Snapshot Procedure** in `chapter-writing-shared.md`.

@@ -178,9 +178,32 @@ For each hit: answer literal-resemblance and real-work honestly. Reject dead sim
 ### Step 7: Save and Update (both modes)
 1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
 2. **Extract promises** — Before flipping status to `Review` or `Final`, walk the completed draft and identify setup-elements (unresolved threads, callbacks, foreshadowed events — taxonomy in `reference/craft/plot-logic.md`). Cap at 8 per chapter. Persist via MCP `register_chapter_promises(book_slug, chapter_slug, promises)`.
-3. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`.
-4. **Update `plot/timeline.md`** — one real-date row per story-day. MANDATORY.
-5. **Record people facts** — for each named person fact established in this chapter, call MCP `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)`. The `canon_brief` projector reads from DB exclusively (Issue #297). For corrections, include `is_revision=True`, `old_value`, and `revision_impacts=[slug, ...]`. Run `scripts/migrate_canon_log_to_db.py` once on legacy books to import existing `plot/people-log.md` facts.
+3. **People Fact Recording Gate — required before advancing to Review or Final. Skip only when staying at `Draft`.** This gate blocks the status update in step 4 — do not call `update_field()` until the gate is complete.
+
+   a. **Check existing coverage** — Call `get_canon_brief(book_slug, chapter_slug)`. Note the `facts_count` for the current chapter slug. Even when facts already exist (incremental save), still scan the current session's prose for anything added since the last save.
+
+   b. **Scan the completed draft** for person-relevant facts. Check every category:
+      - **People** — new names introduced, physical details, jobs or roles first established
+      - **Relationships** — connections established or revealed between real people
+      - **Consent-relevant** — details that change a person's consent_status tier (new sensitive revelations)
+      - **Timeline** — real dates, durations, sequences confirmed in this chapter
+      - **Events** — factual events described that carry narrative weight across chapters
+      - **Backstory** — past facts about real people first introduced in this chapter
+
+   c. **Record each fact** — Call `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)` for every item identified above.
+      - `domain`: `character` | `relationship` | `consent` | `timeline` | `event` | `backstory`
+      - For corrections to existing facts: add `is_revision=True`, `old_value=<previous text>`, `revision_impacts=[downstream_chapter_slug, ...]`
+
+   d. **Emit a People Fact Checklist** in chat — mandatory, even when the list is short:
+      ```
+      People Facts Recorded — Ch. {N}:
+      [✓] subject: <X> | fact: <...> | domain: <...>
+      [✓] subject: <Y> | fact: <...> | domain: <...>
+      ```
+      If zero person-relevant facts exist, declare it explicitly: *"People Recording: no new facts established in this chapter beyond what is already in DB."* This is a deliberate statement, not a silent skip.
+
+4. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`.
+5. **Update `plot/timeline.md`** — one real-date row per story-day. MANDATORY.
 6. **No route-matrix update** — memoir documents real settings via research. Note new place names in `research/sources.md` instead.
 7. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with real clock times (`~HH:MM`). MANDATORY (future chapters depend on it).
 8. **Update POV character snapshot** — **§ POV Snapshot Procedure** in `chapter-writing-shared.md`.
