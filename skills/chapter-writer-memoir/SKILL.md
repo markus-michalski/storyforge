@@ -6,7 +6,7 @@ description: |
   Use when: (1) `book_category == "memoir"` AND user says "Kapitel schreiben",
   "write chapter", (2) Book is in Drafting status with chapters outlined.
   Fiction books → use `/storyforge:chapter-writer` instead.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> <chapter-number>"
 ---
@@ -55,7 +55,7 @@ Before writing a single word:
 9. **People facts** — Use `canon_brief` from the chapter writing brief (DB-backed since Issue #297 — `plot/people-log.md` is no longer read directly). **Why:** Large logs truncate context. The inlined brief carries `pov_relevant_facts` (trimmed newest-first to 30k char budget) and `changed_facts`. For the unfiltered list call standalone `get_canon_brief(book_slug, chapter_slug)`. If `extraction_method == "none"`, no facts are in DB yet — run `scripts/migrate_canon_log_to_db.py` to import from `plot/people-log.md`, or call `add_canon_fact()` to add facts. Surface `warnings`; do not invent person facts.
 10. **Consent status check** — Read `consent_status_warnings` from the brief. **MANDATORY GATE.** If any warning has tier `refused`, halt drafting and route to `/storyforge:character-creator` (memoir mode). For tier `missing` or `pending`, surface and confirm before drafting.
 
-**Shared procedures** — MCP `get_craft_reference("chapter-writing-shared")`. Contains mode selection, scene-plan persistence, user review loop, chapter completion, POV snapshot procedure, and user feedback handling — all referenced inline later by section name (`§`).
+**Shared procedures** — MCP `get_craft_reference("chapter-writing-shared")`. **Why:** The shared procedures doc is the single source of truth for the user review loop (§ User Review Loop), scene-plan persistence (§ Scene Plan Persistence), chapter completion (§ Chapter Completion), and POV snapshot (§ POV Snapshot Procedure). Without it, all four downstream § references in this skill have no defined behavior — the skill cannot complete Modes A or B. Contains mode selection, scene-plan persistence, user review loop, chapter completion, POV snapshot procedure, and user feedback handling — all referenced inline later by section name (`§`).
 
 Note: memoir does **not** read `world/setting.md` (real settings live in `research/sources.md`). Both fiction and memoir read canon facts from DB only (Issue #297) — neither `plot/canon-log.md` nor `plot/people-log.md` is read directly.
 
@@ -122,7 +122,7 @@ If no `## Scene Plan` section exists (and proceeding directly): break the chapte
 Run the **Pre-Logic Audit** (above) **per scene**. Emit the bulleted block to chat before appending to `draft.md`, then proceed to Step A2.
 
 #### Step A2: Write One Scene
-Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene.
+Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene (~900 words, range 600-1200).
 
 **Pre-append:** run the Step 6c Simile Discipline Scan. No scene enters `draft.md` before the scan.
 
@@ -131,9 +131,13 @@ After writing:
 2. Report in chat ONLY: scene number, word count, one-line summary.
 3. **WAIT for user feedback** as `{review_handle}:` blocks inside `draft.md`.
 
+**GATE: Do NOT proceed to the next scene until the user explicitly confirms approval (e.g., "approved", "next scene", "weiter"). A correction cycle is NOT approval — process corrections, re-append, then re-wait. Only a clean approval or explicit "next" instruction unlocks Step A1 for Scene N+1.**
+
 #### Step A3: User Review Loop
 
 → **§ User Review Loop** in `chapter-writing-shared.md`.
+
+**GATE: After processing all `{review_handle}:` corrections and re-appending the revised scene, WAIT for explicit approval before unlocking Scene N+1. Do NOT treat a correction acknowledgement as approval.**
 
 #### Step A4: Chapter Completion
 
@@ -148,6 +152,8 @@ Run the **Pre-Logic Audit** (above) **once per chapter**, covering the chapter a
 
 #### Step 3: Opening Hook
 Open with action/voice/tension (not weather or waking-up). Ground the reader subtly. Create a micro-question. Match the author's voice from the FIRST sentence. See `openings-and-endings.md`.
+
+**Write the full chapter in ONE PASS. Target the word count from the chapter README (default ~3,000-4,000 words unless specified).**
 
 #### Step 4: Scene-Sequel Structure (memoir-adapted)
 Per `chapter-construction.md`. Memoir scenes still need shape: **Scene:** Situation → Stakes → Outcome. **Sequel:** Reflection → Dilemma → Decision (or Acceptance). Real events may not resolve neatly — the sequel is where the memoirist's processing lives.

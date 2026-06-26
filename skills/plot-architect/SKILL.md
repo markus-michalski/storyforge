@@ -9,7 +9,7 @@ description: |
   "Plot", "Handlung", "Struktur", "outline", "plot beats",
   (2) After concept is developed, before character creation.
   Memoir books → use `/storyforge:plot-architect-memoir` instead.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug>"
 ---
@@ -133,16 +133,16 @@ Write to `{project}/plot/arcs.md`.
 
 ### Step 7: Chapter Plan
 
-Generate a chapter-by-chapter plan with:
+Generate a chapter-by-chapter plan (~2–3 lines per chapter). For each chapter include:
 
 - Chapter number
 - Working title
 - POV character
-- Key events
+- Key events (1 sentence)
 - Subplot threads active
 - Approximate word count
 
-Offer to create chapter directories via MCP `create_chapter()`.
+Offer to expand individual chapters on request. Offer to create chapter directories via MCP `create_chapter()`.
 
 ### Step 8: Initialize Story Timeline
 
@@ -196,6 +196,8 @@ If `book-conceptualizer` has run, confirm or refine the existing premise. Otherw
 
 Write or update via MCP `update_field(book_slug, "premise", ...)`.
 
+**Wait for user confirmation before proceeding to Snowflake Step 2.** The one-sentence summary is the seed — if it's wrong, everything downstream is wrong.
+
 ### Snowflake Step 2: One-Paragraph Summary
 
 Expand into one paragraph with four sentences:
@@ -223,6 +225,8 @@ For each major character write a one-page summary:
 Trigger `character-creator` in parallel mode for deep character work if needed.
 Store summaries via MCP `update_field()` in each character's file.
 
+**Wait for user confirmation before proceeding to Snowflake Step 4.** Character summaries frequently reveal premise mismatches — confirm Steps 1–2 revisions are done before expanding the skeleton.
+
 ### Snowflake Step 4: Plot Skeleton (One-Page Expansion)
 
 Expand the paragraph from Step 2 into one full page:
@@ -232,6 +236,8 @@ Expand the paragraph from Step 2 into one full page:
 - Still high-level — identify skeleton, not every scene
 
 Write to `{project}/plot/acts.md`.
+
+**Wait for user confirmation before proceeding to Snowflake Step 5.** The skeleton is the structural contract — approve it before writing POV synopses that depend on it.
 
 ### Snowflake Step 5: Character Synopses from Each POV
 
@@ -253,6 +259,8 @@ Expand Step 4 into a 4-page detailed synopsis:
 
 Write to `{project}/plot/outline.md` (replace/expand earlier version).
 
+**Wait for user confirmation before proceeding to Snowflake Step 7.** The 4-page synopsis is the detailed blueprint — confirm it before deepening character charts that must align with it.
+
 ### Snowflake Step 7: Deep Character Charts
 
 Expand character summaries from Step 3 into comprehensive profiles:
@@ -265,6 +273,8 @@ Expand character summaries from Step 3 into comprehensive profiles:
 **After Step 7, revise Steps 3–6** to bring plot and characters into full alignment.
 
 Trigger `character-creator` for detailed character work. Update via MCP.
+
+**Wait for user confirmation before proceeding to Snowflake Step 8.** Deep character charts often force plot revisions — confirm the Step 3–6 revision pass is complete before building the scene list.
 
 ### Snowflake Step 8: Scene List Spreadsheet
 

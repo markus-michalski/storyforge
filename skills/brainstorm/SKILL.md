@@ -8,7 +8,7 @@ description: |
   "was könnte ich schreiben", "neue Geschichte", (2) User explicitly invokes `/storyforge:brainstorm`,
   (3) Context is clearly a book (genre mentions, character/plot/world, memoir/life-writing, reading material).
   Do NOT trigger on bare "Idee" / "brainstorm" without book context — defer to a more specific plugin.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "[idea-slug]"
 ---
@@ -33,6 +33,8 @@ Ask the user what sparks their interest. Open-ended:
 - "Any genre preferences?" (show genres via MCP `list_genres()`)
 - "Short story or something longer?"
 
+**[Gate 1] Wait for the user's answer before generating any variations.**
+
 ### Phase 2: Explore
 Take whatever the user gives and expand it through "What if?" questions:
 - What if the protagonist is [unexpected trait]?
@@ -40,11 +42,13 @@ Take whatever the user gives and expand it through "What if?" questions:
 - What if the conflict is actually about [deeper theme]?
 - What if the genre expectations are subverted by [twist]?
 
-Generate 3-5 premise variations. Each should be 2-3 sentences:
+Generate 3-5 premise variations. Each should be 2-3 sentences (~25 words each):
 - Character + Situation + Conflict + Stakes
 
+**[Gate 2] Present the variations and STOP. Do not proceed to Phase 3 until the user picks a direction.**
+
 ### Phase 3: Develop
-Once the user picks a direction:
+Once the user picks a direction (be concise — this is ideation, not prose; ~100 words total for this block):
 - **Logline:** One sentence pitch
 - **Genre(s):** Recommended combination
 - **Book type:** Suggested length
@@ -52,10 +56,14 @@ Once the user picks a direction:
 - **Themes:** What questions does it explore?
 - **Comparable titles:** "X meets Y"
 
+**[Gate 3] Confirm with the user before calling create_idea.**
+
 ### Phase 4: Save
 Save via MCP `create_idea` with `title`, `genres`, `logline`, `concept`, and `book_category: fiction`.
 
 **Server discipline:** ALWAYS use the `storyforge-mcp` server's `create_idea`. NEVER call `create_idea` from any other MCP server — those write to different stores and corrupt the storyforge ideas directory.
+
+**Why:** `storyforge-mcp` maintains a dedicated ideas store at `~/.storyforge/`; other MCP servers (e.g. `project-hub`) write to different databases and silently corrupt the storyforge ideas directory if called here.
 
 The idea gets status `raw` by default. If fully developed (logline + themes + comps), call `update_idea(slug, "status", "explored")` immediately.
 
@@ -77,8 +85,12 @@ Ask open-ended questions to locate the material:
 
 Do NOT suggest topics. Wait for the user. Memoir ideas must come from the writer's own life — suggesting premises for memoir is inappropriate.
 
+**[Gate M1] Wait for the user's answer before asking the three foundation questions.**
+
 ### Phase 2: The Three Questions
-Once the user identifies the material, press on the three memoir foundation questions:
+Once the user identifies the material, press on the three memoir foundation questions.
+
+**[Gate M2] Ask each question individually and wait for the user's answer before asking the next. Keep each of your follow-up responses to 2-3 sentences — this is excavation, not analysis.**
 
 1. **"Why this story?"** — What makes this particular experience worth a book-length treatment? Not "it was important to me" — that's true of everything. What's the specific gift this story could give a reader?
 
@@ -89,13 +101,15 @@ Once the user identifies the material, press on the three memoir foundation ques
 If the user can answer all three strongly, the memoir has a foundation. If they can't yet, help them discover the answers — don't let them proceed with a vague impulse.
 
 ### Phase 3: Develop
-Once the three questions are answered:
+Once the three questions are answered (be concise — this is ideation, not prose; ~120 words total for this block):
 - **One-sentence premise:** What this memoir is about, in terms of the author's transformation or reckoning — not a plot summary
 - **Time window:** What period does it cover? (A year, a decade, a single event and its aftermath?)
 - **Scope tags:** What kind of memoir? (memoir-of-illness, memoir-of-family, memoir-of-place, memoir-of-addiction, memoir-of-reckoning, etc.)
 - **Structural instinct:** How does it want to be told? (Chronological? Thematic? Braided with a present-day frame?)
 - **The reader it's for:** Who needs to read this? "For anyone who has ever..." — complete that sentence.
 - **Comparable memoirs:** Real memoir comps, not fiction. (e.g., "Readers of *Educated* and *The Glass Castle* will recognize this.")
+
+**[Gate M3] Confirm with the user before calling create_idea.**
 
 ### Phase 4: Save
 Save via MCP `create_idea` with `title`, `genres` (use scope tags as thematic anchors), `logline`, `concept`, and `book_category: memoir`.

@@ -4,7 +4,7 @@ description: |
   Create new genre definitions or genre-mix combinations.
   Use when: (1) User says "neues Genre", "genre-mix", "genre creator",
   (2) User needs a genre combination that doesn't exist yet (e.g., "lgbtq-supernatural").
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<genre-name>"
 ---
@@ -19,11 +19,15 @@ Is this a:
 - **New mix genre** — A combination of existing genres (e.g., lgbtq-supernatural)
 - **New subgenre** — A variant of an existing genre
 
+**Wait:** Confirm genre type with user before proceeding to research.
+
 ### Step 2: Research
 For new genres or mixes:
 - Use WebSearch to research conventions, key authors, example works
 - Load parent genre README(s) via MCP `get_genre()` if this is a mix
 - Load corresponding genre-craft reference via MCP `get_craft_reference()` if available
+
+**Wait:** Show research summary (key conventions, tensions, 3-5 example works found) and ask user to confirm direction before writing README.
 
 ### Step 3: Create README
 Write `{plugin_root}/genres/{genre-name}/README.md` following the standard genre template:
@@ -31,15 +35,15 @@ Write `{plugin_root}/genres/{genre-name}/README.md` following the standard genre
 ```markdown
 # {Genre Name}
 
-## Overview
-## Characteristics (table)
-## Key Conventions
-## Common Tropes (Use Wisely)
-## Anti-Patterns (Avoid)
-## Recommended Story Structures
-## Subgenres (table)
-## Example Authors & Works (table)
-## Genre-Mixing Notes
+## Overview (~100 words)
+## Characteristics (table, 5-8 rows)
+## Key Conventions (~150 words)
+## Common Tropes (Use Wisely) (3-5 entries, 1-2 sentences each)
+## Anti-Patterns (Avoid) (3-5 entries, 1-2 sentences each)
+## Recommended Story Structures (~100 words, max 3 structures)
+## Subgenres (table, min 3 rows)
+## Example Authors & Works (table, min 5 rows)
+## Genre-Mixing Notes (~100 words)
 ```
 
 ### Step 4: For Mix Genres — Special Handling

@@ -5,7 +5,7 @@ description: |
   Use when: (1) User says "Kapitel reviewen", "review chapter",
   (2) After chapter-writer completes a draft.
   Memoir books → use `/storyforge:chapter-reviewer-memoir` instead.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> <chapter-slug>"
 ---
@@ -22,7 +22,10 @@ If `book_category == "memoir"` → invoke `/storyforge:chapter-reviewer-memoir` 
 
 ### Step 1 — Load the review brief (single MCP call, replaces 6+ direct file reads)
 
-Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
+Call MCP `get_review_brief(book_slug, chapter_slug)`.
+**Why:** All review checks — canon, timeline, tonal rules, callbacks — depend on data this single call consolidates. Without it the reviewer has no baseline and must skip or invent.
+
+This returns:
 
 - `book_category` — must be `fiction`; if `memoir` → see Step 0
 - `chapter_timeline` — intra-day time grid for this chapter

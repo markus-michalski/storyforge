@@ -4,7 +4,7 @@ description: |
   Process curated beta-reader feedback — triage, cross-reference, revision plan.
   Use when: (1) User says "beta feedback", "ARC feedback", "reader feedback", "Beta-Feedback verarbeiten",
   (2) Book is in eBook/revision stage with beta-reader responses collected.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> [--file path/to/feedback.md]"
 ---
@@ -30,17 +30,26 @@ Beta-reader feedback is qualitatively different from inline review comments:
 ## Prerequisites
 
 1. Resolve book slug from argument or session via MCP `get_session()`
+   **Why:** All subsequent MCP calls require the book slug; wrong slug silently loads the wrong book's data.
 2. Load book data via MCP `get_book_full(slug)`
+   **Why:** Provides chapter list, character index, and metadata needed to validate `Affected:` chapter references in the feedback file.
 3. Resolve book path via MCP `resolve_path(slug, "book")`
+   **Why:** The absolute path is required to read feedback file, draft chapters, and cross-reference docs — relative paths break across content-root configurations.
 4. Load per-book CLAUDE.md via MCP `get_book_claudemd(slug)` — Rules, Callbacks, Workflow
+   **Why:** Carries persisted Rules, Callbacks, and Workflow overrides that govern triage verdicts — without this, deliberate authorial choices are misread as errors.
 5. Read the feedback file:
    - Default: `{project}/research/beta-feedback.md`
    - Custom: path from `--file` argument
+   **Why:** The feedback file is the sole input — without it, no items can be parsed and the workflow cannot proceed.
 6. Read cross-reference sources:
    - Canon facts via `get_canon_brief(book_slug, chapter_slug)` — DB-backed established facts and revision tracking (Issue #297)
+     **Why:** Identifies whether a reader-reported error is already-fixed in a revision vs. a real problem (`revision_impacts` field prevents chasing ghost issues).
    - `{project}/plot/timeline.md` — canonical timeline
+     **Why:** Required to assess whether timeline complaints reflect real errors or reader miscounting of story-days.
    - `{project}/plot/tone.md` — tonal rules, warning signs, litmus tests
+     **Why:** Pacing complaints must be validated against the tonal arc for that chapter's position — without tone.md, valid deliberate pacing choices get wrongly flagged.
    - `{project}/plot/arcs.md` — character arcs and motivation setup
+     **Why:** Character-motivation complaints require verifying what setup already exists — without arcs.md, existing foreshadowing is invisible.
 7. Read chapter drafts as needed during cross-referencing: `{project}/chapters/{slug}/draft.md`
 
 ## Input Format
@@ -118,7 +127,16 @@ For each **non-positive** item:
 4. **Check against tone.md** — Is the pacing concern valid per the tonal arc for that chapter's position, or is the reader expecting the wrong genre mode? Check the Tonal Arc table, Warning Signs, and Non-Negotiable Rules.
 5. **Check against arcs.md** — Is the character motivation actually set up (just subtly)? Is the reader missing foreshadowing?
 
-Document evidence for each check. This evidence is critical for Phase 4 verdicts.
+Document evidence for each check in ~2-3 bullet points per source. This evidence is critical for Phase 4 verdicts.
+
+After documenting all cross-reference findings, present a summary table:
+
+| FB-ID | Sources checked | Key finding per source |
+|-------|----------------|----------------------|
+| FB-001 | draft, timeline, tone | draft confirms slow pacing; timeline: no error; tone: position is mid-crisis, slow pace is deliberate |
+| FB-002 | draft, arcs, canon | motivation gap confirmed in draft; arcs show setup exists but is too subtle |
+
+**Wait for user confirmation before proceeding to Phase 4 (Triage).** The author may want to correct a misread passage or provide additional context before verdicts are rendered.
 
 ### Phase 4: Triage
 
@@ -133,7 +151,7 @@ Present each item with a verdict and supporting evidence:
 
 **Critical rule:** Apply the same verify-first discipline as inline author comments (Rule #14 from CLAUDE.md). Beta readers are LESS reliable than the author — they don't know the rules, the foreshadowing strategy, or the tonal arc. **Push back with evidence** when the feedback would damage the book.
 
-For **disagree** verdicts, always provide:
+For **disagree** verdicts, always provide (max ~100 words of evidence total):
 - The specific passage the reader is reacting to (quote from draft)
 - The evidence that it's intentional (quote from canon-log, arcs, tone, or per-book CLAUDE.md callbacks)
 - Why changing it would hurt the book
@@ -150,7 +168,7 @@ For all items the user confirms as `valid + actionable`:
 4. **Flag conflicts** — if two feedback items suggest contradictory changes, surface it
 5. **Prioritize** — Critical (structural/plot) before cosmetic (prose/pacing polish)
 
-Output format:
+Output format (keep each task to 1-3 lines; cascade notes are 1 line each):
 
 ```markdown
 ## Revision Plan

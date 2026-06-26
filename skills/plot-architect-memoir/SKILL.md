@@ -9,7 +9,7 @@ description: |
   "Handlung", "Struktur", "narrative arc", "Aufbau", (2) After
   book-conceptualizer (memoir mode) has populated the `## Scope` section.
   Fiction books → use `/storyforge:plot-architect` instead.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug>"
 ---
@@ -65,7 +65,7 @@ Ask the user:
 
 Write the through-line to `{project}/plot/outline.md` under "## Through-line". This is what the chapter spine in Step M5 will serve.
 
-**Wait for user confirmation of the through-line before Step M2. Structure choice cascades from this sentence.**
+**STOP. Do not proceed to Step M2 until the user has replied in this conversation. Structure choice cascades from this sentence.**
 
 ### Step M2: Choose structure type
 
@@ -82,7 +82,7 @@ Reference the **decision tree** at the bottom of `memoir-structure-types.md` if 
 
 After the user picks, persist the choice via MCP `set_memoir_structure_type(book_slug, structure_type)`. The tool validates against the four allowed values and writes to `plot/structure.md` frontmatter so downstream skills (`chapter-writer` memoir mode #57, `rolling-planner`) can read it.
 
-**Wait for the user's structure-type selection before Step M3.** Every downstream step branches on this choice.
+**STOP. Do not proceed to Step M3 until the user has replied in this conversation.** Every downstream step branches on this choice.
 
 ### Step M3: Map the narrative arc per structure type
 
@@ -90,38 +90,38 @@ The arc-mapping shape depends on the structure type. Pick the matching sub-step:
 
 #### M3-chronological — Time-bounded arc
 
-- **Begin point** — *not* the chronological start, the **narrative** start. *In medias res* is the default. Where does the reader enter?
-- **Hinge moments** — name 3–6 events that turned the period. Compress aggressively between them.
-- **End point** — where does the narrative close? Has the question the through-line raises been *answered*, *re-framed*, or deliberately *left open*?
-- **Compression strategy** — for each gap between hinges, decide: paragraph / scene cluster / single image / cut.
+- **Begin point** — *not* the chronological start, the **narrative** start. *In medias res* is the default. Where does the reader enter? (~20 words)
+- **Hinge moments** — name 3–6 events that turned the period. Compress aggressively between them. (~30–40 words per hinge event description)
+- **End point** — where does the narrative close? Has the question the through-line raises been *answered*, *re-framed*, or deliberately *left open*? (~20 words)
+- **Compression strategy** — for each gap between hinges, decide: paragraph / scene cluster / single image / cut. (one line per gap)
 
 Write to `{project}/plot/outline.md` under "## Narrative arc — chronological".
 
 #### M3-thematic — Conceptual chapters with a through-line
 
-- **Theme list** — typically 5–9 concrete themes. *Money / Faith / Bodies / Hunger / Silence* — concrete, not abstract. Kill *Truth / Beauty / Love* and pick substitutes.
-- **Through-line thread** — what runs across the themes? A relationship, a place, a recurring question. Visible by Chapter 3 or the reader bails.
-- **Argumentative order** — chapter sequence is an argument, not a list. Why does Chapter 5 need to come *after* Chapter 4?
-- **Scene-spine per theme** — each thematic chapter still needs scene work; theme alone is essay-shaped.
+- **Theme list** — typically 5–9 concrete themes. *Money / Faith / Bodies / Hunger / Silence* — concrete, not abstract. Kill *Truth / Beauty / Love* and pick substitutes. (one word or short phrase per theme)
+- **Through-line thread** — what runs across the themes? A relationship, a place, a recurring question. Visible by Chapter 3 or the reader bails. (~20 words)
+- **Argumentative order** — chapter sequence is an argument, not a list. Why does Chapter 5 need to come *after* Chapter 4? (one sentence per transition rationale)
+- **Scene-spine per theme** — each thematic chapter still needs scene work; theme alone is essay-shaped. (one line per theme)
 
 Write to `{project}/plot/outline.md` under "## Narrative arc — thematic" (theme list + through-line) and "## Argument order" (chapter sequence rationale).
 
 #### M3-braided — Two threads in conversation
 
-- **Thread A** — name it (e.g. "the year of the diagnosis"). Specify timeframe and POV.
-- **Thread B** — name it (e.g. "present-day reckoning"). Specify timeframe and what vantage point it carries.
-- **Cadence** — strict alternation? weighted (e.g. 2:1 toward Thread A)? variable per chapter cluster? Pick a pattern and commit.
-- **Transition principle** — image / theme / echo / question. Never "meanwhile, decades later". Define the working principle and apply it consistently.
-- **Earn-test** — for each thread, write one sentence saying what would be lost if it were cut. Vague answers mean the braid is decorative; one thread should probably go.
+- **Thread A** — name it (e.g. "the year of the diagnosis"). Specify timeframe and POV. (one line)
+- **Thread B** — name it (e.g. "present-day reckoning"). Specify timeframe and what vantage point it carries. (one line)
+- **Cadence** — strict alternation? weighted (e.g. 2:1 toward Thread A)? variable per chapter cluster? Pick a pattern and commit. (one line)
+- **Transition principle** — image / theme / echo / question. Never "meanwhile, decades later". Define the working principle and apply it consistently. (~15 words)
+- **Earn-test** — for each thread, write one sentence saying what would be lost if it were cut. Vague answers mean the braid is decorative; one thread should probably go. (one sentence per thread, max two sentences total)
 
 Write to `{project}/plot/outline.md` under "## Narrative arc — braided".
 
 #### M3-vignette — Mosaic with a through-line
 
-- **Through-line** — recurring image, place, relationship, unanswered question. Visible by Chapter 3.
-- **Vignette inventory** — list 12–25 candidate vignettes (more than you'll use). For each: one-line summary + emotional weight + which through-line element it touches.
-- **Selection** — cut to 8–18 strong vignettes. Weak vignettes stop the read; vignette memoirs cannot carry filler.
-- **Order as argument** — vignettes are arranged, not collected. The order is craft. Group by theme, contrast, or cumulative weight — the pattern is itself a craft choice.
+- **Through-line** — recurring image, place, relationship, unanswered question. Visible by Chapter 3. (~15 words)
+- **Vignette inventory** — list 12–25 candidate vignettes (more than you'll use). For each: title + 5–8 words summary + which through-line element it touches. (one line per vignette)
+- **Selection** — cut to 8–18 strong vignettes. Weak vignettes stop the read; vignette memoirs cannot carry filler. (note cut rationale in one word: "redundant" / "too-thin" / "off-thread")
+- **Order as argument** — vignettes are arranged, not collected. The order is craft. Group by theme, contrast, or cumulative weight — the pattern is itself a craft choice. (one sentence stating the ordering principle)
 
 Write to `{project}/plot/outline.md` under "## Narrative arc — vignette" (through-line + ordered vignette list).
 
@@ -172,11 +172,15 @@ Memoir uses **real chronology** for `plot/timeline.md`, not invented story-days.
 3. Pre-fill the Event Calendar with the hinge moments / themed-chapter clusters / vignette dates from Step M3. Mark all entries `[PLANNED]`.
 4. For braided memoir, the timeline tracks **both** threads — note Thread A and Thread B dates separately.
 
-This step is MANDATORY. A memoir without a timeline anchor produces cross-chapter time drift the same way fiction does.
+This step is MANDATORY. **Why:** memoir `chapter-writer` reads `plot/timeline.md` for every chapter; without the anchor file, cross-chapter time references drift and the downstream skill cannot enforce temporal consistency. A memoir without a timeline anchor produces cross-chapter time drift the same way fiction does.
+
+**STOP. Do not populate timeline.md until the user has confirmed the anchor date in this conversation.**
 
 #### M6b: Tonal document
 
 Same shape as fiction's tonal document — interview the user, populate the Tonal Arc per structure type (a chronological arc tone-shifts across the period; a thematic arc may keep tone steady within chapters and shift between them; braided demands two distinct tonal palettes; vignette tone may shift per vignette).
+
+**STOP. Do not write tone.md until the interview below is complete and the user has answered all four questions in this conversation.**
 
 Steps:
 
@@ -186,8 +190,8 @@ Steps:
    - Are there non-negotiable rules? (e.g. no retrospective wisdom voice, no therapy vocabulary on past-self)
    - What would be a WARNING sign that the tone is drifting?
 2. **Populate the Tonal Arc** based on the chosen structure type.
-3. **Define the Litmus Test** — 5-6 yes/no questions the chapter-writer answers after every chapter. Specific to *this* memoir, not generic craft questions.
-4. **Non-Negotiable Rules** — Memoir-specific prose rules beyond the author profile's general style.
+3. **Define the Litmus Test** — 5–6 yes/no questions the chapter-writer answers after every chapter. Specific to *this* memoir, not generic craft questions. (one sentence per question, max 15 words each)
+4. **Non-Negotiable Rules** — Memoir-specific prose rules beyond the author profile's general style. (max 4 rules, one sentence each)
 5. Write the completed document to `{project}/plot/tone.md`.
 
 Update book status to "Plot Outlined" via MCP `update_field()`.

@@ -5,7 +5,7 @@ description: |
   Run after `/storyforge:brainstorm` + `/storyforge:new-book`, before `/storyforge:plot-architect`.
   Use when: (1) User says "Konzept", "develop concept", "Buchkonzept",
   (2) After brainstorming, to deepen an idea into a workable concept.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug>"
 ---
@@ -57,11 +57,11 @@ Start with whatever the user has. Ask probing questions:
 - "If a reader remembers only one thing, what should it be?"
 - "What's the emotional experience you want to create?"
 
-Refine into a clear **Premise** (2-3 sentences): Character + Situation + Central Conflict.
+Refine into a clear **Premise** (2-3 sentences, ~50 words max): Character + Situation + Central Conflict.
 
 Write to `{project}/README.md` under "## Premise".
 
-**Wait for user response and explicit premise approval. Do not proceed to Phase 2 without input.**
+**STOP HERE — Phase Gate 1/5.** Present the premise draft above. Do NOT generate any Phase 2 content. Wait for the user to confirm, revise, or approve before continuing.
 
 ### Phase 2: Theme Discovery
 Ask probing questions. Listen first:
@@ -71,9 +71,9 @@ Ask probing questions. Listen first:
 
 Reference `theme-development.md` — theme as QUESTION, not answer.
 
-Write to `{project}/README.md` under "## Themes".
+Write to `{project}/README.md` under "## Themes". Theme statement: 1-2 sentences, concise — theme-as-question, not thesis.
 
-**Wait for user response. Do not proceed to Phase 3 without input.**
+**STOP HERE — Phase Gate 2/5.** Present the theme draft above. Do NOT generate any Phase 3 content. Wait for the user to confirm or revise before continuing.
 
 ### Phase 3: Conflict Architecture
 Using `conflict-types.md` as reference:
@@ -84,7 +84,7 @@ Using `conflict-types.md` as reference:
 
 Target: ~200-400 Wörter Konflikt-Architektur als Output, kompakt — die Tiefe entsteht in Phase 4 + Charakter-Skill, nicht hier.
 
-**Wait for user response. Do not proceed to Phase 4 without input.**
+**STOP HERE — Phase Gate 3/5.** Present the conflict architecture above. Do NOT generate any Phase 4 content. Wait for the user to confirm or revise before continuing.
 
 ### Phase 4: Structure Selection
 Using `story-structure.md`:
@@ -94,12 +94,12 @@ Using `story-structure.md`:
 
 Write initial outline to `{project}/plot/outline.md`.
 
-**Wait for user response and structure choice. Do not proceed to Phase 5 without input.**
+**STOP HERE — Phase Gate 4/5.** Present the structure options above. Do NOT generate any Phase 5 content. Wait for the user to choose a structure before continuing.
 
 ### Phase 5: Pitch Creation
 Generate:
-- **Logline:** One sentence ([Character] must [action] or [stakes])
-- **Elevator pitch:** 2-3 sentences
+- **Logline:** 1 sentence ≤20 words ([Character] must [action] or [stakes])
+- **Elevator pitch:** 2-3 sentences, ~60 words
 - **Comparable titles:** "X meets Y"
 - **Back-cover blurb:** 150-200 Wörter (does NOT reveal ending)
 
@@ -121,13 +121,13 @@ Memoir doesn't promise *what happened*. It promises *the felt sense* of what hap
 - "Why this slice? Why now? What is the **emotional knot** that pulled you to write?"
 - "If a stranger reads only the back cover, what should they understand the book is *about* — not the events, but the question?"
 
-Refine into a **Premise** (2-3 sentences): Life-context + Angle + Felt-stake. Avoid the trap of summarizing chronology — premise is the *interpretive frame*, not the timeline.
+Refine into a **Premise** (2-3 sentences, ~50 words max): Life-context + Angle + Felt-stake. Avoid the trap of summarizing chronology — premise is the *interpretive frame*, not the timeline.
 
 Write to `{project}/README.md` under "## Premise".
 
 Anti-pattern check before continuing: read `memoir-anti-ai-patterns.md`. If the premise reads like *"a journey of self-discovery through grief"*, push back — that's a generic AI shape, not a real angle.
 
-**Wait for user response and explicit premise approval. Do not proceed to Phase 2 without input.**
+**STOP HERE — Phase Gate 1/5.** Present the premise draft above. Do NOT generate any Phase 2 content. Wait for the user to confirm, revise, or approve before continuing.
 
 ### Phase 2: Theme — the universal lift
 
@@ -139,9 +139,9 @@ A memoir's theme is what makes one person's lived material resonate for a reader
 
 Reference `theme-development.md` — theme as QUESTION, not answer. The memoir-specific failure mode is **the tidy lesson** ("what I learned was…"). Memoir earns its theme by rendering experience honestly, not by stating conclusions.
 
-Write to `{project}/README.md` under "## Themes".
+Write to `{project}/README.md` under "## Themes". Theme statement: 1-2 sentences, concise — theme-as-question, not a lesson-summary.
 
-**Wait for user response. Do not proceed to Phase 3 without input.**
+**STOP HERE — Phase Gate 2/5.** Present the theme draft above. Do NOT generate any Phase 3 content. Wait for the user to confirm or revise before continuing.
 
 ### Phase 3: Scope — what's in, what's out
 
@@ -170,7 +170,7 @@ The exclusion list is part of the concept. Memoirs that try to cover everything 
 
 Target: ~250-450 Wörter scope-document as output. Write to `{project}/README.md` under "## Scope" (a section that does not exist in fiction-mode books).
 
-**Wait for user response. Do not proceed to Phase 4 without input.**
+**STOP HERE — Phase Gate 3/5.** Present the scope document above. Do NOT generate any Phase 4 content. Wait for the user to confirm or revise before continuing.
 
 ### Phase 4: Structure Selection — memoir structure types
 
@@ -185,14 +185,14 @@ Using `memoir-structure-types.md` (loaded in Step 0):
 
 Write initial outline to `{project}/plot/outline.md` (memoir-shaped — the file scaffolded by `/storyforge:new-book` already points at structure types). Also update `{project}/plot/structure.md` with the selected type and rationale.
 
-**Wait for user response and structure choice. Do not proceed to Phase 5 without input.**
+**STOP HERE — Phase Gate 4/5.** Present the structure options above. Do NOT generate any Phase 5 content. Wait for the user to choose a structure before continuing.
 
 ### Phase 5: Pitch — memoir blurb conventions
 
 Memoir blurbs follow a different shape than fiction. Generate:
 
-- **Logline:** One sentence — *the lived premise + the universal question*. Not *"X must do Y or Z"*. Closer to: *"After her mother's diagnosis, a daughter spends a year asking what it means to be the one who stays."*
-- **Elevator pitch:** 2-3 sentences — hook (the specific situation) → personal stake (why it mattered to you) → universal resonance (why it matters to a stranger).
+- **Logline:** 1 sentence ≤20 words — *the lived premise + the universal question*. Not *"X must do Y or Z"*. Closer to: *"After her mother's diagnosis, a daughter spends a year asking what it means to be the one who stays."*
+- **Elevator pitch:** 2-3 sentences, ~60 words — hook (the specific situation) → personal stake (why it mattered to you) → universal resonance (why it matters to a stranger).
 - **Comp titles:** "X meets Y" still applies but reach for actual memoirs — *"H is for Hawk meets Just Kids"* — not novels.
 - **Back-cover blurb:** 150-200 Wörter. Does NOT moralize, does NOT promise lessons learned, does NOT spoil the emotional resolution. Renders one specific moment or image to anchor the felt-sense, then widens to the question the book sits with.
 

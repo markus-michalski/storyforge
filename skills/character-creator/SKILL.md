@@ -8,7 +8,7 @@ description: |
   "Charakter", "character", "Figur", "Person",
   (2) After plot/structure is outlined, to populate the story.
   Memoir books → use `/storyforge:character-creator-memoir` instead.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> [name]"
 ---
@@ -38,6 +38,10 @@ Before any other prerequisite load:
 - **Genre README(s)** for genre-specific character expectations. **Why:** Romance protagonists ≠ horror protagonists ≠ literary protagonists — genre dictates expected archetypes and arc patterns.
 - Read `{project}/plot/outline.md` and `{project}/plot/arcs.md` for story context.
 
+## Output Length Guidance
+
+Keep all analytical output concise — bullets or short paragraphs of ≤3 sentences unless the user requests more. Present findings step-by-step; do not summarize multiple steps in a single block.
+
 ## Workflow — Fiction (14 steps)
 
 ### Step 1: Character Role
@@ -46,6 +50,8 @@ Ask the user:
 - What's their function in the story? (drives plot, mirrors theme, provides contrast, comic relief)
 
 Create file via MCP `create_character()`.
+
+**Wait for user to confirm character name and role before proceeding to Step 2.**
 
 ### Step 2: Archetype — Starting Point
 Identify the primary archetype as a starting point, then immediately look for the subversion:
@@ -59,6 +65,8 @@ Work through Goal / Motivation / Conflict:
 - **Motivation:** WHY do they want it? (emotional, rooted in backstory — not "because it's important" but a specific wound or desire)
 - **Conflict:** What stops them? (both external obstacles and internal resistance)
 
+**Wait for user to confirm the GMC before proceeding to Step 4.**
+
 ### Step 4: Want vs. Need
 The most important character mechanic:
 - **Want:** What they consciously pursue (external goal)
@@ -67,6 +75,8 @@ The most important character mechanic:
 
 Example: Want = revenge. Need = forgiveness. Lie = "Justice requires punishment."
 
+**Wait for user to confirm Want / Need / Lie before proceeding to Step 5.**
+
 ### Step 5: The Motivation Chain — Dig Three Layers Deep
 Surface motivations are rarely the true ones. Work with the user to find all three layers:
 - **Surface:** What the character says they want (what they'd tell a stranger)
@@ -74,6 +84,8 @@ Surface motivations are rarely the true ones. Work with the user to find all thr
 - **Deepest:** The core wound-driven need (ask "why?" again — this is what the story is really about for this character)
 
 **Always ask "why?" twice.** Surface motivations alone fail the depth test. The third layer connects to survival, love, worth, or meaning — if you stop at layer two, the character reads as a thin archetype. Push the user past "she wants to prove herself": prove herself to whom? Why does that matter? What would happen if she didn't?
+
+Present each motivation layer in 1–2 sentences. Do not summarize all three layers in a single block before the user has confirmed each one.
 
 **Wait for user confirmation that the deepest layer is the right one before moving to Step 6.** Step 6 (The Ghost) builds directly on this — a wrong layer-three answer cascades.
 
@@ -88,22 +100,26 @@ Guide the conversation:
 - What false lesson did they draw from it? (This becomes The Lie in Step 4)
 - The Ghost explains the Fatal Flaw. If you can't connect the wound to the flaw, dig deeper.
 
+**Wait for user to confirm The Ghost before mapping backstory.**
+
 Apply the Iceberg Principle: know 100%, show 10%. The Ghost rarely appears on the page directly — it shapes behavior from below the surface.
 
-Then map the broader backstory:
+Then map the broader backstory (bullet list, max 3 bullets per category):
 - **Upbringing:** Setting, income level, family dynamics, cultural background, core values instilled
 - **Family Relationships:** Which were formative and how? What did they teach about love, trust, worth?
 - **Friendships:** Most significant friendships — who shaped them, who was lost?
 - **Adversaries:** Who looms in their memory as betrayer, nemesis, or threat?
 
 ### Step 7: Psychology
-Work through the internal landscape:
+Work through the internal landscape one category at a time — present each question, wait for the user's response, then move to the next:
 - **The Lie:** What broken conclusion did they draw from The Ghost?
 - **Fear (rational):** What do they consciously dread?
 - **Phobias (irrational):** What makes them flinch in ways they can't fully explain?
 - **Insecurities:** What are they secretly ashamed of? What would they never admit?
 - **Value System:** What moral framework do they navigate by — even if it's flawed? Religious, philosophical, cultural, personal code?
 - **Handling Emotions:** How do they process feelings? Suppress, explode, intellectualize, deflect, go silent? What does it look like at their emotional limit?
+
+**Present each psychology category one at a time and wait for the user's response before moving to the next category.**
 
 ### Step 8: Fatal Flaw
 Not just a weakness — a flaw that:
@@ -113,6 +129,8 @@ Not just a weakness — a flaw that:
 - **Must be overcome** (positive arc) or **embraced** (negative arc)
 
 *Weakness vs. flaw: "She is shy" is a weakness. "She is so afraid of rejection that she sabotages every relationship before it can end on someone else's terms" is a flaw.*
+
+**Wait for user to identify the Fatal Flaw before proceeding to Step 9.**
 
 ### Step 9: Human Texture
 The details that make them feel lived-in. These don't drive the plot — they make the character feel real:
@@ -142,7 +160,7 @@ Write a sample dialogue snippet (5–6 lines) that could only be this character.
 ### Step 12: Arc Design
 Based on `character-arcs.md`:
 - **Arc type:** Positive (Lie → Truth), Negative (Truth → Lie), Flat (changes world, not self)
-- **Arc beats** aligned to plot beats:
+- **Arc beats** aligned to plot beats (one short sentence per beat):
   1. Lie established, reinforced by backstory
   2. Lie challenged by story events
   3. Moment of truth (midpoint — glimpse of what they need)

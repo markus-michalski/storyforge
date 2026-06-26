@@ -5,7 +5,7 @@ description: |
   consent obligations, and memoir-specific AI-tells.
   Use when: (1) `book_category == "memoir"` AND user says "Kapitel reviewen",
   "review chapter". Fiction books → use `/storyforge:chapter-reviewer` instead.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> <chapter-slug>"
 ---
@@ -52,17 +52,19 @@ Before reviewing a single line of prose, check `consent_status_warnings` from th
 
 This is a review flag, not a halt — the review continues, but consent issues must appear prominently at the top of the report.
 
+**If `consent_status_warnings` is non-empty, surface the warnings to the user now and wait for acknowledgment before proceeding to Step 2.** Example: *"Consent warning: [Person] has consent_status: refused. This scene should not be published. Proceed with review anyway, or route to `/storyforge:memoir-ethics-checker`?"* Do not begin loading craft context or reading prose until the user has responded.
+
 ### Step 2 — Load author and craft context
 
 - **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` lists cross-book tics — flag any hit as Major findings. `style_principles` and `donts` feed the same review pass.
 - **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Banned-word scan and preferred-word check both run against this list.
 - **Craft references** via MCP `get_craft_reference()`:
-  - `dos-and-donts` — general craft baseline for the Craft section.
-  - `anti-ai-patterns` — universal AI-tell catalog.
-  - `chapter-construction` — hook/scene-sequel/ending criteria.
-  - `dialog-craft` — subtext, voice differentiation, tag discipline.
-  - `show-dont-tell` — show/tell balance check.
-  - `simile-discipline` — two-question test for simile discipline.
+  - `dos-and-donts` — general craft baseline for the Craft section. **Why:** Craft section scoring (points 6–10) requires the dos-and-donts baseline; without it the review defaults to unsourced opinion.
+  - `anti-ai-patterns` — universal AI-tell catalog. **Why:** Anti-AI dimension (points 21–25) runs a hard gate against this catalog — missing it means banned words go unflagged.
+  - `chapter-construction` — hook/scene-sequel/ending criteria. **Why:** Structure dimension (points 1–5) scores hook, scene-sequel flow, and ending against these criteria; missing it produces ungrounded structure ratings.
+  - `dialog-craft` — subtext, voice differentiation, tag discipline. **Why:** Dialog quality (point 9) and Dialog voice (point 15) require this reference to assess subtext and tag discipline correctly.
+  - `show-dont-tell` — show/tell balance check. **Why:** Show-don't-tell (point 6) is scored against the patterns in this file; without it the check is impressionistic.
+  - `simile-discipline` — two-question test for simile discipline. **Why:** Simile Report and point 10b require the two-question test from this file; skipping it means the Simile Report cannot be populated.
 - **Memoir-specific** via `get_book_category_dir("memoir")`:
   - `memoir-anti-ai-patterns.md` — memoir-specific AI-tells the universal catalog misses (reflective platitudes, "looking back" hinges, tidy lesson endings, hedging-as-humility, therapeutic reframe, explanation-after-image).
 - **Detect if Chapter 1:** Check chapter slug (starts with `01-` or `001-`) or frontmatter chapter number. If Chapter 1: also load `openings-and-endings` craft reference.
@@ -73,6 +75,8 @@ This is a review flag, not a halt — the review continues, but consent issues m
 - Read the chapter outline: `{project}/chapters/{chapter}/README.md`
 - Read previous chapter draft for continuity context
 - Optional: If `{project}/research/manuscript-report.md` exists, check whether any of THIS chapter's distinctive 5-7 word phrases appear in earlier chapters. Flag matches in the Continuity Report.
+
+**Before beginning the review checklist: confirm all prerequisite files from Steps 1–3 loaded successfully.** If any MCP call returned errors or any file was missing, surface the specific errors to the user and wait for guidance before proceeding. Do not generate a review report against incomplete context.
 
 ## First Chapter Checklist — 13 Points (ONLY for Chapter 1)
 

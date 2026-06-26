@@ -9,7 +9,7 @@ description: |
   "Personen prüfen", (2) Before export of a memoir book, (3) After adding new
   people profiles, (4) During the revision phase of a memoir.
   Only runs on memoir books (book_category: memoir).
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug>"
 ---
@@ -212,4 +212,6 @@ Fix: {one-sentence fix direction}
 - Load `real-people-ethics.md` before presenting any finding. The nuance in
   that document (public figure vs. private, "per se" defamation categories,
   anonymization patterns that work vs. don't) is what separates a useful risk
-  flag from a false alarm.
+  flag from a false alarm. **Why:** the four-category model and D1–D4 definitions
+  in that doc are required to grade findings accurately — without it, category
+  misclassification produces misleading verdicts.

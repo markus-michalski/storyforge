@@ -5,7 +5,7 @@ description: |
   Use when: User says "I'm stuck", "Ich komme nicht weiter", "blocked", "can't write",
   "keine Motivation", "keine Lust", "Schreibblockade", or similar signals of creative resistance.
   NOT for workflow questions ("what's next?", "was steht an?") — use /storyforge:next-step instead.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "[book-slug]"
 ---
@@ -32,6 +32,8 @@ Options:
 
 If "Something else": Listen carefully. Map to the nearest root cause before continuing. If genuinely unclear, ask one follow-up question: "Ist es eher ein inneres oder ein äußeres Problem?" (inner = Fear/Perfectionism, outer = Procrastination/Distraction)
 
+**Wait for user response before proceeding to Step 2.**
+
 ### Step 2: Load Book Context
 
 Use MCP `get_session()` to find the active book slug.
@@ -49,6 +51,7 @@ This context drives the warmup exercise in Step 4 — without it, the exercise i
 ### Step 3: Deliver Targeted Intervention
 
 Each cause gets a specific, actionable response. No overlap, no hedging.
+**Length constraint:** Deliver each intervention block in ~150 words total. Max 3 bullet points per block, each ≤ 2 sentences.
 
 ---
 
@@ -119,6 +122,8 @@ Each cause gets a specific, actionable response. No overlap, no hedging.
 
 ---
 
+**Wait for user response before generating the warmup (Step 4).**
+
 ### Step 4: Warmup Exercise
 
 For all block types, generate a short, low-pressure warmup prompt based on the actual book.
@@ -137,6 +142,8 @@ The warmup must:
 - Distraction: "Set a timer for 15 minutes. Write [protagonist] walking from A to B. Describe only what they notice. No plot. No pressure."
 
 Present the warmup as an invitation, not an assignment. "Hier ist eine Idee — kein Druck:"
+
+**Wait for user response before proceeding to Step 5 (Handoff).**
 
 ### Step 5: Handoff
 

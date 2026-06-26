@@ -12,7 +12,7 @@ description: |
   (3) Positive patterns documented in analysis files are not reaching
   chapter-writer, (4) Author check finds style_principles section empty
   after multiple studied works.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "[author-slug]"
 ---
@@ -73,6 +73,8 @@ extraction target that drives the pass.
 Present the checklist to the user. Show what will be tracked positively across
 all analysis files, and allow additions or removals before proceeding.
 
+**STOP. Wait for user confirmation or modification before proceeding to Step 4.**
+
 ## Step 4: Build Analysis File List
 
 List `~/.storyforge/authors/{slug}/studied-works/analysis-*.md`.
@@ -90,6 +92,8 @@ Show the user the list. If any existing `style_principles` discoveries carry
 origin tags matching a file's book_slug, note it as advisory context only
 (origin-tag matching is not a completeness guarantee — MCP dedup at write time
 is the actual safety net). Confirm before proceeding.
+
+**STOP. Wait for explicit user confirmation before starting the extraction loop (Step 5).**
 
 ## Step 5: Per-File Extraction Loop
 
@@ -155,6 +159,8 @@ Each extracted pattern must be formatted as:
 measurable, technique name if named, trigger or context if pattern has one].
 ```
 
+Format each extracted pattern in 1–2 sentences max.
+
 Do NOT extract:
 - Anti-patterns (those belong in `donts` via `write_author_banned_phrase`)
 - Vague observations: "the pacing is good", "dialog feels natural"
@@ -200,6 +206,8 @@ exchange preferred. Do NOT invent examples; only use what the analysis file
 documents.
 
 If no clean example exists: leave `example` empty.
+
+Genre classification and example extraction per pattern: answer both questions in 1–2 sentences total per pattern, no prose elaboration.
 
 ### 5.4 Persist discoveries
 
@@ -256,6 +264,8 @@ Checklist items not found anywhere: {list of items, or "none"}
 ```
 
 If any files had errors, list them.
+
+Keep the summary block concise — one line per file, no prose elaboration.
 
 Tell the user:
 - `/storyforge:author-check` will now surface `style_principles` compliance

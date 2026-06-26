@@ -4,7 +4,7 @@ description: |
   Generate cover art prompts for DALL-E or Midjourney based on genre and story.
   Use when: (1) User says "Cover", "Buchcover", (2) Book needs a cover.
   Works for both fiction and memoir books.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug>"
 ---
@@ -21,7 +21,7 @@ argument-hint: "<book-slug>"
 
 ### Step 2: Cover Brief
 
-Develop with user in `{project}/cover/brief.md`. Branch by `book_category`:
+Develop with user in `{project}/cover/brief.md`. Branch by `book_category`. Keep each answer concise (~50 words per question). The final agreed brief should be ~150 words total.
 
 **Fiction brief questions:**
 - **Mood/atmosphere:** What should the cover FEEL like?
@@ -37,6 +37,8 @@ Develop with user in `{project}/cover/brief.md`. Branch by `book_category`:
 - **Author presence:** Should the author's face/image appear on the cover, or stay anonymous (place, object, silhouette)?
 - **Tone:** Intimate and personal? Weighty and serious? Warm and reflective?
 - **Comparable covers:** Memoir covers to reference (e.g., *The Glass Castle*, *Educated*, *Between the World and Me*, *When Breath Becomes Air*)
+
+**After collecting all brief answers:** Summarize the agreed cover brief in ~150 words and present it to the user. Then ask: "Ready to generate prompts? (yes/no)" — **do NOT proceed to Step 3 until confirmed.**
 
 ### Step 3: Generate Prompts
 
@@ -63,7 +65,7 @@ Composition: [centered/asymmetric/dramatic angle].
 No text on the image.
 ```
 
-Fiction prompt variations (generate 3-5):
+Fiction prompt variations (generate 3-5; each prompt max 80 words for DALL-E, max 200 characters for Midjourney):
 1. **Symbolic:** Abstract representation of the theme
 2. **Scene:** Key moment from the story
 3. **Character:** Protagonist portrait/silhouette
@@ -94,7 +96,7 @@ Composition: [centered portrait / full-bleed place / object against plain backgr
 No text on the image.
 ```
 
-Memoir prompt variations (generate 3-4 — not all will apply):
+Memoir prompt variations (generate 3-4 — not all will apply; each prompt max 80 words for DALL-E, max 200 characters for Midjourney):
 1. **Portrait approach:** Close or medium shot of a person at the relevant age/time period — evokes the human at the center of the story. If using AI: do not use a real person's likeness; generate an anonymous portrait in period-appropriate style.
 2. **Place approach:** A meaningful location from the memoir — a childhood home, a road, a landscape — rendered with emotional weight. Often the strongest memoir cover.
 3. **Object approach:** A significant personal object — a photograph, a letter, a worn item — on a plain or textured background. Works best for intimate, small-scope memoirs.

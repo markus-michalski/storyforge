@@ -11,7 +11,7 @@ description: |
   (2) After a memoir chapter draft is complete, before chapter-reviewer,
   (3) When a scene feels "smooth" but not alive.
   Only runs on memoir books (book_category: memoir).
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> [chapter-slug]"
 ---
@@ -77,6 +77,10 @@ work from the actual text.
 
 Also read the chapter README for context (POV, timeline anchor, what the
 chapter is supposed to accomplish in the narrative arc).
+**Why:** POV, timeline anchor, and intended narrative function are required
+to calibrate ET2 (retrospective vantage) and ET6 (scene/summary mode)
+correctly — without them, vantage-drift flags may misfire and mode
+recommendations lack scene-purpose grounding.
 
 ### 4. Run the 7-dimension interrogation
 
@@ -271,6 +275,11 @@ ones that, if answered, would most change the scene.]
 DEEPEN — address flagged dimensions before review |
 REWRITE — scene mode errors or extensive avoidance; structural rework needed]
 ```
+
+**After presenting the Emotional Truth Report, STOP and wait for the user
+to respond. Do NOT proceed to Step 7 until the user either answers a
+question (→ Step 6) or explicitly signals they want the verdict summary
+(e.g., "done", "ready for reviewer", "proceed").**
 
 ### 6. Interactive deepening _(optional)_
 

@@ -8,7 +8,7 @@ description: |
   (3) When chapter-reviewer finds many violations — catches the flip side,
   (4) Suspicion that banter, sarcasm, or other documented voice traits are missing.
   Counterpart to manuscript-checker (which only catches negatives).
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> <chapter-slug>"
 ---
@@ -204,13 +204,13 @@ present. The draft suppresses negatives but does not demonstrate the author's po
 
 PASS | WARN | FAIL
 
-**Verdict rationale:** [One sentence.]
+**Verdict rationale:** [One sentence, max 20 words.]
 
 ---
 
 ### Next Steps
 
-[2–4 concrete actions, ranked by impact. Example:]
+[2–4 bullet points, one sentence each, ranked by impact. Example:]
 - Dialog ratio (38%) is 7 points below target. Expand the {scene name} confrontation with actual back-and-forth rather than narrated summary.
 - [Principle X] (NOT FOUND). This chapter has no banter. The protagonist and antagonist meet twice — both encounters are narrated at a remove. Add one direct exchange.
 ```

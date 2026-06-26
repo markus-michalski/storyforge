@@ -3,7 +3,7 @@ name: translator
 description: |
   Translate a book chapter by chapter into another language.
   Use when: (1) User says "Übersetzen", "translate", (2) Book is complete or near-complete.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> <target-language>"
 ---
@@ -13,8 +13,8 @@ argument-hint: "<book-slug> <target-language>"
 ## Workflow
 
 ### Step 1: Setup
-- Load book data via MCP `get_book_full()`
-- Load author profile — the translation should preserve the author's VOICE
+- Load book data via MCP `get_book_full()` — **Why:** source chapters and metadata are required for all translation steps; without this load the skill has no chapter content to translate.
+- Load author profile — **Why:** translation must preserve the author's rhythm, sentence length, and voice markers, not produce generic target-language prose.
 - Create translation directory: `{project}/translations/{lang}/`
 - Create glossary: `{project}/translations/{lang}/glossary.md`
 
@@ -25,6 +25,8 @@ Before translating any chapter, build a glossary:
 - Invented terms (magic system terms, world-specific vocabulary)
 - Recurring phrases or motifs
 - Cultural references that need adaptation
+
+List terms concisely — one line per entry (term: target-equivalent). No explanatory paragraphs.
 
 Ask the user for preferences on names/terms.
 
@@ -40,9 +42,10 @@ For each chapter:
    - Wordplay and humor (adapt, don't translate literally)
    - Cultural references (adapt for target audience or keep with context)
    - Sensory details (find equivalent sensory language in target culture)
+   - **Target word count: match source ±10%. Do not add explanatory notes, translator comments, or expansions unless explicitly asked.**
 3. Save to `{project}/translations/{lang}/chapters/{chapter-slug}.md`
 4. Update glossary with any new terms encountered
-5. **Wait for user review of this chapter and any glossary updates before starting the next chapter.**
+5. **STOP. Output:** "Chapter [N] saved. Please review and reply OK (or with corrections) before I start Chapter [N+1]." Do not begin the next chapter until the user sends explicit confirmation.
 
 ### Step 4: Review
 After all chapters:

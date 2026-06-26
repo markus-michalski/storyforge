@@ -5,7 +5,7 @@ description: |
   Use when: (1) User says "voice check", "klingt das nach AI?",
   (2) After humanizer pass, as an optional holistic score check (0–100 across 7 dimensions).
   Not a required step in the standard workflow — use chapter-humanizer for targeted AI-tell removal.
-model: claude-opus-4-7
+model: claude-opus-4-8
 user-invocable: true
 argument-hint: "<book-slug> [chapter-slug]"
 ---
