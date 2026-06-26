@@ -76,7 +76,7 @@ def parse_promises_section(readme_text: str) -> list[Promise]:
             continue
         if status not in VALID_STATUSES:
             continue
-        promises.append(Promise(description=description, target=target, status=status))
+        promises.append(Promise(description=description, target=target, status=status))  # type: ignore[arg-type]
     return promises
 
 

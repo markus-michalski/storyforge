@@ -3,6 +3,13 @@ pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
 
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_return_any = false
+strict_optional = true
+
 [tool.ruff]
 line-length = 120
 

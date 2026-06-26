@@ -253,7 +253,7 @@ def assemble_manuscript(
     }
 
 
-def _human_size(size_bytes: int) -> str:
+def _human_size(size_bytes: float) -> str:
     """Convert bytes to human-readable string."""
     for unit in ("B", "KB", "MB", "GB"):
         if size_bytes < 1024:
