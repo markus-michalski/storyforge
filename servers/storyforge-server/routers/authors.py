@@ -90,11 +90,6 @@ def get_author(slug: str) -> str:
     if not author:
         return json.dumps({"error": f"Author '{slug}' not found"})
 
-    config = _app.load_config()
-    vocab_path = resolve_author_path(config, slug) / "vocabulary.md"
-    if vocab_path.exists():
-        author["vocabulary"] = vocab_path.read_text(encoding="utf-8")
-
     conn = open_authors_db()
     try:
         rows = get_discoveries(conn, slug)

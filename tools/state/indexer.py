@@ -146,6 +146,10 @@ def build_state() -> dict[str, Any]:
     series_dir = content_root / "series"
     if series_dir.exists():
         state["series"] = _scan_series(series_dir)
+        # Issue #279: books migrated from projects/ into series/{name}/{book}/
+        for s_subdir in sorted(series_dir.iterdir()):
+            if s_subdir.is_dir():
+                state["books"].update(_scan_books(s_subdir, sync_log))
 
     # Scan ideas
     ideas_dir = content_root / "ideas"
