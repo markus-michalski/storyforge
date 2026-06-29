@@ -25,6 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [3.0.2] - 2026-06-29
+
+### Changed
+- add tool annotations to all 79 MCP tools (#345)
+- pin dependencies with lock file, update CI (closes #331) (#344)
+- bump the pip-all group with 4 updates (#338)
+
+### Fixed
+- warn on slug collision between projects/ and series/ (closes #340) (#343)
+- bundle prev chapter draft into writing brief (#342)
+
 ## [3.0.1] - 2026-06-29
 
 ### Fixed
@@ -544,3 +555,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [2.2.2]: https://github.com/markus-michalski/storyforge/releases/tag/v2.2.2
 [3.0.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.0.0
 [3.0.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.0.1
+[3.0.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.0.2
