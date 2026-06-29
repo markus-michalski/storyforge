@@ -5,6 +5,7 @@ knowledge bundles) since it's a thin filesystem-state helper.
 """
 
 from __future__ import annotations
+from mcp.types import ToolAnnotations
 
 import json
 import re
@@ -34,7 +35,7 @@ _ALLOWED_BOOK_CATEGORIES = ("fiction", "memoir")
 _FIELD_NAME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$")
 
 
-@mcp.tool(annotations={"readOnlyHint": True})
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_session() -> str:
     """Get current session context from DB (Issue #280)."""
     conn = open_session_db()
@@ -45,7 +46,7 @@ def get_session() -> str:
     return json.dumps(session)
 
 
-@mcp.tool(annotations={"idempotentHint": True})
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def update_session(
     last_book: str = "",
     last_chapter: str = "",
@@ -70,7 +71,7 @@ def update_session(
     return json.dumps({"success": True, "session": session})
 
 
-@mcp.tool(annotations={"readOnlyHint": True})
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_review_handle_config() -> str:
     """Return the configured review comment handle from config.
 
@@ -83,7 +84,7 @@ def get_review_handle_config() -> str:
     return json.dumps({"review_handle": handle})
 
 
-@mcp.tool(annotations={"idempotentHint": True})
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def rebuild_state() -> str:
     """Force rebuild of the state cache from filesystem.
 
@@ -112,7 +113,7 @@ def rebuild_state() -> str:
     )
 
 
-@mcp.tool(annotations={"idempotentHint": True})
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def update_field(file_path: str, field: str, value: str) -> str:
     """Update a field in a markdown frontmatter block or a plain YAML file.
 
@@ -166,7 +167,7 @@ def update_field(file_path: str, field: str, value: str) -> str:
     return json.dumps({"success": True, "file": file_path, "field": field, "value": value})
 
 
-@mcp.tool(annotations={"readOnlyHint": True})
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str:
     """Resolve filesystem path for a book component.
 
@@ -210,7 +211,7 @@ def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str
     return json.dumps({"path": str(base), "exists": base.exists()})
 
 
-@mcp.tool(annotations={"readOnlyHint": True})
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_book_category_dir(category: str) -> str:
     """Resolve the plugin-relative path to a book category's knowledge dir.
 

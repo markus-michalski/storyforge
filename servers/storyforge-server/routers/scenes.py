@@ -6,6 +6,7 @@ create and incrementally update individual rows.
 """
 
 from __future__ import annotations
+from mcp.types import ToolAnnotations
 
 import json
 
@@ -90,7 +91,7 @@ def create_scene_list(
     )
 
 
-@mcp.tool(annotations={"idempotentHint": True})
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def update_scene(
     book_slug: str,
     scene_number: int,
