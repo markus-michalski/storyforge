@@ -55,6 +55,50 @@ def last_paragraph(draft_path: Path, *, max_length: int = 600) -> str:
     return last
 
 
+def prev_chapter_draft(draft_path: Path, *, max_chars: int = 3500) -> str:
+    """Return the last ~600–700 words (``max_chars`` chars) of a chapter draft body.
+
+    Used to populate ``prev_chapter_draft`` in the chapter-writing brief
+    (Issue #342) so the model always has the preceding chapter's closing
+    context without a separate Read call.
+
+    Strips frontmatter before measuring. Truncates from the *end* of the
+    file to capture the most recent prose — the part most likely to
+    establish facts that the next chapter must not repeat.
+
+    When truncating, tries to start at a clean paragraph boundary (``\\n\\n``)
+    within the first half of the tail so a near-end break cannot silently
+    discard almost all the captured text. Falls back to the first word
+    boundary (space) when no paragraph break qualifies, and to a raw char
+    cut only as a last resort.
+
+    Returns ``""`` when the file is missing or unreadable.
+    """
+    if not draft_path.is_file():
+        return ""
+    try:
+        text = draft_path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    _, body = parse_frontmatter(text)
+    body = body.strip()
+    if not body:
+        return ""
+    if len(body) <= max_chars:
+        return body
+    tail = body[-max_chars:]
+    # Paragraph break must sit in the first half so a near-end occurrence
+    # cannot leave an almost-empty snippet.
+    break_pos = tail.find("\n\n")
+    if break_pos != -1 and break_pos < max_chars // 2:
+        return "... " + tail[break_pos + 2:]
+    # No qualifying paragraph break — align to a word boundary instead.
+    space_pos = tail.find(" ")
+    if space_pos != -1:
+        return "... " + tail[space_pos + 1:]
+    return "... " + tail
+
+
 def collect_recent_chapters(
     chapters_dir: Path,
     current_slug: str,
@@ -87,4 +131,4 @@ def collect_recent_chapters(
     return [ch for _, ch in all_chapters][-n:]
 
 
-__all__ = ["collect_recent_chapters", "count_similes", "last_paragraph"]
+__all__ = ["collect_recent_chapters", "count_similes", "last_paragraph", "prev_chapter_draft"]
