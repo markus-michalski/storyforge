@@ -55,6 +55,7 @@ from tools.state.loaders.recent_chapters import (
     collect_recent_chapters,
     count_similes,
     last_paragraph,
+    prev_chapter_draft as _prev_chapter_draft_text,
 )
 from tools.timeline_anchor import get_story_anchor
 
@@ -193,16 +194,19 @@ def _gather_characters(
 
 
 def _gather_recent(
-    book_root: Path,
-    chapter_slug: str,
+    recent_chapter_paths: list[Path],
     *,
     recorder: _Recorder,
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
-    """Last-paragraph + simile-count for the three chapters before this one."""
+    """Last-paragraph + simile-count for the three chapters before this one.
+
+    Accepts a pre-computed predecessor list so ``collect_recent_chapters``
+    is called only once per brief assembly (shared with
+    ``_gather_prev_chapter_draft``).
+    """
     recent_endings: list[dict[str, Any]] = []
     simile_counts: dict[str, int] = {}
-    chapters_dir = book_root / "chapters"
-    for ch in collect_recent_chapters(chapters_dir, chapter_slug, n=3):
+    for ch in recent_chapter_paths:
         draft = ch / "draft.md"
         if not draft.is_file():
             continue
@@ -227,6 +231,38 @@ def _gather_recent(
     return recent_endings, simile_counts
 
 
+def _gather_prev_chapter_draft(
+    recent_chapter_paths: list[Path],
+    *,
+    recorder: _Recorder,
+) -> dict[str, Any] | None:
+    """Return the last ~600–700 words of the directly preceding chapter draft.
+
+    Populated into ``prev_chapter_draft`` in the brief (Issue #342).
+    The model skipped the manual Prerequisite #10 Read under context
+    pressure; bundling the text here makes it automatic and non-skippable.
+
+    Accepts a pre-computed predecessor list (same slice used by
+    ``_gather_recent``) so ``collect_recent_chapters`` is not called twice.
+
+    Returns None when writing Chapter 1 or when the predecessor has no
+    draft yet (new chapter directly after an outline-only chapter).
+    """
+    if not recent_chapter_paths:
+        return None
+    prev_dir = recent_chapter_paths[-1]
+    draft = prev_dir / "draft.md"
+    if not draft.is_file():
+        return None
+
+    text = recorder.run(
+        f"prev_chapter_draft.{prev_dir.name}",
+        lambda d=draft: _prev_chapter_draft_text(d, max_chars=3500),
+        "",
+    )
+    if not text:
+        return None
+    return {"chapter": prev_dir.name, "text": text}
 
 
 def _gather_tone(
@@ -415,9 +451,16 @@ def build_chapter_writing_brief(
         [],
     )
 
+    recent_chapter_paths = collect_recent_chapters(
+        book_root / "chapters", chapter_slug, n=3
+    )
     recent_endings, simile_counts = _gather_recent(
-        book_root,
-        chapter_slug,
+        recent_chapter_paths,
+        recorder=recorder,
+    )
+
+    prev_chapter_draft = _gather_prev_chapter_draft(
+        recent_chapter_paths,
         recorder=recorder,
     )
 
@@ -517,6 +560,7 @@ def build_chapter_writing_brief(
         "story_anchor": story_anchor,
         "recent_chapter_timelines": recent_timelines,
         "recent_chapter_endings": recent_endings,
+        "prev_chapter_draft": prev_chapter_draft,
         "characters_present": characters,
         "pov_character_inventory": pov_character_inventory,
         "pov_character_state": pov_character_state,
