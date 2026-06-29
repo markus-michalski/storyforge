@@ -149,7 +149,16 @@ def build_state() -> dict[str, Any]:
         # Issue #279: books migrated from projects/ into series/{name}/{book}/
         for s_subdir in sorted(series_dir.iterdir()):
             if s_subdir.is_dir():
-                state["books"].update(_scan_books(s_subdir, sync_log))
+                for slug, book in _scan_books(s_subdir, sync_log).items():
+                    if slug in state["books"] and sync_log is not None:
+                        sync_log.append({
+                            "event": "slug_collision",
+                            "slug": slug,
+                            "existing": str(state["books"][slug].get("root", "?")),
+                            "incoming": str(book.get("root", "?")),
+                            "winner": "incoming",
+                        })
+                    state["books"][slug] = book
 
     # Scan ideas
     ideas_dir = content_root / "ideas"
