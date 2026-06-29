@@ -5,6 +5,7 @@ instead of manually editing canon-log.md.
 """
 
 from __future__ import annotations
+from mcp.types import ToolAnnotations
 
 import json
 
@@ -16,7 +17,7 @@ from . import _app
 from ._app import mcp
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def add_canon_fact(
     book_slug: str,
     chapter_num: int,

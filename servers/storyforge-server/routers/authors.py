@@ -6,6 +6,7 @@ so it lives next to the rest of the author state surface.
 """
 
 from __future__ import annotations
+from mcp.types import ToolAnnotations
 
 import json
 import re
@@ -65,7 +66,7 @@ _ALLOWED_AUTHOR_FIELDS: frozenset[str] = frozenset({
 })
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def list_authors() -> str:
     """List all author profiles."""
     state = _cache.get()
@@ -82,7 +83,7 @@ def list_authors() -> str:
     return json.dumps({"authors": result, "count": len(result)})
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_author(slug: str) -> str:
     """Get full author profile data — writing_discoveries read from SQLite (Issue #281)."""
     state = _cache.get()
@@ -178,7 +179,7 @@ avoid: ["purple-prose", "info-dumps", "deus-ex-machina"]
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def harvest_book_rules(book_slug: str, author_slug: str = "") -> str:
     """Collect promotion candidates from a book's findings (Issue #151).
 
@@ -299,7 +300,7 @@ def _collect_world_terms(book_dir: Path) -> set[str]:
     return {t for t in terms if t.strip()}
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def write_author_discovery(
     author_slug: str,
     section: str,
@@ -393,7 +394,7 @@ def write_author_discovery(
     return json.dumps(payload)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def write_author_banned_phrase(author_slug: str, phrase: str, reason: str = "") -> str:
     """Append a banned phrase to author_discoveries (discovery_type='donts') — Issue #281.
 
@@ -444,7 +445,7 @@ def write_author_banned_phrase(author_slug: str, phrase: str, reason: str = "") 
     })
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def update_discovery_metadata(
     author_slug: str,
     book_slug: str,
@@ -498,7 +499,7 @@ _VOCAB_ENTRY_TYPE_MAP: dict[str, str] = {
 }
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def add_vocabulary_entry(author_slug: str, entry_type: str, text: str, source: str = "") -> str:
     """Add a vocabulary entry for an author — user-facing shortcut (Issue #293).
 
@@ -556,7 +557,7 @@ def add_vocabulary_entry(author_slug: str, entry_type: str, text: str, source: s
     })
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(destructiveHint=True))
 def delete_discovery(author_slug: str, discovery_type: str, text: str) -> str:
     """Remove a discovery from author_discoveries by exact text match (Issue #293).
 
@@ -601,7 +602,7 @@ def delete_discovery(author_slug: str, discovery_type: str, text: str) -> str:
     })
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def update_author(slug: str, field: str, value: str) -> str:
     """Update a field in an author's profile frontmatter."""
     config = _app.load_config()
@@ -626,7 +627,7 @@ def update_author(slug: str, field: str, value: str) -> str:
     return json.dumps({"success": True, "field": field, "value": value})
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def extract_text_from_file(file_path: str) -> str:
     """Extract text from PDF, EPUB, DOCX, TXT, or MD files for style analysis.
 

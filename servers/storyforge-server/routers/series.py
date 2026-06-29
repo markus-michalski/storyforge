@@ -7,6 +7,7 @@ trackers.
 """
 
 from __future__ import annotations
+from mcp.types import ToolAnnotations
 
 import json
 import re
@@ -146,7 +147,7 @@ def create_series(title: str, genres: str = "", planned_books: int = 3, author: 
     return json.dumps({"success": True, "slug": slug, "path": str(series_dir)})
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def add_book_to_series(series_slug: str, book_slug: str, number: int, status: str = "drafting") -> str:
     """Link a book to a series.
 
@@ -195,7 +196,7 @@ def add_book_to_series(series_slug: str, book_slug: str, number: int, status: st
     return json.dumps({"success": True, "series": series_slug, "book": book_slug, "number": number})
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def read_character_for_harvest(
     book_slug: str,
     character_slug: str,
@@ -265,7 +266,7 @@ def read_character_for_harvest(
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def list_series_trackers_for_book(
     series_slug: str,
     band: str,
@@ -318,7 +319,7 @@ def list_series_trackers_for_book(
     return json.dumps({"trackers": out})
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def write_series_evolution_section(
     series_slug: str,
     tracker_slug: str,
@@ -386,7 +387,7 @@ def write_series_evolution_section(
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def copy_recurring_chars_to_new_book(
     series_slug: str,
     prev_book_slug: str,
@@ -511,7 +512,7 @@ def copy_recurring_chars_to_new_book(
     return json.dumps({"copied": copied, "skipped": skipped, "new_chars": new_chars})
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def read_tracker_for_bootstrap(
     series_slug: str,
     tracker_slug: str,
