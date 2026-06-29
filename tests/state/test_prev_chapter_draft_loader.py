@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from tools.state.loaders.recent_chapters import prev_chapter_draft
 
 
