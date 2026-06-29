@@ -87,7 +87,7 @@ def create_idea(title: str, genres: str = "", logline: str = "", concept: str = 
     return json.dumps({"slug": slug, "title": title, "file_path": str(path)})
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 def list_ideas(status: str = "", genre: str = "") -> str:
     """List all ideas from the ideas/ directory, with optional filters.
 
@@ -136,7 +136,7 @@ def list_ideas(status: str = "", genre: str = "") -> str:
     return json.dumps({"ideas": ideas, "count": len(ideas)})
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 def get_idea(slug: str) -> str:
     """Return the full content of a single idea file.
 
@@ -166,7 +166,7 @@ def get_idea(slug: str) -> str:
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations={"idempotentHint": True})
 def update_idea(slug: str, field: str, value: str) -> str:
     """Update a single frontmatter field of an existing idea.
 
@@ -191,7 +191,7 @@ def update_idea(slug: str, field: str, value: str) -> str:
     return json.dumps({"success": True, "slug": slug, "field": field, "value": value})
 
 
-@mcp.tool()
+@mcp.tool(annotations={"idempotentHint": True})
 def promote_idea(slug: str, book_slug: str) -> str:
     """Mark an idea as promoted and link it to a book project.
 

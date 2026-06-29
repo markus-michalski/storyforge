@@ -17,7 +17,7 @@ from . import _app
 from ._app import _cache, mcp
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 def list_books() -> str:
     """List all book projects with status and word count."""
     state = _cache.get()
@@ -43,7 +43,7 @@ def list_books() -> str:
     return json.dumps({"books": result, "count": len(result)})
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 def find_book(query: str) -> str:
     """Find a book by slug or title (partial match)."""
     state = _cache.get()
@@ -57,7 +57,7 @@ def find_book(query: str) -> str:
     return json.dumps({"matches": matches, "count": len(matches)})
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 def get_book_full(slug: str) -> str:
     """Get complete book data including all chapters and characters.
 
@@ -78,7 +78,7 @@ def get_book_full(slug: str) -> str:
     return json.dumps(book)
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 def get_book_progress(slug: str) -> str:
     """Get book progress: chapter statuses, word counts, completion percentage."""
     state = _cache.get()
@@ -118,7 +118,7 @@ def get_book_progress(slug: str) -> str:
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 def list_chapters(book_slug: str) -> str:
     """List all chapters of a book with status and word count."""
     state = _cache.get()
@@ -140,7 +140,7 @@ def list_chapters(book_slug: str) -> str:
     return json.dumps({"chapters": result, "count": len(result)})
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 def count_words(book_slug: str, chapter_slug: str = "") -> str:
     """Count words in a chapter draft or entire book."""
     config = _app.load_config()
@@ -170,7 +170,7 @@ def count_words(book_slug: str, chapter_slug: str = "") -> str:
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True})
 def get_canon_brief(
     book_slug: str,
     chapter_slug: str,
