@@ -292,4 +292,5 @@ class TestResolvePathContainment:
         """Control: legitimate slug + component + sub_path resolves cleanly."""
         result = json.loads(server_module.resolve_path("my-book", "chapters", "01-intro"))
         assert "error" not in result
-        assert "my-book/chapters/01-intro" in result["path"]
+        parts = Path(result["path"]).parts
+        assert parts[-3:] == ("my-book", "chapters", "01-intro")
