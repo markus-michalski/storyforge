@@ -32,3 +32,20 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v
+
+  test-windows:
+    name: Tests (Windows, Python 3.12)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.lock
+
+      - name: Run tests
+        run: pytest tests/ -v

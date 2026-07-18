@@ -2,8 +2,11 @@
   "mcpServers": {
     "storyforge-mcp": {
       "type": "stdio",
-      "command": "${HOME}/.storyforge/venv/bin/python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/storyforge-server/run.py"]
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-server",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/storyforge-server/run.py"],
+      "env": {
+        "CLAUDE_PLUGIN_ROOT": "${HOME}/.claude/plugins/marketplaces/storyforge"
+      }
     }
   }
 }

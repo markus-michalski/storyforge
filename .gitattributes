@@ -1,0 +1,2 @@
+bin/run-server text eol=lf
+bin/run-server.cmd text eol=crlf
