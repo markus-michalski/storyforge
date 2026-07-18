@@ -36,16 +36,18 @@ import yaml
 
 WATCHED_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
 
-# Path fragments that mark a character / people file. The hook ignores any
-# write whose path does not contain at least one of these.
-WATCHED_PATH_FRAGMENTS = ("/characters/", "/people/")
+# Path segments that mark a character / people file. The hook ignores any
+# write whose path does not contain at least one of these as a path component
+# (checked via Path.parts, not substring — a substring check with a hardcoded
+# "/" separator is always false on Windows, where Path str() uses "\").
+WATCHED_PATH_SEGMENTS = ("characters", "people")
 
-# Path marker for series-character-trackers. Files under
+# Path segment for series-character-trackers. Files under
 # ``series/{slug}/characters/`` document evolution across books and follow a
 # different schema (Snapshot / Evolution per Band / Beziehungen / Updates Log)
 # with roles like ``love-interest`` that the book-level validator does not
 # recognize. They must be skipped to avoid false-positive warnings (Issue #192).
-SERIES_PATH_MARKER = "/series/"
+SERIES_PATH_SEGMENT = "series"
 
 # Frontmatter — block on missing.
 REQUIRED_FRONTMATTER = ("name", "role", "status")
@@ -130,9 +132,9 @@ def _is_character_or_people_file(path: Path) -> bool:
         return False
     if path.name == "INDEX.md":
         return False
-    if SERIES_PATH_MARKER in str(path):
+    if SERIES_PATH_SEGMENT in path.parts:
         return False
-    return any(frag in str(path) for frag in WATCHED_PATH_FRAGMENTS)
+    return any(seg in path.parts for seg in WATCHED_PATH_SEGMENTS)
 
 
 def _is_memoir_person_file(meta: dict[str, Any]) -> bool:

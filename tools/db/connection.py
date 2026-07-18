@@ -21,7 +21,9 @@ from tools.shared.paths import _validate_slug
 # Validated to prevent null-byte and path-traversal tricks (Issue #329).
 if "STORYFORGE_DB_DIR" in os.environ:
     _raw = os.environ["STORYFORGE_DB_DIR"]
-    if "\x00" in _raw or ".." in _raw.split(os.sep):
+    # Path.parts splits on both "/" and os.sep — os.sep alone misses "/"-separated
+    # traversal payloads on Windows, where os.sep is "\".
+    if "\x00" in _raw or ".." in Path(_raw).parts:
         raise RuntimeError(f"STORYFORGE_DB_DIR contains invalid path components: {_raw!r}")
     DB_DIR: Path = Path(_raw).resolve()
 else:

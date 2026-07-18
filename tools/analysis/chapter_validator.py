@@ -929,7 +929,7 @@ def validate_chapter(file_path: str) -> list[Finding]:
     path = Path(file_path)
     if not path.exists():
         return []
-    if "/chapters/" not in str(path):
+    if "chapters" not in path.parts:
         return []
     if path.name != "draft.md":
         return []

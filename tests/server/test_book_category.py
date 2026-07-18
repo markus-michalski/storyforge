@@ -366,7 +366,7 @@ class TestGetBookCategoryDir:
         result = json.loads(server_module.get_book_category_dir("fiction"))
 
         assert result["category"] == "fiction"
-        assert result["path"].endswith("book_categories/fiction")
+        assert Path(result["path"]).parts[-2:] == ("book_categories", "fiction")
         # The fiction scaffold ships with the plugin, so it must exist.
         assert result["exists"] is True
 
@@ -374,7 +374,7 @@ class TestGetBookCategoryDir:
         result = json.loads(server_module.get_book_category_dir("memoir"))
 
         assert result["category"] == "memoir"
-        assert result["path"].endswith("book_categories/memoir")
+        assert Path(result["path"]).parts[-2:] == ("book_categories", "memoir")
         assert result["exists"] is True
 
     def test_rejects_unknown_category(self, server_module):
