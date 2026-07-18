@@ -204,7 +204,7 @@ present. The draft suppresses negatives but does not demonstrate the author's po
 
 PASS | WARN | FAIL
 
-**Verdict rationale:** [One sentence, max 20 words.]
+**Verdict rationale:** [One sentence, max 20 words, naming the specific metric(s) or hit-rate that actually drove the verdict — not a generic restatement of the verdict itself.]
 
 ---
 
@@ -229,8 +229,9 @@ PASS | WARN | FAIL
 
 - This skill checks PRESENCE of positives, not absence of negatives. Constraint-checking is `chapter-reviewer`'s job. Don't cross-contaminate.
 - If Writing Discoveries → Style Principles is empty: run only quantitative checks (Phase 3). Report the empty Discoveries as a finding — it means no positive extraction has been done yet.
-- Quantitative metrics are approximations. Sentence and dialog boundary detection by text scan is not 100% accurate. Mark calculated values as "~" (approximately) if the draft uses unusual punctuation styles.
+- Quantitative metrics are approximations. Sentence and dialog boundary detection by text scan is not 100% accurate. Mark calculated values as "~" (approximately) if the draft uses unusual punctuation styles, and name the specific cause (e.g. "em-dash-led dialogue" or "no standard closing quotes") — a bare "~" tells the user a number is fuzzy but not why, which they can't act on.
 - Quote concrete evidence for every FOUND verdict. An unquoted FOUND is unverifiable.
 - When writing Next Steps, be specific: which scene, which character pair, what type of change. "Add more banter" is not actionable. "Add a back-and-forth exchange between X and Y in the {scene} — they currently argue via narrated summary" is.
 - Do not suggest removing constraint violations here. That's the reviewer's domain. Focus only on what's missing from the positive side.
+- If the user asks for something outside this skill's scope (a negative/constraint list, a generic non-actionable fix, cutting flagged content), don't just refuse — say in one sentence why, tied to the specific rule above. A silent or unexplained decline reads as unhelpful; a one-line reason lets the user redirect immediately.
 - After report output: ask the user "Would you like me to pass this author-check result to chapter-reviewer as an additional section?" If yes, append a condensed version to the existing `review.md` (or note it for the next reviewer run).
