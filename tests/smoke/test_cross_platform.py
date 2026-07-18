@@ -39,7 +39,16 @@ def test_mcp_json_schema():
     server = config["mcpServers"]["storyforge-mcp"]
     assert server["type"] == "stdio"
     assert isinstance(server["args"], list) and len(server["args"]) == 1
-    assert "CLAUDE_PLUGIN_ROOT" in server["env"]
+
+
+def test_mcp_json_has_no_env_override():
+    """Claude Code passes MCP env values as literal strings, not shell-expanded —
+    an env.CLAUDE_PLUGIN_ROOT override here breaks the server for every user
+    (see run.py's __file__-based fallback, which is the correct, OS-agnostic
+    way to resolve the plugin root)."""
+    config = json.loads(MCP_JSON.read_text(encoding="utf-8"))
+    server = config["mcpServers"]["storyforge-mcp"]
+    assert "env" not in server
 
 
 def test_run_server_wrapper_exists_and_is_executable():
