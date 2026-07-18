@@ -250,6 +250,10 @@ def parse_author_profile(path: Path) -> dict[str, Any]:
         "created": str(meta.get("created", "")),
         "updated": str(meta.get("updated", "")),
         "style_notes": style_notes,
+        "dialog_ratio_target": meta.get("dialog_ratio_target", ""),
+        "fragment_ratio_target": meta.get("fragment_ratio_target", ""),
+        "single_line_paragraph_ratio_target": meta.get("single_line_paragraph_ratio_target", ""),
+        "avg_sentence_length_target": meta.get("avg_sentence_length_target", ""),
     }
 
 

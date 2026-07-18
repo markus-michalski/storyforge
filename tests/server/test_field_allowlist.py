@@ -113,6 +113,28 @@ class TestUpdateAuthorAllowlist:
 
 
 # ---------------------------------------------------------------------------
+# update_author -> get_author round-trip (regression for the fix that added
+# the four quantitative-target fields, e69f... / "author-check quantitative
+# targets" branch). Being on the allowlist only guarantees a field can be
+# *written* to profile.md frontmatter — get_author() actually reads the
+# state-cache projection built by parse_author_profile(), a separate
+# explicit per-field whitelist. A field can pass every test above and still
+# never reach author-check if parse_author_profile() doesn't also return it.
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateAuthorGetAuthorRoundTrip:
+    def test_dialog_ratio_target_round_trips_through_get_author(self, server_module, author_dir: Path):
+        write_result = json.loads(
+            server_module.update_author("test-author", "dialog_ratio_target", "0.35-0.45")
+        )
+        assert write_result.get("success") is True
+
+        author = json.loads(server_module.get_author("test-author"))
+        assert author["dialog_ratio_target"] == "0.35-0.45"
+
+
+# ---------------------------------------------------------------------------
 # update_field — field name format validation (Issue #328)
 # ---------------------------------------------------------------------------
 
