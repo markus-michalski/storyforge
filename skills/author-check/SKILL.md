@@ -32,9 +32,9 @@ It checks the draft against:
 
 ### 1a. Resolve book and author
 
-Call MCP `get_book_full(book_slug)`. From the result, extract:
-- `author_slug` — to load the author profile
-- `project_path` — to locate chapter files
+Call MCP `get_book_full(book_slug)`. From the result, extract `author_slug` — to load the author profile.
+
+Call MCP `resolve_path(book_slug, "chapters", chapter_slug)` to get the chapter's directory — `get_book_full()` does not return a `project_path` field. Store the result as `chapter_dir`; if `exists: false`, the chapter directory itself doesn't exist yet (distinct from the chapter existing but its `draft.md` missing — see 1c).
 
 If `book_slug` is missing, call MCP `list_books()` and ask the user to pick one.
 
@@ -56,13 +56,13 @@ Call MCP `get_author(author_slug)`. From the result, extract:
 
 ### 1c. Load the chapter draft
 
-Read `{project_path}/chapters/{chapter_slug}/draft.md`.
+Read `{chapter_dir}/draft.md`.
 
 If the file is missing, stop. Report: "Draft not found at expected path — run chapter-writer first or check the chapter slug."
 
 ### 1d. Check for existing reviewer output (optional)
 
-Look for `{project_path}/chapters/{chapter_slug}/review.md`. If it exists, extract constraint violation count from its summary section (look for "Major findings: N" or similar). Store as `constraint_violations` (default: unknown).
+Look for `{chapter_dir}/review.md`. If it exists, extract constraint violation count from its summary section (look for "Major findings: N" or similar). Store as `constraint_violations` (default: unknown).
 
 ---
 
