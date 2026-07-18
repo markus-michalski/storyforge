@@ -63,6 +63,9 @@ _ALLOWED_AUTHOR_FIELDS: frozenset[str] = frozenset({
     "subject_position", "off_limits", "relationship_to_material",
     # Misc profile meta
     "pen_name", "bio", "website", "social_media", "mood", "voice",
+    # Quantitative prose targets (set by study-author, read by author-check)
+    "dialog_ratio_target", "fragment_ratio_target",
+    "single_line_paragraph_ratio_target", "avg_sentence_length_target",
 })
 
 
