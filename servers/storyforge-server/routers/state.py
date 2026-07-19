@@ -48,12 +48,16 @@ def get_session() -> str:
 
 @mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
 def update_session(
-    last_book: str = "",
-    last_chapter: str = "",
-    last_phase: str = "",
-    active_author: str = "",
+    last_book: str | None = None,
+    last_chapter: str | None = None,
+    last_phase: str | None = None,
+    active_author: str | None = None,
 ) -> str:
-    """Update session context in DB (Issue #280)."""
+    """Update session context in DB (Issue #280).
+
+    Omit a field (or pass None) to leave it unchanged. Pass an explicit ""
+    to clear it — e.g. active_author="" resets the session's active author.
+    """
     conn = open_session_db()
     try:
         update_session_in_db(

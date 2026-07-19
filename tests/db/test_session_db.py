@@ -50,7 +50,48 @@ class TestSessionDb:
         result = get_session_from_db(conn, USER_ID)
         assert result["last_book"] == "embers"
 
-    def test_empty_string_fields_are_not_stored(self, conn):
+    def test_empty_column_field_is_absent_on_read_after_clear(self, conn):
+        # last_chapter is a column-backed field (not notes-JSON), so
+        # get_session_from_db()'s pre-existing "empty column == unset"
+        # truthiness filter drops it from the output even though the
+        # explicit "" WAS written to the row — see the read-back asymmetry
+        # note on update_session_in_db's docstring.
         update_session_in_db(conn, USER_ID, last_book="firelight", last_chapter="")
         result = get_session_from_db(conn, USER_ID)
         assert "last_chapter" not in result or result["last_chapter"] == ""
+
+    def test_clearing_previously_set_column_field_is_absent_on_read(self, conn):
+        update_session_in_db(conn, USER_ID, last_book="firelight")
+        assert get_session_from_db(conn, USER_ID)["last_book"] == "firelight"
+
+        update_session_in_db(conn, USER_ID, last_book="")
+        result = get_session_from_db(conn, USER_ID)
+        assert "last_book" not in result
+
+    def test_explicit_empty_string_clears_previously_set_active_author(self, conn):
+        update_session_in_db(conn, USER_ID, active_author="ethan-cole")
+        assert get_session_from_db(conn, USER_ID)["active_author"] == "ethan-cole"
+
+        update_session_in_db(conn, USER_ID, active_author="")
+        result = get_session_from_db(conn, USER_ID)
+        assert result.get("active_author", "") == ""
+
+    def test_omitted_field_preserves_existing_value_not_clears_it(self, conn):
+        update_session_in_db(conn, USER_ID, last_book="firelight", active_author="ethan-cole")
+        update_session_in_db(conn, USER_ID, last_chapter="31-the-reckoning")
+        result = get_session_from_db(conn, USER_ID)
+        assert result["last_book"] == "firelight"
+        assert result["active_author"] == "ethan-cole"
+
+    def test_explicit_empty_string_clears_last_phase(self, conn):
+        update_session_in_db(conn, USER_ID, last_phase="revision")
+        update_session_in_db(conn, USER_ID, last_phase="")
+        result = get_session_from_db(conn, USER_ID)
+        assert "last_phase" not in result
+
+    def test_clearing_multiple_fields_in_one_call(self, conn):
+        update_session_in_db(conn, USER_ID, last_book="firelight", active_author="ethan-cole")
+        update_session_in_db(conn, USER_ID, last_book="", active_author="")
+        result = get_session_from_db(conn, USER_ID)
+        assert "last_book" not in result
+        assert result.get("active_author", "") == ""
