@@ -75,10 +75,20 @@ a clear error.
   is preserved; new ones append). Default is to skip populated
   chapters.
 
-Confirm with the user before proceeding when `--force` is passed
-against a book with manually-edited promises (heuristic: any chapter
-where the section blurb has been removed or the table extended with
-unusual columns).
+When `--force` is set, `get_chapter_promises()` alone isn't a
+reliable signal of prior manual edits — it only recognizes two
+canonical shapes (the `_No promises this chapter._` placeholder, or
+the standard blurb + `| Promise | Target | Status |` table), so a
+hand-edited section in any other format can come back looking empty
+or partial through that call, silently masking the edit. Before
+entering the Step 4 extraction loop, `Read` the `README.md` of every
+chapter Step 3 will process and check its raw `## Promises` section
+against those two canonical shapes. Any chapter whose section
+deviates — blurb text altered or missing, table columns added or
+renamed, non-table content — has been hand-edited. If this heuristic
+fires on any in-scope chapter, confirm with the user before
+proceeding, rather than force-overwriting silently. If it fires on
+none, proceed without an extra confirmation.
 
 ## Step 3: Build the Chapter List
 
