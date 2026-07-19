@@ -164,6 +164,17 @@ Work through the Phase 1.5 checklist item by item:
 - For each checklist item: does this analysis file document it? If yes,
   extract the concrete pattern and its evidence. If no: note "not found in
   this file" — absence is valid and must be documented.
+- **Track each checklist item's status across the whole run, not just this
+  file.** Maintain one running verdict per checklist item across all
+  processed files: `found` once ANY file has documented it, `not found`
+  only while EVERY file processed so far has come back absent for it. A
+  later file's "not found in this file" note must never downgrade an item
+  that an earlier file already marked `found` — found is sticky for the
+  rest of the run. This running tally is what Step 6's "Checklist items
+  not found anywhere" line reports from. "Processed" means a file that
+  reached this checklist pass — a file skipped earlier at 5.1 (unreadable)
+  or 5.2 (memoir-scope or genuinely empty) was never actually scanned for
+  patterns and does not count toward the tally either way.
 - After the checklist: scan `## Distinctive Patterns`,
   `## Signature Techniques`, and `## Words & Phrases to Adopt` for
   ADDITIONAL positive markers beyond the checklist — cross-genre techniques
@@ -184,6 +195,26 @@ Do NOT extract:
 - Metrics without technique: "short sentences" without what that achieves
 - Verbatim source text (plagiarism risk — patterns only, not prose)
 - Plot-specific facts that don't generalize to the resolved author's writing
+
+**Reformulating plot-bound techniques:** A pattern framed entirely around
+plot specifics (an object name, a page/chapter number, the book's title, a
+character name) is not automatically a plot-specific fact to discard — it
+may be a genuinely reusable craft move described in plot-specific language.
+Before discarding it, try stripping the identifiers and restating the
+underlying mechanic in author-transferable terms:
+
+> Analysis file: "Chekhov's teacup: a chipped teacup mentioned on page 12 is
+> casually referenced twice more before becoming the murder weapon reveal in
+> chapter 9."
+> Reformulated: "Embeds a mundane recurring object as a foreshadowed payoff —
+> introduced once in an ordinary context, referenced 2-3 times in passing,
+> then resolved as a plot-critical detail."
+
+The reformulated version must not name the source book's specific object,
+character, or plot event — only the transferable shape of the technique. If
+the identifiers can't be stripped without losing the technique entirely (the
+"pattern" IS the plot fact, with no craft move underneath it), skip it per
+the exclusion above rather than force a reformulation.
 
 ### 5.3b Genre classification and example extraction (Issue #266 / #268)
 
@@ -243,16 +274,36 @@ write_author_discovery(
 
 The MCP tool deduplicates by content and returns
 `{written, already_present, warnings, extracted_patterns}`. Count
-`written` and `already_present` separately. When `warnings` is non-empty,
-surface them inline:
+`written` and `already_present` separately.
+
+Print exactly ONE header line per file, with these two optional sub-lines
+appended beneath it as needed — never repeat the header line itself:
 
 ```
 [{title}] {new} new / {skipped} already present
   ⚠ lint: [{warning text}] — pattern written but flagged; review manually
+  Checklist misses in {title}: {comma-separated list of items not found in
+  this file, or omit this line entirely if none}
 ```
 
-Warnings indicate the entry was written but may be too vague or malformed.
-The user should decide whether to keep or delete the flagged entry.
+The `⚠ lint` sub-line appears only when `warnings` is non-empty (one per
+warning). Warnings indicate the entry was written but may be too vague or
+malformed — the user should decide whether to keep or delete the flagged
+entry. The `Checklist misses` sub-line appears only when Step 5.3's
+checklist pass noted any items as "not found in this file" for this
+specific file — this is the per-file output slot for Step 5.3's "absence
+is valid and must be documented" instruction, not just an internal note
+for the running tally. A file with neither prints only the header line.
+
+Note: reformulated patterns (per Step 5.3's plot-bound-technique guidance)
+are deduplicated by the MCP the same way as any other pattern — by exact
+content match, not by underlying technique. Two files independently
+reformulating the same real craft move will likely produce two
+differently-worded entries, both written as `new` rather than deduped
+against each other. This is a known limitation, not a bug to work around
+mid-run — if the Step 6 report shows near-duplicate style_principles
+entries for the same checklist item across files, mention it to the user
+as something to manually prune, don't attempt automatic reconciliation.
 
 ### 5.5 Anti-patterns → surface for user (do not auto-write)
 
@@ -279,6 +330,13 @@ Already present (skipped):        {total_skipped}
 Checklist items not found anywhere: {list of items, or "none"}
 ─────────────────────────────────────────────
 ```
+
+**"Not found anywhere" means absent from every processed file** — read
+directly off Step 5.3's running per-item tally (the `not found` verdicts
+still standing once all files are processed), never a per-file snapshot
+or whichever file happened to be processed last. A checklist item found
+in even one file is never listed here, no matter how many other files
+lacked it.
 
 If any files had errors, list them.
 
