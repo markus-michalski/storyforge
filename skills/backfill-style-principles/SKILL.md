@@ -185,6 +185,26 @@ Do NOT extract:
 - Verbatim source text (plagiarism risk — patterns only, not prose)
 - Plot-specific facts that don't generalize to the resolved author's writing
 
+**Reformulating plot-bound techniques:** A pattern framed entirely around
+plot specifics (an object name, a page/chapter number, the book's title, a
+character name) is not automatically a plot-specific fact to discard — it
+may be a genuinely reusable craft move described in plot-specific language.
+Before discarding it, try stripping the identifiers and restating the
+underlying mechanic in author-transferable terms:
+
+> Analysis file: "Chekhov's teacup: a chipped teacup mentioned on page 12 is
+> casually referenced twice more before becoming the murder weapon reveal in
+> chapter 9."
+> Reformulated: "Embeds a mundane recurring object as a foreshadowed payoff —
+> introduced once in an ordinary context, referenced 2-3 times in passing,
+> then resolved as a plot-critical detail."
+
+The reformulated version must not name the source book's specific object,
+character, or plot event — only the transferable shape of the technique. If
+the identifiers can't be stripped without losing the technique entirely (the
+"pattern" IS the plot fact, with no craft move underneath it), skip it per
+the exclusion above rather than force a reformulation.
+
 ### 5.3b Genre classification and example extraction (Issue #266 / #268)
 
 For each extracted pattern, answer two questions before writing:
