@@ -148,6 +148,16 @@ Walk the draft once. List every setup-element that meets the
   payoff chapter explicitly, use its slug (e.g. `14-the-letter`). If
   the chapter outline is silent, use `unfired` — the checker will
   flag it for either payoff or retirement.
+
+  `register_chapter_promises` merges by matching `description`+
+  `target` together (Step 2) — a resolved target is a *different* key
+  from `unfired`, so it appends rather than updates. On a `--force`
+  re-run, if the Step 4.1 pre-check already shows an `unfired`-target
+  entry that plainly describes the same element you're re-resolving
+  to a real target now, don't just let both stand: tell the user a
+  stale `unfired` duplicate needs pruning (or resolve it yourself if
+  you're confident it's the same element), rather than silently
+  leaving two rows for one promise.
 - **Status:** Always `active` for backfill. The author can later
   set `satisfied` or `retired` manually or via the chapter-reviewer.
 
