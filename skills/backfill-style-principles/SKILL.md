@@ -109,22 +109,37 @@ If the file is missing or empty → skip:
 
 ### 5.2 Identify available sections
 
-Check which sections are present. All four can coexist in the same file —
-treat them as co-present sources, not a hierarchy:
-- `## Positive Style Markers` — present when the file was studied with
-  Phase 1.5 active; most structured source when present
-- `## Distinctive Patterns` — qualitative observations beyond a checklist
-- `## Signature Techniques` — what makes this source text unique
-- `## Words & Phrases to Adopt` — supplementary; include only vocabulary
-  patterns specific and actionable enough to be a style principle
+This skill targets fiction-mode analysis files only. Decide in this
+order — do not skip ahead to the section check before resolving scope:
 
-If none of the four sections are present (e.g. corrupt or non-fiction-mode
-file), record the file as skipped-empty and move on:
-`[{title}] No extractable sections found, skipping.`
+1. **Check scope first.** Read the file's frontmatter `mode:` field
+   (written by `study-author`). If
+   `mode: memoir`, this is a memoir voice-excavation file — out of
+   scope. Record it and move to the next file:
+   `[{title}] Memoir voice-excavation file, out of scope for style_principles extraction, skipping.`
+   If the frontmatter has no `mode:` field (older analysis files
+   predating that field), fall back to checking for memoir-specific
+   section headings (`## Natural Voice Fingerprints`,
+   `## Emotional Register`, `## Time Handling`, `## People Writing`,
+   `## Personal Preoccupations`, `## Unguarded Phrases to Preserve`,
+   `## What to Carry into the Memoir`) — presence of any of these
+   means the same memoir skip applies.
+2. **Then check which of the four fiction-mode sections are present.**
+   All four can coexist in the same file — treat them as co-present
+   sources, not a hierarchy:
+   - `## Positive Style Markers` — present when the file was studied
+     with Phase 1.5 active; most structured source when present
+   - `## Distinctive Patterns` — qualitative observations beyond a
+     checklist
+   - `## Signature Techniques` — what makes this source text unique
+   - `## Words & Phrases to Adopt` — supplementary; include only
+     vocabulary patterns specific and actionable enough to be a style
+     principle
 
-**Memoir scope:** This skill targets fiction-mode analysis files. Memoir
-voice-excavation files have a different section structure (Natural Voice
-Fingerprints, Emotional Register, etc.) and are out of scope — skip them.
+   If none of the four are present (e.g. a corrupt or genuinely thin
+   file — scope was already ruled out in step 1), record the file as
+   skipped-empty and move on:
+   `[{title}] No extractable sections found, skipping.`
 
 **Deduplication before writing:** Before calling `write_author_discovery`,
 consolidate patterns that appear across multiple sections into a single
@@ -149,9 +164,11 @@ Work through the Phase 1.5 checklist item by item:
 - For each checklist item: does this analysis file document it? If yes,
   extract the concrete pattern and its evidence. If no: note "not found in
   this file" — absence is valid and must be documented.
-- After the checklist: scan `## Distinctive Patterns` and
-  `## Signature Techniques` for ADDITIONAL positive markers beyond the
-  checklist — cross-genre techniques specific enough to be actionable.
+- After the checklist: scan `## Distinctive Patterns`,
+  `## Signature Techniques`, and `## Words & Phrases to Adopt` for
+  ADDITIONAL positive markers beyond the checklist — cross-genre techniques
+  and vocabulary specific enough to be actionable (per the "supplementary"
+  bar in Step 5.2).
 
 Each extracted pattern must be formatted as:
 ```
