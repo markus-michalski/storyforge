@@ -76,19 +76,26 @@ a clear error.
   chapters.
 
 When `--force` is set, `get_chapter_promises()` alone isn't a
-reliable signal of prior manual edits — it only recognizes two
-canonical shapes (the `_No promises this chapter._` placeholder, or
-the standard blurb + `| Promise | Target | Status |` table), so a
-hand-edited section in any other format can come back looking empty
-or partial through that call, silently masking the edit. Before
-entering the Step 4 extraction loop, `Read` the `README.md` of every
-chapter Step 3 will process and check its raw `## Promises` section
-against those two canonical shapes. Any chapter whose section
-deviates — blurb text altered or missing, table columns added or
-renamed, non-table content — has been hand-edited. If this heuristic
-fires on any in-scope chapter, confirm with the user before
-proceeding, rather than force-overwriting silently. If it fires on
-none, proceed without an extra confirmation.
+reliable signal of prior manual edits — the underlying parser keys
+only on pipe-table rows and ignores surrounding prose, so a
+hand-edited section (rewritten table, renamed/added columns, freeform
+notes instead of a table) can come back empty or partial through that
+call, silently masking the edit. Before entering the Step 4 extraction
+loop, `Read` the `README.md` of every chapter Step 3 will process and
+check its raw `## Promises` section:
+
+- **No `## Promises` section at all** — this chapter hasn't been
+  backfilled yet. Not a hand-edit; proceed normally.
+- **Section present, table intact** (the standard blurb plus either
+  the `_No promises this chapter._` placeholder or a
+  `| Promise | Target | Status |` table) — untouched; proceed.
+- **Section present but deviating** — table columns added or
+  renamed, table replaced with freeform content, or otherwise
+  reshaped — this has been hand-edited.
+
+If the last case fires on any in-scope chapter, confirm with the user
+before proceeding, rather than force-overwriting silently. If it
+fires on none, proceed without an extra confirmation.
 
 ## Step 3: Build the Chapter List
 
@@ -212,8 +219,11 @@ the next chapter close.
 ## Cost Note
 
 This skill makes one LLM pass per drafted chapter. For a 30-chapter
-novel that's 30 reads of full prose (~45k words total). The pass is
-deterministic enough for Sonnet — no Opus needed.
+novel that's 30 reads of full prose (~45k words total), plus one small
+README read per chapter for the outline (Step 4.2) and, under
+`--force`, one more per in-scope chapter for the manual-edit check
+(Step 2). The pass is deterministic enough for Sonnet — no Opus
+needed.
 
 ## Related
 
