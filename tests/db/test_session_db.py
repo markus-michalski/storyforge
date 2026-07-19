@@ -26,9 +26,13 @@ class TestSessionDb:
         result = get_session_from_db(conn, USER_ID)
         assert result == {}
 
-    def test_get_session_returns_empty_dict_when_no_row(self, conn):
+    def test_get_session_falls_back_to_legacy_file_when_no_row(self, conn, tmp_path, monkeypatch):
+        legacy = tmp_path / "state.json"
+        legacy.write_text('{"session": {"last_book": "firelight", "last_chapter": "30-the-hunt"}}', encoding="utf-8")
+        monkeypatch.setattr("tools.shared.config.STATE_PATH", legacy)
         result = get_session_from_db(conn, USER_ID)
-        assert result == {}
+        assert result["last_book"] == "firelight"
+        assert result["last_chapter"] == "30-the-hunt"
 
     def test_update_then_get_roundtrip(self, conn):
         update_session_in_db(conn, USER_ID, last_book="firelight", last_chapter="30-the-hunt")

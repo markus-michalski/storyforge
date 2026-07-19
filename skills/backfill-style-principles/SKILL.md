@@ -42,10 +42,19 @@ chapters.
 If the user passed an author slug as the first argument, use it directly.
 Otherwise:
 
-1. Check active session via MCP `get_session()` — if there's a session
-   author context, propose it.
-2. If no session author or user wants a different one, use AskUserQuestion
-   with the output of `list_authors()`.
+1. Check active session via MCP `get_session()`. If a session author context
+   exists, propose it explicitly:
+   > "Found session author `{slug}`. Use this author, or should I show the
+   > full list instead?"
+   **Wait for the user's response before proceeding.**
+2. Evaluate the response:
+   - **User accepts** (any affirmative — "yes", "sure", "go ahead", etc.):
+     proceed with the session author slug.
+   - **Any other response** — rejection, silence on the proposal, naming a
+     different author, or no session author was found in the first place:
+     call `list_authors()` and present the result via AskUserQuestion.
+     Do NOT ask "which author?" conversationally without showing the list —
+     the picker is mandatory so the user can choose from known slugs.
 
 ## Step 2: Load Author Profile
 
@@ -277,7 +286,9 @@ The MCP tool deduplicates by content and returns
 `written` and `already_present` separately.
 
 Print exactly ONE header line per file, with these two optional sub-lines
-appended beneath it as needed — never repeat the header line itself:
+appended beneath it as needed — never repeat the header line itself. Keep
+each file's report line concise — one line plus optional sub-lines, no
+prose elaboration:
 
 ```
 [{title}] {new} new / {skipped} already present
@@ -339,8 +350,6 @@ in even one file is never listed here, no matter how many other files
 lacked it.
 
 If any files had errors, list them.
-
-Keep the summary block concise — one line per file, no prose elaboration.
 
 Tell the user:
 - `/storyforge:author-check` will now surface `style_principles` compliance
