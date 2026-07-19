@@ -124,7 +124,13 @@ file), record the file as skipped-empty and move on:
 
 **Memoir scope:** This skill targets fiction-mode analysis files. Memoir
 voice-excavation files have a different section structure (Natural Voice
-Fingerprints, Emotional Register, etc.) and are out of scope — skip them.
+Fingerprints, Emotional Register, etc.) and are out of scope. Check for
+these memoir-specific headings *before* concluding "no extractable
+sections found" — a memoir file also technically has none of the four
+fiction-mode sections, but its skip reason is different and must be
+reported with its own message, not the generic empty-file one:
+`[{title}] Memoir voice-excavation file, out of scope for
+style_principles extraction — skipping.`
 
 **Deduplication before writing:** Before calling `write_author_discovery`,
 consolidate patterns that appear across multiple sections into a single
