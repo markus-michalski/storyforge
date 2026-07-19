@@ -124,6 +124,10 @@ Read directly from
 If the file is missing or empty → skip with message:
 `[Ch NN] No draft.md, skipping.`
 
+Also read the chapter's `README.md` in the same directory. Step 4.3's
+target-chapter rule depends on its outline text — draft.md alone never
+tells you which later chapter a setup-element pays off in.
+
 ### 4.3 Identify promises
 
 Walk the draft once. List every setup-element that meets the
