@@ -22,25 +22,27 @@ def update_session_in_db(
     conn: sqlite3.Connection,
     user_id: str,
     *,
-    last_book: str = "",
-    last_chapter: str = "",
-    last_phase: str = "",
-    active_author: str = "",
+    last_book: str | None = None,
+    last_chapter: str | None = None,
+    last_phase: str | None = None,
+    active_author: str | None = None,
 ) -> None:
     """Upsert session fields for user_id.
 
-    Only non-empty values are written; existing values for omitted fields
-    are preserved by merging with the existing row.
+    A field left as None is omitted from the update and preserves the
+    existing row's value. Passing an explicit value — including "" — always
+    overwrites that field, so callers can deliberately clear a field back to
+    empty (e.g. clearing active_author when switching authors).
     """
     existing = get_session_from_db(conn, user_id)
 
-    if last_book:
+    if last_book is not None:
         existing["last_book"] = last_book
-    if last_chapter:
+    if last_chapter is not None:
         existing["last_chapter"] = last_chapter
-    if last_phase:
+    if last_phase is not None:
         existing["last_phase"] = last_phase
-    if active_author:
+    if active_author is not None:
         existing["active_author"] = active_author
 
     notes_dict = {k: v for k, v in existing.items() if k in _EXTRA_FIELDS}

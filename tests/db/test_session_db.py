@@ -54,3 +54,18 @@ class TestSessionDb:
         update_session_in_db(conn, USER_ID, last_book="firelight", last_chapter="")
         result = get_session_from_db(conn, USER_ID)
         assert "last_chapter" not in result or result["last_chapter"] == ""
+
+    def test_explicit_empty_string_clears_previously_set_active_author(self, conn):
+        update_session_in_db(conn, USER_ID, active_author="ethan-cole")
+        assert get_session_from_db(conn, USER_ID)["active_author"] == "ethan-cole"
+
+        update_session_in_db(conn, USER_ID, active_author="")
+        result = get_session_from_db(conn, USER_ID)
+        assert result.get("active_author", "") == ""
+
+    def test_omitted_field_preserves_existing_value_not_clears_it(self, conn):
+        update_session_in_db(conn, USER_ID, last_book="firelight", active_author="ethan-cole")
+        update_session_in_db(conn, USER_ID, last_chapter="31-the-reckoning")
+        result = get_session_from_db(conn, USER_ID)
+        assert result["last_book"] == "firelight"
+        assert result["active_author"] == "ethan-cole"
