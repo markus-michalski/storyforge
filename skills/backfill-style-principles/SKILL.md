@@ -164,6 +164,14 @@ Work through the Phase 1.5 checklist item by item:
 - For each checklist item: does this analysis file document it? If yes,
   extract the concrete pattern and its evidence. If no: note "not found in
   this file" — absence is valid and must be documented.
+- **Track each checklist item's status across the whole run, not just this
+  file.** Maintain one running verdict per checklist item across all
+  processed files: `found` once ANY file has documented it, `not found`
+  only while EVERY file processed so far has come back absent for it. A
+  later file's "not found in this file" note must never downgrade an item
+  that an earlier file already marked `found` — found is sticky for the
+  rest of the run. This running tally is what Step 6's "Checklist items
+  not found anywhere" line reports from.
 - After the checklist: scan `## Distinctive Patterns`,
   `## Signature Techniques`, and `## Words & Phrases to Adopt` for
   ADDITIONAL positive markers beyond the checklist — cross-genre techniques
@@ -274,6 +282,17 @@ surface them inline:
 Warnings indicate the entry was written but may be too vague or malformed.
 The user should decide whether to keep or delete the flagged entry.
 
+If Step 5.3's checklist pass noted any items as "not found in this file",
+surface them in this same per-file report line — this is the per-file
+output slot for Step 5.3's "absence is valid and must be documented"
+instruction, not just an internal note for the running tally:
+
+```
+[{title}] {new} new / {skipped} already present
+  Checklist misses in {title}: {comma-separated list of items not found in
+  this file, or omit this line entirely if none}
+```
+
 ### 5.5 Anti-patterns → surface for user (do not auto-write)
 
 If `## Anti-Patterns Observed` (or `## Anti-Patterns`) contains entries
@@ -299,6 +318,13 @@ Already present (skipped):        {total_skipped}
 Checklist items not found anywhere: {list of items, or "none"}
 ─────────────────────────────────────────────
 ```
+
+**"Not found anywhere" means absent from every processed file** — read
+directly off Step 5.3's running per-item tally (the `not found` verdicts
+still standing once all files are processed), never a per-file snapshot
+or whichever file happened to be processed last. A checklist item found
+in even one file is never listed here, no matter how many other files
+lacked it.
 
 If any files had errors, list them.
 
