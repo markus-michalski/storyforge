@@ -113,7 +113,7 @@ This skill targets fiction-mode analysis files only. Decide in this
 order — do not skip ahead to the section check before resolving scope:
 
 1. **Check scope first.** Read the file's frontmatter `mode:` field
-   (written by `study-author`, alongside `source_genres:`). If
+   (written by `study-author`). If
    `mode: memoir`, this is a memoir voice-excavation file — out of
    scope. Record it and move to the next file:
    `[{title}] Memoir voice-excavation file, out of scope for style_principles extraction, skipping.`
