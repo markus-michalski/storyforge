@@ -33,8 +33,8 @@ Beta-reader feedback is qualitatively different from inline review comments:
    **Why:** All subsequent MCP calls require the book slug; wrong slug silently loads the wrong book's data.
 2. Load book data via MCP `get_book_full(slug)`
    **Why:** Provides chapter list, character index, and metadata needed to validate `Affected:` chapter references in the feedback file.
-3. Resolve book path via MCP `resolve_path(slug, "book")`
-   **Why:** The absolute path is required to read feedback file, draft chapters, and cross-reference docs — relative paths break across content-root configurations.
+3. Resolve book path via MCP `resolve_path(slug)`
+   **Why:** The absolute project root is required to read feedback file, draft chapters, and cross-reference docs — relative paths break across content-root configurations. (Omitting the component argument returns the book root directly; `"book"` is not a valid component and resolves to a non-existent subdirectory.)
 4. Load per-book CLAUDE.md via MCP `get_book_claudemd(slug)` — Rules, Callbacks, Workflow
    **Why:** Carries persisted Rules, Callbacks, and Workflow overrides that govern triage verdicts — without this, deliberate authorial choices are misread as errors.
 5. Read the feedback file:

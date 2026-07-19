@@ -96,6 +96,15 @@ Ratio = dialog characters / total non-whitespace characters.
 
 **Default target:** 45–55% (override with `dialog_ratio_target` from profile if set).
 
+> **Detection limits — two cases:**
+> - **Mixed punctuation** (some `"…"` pairs exist but em-dash or guillemet lines are also
+>   present): signal is partial — mark `~{N}% (mixed: em-dash dialogue undercounted)`.
+> - **Exclusively non-quote dialogue** (em-dash-led or guillemets throughout, zero `"…"` pairs):
+>   the metric produces **no signal at all** — mark
+>   **"not computed — dialogue uses non-quote punctuation"** instead of `~`. These are
+>   qualitatively different: `~` means "fuzzy but in the right ballpark"; "not computed"
+>   means the number would be meaningless.
+
 ### 3b. Fragment ratio
 Count sentences of 5 words or fewer as fragments. (Split on sentence-ending punctuation: `.` `!` `?` — exclude dialog fragments inside quotes.)
 Ratio = fragment sentences / total sentences.
@@ -169,7 +178,7 @@ Even without a known violation count, flag if `positive_hits == 0` and `positive
 
 | Metric | Actual | Target | Status |
 |--------|--------|--------|--------|
-| Dialog ratio | 38% | 45–55% | ⚠️ Below target |
+| Dialog ratio | ~38% (mixed: em-dash dialogue undercounted) | 45–55% | ⚠️ Below target — detection approximate |
 | Fragment ratio | 15.2% | 12–18% | ✅ On target |
 | Single-line paragraphs | 8% | 15–25% | ❌ Below target |
 | Avg sentence length | 14.2 words | 11–15 words | ✅ On target |
@@ -229,7 +238,7 @@ PASS | WARN | FAIL
 
 - This skill checks PRESENCE of positives, not absence of negatives. Constraint-checking is `chapter-reviewer`'s job. Don't cross-contaminate.
 - If Writing Discoveries → Style Principles is empty: run only quantitative checks (Phase 3). Report the empty Discoveries as a finding — it means no positive extraction has been done yet.
-- Quantitative metrics are approximations. Sentence and dialog boundary detection by text scan is not 100% accurate. Mark calculated values as "~" (approximately) if the draft uses unusual punctuation styles, and name the specific cause (e.g. "em-dash-led dialogue" or "no standard closing quotes") — a bare "~" tells the user a number is fuzzy but not why, which they can't act on.
+- Quantitative metrics are approximations. Sentence and dialog boundary detection by text scan is not 100% accurate. Use two distinct markers: (1) `~` (approximately) when the value is fuzzy but real — the draft mixes punctuation styles so some signal exists but the count is imprecise; always name the specific cause (e.g. "~38% (mixed: em-dash dialogue undercounted)"), because a bare "~" is unactionable. (2) "not computed — dialogue uses non-quote punctuation" when the detection method yields no signal at all (e.g. the draft contains exclusively em-dash-led dialogue or guillemets and the `"…"` count is zero). These are different: `~` means approximately right; "not computed" means the number would be meaningless.
 - Quote concrete evidence for every FOUND verdict. An unquoted FOUND is unverifiable.
 - When writing Next Steps, be specific: which scene, which character pair, what type of change. "Add more banter" is not actionable. "Add a back-and-forth exchange between X and Y in the {scene} — they currently argue via narrated summary" is.
 - Do not suggest removing constraint violations here. That's the reviewer's domain. Focus only on what's missing from the positive side.
