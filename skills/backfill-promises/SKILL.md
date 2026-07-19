@@ -163,11 +163,22 @@ register_chapter_promises(
 Output to user:
 `[Ch NN] {N} promise(s) registered. (added: {a}, updated: {u}, unchanged: {un})`
 
+Append a trailing note to that same line whenever one of these applies
+— neither case is complete without it, since this per-chapter line is
+the only place the user actually sees the result for this chapter:
+
+- Zero promises (the Step 4.3 empty-list case): append
+  ` — no promises this chapter, placeholder written.`
+- Cap triggered (Step 4.5's eight-promise cap): append
+  ` — {K} candidates found, kept the strongest 8.`
+
 ### 4.5 Discipline
 
 - Cap at **eight promises per chapter**. More than that and the
-  signal is drowned in noise. If the chapter genuinely has more,
-  list only the strongest eight and note it to the user.
+  signal is drowned in noise. If the chapter genuinely has more, list
+  only the strongest eight and say so in the Step 4.4 output line
+  (the cap-triggered suffix above) — the count of dropped candidates
+  must reach the user, not just live in your own reasoning.
 - Avoid restating earlier-chapter promises. Each promise should
   originate in *this* chapter.
 - Phrase promises as objects/claims/dynamics, not as plot points.
