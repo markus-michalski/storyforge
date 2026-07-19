@@ -164,9 +164,11 @@ Work through the Phase 1.5 checklist item by item:
 - For each checklist item: does this analysis file document it? If yes,
   extract the concrete pattern and its evidence. If no: note "not found in
   this file" — absence is valid and must be documented.
-- After the checklist: scan `## Distinctive Patterns` and
-  `## Signature Techniques` for ADDITIONAL positive markers beyond the
-  checklist — cross-genre techniques specific enough to be actionable.
+- After the checklist: scan `## Distinctive Patterns`,
+  `## Signature Techniques`, and `## Words & Phrases to Adopt` for
+  ADDITIONAL positive markers beyond the checklist — cross-genre techniques
+  and vocabulary specific enough to be actionable (per the "supplementary"
+  bar in Step 5.2).
 
 Each extracted pattern must be formatted as:
 ```
