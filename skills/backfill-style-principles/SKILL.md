@@ -171,7 +171,10 @@ Work through the Phase 1.5 checklist item by item:
   later file's "not found in this file" note must never downgrade an item
   that an earlier file already marked `found` — found is sticky for the
   rest of the run. This running tally is what Step 6's "Checklist items
-  not found anywhere" line reports from.
+  not found anywhere" line reports from. "Processed" means a file that
+  reached this checklist pass — a file skipped earlier at 5.1 (unreadable)
+  or 5.2 (memoir-scope or genuinely empty) was never actually scanned for
+  patterns and does not count toward the tally either way.
 - After the checklist: scan `## Distinctive Patterns`,
   `## Signature Techniques`, and `## Words & Phrases to Adopt` for
   ADDITIONAL positive markers beyond the checklist — cross-genre techniques
@@ -271,27 +274,36 @@ write_author_discovery(
 
 The MCP tool deduplicates by content and returns
 `{written, already_present, warnings, extracted_patterns}`. Count
-`written` and `already_present` separately. When `warnings` is non-empty,
-surface them inline:
+`written` and `already_present` separately.
+
+Print exactly ONE header line per file, with these two optional sub-lines
+appended beneath it as needed — never repeat the header line itself:
 
 ```
 [{title}] {new} new / {skipped} already present
   ⚠ lint: [{warning text}] — pattern written but flagged; review manually
-```
-
-Warnings indicate the entry was written but may be too vague or malformed.
-The user should decide whether to keep or delete the flagged entry.
-
-If Step 5.3's checklist pass noted any items as "not found in this file",
-surface them in this same per-file report line — this is the per-file
-output slot for Step 5.3's "absence is valid and must be documented"
-instruction, not just an internal note for the running tally:
-
-```
-[{title}] {new} new / {skipped} already present
   Checklist misses in {title}: {comma-separated list of items not found in
   this file, or omit this line entirely if none}
 ```
+
+The `⚠ lint` sub-line appears only when `warnings` is non-empty (one per
+warning). Warnings indicate the entry was written but may be too vague or
+malformed — the user should decide whether to keep or delete the flagged
+entry. The `Checklist misses` sub-line appears only when Step 5.3's
+checklist pass noted any items as "not found in this file" for this
+specific file — this is the per-file output slot for Step 5.3's "absence
+is valid and must be documented" instruction, not just an internal note
+for the running tally. A file with neither prints only the header line.
+
+Note: reformulated patterns (per Step 5.3's plot-bound-technique guidance)
+are deduplicated by the MCP the same way as any other pattern — by exact
+content match, not by underlying technique. Two files independently
+reformulating the same real craft move will likely produce two
+differently-worded entries, both written as `new` rather than deduped
+against each other. This is a known limitation, not a bug to work around
+mid-run — if the Step 6 report shows near-duplicate style_principles
+entries for the same checklist item across files, mention it to the user
+as something to manually prune, don't attempt automatic reconciliation.
 
 ### 5.5 Anti-patterns → surface for user (do not auto-write)
 
