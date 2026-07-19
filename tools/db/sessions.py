@@ -31,8 +31,16 @@ def update_session_in_db(
 
     A field left as None is omitted from the update and preserves the
     existing row's value. Passing an explicit value — including "" — always
-    overwrites that field, so callers can deliberately clear a field back to
+    writes that field, so callers can deliberately clear a field back to
     empty (e.g. clearing active_author when switching authors).
+
+    Note on read-back asymmetry: last_book/last_chapter/last_phase are
+    dedicated SQL columns, and get_session_from_db() drops them from its
+    output whenever they're empty (pre-existing "empty column == unset"
+    convention) — so clearing one of those three back to "" makes it absent
+    from a subsequent get_session_from_db() call, not present-with-"".
+    active_author lives in the notes JSON blob, which has no such filter, so
+    it round-trips as an explicit "" instead.
     """
     existing = get_session_from_db(conn, user_id)
 
