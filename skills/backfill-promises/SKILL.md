@@ -75,10 +75,27 @@ a clear error.
   is preserved; new ones append). Default is to skip populated
   chapters.
 
-Confirm with the user before proceeding when `--force` is passed
-against a book with manually-edited promises (heuristic: any chapter
-where the section blurb has been removed or the table extended with
-unusual columns).
+When `--force` is set, `get_chapter_promises()` alone isn't a
+reliable signal of prior manual edits — the underlying parser keys
+only on pipe-table rows and ignores surrounding prose, so a
+hand-edited section (rewritten table, renamed/added columns, freeform
+notes instead of a table) can come back empty or partial through that
+call, silently masking the edit. Before entering the Step 4 extraction
+loop, `Read` the `README.md` of every chapter Step 3 will process and
+check its raw `## Promises` section:
+
+- **No `## Promises` section at all** — this chapter hasn't been
+  backfilled yet. Not a hand-edit; proceed normally.
+- **Section present, table intact** (the standard blurb plus either
+  the `_No promises this chapter._` placeholder or a
+  `| Promise | Target | Status |` table) — untouched; proceed.
+- **Section present but deviating** — table columns added or
+  renamed, table replaced with freeform content, or otherwise
+  reshaped — this has been hand-edited.
+
+If the last case fires on any in-scope chapter, confirm with the user
+before proceeding, rather than force-overwriting silently. If it
+fires on none, proceed without an extra confirmation.
 
 ## Step 3: Build the Chapter List
 
@@ -114,6 +131,10 @@ Read directly from
 If the file is missing or empty → skip with message:
 `[Ch NN] No draft.md, skipping.`
 
+Also read the chapter's `README.md` in the same directory. Step 4.3's
+target-chapter rule depends on its outline text — draft.md alone never
+tells you which later chapter a setup-element pays off in.
+
 ### 4.3 Identify promises
 
 Walk the draft once. List every setup-element that meets the
@@ -127,6 +148,16 @@ Walk the draft once. List every setup-element that meets the
   payoff chapter explicitly, use its slug (e.g. `14-the-letter`). If
   the chapter outline is silent, use `unfired` — the checker will
   flag it for either payoff or retirement.
+
+  `register_chapter_promises` merges by matching `description`+
+  `target` together (Step 2) — a resolved target is a *different* key
+  from `unfired`, so it appends rather than updates. On a `--force`
+  re-run, if the Step 4.1 pre-check already shows an `unfired`-target
+  entry that plainly describes the same element you're re-resolving
+  to a real target now, don't just let both stand: tell the user a
+  stale `unfired` duplicate needs pruning (or resolve it yourself if
+  you're confident it's the same element), rather than silently
+  leaving two rows for one promise.
 - **Status:** Always `active` for backfill. The author can later
   set `satisfied` or `retired` manually or via the chapter-reviewer.
 
@@ -153,11 +184,22 @@ register_chapter_promises(
 Output to user:
 `[Ch NN] {N} promise(s) registered. (added: {a}, updated: {u}, unchanged: {un})`
 
+Append a trailing note to that same line whenever one of these applies
+— neither case is complete without it, since this per-chapter line is
+the only place the user actually sees the result for this chapter:
+
+- Zero promises (the Step 4.3 empty-list case): append
+  ` — no promises this chapter, placeholder written.`
+- Cap triggered (Step 4.5's eight-promise cap): append
+  ` — {K} candidates found, kept the strongest 8.`
+
 ### 4.5 Discipline
 
 - Cap at **eight promises per chapter**. More than that and the
-  signal is drowned in noise. If the chapter genuinely has more,
-  list only the strongest eight and note it to the user.
+  signal is drowned in noise. If the chapter genuinely has more, list
+  only the strongest eight and say so in the Step 4.4 output line
+  (the cap-triggered suffix above) — the count of dropped candidates
+  must reach the user, not just live in your own reasoning.
 - Avoid restating earlier-chapter promises. Each promise should
   originate in *this* chapter.
 - Phrase promises as objects/claims/dynamics, not as plot points.
@@ -187,8 +229,11 @@ the next chapter close.
 ## Cost Note
 
 This skill makes one LLM pass per drafted chapter. For a 30-chapter
-novel that's 30 reads of full prose (~45k words total). The pass is
-deterministic enough for Sonnet — no Opus needed.
+novel that's 30 reads of full prose (~45k words total), plus one small
+README read per chapter for the outline (Step 4.2) and, under
+`--force`, one more per in-scope chapter for the manual-edit check
+(Step 2). The pass is deterministic enough for Sonnet — no Opus
+needed.
 
 ## Related
 
