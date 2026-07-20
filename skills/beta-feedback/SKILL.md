@@ -156,7 +156,9 @@ For **disagree** verdicts, always provide (max ~100 words of evidence total):
 - The evidence that it's intentional (quote from canon-log, arcs, tone, or per-book CLAUDE.md callbacks)
 - Why changing it would hurt the book
 
-Present the full triage table to the user. Wait for confirmation before proceeding to Phase 5.
+Present the full triage table to the user, then write it to `{project}/research/beta-feedback-triage.md` using `templates/beta-feedback-triage.md` as scaffold — the chat presentation is ephemeral, but the triage record needs to persist so it survives the session and can be referenced from Phase 5 onward.
+
+Wait for confirmation before proceeding to Phase 5.
 
 ### Phase 5: Revision Plan
 
@@ -203,7 +205,7 @@ Resolution status format — append to each `## FB-NNN` section:
 
 ### Triage Report: `{project}/research/beta-feedback-triage.md`
 
-Generate using `templates/beta-feedback-triage.md` as scaffold.
+Written at the end of Phase 4, right after the triage table is presented to the user (see Phase 4's closing step) — generated using `templates/beta-feedback-triage.md` as scaffold.
 
 ## Integration with Existing Skills
 
