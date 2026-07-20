@@ -13,6 +13,8 @@ user-invocable: true
 
 1. **Read current config** from `~/.storyforge/config.yaml`
 2. **Show current settings** in a clear table:
+   (this example is illustrative — always include every row from the Configurable Settings table
+   below, not just the fields shown here)
    ```
    Current Configuration:
    =====================
@@ -20,10 +22,12 @@ user-invocable: true
    Authors Root:    ~/.storyforge/authors
    Language:        en
    Book Type:       novel
+   Book Category:   fiction
+   Review Handle:   Markus
    Export Format:   epub
    PDF Engine:      xelatex
-   Pandoc Path:     pandoc
-   Calibre Path:    ebook-convert
+   Pandoc Path:     pandoc          (informational — not in Configurable Settings below)
+   Calibre Path:    ebook-convert   (informational — not in Configurable Settings below)
    Cover Platform:  midjourney
    ```
 3. **Ask what to change** via AskUserQuestion
