@@ -198,7 +198,7 @@ Using `memoir-structure-types.md` (loaded in Step 0):
   - *"Your scope is thematic (`Money / Faith / Bodies`) — thematic structure or vignette."*
 - Map the chosen structure to a chapter-spine sketch.
 
-Write initial outline to `{project}/plot/outline.md` (memoir-shaped — the file scaffolded by `/storyforge:new-book` already points at structure types). Also update `{project}/plot/structure.md` with the selected type and rationale.
+Write initial outline to `{project}/plot/outline.md` (memoir-shaped — the file scaffolded by `/storyforge:new-book` already points at structure types). Also persist the selected type via MCP `set_memoir_structure_type(book_slug, structure_type)` — this writes `structure_type` into `{project}/plot/structure.md`'s frontmatter without touching the body, so downstream skills (`chapter-writer` memoir mode, `rolling-planner`) can read the choice without parsing prose. Do not hand-edit the frontmatter directly. Then write the rationale as prose into `plot/structure.md`'s body (the tool preserves existing body content, so this is a normal file edit, not an MCP call).
 
 **STOP HERE — Phase Gate 4/5.** Present the structure options above. Do NOT generate any Phase 5 content. Wait for the user to choose a structure before continuing.
 
