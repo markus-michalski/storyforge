@@ -111,7 +111,10 @@ Write to `{project}/synopsis.md`.
 
 Update book status to "Concept" via MCP `update_field()`.
 
-Ask: *"Outliner/Plantser → `/storyforge:plot-architect`. Discovery writer → `/storyforge:rolling-planner` before each chapter session."*
+Load the author profile via MCP `get_author()` (if not already loaded this session) and read `author_writing_mode`. Route silently to the matching next step — do not recite the unused branch:
+- `outliner` or `plantser` → *"Ready to structure the plot? → `/storyforge:plot-architect`."*
+- `discovery` → *"Ready to write? → `/storyforge:rolling-planner` before each chapter session."*
+- Field missing or unrecognized value → ask the user directly which workflow they use, rather than guessing or printing both options.
 
 ## Workflow — Memoir (5 phases)
 
