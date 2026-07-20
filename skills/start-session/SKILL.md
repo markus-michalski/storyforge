@@ -19,6 +19,7 @@ user-invocable: true
 2. **Load session context** via MCP `get_session()`
    - Show last active book, chapter, phase
    - If `get_session()` reports no active book, note that explicitly — do NOT infer one from `list_books()` (e.g. by picking the most recently modified book)
+   - After step 3 has run, cross-check the active book's slug against the `list_books()` results. If it's no longer present (book deleted or renamed since the session was last saved), treat this as "no active book" for steps 5-6 and say so explicitly — never suggest `/storyforge:resume [stale-slug]` for a book that no longer exists
 
 3. **List projects** via MCP `list_books()`
    - Show all books with status and word count
