@@ -68,6 +68,41 @@ _ALLOWED_AUTHOR_FIELDS: frozenset[str] = frozenset({
     "single_line_paragraph_ratio_target", "avg_sentence_length_target",
 })
 
+# Subset of _ALLOWED_AUTHOR_FIELDS that create_author()'s own template always writes
+# as a real YAML list (primary_genres, tone, avoid via json.dumps(list)). update_author()
+# only accepts a plain str value, so without this, updating one of these fields writes
+# a scalar string into a field every other writer treats as a list — schema drift a
+# live-tool-call test caught (create-author's own Phase 4 fix would otherwise write
+# `themes: "a, b"` instead of `themes: ["a", "b"]`). Accepts either a JSON array string
+# (`["a", "b"]`) or a plain comma-separated string (`"a, b"`) and normalizes to a list.
+_LIST_AUTHOR_FIELDS: frozenset[str] = frozenset({
+    "primary_genres", "tone", "themes", "influences", "avoid", "off_limits",
+})
+
+
+def _coerce_author_field_value(field: str, value: str) -> Any:
+    """Normalize a raw update_author() string value for known list-typed fields.
+
+    Non-list fields pass through unchanged. List fields accept a JSON array
+    string or a comma-separated string; a blank value becomes an empty list.
+    """
+    if field not in _LIST_AUTHOR_FIELDS:
+        return value
+
+    stripped = value.strip()
+    if not stripped:
+        return []
+
+    if stripped.startswith("["):
+        try:
+            parsed = json.loads(stripped)
+        except (json.JSONDecodeError, ValueError):
+            parsed = None
+        if isinstance(parsed, list):
+            return [str(item).strip() for item in parsed if str(item).strip()]
+
+    return [part.strip() for part in stripped.split(",") if part.strip()]
+
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def list_authors() -> str:
@@ -620,14 +655,14 @@ def update_author(slug: str, field: str, value: str) -> str:
 
     text = profile_path.read_text(encoding="utf-8")
     meta, body = parse_frontmatter(text)
-    meta[field] = value
+    meta[field] = _coerce_author_field_value(field, value)
     meta["updated"] = date.today().isoformat()
 
     new_text = "---\n" + yaml.dump(meta, default_flow_style=False, allow_unicode=True) + "---\n" + body
     profile_path.write_text(new_text, encoding="utf-8")
 
     _cache.invalidate()
-    return json.dumps({"success": True, "field": field, "value": value})
+    return json.dumps({"success": True, "field": field, "value": meta[field]})
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))

@@ -178,11 +178,14 @@ that differs, not just the three named in steps 2-3 below.
 3. Call MCP `update_author(slug, "native_language", value)` and `update_author(slug, "preferred_writing_language", value)`
 4. Call MCP `update_author()` once per remaining Phase 2/3 answer that differs from `create_author()`'s
    defaults: `sentence_style`, `vocabulary_level`, `dialog_style`, `pacing` (Phase 2), and `themes`,
-   `influences` (Phase 1/3, collected as prose — join into a list). These are real `_ALLOWED_AUTHOR_FIELDS`
-   and are NOT persisted by `create_author()` itself — skipping this step means the user's actual
-   answers get silently replaced by generic defaults.
+   `influences` (Phase 1/3, collected as prose). These are real `_ALLOWED_AUTHOR_FIELDS` and are NOT
+   persisted by `create_author()` itself — skipping this step means the user's actual answers get
+   silently replaced by generic defaults. `themes`/`influences` are list-typed fields — pass a
+   comma-separated string (e.g. `"isolation, complicity"`) or a JSON array string; `update_author()`
+   normalizes either into a real YAML list, matching how `primary_genres`/`tone`/`avoid` are stored.
 5. For memoir authors, also call `update_author(slug, "subject_position", value)`,
    `update_author(slug, "relationship_to_material", value)`, and `update_author(slug, "off_limits", value)`
+   (`off_limits` is also list-typed — same comma/JSON-array convention as `themes`/`influences`)
    — all three memoir-specific fields collected in Phase 2, not just the two most obviously named.
 6. Load the generated `profile.md` and `vocabulary.md`
 7. Review the banned words list (AI tells) — ask if user wants to add/remove any (brief: list entries only, no prose commentary)
