@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Nothing yet
+- `update_field()` now patches a single frontmatter line surgically instead of re-serializing the whole YAML block — preserves key order, quote style, and flow/block style of every untouched field (#372)
 
 ### Security
 - Nothing yet

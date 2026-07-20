@@ -34,6 +34,93 @@ _ALLOWED_BOOK_CATEGORIES = ("fiction", "memoir")
 # YAML structure characters.
 _FIELD_NAME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$")
 
+# Isolates a frontmatter block into its three parts (opening ---, raw body,
+# closing ---) so a single field's line can be patched without touching the
+# rest. Same delimiters as tools.state.parsers._RE_FRONTMATTER, but the body
+# group here keeps its trailing newline (needed for line-based splicing) —
+# the two patterns are not literally identical, only delimiter-compatible.
+_RE_FRONTMATTER_SPLIT = re.compile(r"^(---\s*\n)(.*?\n)(---\s*\n)", re.DOTALL)
+
+
+def _yaml_inline_scalar(value: str) -> str:
+    """Render `value` exactly as ``yaml.dump`` would inline it in a mapping.
+
+    Reuses PyYAML's own quoting rules (only quote when needed to disambiguate
+    from int/bool/date/etc.) so a single patched line stays indistinguishable
+    from what a full re-serialize of the same value would have produced. Note:
+    a `value` containing "\\n" renders as a multi-line quoted scalar — valid
+    YAML, but it means the "one line changes" guarantee only holds for
+    single-line values, which covers every real caller in this codebase.
+    """
+    import yaml
+
+    dumped = yaml.safe_dump(value, allow_unicode=True).rstrip("\n")
+    if dumped.endswith("..."):
+        dumped = dumped[: -len("...")].rstrip("\n")
+    return dumped
+
+
+_RE_BLOCK_SEQUENCE_ITEM = re.compile(r"^-(\s|$)")
+
+
+def _patch_frontmatter_line(fm_body: str, field: str, value: str) -> str | None:
+    """Try a surgical single-line patch of `field` inside frontmatter raw text.
+
+    Returns the patched block, or None if `field`'s line looks like it opens
+    a block scalar or a nested mapping/sequence — the caller should fall back
+    to a full re-serialize in that case. This codebase's frontmatter schemas
+    (book/chapter/character/person/author) are all flat scalars plus one
+    flow-style list (`genres`), so the None branch is a safety net, not the
+    common path.
+    """
+    lines = fm_body.split("\n")
+    key_re = re.compile(rf"^{re.escape(field)}:(\s.*)?$")
+    new_line = f"{field}: {_yaml_inline_scalar(value)}"
+
+    patched: str | None = None
+    for i, line in enumerate(lines):
+        if not key_re.match(line):
+            continue
+        rest = line.split(":", 1)[1].strip()
+        if rest[:1] in ("|", ">"):
+            return None  # block scalar — needs full YAML handling
+        next_line = lines[i + 1] if i + 1 < len(lines) else ""
+        # Nested mapping/sequence continues on the next line — either
+        # indented (standard nesting) or, for a block sequence, at the same
+        # (zero) indent as the key itself (e.g. `genres:\n- drama`), which
+        # is exactly the shape the full-reserialize fallback below emits.
+        if (next_line[:1] in (" ", "\t") and next_line.strip()) or _RE_BLOCK_SEQUENCE_ITEM.match(next_line):
+            return None
+        new_lines = list(lines)
+        new_lines[i] = new_line
+        patched = "\n".join(new_lines)
+        break
+    else:
+        # Field not present yet — append before the trailing blank entry
+        # that split() leaves from the block's final newline.
+        new_lines = list(lines)
+        if new_lines and new_lines[-1] == "":
+            new_lines.insert(-1, new_line)
+        else:
+            new_lines.append(new_line)
+        patched = "\n".join(new_lines)
+
+    # Safety net: confirm the patch is still valid YAML and left every other
+    # key's value unchanged. Catches any line-shape the heuristics above
+    # didn't anticipate instead of silently corrupting the file.
+    import yaml
+
+    try:
+        before = yaml.safe_load(fm_body) or {}
+        after = yaml.safe_load(patched) or {}
+    except yaml.YAMLError:
+        return None
+    if not isinstance(after, dict):
+        return None
+    if any(k != field and after.get(k) != v for k, v in before.items()):
+        return None
+    return patched
+
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def get_session() -> str:
@@ -162,9 +249,21 @@ def update_field(file_path: str, field: str, value: str) -> str:
         path.write_text(yaml.safe_dump(meta, sort_keys=False, allow_unicode=True), encoding="utf-8")
     else:
         text = path.read_text(encoding="utf-8")
-        meta, body = parse_frontmatter(text)
-        meta[field] = value
-        new_text = "---\n" + yaml.dump(meta, default_flow_style=False, allow_unicode=True) + "---\n" + body
+        fm_match = _RE_FRONTMATTER_SPLIT.match(text)
+        patched_block = _patch_frontmatter_line(fm_match.group(2), field, value) if fm_match else None
+        if fm_match and patched_block is not None:
+            # Surgical patch (Issue #372): only the touched field's line
+            # changes — key order, quote style, and flow/block style of every
+            # other field stay exactly as they were on disk.
+            new_text = fm_match.group(1) + patched_block + fm_match.group(3) + text[fm_match.end() :]
+        else:
+            # Fallback: no frontmatter block yet, or the field's existing
+            # line is a block scalar / nested structure a single-line patch
+            # can't safely touch. sort_keys=False at least keeps key
+            # insertion order stable across this re-serialize.
+            meta, body = parse_frontmatter(text)
+            meta[field] = value
+            new_text = "---\n" + yaml.dump(meta, default_flow_style=False, sort_keys=False, allow_unicode=True) + "---\n" + body
         path.write_text(new_text, encoding="utf-8")
 
     _cache.invalidate()
