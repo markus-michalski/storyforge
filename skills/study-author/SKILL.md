@@ -37,7 +37,7 @@ Alternatively, detect from context: if the book linked to the author slug has `b
    After the user confirms the genres, validate each slug via MCP `get_genre(slug)`. For any slug not found in the registry:
    > "Genre '{slug}' ist nicht in der StoryForge-Registry. Der Genre-Filter greift erst, sobald das Genre angelegt ist. Jetzt `/storyforge:genre-creator {slug}` ausführen, oder trotzdem fortfahren? (Kein Datenverlust — `source_genres` wird gespeichert, Filter aktiviert sich nach genre-creator.)"
    User kann wählen: Pause für `genre-creator` oder fortfahren. Leeres Feld (unbekanntes/cross-genre Buch) überspringt die Validierung.
-5. **Read the file** — Use the Read tool for text/markdown/PDF files. For EPUB and DOCX, the MCP server's `extract_text_from_file()` handles extraction. Supported: PDF, EPUB, DOCX, TXT, MD. Max 50 MB, max 200k words (larger files are auto-sampled from beginning, middle, and end).
+5. **Read the file** — For EPUB and DOCX, the MCP server's `extract_text_from_file()` handles extraction (the Read tool can't parse these). For text/markdown/PDF files under roughly 200k words, use the Read tool directly. **The beginning/middle/end auto-sampling only happens inside `extract_text_from_file()`** — the Read tool has no sampling behavior of its own. So for a PDF/TXT/MD file that is (or might be) over ~200k words, call `extract_text_from_file()` instead of Read, to get the sampling and the size/word-count guard. Supported: PDF, EPUB, DOCX, TXT, MD. Max 50 MB, max 200k words.
 
 ### Phase 1.5: Build Positive Extraction Checklist
 
@@ -160,13 +160,13 @@ Show a concise summary (~200 words total): top 3 findings, count of banned phras
 
 The goal is opposite to fiction mode: instead of learning *someone else's* craft patterns, we excavate *the author's own unguarded voice* — the one they had before they started thinking about writing.
 
+**Memoir mode has NO Phase 2.5 gate — this is a deliberate divergence from Fiction Mode below, not an oversight.** Fiction Mode's Phase 2.5 blocks studying a text until a `create-author` profile already exists, because bootstrapping a fiction profile from someone else's book risks copying their signature too closely. That risk doesn't exist here: studying your own personal writing IS a valid way to *build* a memoir profile from nothing, not just refine one. Do not port Fiction Mode's "has a profile already been created?" question into this workflow, even out of habit — proceed straight from Phase 1 into Phase 2 regardless of whether `create-author` has been run yet for this author.
+
 ### Phase 1: Input
 1. **Get file path** — User provides path to journals, letters, diary entries, old blog posts, emails, or any personal writing (PDF, TXT, MD)
 2. **Get author** — Which author profile to update? Show list via MCP `list_authors()`
 3. **Derive `book_slug`** — From the file name (lowercase, hyphens), same rule as fiction mode. Used for the analysis filename in Phase 3.
 4. **Read the file** — Same file handling as fiction mode. If the journal is handwritten and photographed, ask the user to transcribe a representative excerpt (~2000–5000 words) first.
-
-**No Phase 2.5 gate in memoir mode.** Studying your own personal writing IS a valid way to build or enrich a memoir author profile — it's not copying someone else's voice.
 
 ### Phase 2: Analysis (Memoir-Specific)
 
