@@ -31,6 +31,8 @@ user-invocable: true
    Cover Platform:  midjourney
    ```
 3. **Ask what to change** via AskUserQuestion
+   Do this even if the user only asked to view the current settings and didn't request a change —
+   Step 3 is not conditional on an explicit change request.
 4. **Update config.yaml** — Edit the YAML file directly
    Before writing: if the field's Options column names a closed list of values (not "Any valid
    path" / free text), check the requested value against it. If it isn't one of the listed values,
