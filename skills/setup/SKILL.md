@@ -140,5 +140,7 @@ Show what was set up, what's missing, suggest next step:
   chain (`py -3`, then known install paths).
 - Only if **every** entry in Step 0's fallback chain fails is Python actually
   missing on Windows → tell the user to install Python 3.10+ from python.org
-  and check "Add python.exe to PATH" during install.
+  and check "Add python.exe to PATH" during install. Keep this instruction
+  scoped to python.org — Step 6's apt/winget alternatives are for Pandoc,
+  not for Python itself, so don't blend them in here.
 - `pip install` fails → Show the exact error and suggest running manually.
