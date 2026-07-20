@@ -36,6 +36,7 @@ If `book_category == "memoir"`, also:
 - **Craft references** via MCP `get_craft_reference()`:
   - `story-structure` — **Why:** Phase 4 structure selection — different concepts fit different structures (3-act vs. 5-act vs. Save-the-Cat).
   - `plot-craft` — **Why:** Conflict-stakes-decision logic for Phase 3 conflict architecture.
+  - `conflict-types` — **Why:** Phase 3 conflict architecture — external/internal conflict taxonomy and the stakes-escalation principle behind Phase 3.
   - `theme-development` — **Why:** Theme-as-question (not theme-as-lesson) — the framing that keeps Phase 2 from going preachy.
 
 ### Memoir mode (`book_category == "memoir"`)
@@ -95,7 +96,10 @@ Target: ~200-400 Wörter Konflikt-Architektur als Output, kompakt — die Tiefe 
 ### Phase 4: Structure Selection
 Using `story-structure.md`:
 - Recommend a structure based on genre and story type
-- Show the user 2-3 options with pros/cons (max ~150 Wörter pro Option)
+- Show the user 2-3 options with pros/cons (max ~150 Wörter pro Option), tied to *their* Phase 3 conflict architecture (external/internal conflict, stakes ladder) the same way genre shapes the recommendation:
+  - *"Your external conflict is a ticking-clock pursuit — a tight 3-act structure with an accelerating midpoint will carry that tension better than a slow-burn 5-act."*
+  - *"Your internal conflict (the lie your protagonist believes) doesn't resolve until the stakes hit Existential — Save-the-Cat's dark-night-of-the-soul beat gives that collapse room to land."*
+  - *"Your conflict escalates cleanly through all four stakes tiers (Personal → Relational → Community → Existential) — a classic 3-act works; you don't need a fragmented structure to earn the scope."*
 - Map the concept to the chosen structure's beats
 
 Write initial outline to `{project}/plot/outline.md`.
@@ -170,7 +174,7 @@ Reference `scene-vs-summary.md` and `real-people-ethics.md` before this conversa
 - "For each: what's their relationship to you, and what's their consent status (granted / pending / refused / unknown)?"
 - "Anyone you're considering anonymizing or composite-ing? What's the ethical reasoning?"
 
-This is not a full real-people roster (that's `/storyforge:character-creator-memoir`, #59). At Phase 3 we just identify the **structural cast** — the people without whom the memoir collapses.
+Tell the user: at this phase we only identify the **structural cast** — the people without whom the memoir collapses — not the full real-people roster, which comes later in `/storyforge:character-creator-memoir`.
 
 If the user volunteers an anonymization plan with only a surface reason (e.g. "I'll anonymize her" without saying why that's the right call), that is not the same as answering "what's the ethical reasoning" — ask the follow-up explicitly (identifiability risk? professional confidentiality? would a composite serve better than a straight anonymization?) rather than treating the stated plan as sufficient.
 
@@ -217,7 +221,10 @@ Write to `{project}/synopsis.md`.
 
 Update book status to "Concept" via MCP `update_field()`.
 
-Ask: *"Ready to shape the narrative arc? → `/storyforge:plot-architect-memoir`"*
+Load the author profile via MCP `get_author()` (if not already loaded this session) and read `author_writing_mode`. Route silently to the matching next step — do not recite the unused branch:
+- `outliner` or `plantser` → *"Ready to shape the narrative arc? → `/storyforge:plot-architect-memoir`."*
+- `discovery` → *"Ready to write? → `/storyforge:rolling-planner` before each chapter session."*
+- Field missing or unrecognized value → ask the user directly which workflow they use, rather than guessing or printing both options.
 
 ## Rules
 - Resolve `book_category` in Step 0 before any phase. Never assume fiction.
