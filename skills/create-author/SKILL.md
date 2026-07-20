@@ -33,7 +33,11 @@ Ask: *"Will this author primarily write fiction, memoir, or both?"*
 ### Phase 1: Identity
 Ask the user:
 1. **Pen name** — What should this author be called?
-2. **Primary genres** — Show available genres via MCP `list_genres()`. Select 1-3.
+2. **Primary genres** — Show available genres via MCP `list_genres()`. Select 1-3. If the user names a
+   genre before seeing the list, or names one not returned by `list_genres()`, say so explicitly and
+   ask them to pick from the real list — never write an unlisted genre string into the profile
+   unaddressed. If they name more than 3, ask them to narrow it down rather than passing all of them
+   to `create_author()`.
 3. **Writing influences** — Which published authors inspire this persona? (e.g., "Stephen King meets Carmen Maria Machado")
 4. **Native language** — What is the author's mother tongue? (ISO 639-1 code, e.g. `de`, `fr`, `es`, `ja`) — used for explanations in language-aware skills like the proofreader
 5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `book_language` set. (default: `en`)
@@ -45,7 +49,10 @@ Guide the user through voice choices (use AskUserQuestion):
 
 1. **Narrative voice:** first-person, third-limited, third-omniscient, second-person
 2. **Tense:** past or present
-3. **Tone:** Select 2-4 from: sarcastic, dark-humor, atmospheric, lyrical, terse, warm, cold, irreverent, earnest, melancholic, playful, intense, detached, intimate
+3. **Tone:** Select 2-4 from: sarcastic, dark-humor, atmospheric, lyrical, terse, warm, cold, irreverent, earnest, melancholic, playful, intense, detached, intimate. If the user's answer isn't one of these
+   (e.g. a generic word like "introspective"), don't write it through as-is — either map it to the
+   closest listed option and confirm, or ask them to pick from the actual list; this also covers the
+   Rules section's ban on generic tone descriptors.
 4. **Sentence style:** short-punchy, long-flowing, varied, minimalist
 5. **Vocabulary level:** simple, moderate, advanced, archaic
 6. **Dialog style:** naturalistic, stylized, minimal, heavy
@@ -89,7 +96,10 @@ Same universal voice questions as fiction, plus memoir-specific additions:
 
 1. **Narrative voice:** first-person (default for memoir), or second-person (rare, experimental)
 2. **Tense:** past (most common), present (immersive), or mixed (past for events, present for reflection)
-3. **Tone:** Select 2-4 from: confessional, unflinching, elegiac, wry, tender, sardonic, reckoning, defiant, searching, intimate, measured, fierce
+3. **Tone:** Select 2-4 from: confessional, unflinching, elegiac, wry, tender, sardonic, reckoning, defiant, searching, intimate, measured, fierce. If the user's answer isn't one of these (e.g. a
+   generic word like "introspective"), don't write it through as-is — either map it to the closest
+   listed option and confirm, or ask them to pick from the actual list; this also covers the Rules
+   section's ban on generic tone descriptors.
 4. **Sentence style:** short-punchy, long-flowing, varied, minimalist
 5. **Vocabulary level:** simple, moderate, advanced
 6. **Pacing:** slow-burn, reflective, urgent, episodic
