@@ -172,12 +172,16 @@ Reference `scene-vs-summary.md` and `real-people-ethics.md` before this conversa
 
 This is not a full real-people roster (that's `/storyforge:character-creator-memoir`, #59). At Phase 3 we just identify the **structural cast** — the people without whom the memoir collapses.
 
+If the user volunteers an anonymization plan with only a surface reason (e.g. "I'll anonymize her" without saying why that's the right call), that is not the same as answering "what's the ethical reasoning" — ask the follow-up explicitly (identifiability risk? professional confidentiality? would a composite serve better than a straight anonymization?) rather than treating the stated plan as sufficient.
+
 #### 3c. Deliberate exclusions
 - "What are you *not* writing about, even though it happened in this period?"
 - "Why? (Privacy of others, off-topic, didn't shape the through-line, you're not ready, legally hazardous.)"
 - "What's the cost of that exclusion — and is the through-line still honest without it?"
 
 The exclusion list is part of the concept. Memoirs that try to cover everything become diaries; memoirs that deliberately exclude become books.
+
+The cost-of-exclusion question is not optional color — ask it explicitly, even if the user has already volunteered what and why unprompted in the same breath. Stating an exclusion and its reason is not the same as weighing its cost against the through-line's honesty.
 
 Target: ~250-450 Wörter scope-document as output. Write to `{project}/README.md` under "## Scope" (a section that does not exist in fiction-mode books).
 
