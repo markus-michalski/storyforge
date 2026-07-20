@@ -34,8 +34,12 @@ user-invocable: true
    Authors: [count] profiles
    Books: [count] projects
    
+   - [book title] — [status] — [word count] words
+   - (one line per book from step 3's list_books() result)
+   
    Last worked on: [book] — Chapter [N]
    ```
+   - The per-book list is required, not optional — it's how step 3's "show all books with status and word count" actually surfaces in the final report; the `Books: [count] projects` line above it is only the aggregate count, not a substitute for it.
    - If `get_session()` reported no active book: print `Active Book: None yet` and omit the `Last worked on` line entirely rather than leaving a placeholder or fabricating a book.
 
 6. **Suggest action** — Based on session state, checked in this order (first match wins):
