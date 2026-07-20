@@ -38,7 +38,7 @@ Ask the user:
    ask them to pick from the real list — never write an unlisted genre string into the profile
    unaddressed. If they name more than 3, ask them to narrow it down rather than passing all of them
    to `create_author()`.
-3. **Writing influences** — Which published authors inspire this persona? (e.g., "Stephen King meets Carmen Maria Machado")
+3. **Writing influences** — Which published authors inspire this persona? (e.g., "Stephen King meets Carmen Maria Machado"). If a named influence doesn't read as a real, published author — an invented-sounding name, or something offered as clearly fictional — ask the user to confirm it's real rather than persisting it as stated; see Rules below.
 4. **Native language** — What is the author's mother tongue? (ISO 639-1 code, e.g. `de`, `fr`, `es`, `ja`) — used for explanations in language-aware skills like the proofreader
 5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `book_language` set. (default: `en`)
 
@@ -100,7 +100,7 @@ Memoir profiles differ from fiction profiles in what matters: the author IS the 
 Ask the user:
 1. **Name / pen name** — What should this author be called? (May use real name)
 2. **Memoir scope tags** — What kind of memoir? (e.g., memoir-of-illness, memoir-of-family, memoir-of-place, memoir-of-addiction, memoir-of-work — these are not genres but thematic anchors)
-3. **Writing influences** — Which memoirists or essayists inspire this voice? (e.g., Mary Karr, Tara Westover, Carmen Maria Machado, Ta-Nehisi Coates, Kiese Laymon, Roxane Gay, Paul Kalanithi)
+3. **Writing influences** — Which memoirists or essayists inspire this voice? (e.g., Mary Karr, Tara Westover, Carmen Maria Machado, Ta-Nehisi Coates, Kiese Laymon, Roxane Gay, Paul Kalanithi). If a named influence doesn't read as a real, published author, ask the user to confirm it's real rather than persisting it as stated; see Rules below.
 4. **Native language** — What is the author's mother tongue? (ISO 639-1 code, e.g. `de`, `fr`, `es`, `ja`) — used for explanations in language-aware skills like the proofreader
 5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `book_language` set. (default: `en`)
 
@@ -123,6 +123,11 @@ Same universal voice questions as fiction, plus memoir-specific additions:
    - **Accumulative** — Writes scenes as they come, shapes structure in revision
    - **Discovery** — Finds the story by writing toward it; structure emerges
 
+   Memoir uses this three-term vocabulary, not fiction's (Outliner/Plantser/Discovery Writer). If the
+   user answers with a fiction term here (e.g. "outliner"), map it to the closest memoir equivalent
+   ("Structured") and confirm — never persist the literal fiction-path word into a memoir author's
+   `author_writing_mode`.
+
 **Memoir-specific fields (ask separately):**
 
 8. **Subject position** — Whose story is primarily at the center?
@@ -141,6 +146,9 @@ Same universal voice questions as fiction, plus memoir-specific additions:
     - Events too raw to write about yet?
     - Information that would harm living people if published?
     Save these in the profile as `off_limits` — the chapter-writer and ethics-checker will honor them.
+    Even if the user states off-limits items unprompted elsewhere in the conversation, read them back
+    explicitly for confirmation before treating them as final — per the Rules section, these are not
+    decoration and downstream skills enforce them as written.
 
 **Do not ask Phase 3 questions until Phase 2 answers are confirmed.**
 
@@ -193,6 +201,9 @@ that differs, not just the three named in steps 2-3 below.
 ## Rules
 - **MANDATORY — Why:** Anti-AI vocabulary is the primary defense against generic output. Always pre-populate the avoid list from `anti-ai-patterns.md` before showing the profile. For memoir, additionally load `memoir-anti-ai-patterns.md`.
 - Tone descriptors should be SPECIFIC, not generic ("searching with dry wit" beats "introspective").
-- Influences should be REAL authors the user has actually read.
+- Influences should be REAL authors the user has actually read — if a name doesn't read as a real,
+  published author (invented-sounding, or presented as a character rather than a person), check with
+  the user in Phase 1 before treating it as confirmed. This is not just an aspiration — act on it at
+  the point the name is collected, not only as an afterthought.
 - The profile is a living document — it evolves as the author writes.
 - **Memoir:** off-limits decisions made here carry forward — they are not decoration. The ethics-checker and chapter-writer enforce them.
