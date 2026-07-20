@@ -168,19 +168,21 @@ For all items the user confirms as `valid + actionable`:
 2. **Propose concrete revision tasks** — what to change, why, which scene(s)
 3. **Flag cascades** — if changing Ch 18 pacing affects Ch 19-20 setup, note it
 4. **Flag conflicts** — if two feedback items suggest contradictory changes, surface it
-5. **Prioritize** — Critical (structural/plot) before cosmetic (prose/pacing polish)
+5. **Prioritize** — tag every task **[CRITICAL]** (structural/plot) or **[COSMETIC]** (prose/pacing polish). Chapter-number ordering (step 1) is for navigation, not urgency — a critical fix in a late chapter can otherwise read as lower-priority than a cosmetic one in an early chapter, so open the plan with a Priority Order line that ranks FB-IDs by tag regardless of chapter position.
 
 Output format (keep each task to 1-3 lines; cascade notes are 1 line each):
 
 ```markdown
 ## Revision Plan
 
+**Priority order:** FB-002 (critical) → FB-001 (cosmetic) → FB-006 (cosmetic)
+
 ### Chapter 18: Palace Arrival
-- **FB-001 (pacing):** Cut the hallway description from 3 paragraphs to 1. Move world-building details to dialog with the steward instead. Estimated: tighten by ~400 words.
+- **[COSMETIC] FB-001 (pacing):** Cut the hallway description from 3 paragraphs to 1. Move world-building details to dialog with the steward instead. Estimated: tighten by ~400 words.
   - CASCADE: Ch 19 opening references "the endless corridors" — update if hallway description changes.
 
 ### Chapter 21: The Prohibition
-- **FB-002 (character):** Kael's prohibition needs a visible trigger in the scene. Add 2-3 lines showing what he sees/realizes that makes him act. Setup in Ch 20 is sufficient but the payoff moment is too abrupt.
+- **[CRITICAL] FB-002 (character):** Kael's prohibition needs a visible trigger in the scene. Add 2-3 lines showing what he sees/realizes that makes him act. Setup in Ch 20 is sufficient but the payoff moment is too abrupt.
 ```
 
 ### Phase 6: Execute (optional, user-triggered)
