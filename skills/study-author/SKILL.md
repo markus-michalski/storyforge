@@ -52,7 +52,7 @@ Before analyzing the text, compile a genre-specific checklist of positive craft 
 
 > Example output: "For lgbtq-supernatural-romance I'll specifically track: banter exchange frequency and triggers, sarcasm deployment points, vulnerability reveal pattern, mate/bond tension escalation, pack/found-family dynamic scenes. Additionally from your author's tone profile (sarcastic, playful, warm): humor-as-armor patterns, warmth signals after sarcasm drops."
 
-**Wait for user to confirm or modify the checklist before proceeding to Phase 2. Do not begin text analysis until the user explicitly approves the checklist.**
+**Wait for user to confirm or modify the checklist before proceeding to Phase 2. Do not begin text analysis until the user explicitly approves the checklist.** A general earlier "go ahead"/"sounds good" about running the study does NOT count as approving this specific checklist — the checklist doesn't exist yet at that point in the conversation. Present it, then end your turn and wait for the user's next message; don't present-and-proceed in the same response.
 
 This checklist drives Phase 2. Every item must be answered — "not found" is a valid answer, but the checklist must be worked through.
 
