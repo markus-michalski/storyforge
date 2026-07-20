@@ -41,9 +41,8 @@ If `book_category == "memoir"`, also:
 
 ### Memoir mode (`book_category == "memoir"`)
 - **Genre README(s)** via MCP `get_genre()` for each genre, framed as **thematic tags** (memoir-of-illness, memoir-of-place, etc.). **Why:** memoir uses genre-as-theme, not genre-as-plot-convention. A "horror memoir" is a memoir of horrifying lived experience, not a haunted-house plot.
-- **Craft references** via MCP `get_craft_reference()`:
-  - `theme-development` — **Why:** Theme-as-question still applies; memoir lifts the personal into the resonant via a genuine question, not a lesson.
 - **Memoir-specific craft** from `book_categories/memoir/craft/` (resolve via `get_book_category_dir("memoir")`):
+  - `memoir-theme-development.md` — **Why:** Theme-as-question still applies, but memoir has no antagonist to build the argument from — this doc covers where the argument comes from instead (then-self/now-self gap, found motifs, braided structure). Replaces `reference/craft/theme-development.md`, which is fiction-only (antagonist-built argument structure doesn't translate).
   - `memoir-structure-types.md` — **Why:** Phase 4 selects from chronological / thematic / braided / vignette, not three-act.
   - `emotional-truth.md` — **Why:** Phase 1 premise framing — memoir promises *the felt sense*, not the verifiable timeline.
   - `scene-vs-summary.md` — **Why:** Phase 3 scope decisions hinge on which moments earn dramatization vs. which condense to summary.
@@ -150,7 +149,7 @@ A memoir's theme is what makes one person's lived material resonate for a reader
 - "What did *you* think this was about when you started writing — and what does it actually seem to be about now?"
 - "Where does your specific experience touch something the reader already knows from their own life — even if their facts are nothing like yours?"
 
-Reference `theme-development.md` — theme as QUESTION, not answer. The memoir-specific failure mode is **the tidy lesson** ("what I learned was…"). Memoir earns its theme by rendering experience honestly, not by stating conclusions.
+Reference `memoir-theme-development.md` — theme as QUESTION, not answer. The memoir-specific failure mode is **the tidy lesson** ("what I learned was…"). Memoir earns its theme by rendering experience honestly, not by stating conclusions.
 
 Anti-pattern check before writing the theme statement: if the user's stated theme reads like "what I learned is/was...", "I realized that...", or any other tidy-lesson/conclusion shape — even after rewording it as a question — push back by name (call it the tidy-lesson failure mode) and ask at least one of the probing questions above before finalizing. A question mark alone does not fix a restated conclusion; the theme must genuinely open a question the book sits with, not restate the user's lesson with a "?" appended.
 
