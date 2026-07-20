@@ -254,6 +254,20 @@ def parse_author_profile(path: Path) -> dict[str, Any]:
         "fragment_ratio_target": meta.get("fragment_ratio_target", ""),
         "single_line_paragraph_ratio_target": meta.get("single_line_paragraph_ratio_target", ""),
         "avg_sentence_length_target": meta.get("avg_sentence_length_target", ""),
+        # Language (Issue create-author skill-eval live tier): written via update_author()
+        # since create_author() itself has no language params, but never projected here
+        # before — every skill reading state via get_author() (the mandated read path per
+        # CLAUDE.md rule 1) got an empty/missing field even though profile.md had the real
+        # value, e.g. the proofreader's native_language-aware explanations.
+        "native_language": meta.get("native_language", ""),
+        "preferred_writing_language": meta.get("preferred_writing_language", ""),
+        # Memoir-specific (create-author memoir mode). Same gap: written correctly to
+        # profile.md frontmatter, silently dropped by get_author() before this fix — meaning
+        # chapter-writer-memoir and memoir-ethics-checker could never actually see off_limits
+        # decisions to enforce them, despite create-author's own docs promising they would.
+        "subject_position": meta.get("subject_position", ""),
+        "relationship_to_material": meta.get("relationship_to_material", ""),
+        "off_limits": meta.get("off_limits", []),
     }
 
 
