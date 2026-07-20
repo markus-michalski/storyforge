@@ -87,6 +87,7 @@ Memoir-specific craft docs live under `book_categories/memoir/craft/`:
 - `emotional-truth.md` — beyond facts, the felt sense
 - `real-people-ethics.md` — consent, defamation, anonymization patterns
 - `memoir-anti-ai-patterns.md` — hedging, "looking back I realize", reflective platitudes, tidy lessons
+- `memoir-theme-development.md` — theme as question without an antagonist; found motifs, braided structure as argument-engine
 
 Existing fiction-craft docs in `reference/craft/` will be tagged with a
 `book_categories: [fiction]` or `book_categories: [fiction, memoir]` frontmatter

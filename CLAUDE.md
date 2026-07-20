@@ -34,7 +34,7 @@ Category-specific knowledge lives at `{plugin_root}/book_categories/{category}/`
 
 - `book_categories/fiction/README.md` — pointer to canonical fiction docs (this file, `reference/craft/`)
 - `book_categories/memoir/README.md` — memoir conventions, structure types, craft index
-- `book_categories/memoir/craft/` — five memoir-specific craft references (structure types, scene vs. summary, emotional truth, real-people ethics, memoir anti-AI patterns)
+- `book_categories/memoir/craft/` — six memoir-specific craft references (structure types, scene vs. summary, emotional truth, real-people ethics, memoir anti-AI patterns, theme development)
 - `book_categories/{fiction,memoir}/status-model.md` — per-category status interpretation
 
 Resolve the path from a skill via MCP `get_book_category_dir(category)`.
@@ -271,15 +271,15 @@ Books can combine 1-3 genres.
 
 ## Craft Knowledge Base
 
-- `{plugin_root}/reference/craft/` — 19 universal/fiction-craft reference documents
+- `{plugin_root}/reference/craft/` — 22 universal/fiction-craft reference documents
 - `{plugin_root}/reference/genre/` — genre-specific craft guides
-- `{plugin_root}/book_categories/memoir/craft/` — 5 memoir-specific craft documents (structure types, scene vs. summary, emotional truth, real-people ethics, memoir anti-AI patterns)
+- `{plugin_root}/book_categories/memoir/craft/` — 6 memoir-specific craft documents (structure types, scene vs. summary, emotional truth, real-people ethics, memoir anti-AI patterns, theme development)
 
-Each doc in `reference/craft/` carries a `book_categories: [...]` frontmatter (Issue #56) that declares whether it applies to `[fiction]`, `[fiction, memoir]`, or other future categories. Most apply to both; the four pure-invention docs (`character-creation`, `character-arcs`, `plot-craft`, `world-building`) are tagged `[fiction]` because memoir handles those concerns differently (see `book_categories/memoir/craft/real-people-ethics.md`).
+Each doc in `reference/craft/` carries a `book_categories: [...]` frontmatter (Issue #56) that declares whether it applies to `[fiction]`, `[fiction, memoir]`, or other future categories. Most apply to both; the five fiction-only docs (`character-creation`, `character-arcs`, `plot-craft`, `world-building`, `theme-development`) are tagged `[fiction]` because memoir handles those concerns differently (see `book_categories/memoir/craft/real-people-ethics.md` and, for theme specifically, `book_categories/memoir/craft/memoir-theme-development.md` — Issue #371).
 
 Skills MUST load relevant craft references before generating creative content. Until Phase 2+ wires automatic filtering by `book_category`, skills should also manually skip docs whose frontmatter excludes the current category.
 
-- `book-conceptualizer` → loads: theme-development for both modes; fiction adds story-structure + plot-craft + conflict-types; memoir adds (via `book_categories/memoir/craft/`) memoir-structure-types, emotional-truth, scene-vs-summary, real-people-ethics, memoir-anti-ai-patterns. Memoir replaces Phase 3 (Conflict) with Phase 3 (Scope).
+- `book-conceptualizer` → fiction loads: theme-development, story-structure, plot-craft, conflict-types. Memoir loads (via `book_categories/memoir/craft/`): memoir-theme-development, memoir-structure-types, emotional-truth, scene-vs-summary, real-people-ethics, memoir-anti-ai-patterns. Memoir replaces Phase 3 (Conflict) with Phase 3 (Scope).
 - `chapter-writer` → both modes load: chapter-construction, dialog-craft, show-dont-tell, pacing-guide, anti-ai-patterns, prose-style, simile-discipline. Fiction adds: genre craft, `world/setting.md` (Travel Matrix), `canon_brief` from DB (Issue #297 — replaces direct `plot/canon-log.md` read). Memoir uses same DB-backed `canon_brief` (replaces direct `plot/people-log.md` read); adds: `book_categories/memoir/craft/scene-vs-summary.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`, `real-people-ethics.md`, `plot/structure.md` (structure_type). Both modes enforce consent gate via `consent_status_warnings` — refused-tier warnings halt drafting (#57).
 - `chapter-reviewer` → loads: dos-and-donts, anti-ai-patterns, chapter-construction, dialog-craft, show-dont-tell, simile-discipline (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`)
 - `plot-architect` (fiction-only since #126) → loads: story-structure, plot-craft, tension-and-suspense, conflict-types. Refuses memoir books and routes to `plot-architect-memoir`.

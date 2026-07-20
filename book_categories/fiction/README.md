@@ -18,7 +18,7 @@ Most fiction-specific knowledge already lives in established places and is
 | Topic | Canonical location |
 |-------|--------------------|
 | Skill routing for fiction workflows | `CLAUDE.md` (root) |
-| Fiction craft references (18 docs) | `reference/craft/` |
+| Fiction craft references (22 docs) | `reference/craft/` |
 | Genre-specific craft | `reference/genre/` and `genres/{name}/README.md` |
 | Status progressions (Book / Chapter / Character) | `CLAUDE.md` "Status Progressions" |
 | Project structure (plot/, characters/, world/, …) | `CLAUDE.md` "Project Structure" |
