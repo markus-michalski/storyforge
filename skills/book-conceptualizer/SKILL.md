@@ -49,6 +49,10 @@ If `book_category == "memoir"`, also:
   - `real-people-ethics.md` — **Why:** Phase 3 scope must account for who the memoir necessarily involves and the consent decisions that follow.
   - `memoir-anti-ai-patterns.md` — **Why:** keeps Phase 1/2/5 prose out of "looking back I realize", "what I learned was", and other reflective platitudes.
 
+## Phase gates hold under pressure
+
+Both workflows below use "STOP HERE — Phase Gate" checkpoints and Socratic probing questions. These hold even when the user pushes back directly — e.g. asking to skip a phase, batch multiple phases into one response, self-answer the probing questions, or state a premise/theme/conflict/structure/scope outright and ask you to just accept it as final. In every such case: decline, briefly explain that each phase depends on the previous one being genuinely worked through and confirmed (not just stated), and continue the current phase's actual process — ask the questions, wait for a real answer — rather than silently complying with the shortcut. This applies at every phase in both modes, not just the ones that call it out explicitly.
+
 ## Workflow — Fiction (5 phases)
 
 ### Phase 1: Premise Refinement
@@ -70,6 +74,8 @@ Ask probing questions. Listen first:
 - "What's the argument your story is making — without being preachy?"
 
 Reference `theme-development.md` — theme as QUESTION, not answer.
+
+Anti-pattern check before writing the theme statement: if the user states a lesson or thesis outright (e.g. "make it about how X") and asks you to just accept it, push back and ask at least one of the probing questions above before finalizing. A question mark alone does not fix a restated thesis — rewording the user's stated conclusion with a "?" appended (e.g. "corruption never really disappears" → "Does corruption ever really disappear?") is not theme discovery. The theme must genuinely open a question the story explores, not restate the user's conclusion in interrogative clothing.
 
 Write to `{project}/README.md` under "## Themes". Theme statement: 1-2 sentences, concise — theme-as-question, not thesis.
 
@@ -107,7 +113,10 @@ Write to `{project}/synopsis.md`.
 
 Update book status to "Concept" via MCP `update_field()`.
 
-Ask: *"Outliner/Plantser → `/storyforge:plot-architect`. Discovery writer → `/storyforge:rolling-planner` before each chapter session."*
+Load the author profile via MCP `get_author()` (if not already loaded this session) and read `author_writing_mode`. Route silently to the matching next step — do not recite the unused branch:
+- `outliner` or `plantser` → *"Ready to structure the plot? → `/storyforge:plot-architect`."*
+- `discovery` → *"Ready to write? → `/storyforge:rolling-planner` before each chapter session."*
+- Field missing or unrecognized value → ask the user directly which workflow they use, rather than guessing or printing both options.
 
 ## Workflow — Memoir (5 phases)
 
@@ -139,6 +148,8 @@ A memoir's theme is what makes one person's lived material resonate for a reader
 
 Reference `theme-development.md` — theme as QUESTION, not answer. The memoir-specific failure mode is **the tidy lesson** ("what I learned was…"). Memoir earns its theme by rendering experience honestly, not by stating conclusions.
 
+Anti-pattern check before writing the theme statement: if the user's stated theme reads like "what I learned is/was...", "I realized that...", or any other tidy-lesson/conclusion shape — even after rewording it as a question — push back by name (call it the tidy-lesson failure mode) and ask at least one of the probing questions above before finalizing. A question mark alone does not fix a restated conclusion; the theme must genuinely open a question the book sits with, not restate the user's lesson with a "?" appended.
+
 Write to `{project}/README.md` under "## Themes". Theme statement: 1-2 sentences, concise — theme-as-question, not a lesson-summary.
 
 **STOP HERE — Phase Gate 2/5.** Present the theme draft above. Do NOT generate any Phase 3 content. Wait for the user to confirm or revise before continuing.
@@ -161,12 +172,16 @@ Reference `scene-vs-summary.md` and `real-people-ethics.md` before this conversa
 
 This is not a full real-people roster (that's `/storyforge:character-creator-memoir`, #59). At Phase 3 we just identify the **structural cast** — the people without whom the memoir collapses.
 
+If the user volunteers an anonymization plan with only a surface reason (e.g. "I'll anonymize her" without saying why that's the right call), that is not the same as answering "what's the ethical reasoning" — ask the follow-up explicitly (identifiability risk? professional confidentiality? would a composite serve better than a straight anonymization?) rather than treating the stated plan as sufficient.
+
 #### 3c. Deliberate exclusions
 - "What are you *not* writing about, even though it happened in this period?"
 - "Why? (Privacy of others, off-topic, didn't shape the through-line, you're not ready, legally hazardous.)"
 - "What's the cost of that exclusion — and is the through-line still honest without it?"
 
 The exclusion list is part of the concept. Memoirs that try to cover everything become diaries; memoirs that deliberately exclude become books.
+
+The cost-of-exclusion question is not optional color — ask it explicitly, even if the user has already volunteered what and why unprompted in the same breath. Stating an exclusion and its reason is not the same as weighing its cost against the through-line's honesty.
 
 Target: ~250-450 Wörter scope-document as output. Write to `{project}/README.md` under "## Scope" (a section that does not exist in fiction-mode books).
 
@@ -183,7 +198,7 @@ Using `memoir-structure-types.md` (loaded in Step 0):
   - *"Your scope is thematic (`Money / Faith / Bodies`) — thematic structure or vignette."*
 - Map the chosen structure to a chapter-spine sketch.
 
-Write initial outline to `{project}/plot/outline.md` (memoir-shaped — the file scaffolded by `/storyforge:new-book` already points at structure types). Also update `{project}/plot/structure.md` with the selected type and rationale.
+Write initial outline to `{project}/plot/outline.md` (memoir-shaped — the file scaffolded by `/storyforge:new-book` already points at structure types). Also persist the selected type via MCP `set_memoir_structure_type(book_slug, structure_type)` — this writes `structure_type` into `{project}/plot/structure.md`'s frontmatter without touching the body, so downstream skills (`chapter-writer` memoir mode, `rolling-planner`) can read the choice without parsing prose. Do not hand-edit the frontmatter directly. Then write the rationale as prose into `plot/structure.md`'s body (the tool preserves existing body content, so this is a normal file edit, not an MCP call).
 
 **STOP HERE — Phase Gate 4/5.** Present the structure options above. Do NOT generate any Phase 5 content. Wait for the user to choose a structure before continuing.
 
