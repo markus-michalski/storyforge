@@ -135,6 +135,51 @@ class TestUpdateAuthorGetAuthorRoundTrip:
 
 
 # ---------------------------------------------------------------------------
+# update_author — list-typed field coercion (found via create-author's live-MCP
+# eval tier: create_author() writes primary_genres/tone/avoid as real YAML lists
+# via json.dumps(list), but update_author()'s value param is a plain str — without
+# coercion, updating themes/influences/tone/avoid/off_limits writes a scalar
+# comma-string instead, silently diverging from every other list field's schema.
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateAuthorListFieldCoercion:
+    def test_comma_separated_string_becomes_list(self, server_module, author_dir: Path):
+        result = json.loads(
+            server_module.update_author("test-author", "themes", "isolation, complicity")
+        )
+        assert result.get("success") is True
+        assert result["value"] == ["isolation", "complicity"]
+
+        author = json.loads(server_module.get_author("test-author"))
+        assert author["themes"] == ["isolation", "complicity"]
+
+    def test_json_array_string_becomes_list(self, server_module, author_dir: Path):
+        result = json.loads(
+            server_module.update_author("test-author", "influences", '["Mary Karr", "Tara Westover"]')
+        )
+        assert result.get("success") is True
+        assert result["value"] == ["Mary Karr", "Tara Westover"]
+
+    def test_single_value_becomes_one_item_list(self, server_module, author_dir: Path):
+        result = json.loads(server_module.update_author("test-author", "tone", "dark"))
+        assert result.get("success") is True
+        assert result["value"] == ["dark"]
+
+    def test_empty_string_becomes_empty_list(self, server_module, author_dir: Path):
+        result = json.loads(server_module.update_author("test-author", "avoid", ""))
+        assert result.get("success") is True
+        assert result["value"] == []
+
+    def test_scalar_field_is_not_coerced(self, server_module, author_dir: Path):
+        result = json.loads(
+            server_module.update_author("test-author", "author_writing_mode", "discovery")
+        )
+        assert result.get("success") is True
+        assert result["value"] == "discovery"
+
+
+# ---------------------------------------------------------------------------
 # update_field — field name format validation (Issue #328)
 # ---------------------------------------------------------------------------
 

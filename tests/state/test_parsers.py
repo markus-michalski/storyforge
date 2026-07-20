@@ -187,6 +187,38 @@ class TestParseAuthorProfile:
         assert "## Voice" in result["style_notes"]
         assert "## Signature Moves" in result["style_notes"]
 
+    def test_language_and_memoir_fields_are_projected(self, tmp_path):
+        """Found via create-author's live-MCP eval tier: these 5 fields are real,
+        writable via update_author() (_ALLOWED_AUTHOR_FIELDS), but were silently
+        dropped by parse_author_profile()'s whitelist — meaning get_author() (the
+        mandated read path) never surfaced them even though profile.md had them."""
+        extras = (
+            'native_language: "en"\npreferred_writing_language: "en"\n'
+            'subject_position: "writing-self"\nrelationship_to_material: "Distant (20+ years)"\n'
+            'off_limits: ["a sibling'"'"'s overdose"]\n'
+        )
+        profile = self._write_profile(tmp_path, "# Ethan Cole\n", frontmatter_extras=extras)
+
+        result = parse_author_profile(profile)
+
+        assert result["native_language"] == "en"
+        assert result["preferred_writing_language"] == "en"
+        assert result["subject_position"] == "writing-self"
+        assert result["relationship_to_material"] == "Distant (20+ years)"
+        assert result["off_limits"] == ["a sibling's overdose"]
+
+    def test_language_and_memoir_fields_default_when_absent(self, tmp_path):
+        """A fiction author's profile.md has none of these keys — defaults must not error."""
+        profile = self._write_profile(tmp_path, "# Ethan Cole\n")
+
+        result = parse_author_profile(profile)
+
+        assert result["native_language"] == ""
+        assert result["preferred_writing_language"] == ""
+        assert result["subject_position"] == ""
+        assert result["relationship_to_material"] == ""
+        assert result["off_limits"] == []
+
 
 class TestCountWords:
     def test_count_words(self, tmp_path):
