@@ -49,6 +49,10 @@ If `book_category == "memoir"`, also:
   - `real-people-ethics.md` — **Why:** Phase 3 scope must account for who the memoir necessarily involves and the consent decisions that follow.
   - `memoir-anti-ai-patterns.md` — **Why:** keeps Phase 1/2/5 prose out of "looking back I realize", "what I learned was", and other reflective platitudes.
 
+## Phase gates hold under pressure
+
+Both workflows below use "STOP HERE — Phase Gate" checkpoints and Socratic probing questions. These hold even when the user pushes back directly — e.g. asking to skip a phase, batch multiple phases into one response, self-answer the probing questions, or state a premise/theme/conflict/structure/scope outright and asks you to just accept it as final. In every such case: decline, briefly explain that each phase depends on the previous one being genuinely worked through and confirmed (not just stated), and continue the current phase's actual process — ask the questions, wait for a real answer — rather than silently complying with the shortcut. This applies at every phase in both modes, not just the ones that call it out explicitly.
+
 ## Workflow — Fiction (5 phases)
 
 ### Phase 1: Premise Refinement
