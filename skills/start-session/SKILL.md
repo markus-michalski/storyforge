@@ -17,7 +17,7 @@ user-invocable: true
    - If missing: suggest `/storyforge:setup` and STOP
 
 2. **Load session context** via MCP `get_session()`
-   - Show last active book, chapter, phase
+   - Returns `last_book` (a **book slug**, not a title), `last_chapter` (whatever string a skill last wrote there — usually a chapter slug, never a bare number, and currently absent in practice since no other skill in the pipeline calls `update_session(last_chapter=...)` yet), and `last_phase` (free-text, also rarely set). Any of the three may be missing entirely — the DB drops empty fields from the response rather than returning them as `null`.
    - If `get_session()` reports no active book, note that explicitly — do NOT infer one from `list_books()` (e.g. by picking the most recently modified book)
    - After step 3 has run, cross-check the active book's slug against the `list_books()` results. If it's no longer present (book deleted or renamed since the session was last saved), treat this as "no active book" for steps 5-6 and say so explicitly — never suggest `/storyforge:resume [stale-slug]` for a book that no longer exists
 
@@ -38,9 +38,11 @@ user-invocable: true
    - [book title] — [status] — [word count] words
    - (one line per book from step 3's list_books() result)
    
-   Last worked on: [book] — Chapter [N]
+   Last worked on: [book title] — [last_chapter] (Phase: [last_phase])
    ```
    - The per-book list is required, not optional — it's how step 3's "show all books with status and word count" actually surfaces in the final report; the `Books: [count] projects` line above it is only the aggregate count, not a substitute for it.
+   - `[title]` and `(status)` in the `Active Book` line come from matching `get_session()`'s `last_book` **slug** against the `list_books()` results from step 3 — never print the raw slug in place of the title.
+   - The `Last worked on` line degrades gracefully field-by-field: omit the whole line if `last_book` is absent (see below). If `last_book` is present but `last_chapter` and/or `last_phase` are absent (the common case today — see step 2), drop just those segments rather than printing an empty placeholder (e.g. `Last worked on: [book title]` alone is correct when neither is set).
    - If `get_session()` reported no active book: print `Active Book: None yet` and omit the `Last worked on` line entirely rather than leaving a placeholder or fabricating a book.
 
 6. **Suggest action** — Based on session state, checked in this order (first match wins):
