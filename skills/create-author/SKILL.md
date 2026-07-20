@@ -42,7 +42,10 @@ Ask the user:
 4. **Native language** — What is the author's mother tongue? (ISO 639-1 code, e.g. `de`, `fr`, `es`, `ja`) — used for explanations in language-aware skills like the proofreader
 5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `book_language` set. (default: `en`)
 
-**Wait for user to answer all Phase 1 questions before moving to Phase 2.**
+**Wait for user to answer all Phase 1 questions before moving to Phase 2.** This includes native
+language and preferred writing language — don't treat them as optional metadata just because they
+come last in the list; if the user's message answers only some of the 5, explicitly ask for the
+specific ones still missing before moving on.
 
 ### Phase 2: Voice Definition
 Guide the user through voice choices (use AskUserQuestion):
@@ -70,7 +73,19 @@ Ask open-ended questions:
 - "What does this author NEVER do?" (e.g., happy endings, love triangles, info-dumps)
 - "What's this author's signature move?" (e.g., unreliable narrators, gut-punch endings, dry wit in dark moments)
 
-**Wait for user confirmation before executing Phase 4 MCP calls.**
+If the user volunteers an answer to one of these before it's asked (e.g. while still answering Phase
+2), still explicitly ask the remaining Phase 3 question(s) — a volunteered answer to one question is
+not permission to skip confirming the others.
+
+**Wait for user confirmation before executing Phase 4 MCP calls.** This is a distinct step from the
+user answering the last Phase 3 question — ask something like "Ready for me to create the profile?"
+and wait for an explicit yes before calling `create_author()`; don't treat the arrival of the third
+Phase 3 answer itself as that confirmation.
+
+**"Both" category only:** append the memoir-specific fields (subject position, relationship to
+material, off-limits — see Memoir Phase 2 below) here, after these fiction Phase 3 questions and
+before the confirmation-and-Phase-4 step above. Do not rely on remembering this from Phase 0 alone —
+this is the actual point in the conversation where it must happen.
 
 ### Phase 5: Study (Fiction Optional)
 Ask: "Do you have PDFs or text files from authors whose style you want to channel? → `/storyforge:study-author`"
