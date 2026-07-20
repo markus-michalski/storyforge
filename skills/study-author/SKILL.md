@@ -54,7 +54,7 @@ Before analyzing the text, compile a genre-specific checklist of positive craft 
 
 **Wait for user to confirm or modify the checklist before proceeding to Phase 2. Do not begin text analysis until the user explicitly approves the checklist.** A general earlier "go ahead"/"sounds good" about running the study does NOT count as approving this specific checklist — the checklist doesn't exist yet at that point in the conversation. Present it, then end your turn and wait for the user's next message; don't present-and-proceed in the same response.
 
-This checklist drives Phase 2. Every item must be answered — "not found" is a valid answer, but the checklist must be worked through.
+This checklist drives Phase 2. **Every item must be answered in the Phase 3 Positive Style Markers section — "not found" is a valid answer, but a checklist item may never simply be absent from the written file.** This applies even under Phase 5's terseness target: negative results get compressed to one line each, not dropped.
 
 ### Phase 2: Analysis
 Analyze the text for these concrete patterns:
