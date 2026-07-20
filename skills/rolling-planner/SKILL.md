@@ -96,7 +96,9 @@ Skip this step for kitchen-table dialogue, internal monologue, or any scene with
 Write the scene recipe (and optional outline) to the next chapter's README via
 MCP `update_field(chapter_readme_path, "scene_recipe", value)`.
 
-If the chapter directory doesn't exist yet, create it via MCP `create_chapter(book_slug, number, title)`.
+If the chapter directory doesn't exist yet, create it via MCP `create_chapter(book_slug, number, title)` — its response's `slug` field is the chapter slug. If the chapter directory already existed, its slug is the `{NN-slug}` directory name resolved when reading `chapter_readme_path` above.
+
+**Update session** — MCP `update_session(last_book=book_slug, last_chapter=<the chapter slug resolved above>, last_phase=<Goal line from the scene recipe>)`. **Why:** This is the "what's next" pointer `start-session` surfaces as `(Phase: [last_phase])` — rolling-planner's whole purpose is defining that next beat, so it's the natural place to persist it (Issue #378). Skip when Step 6 plans additional scenes ahead of the one about to be written — only the recipe for the *next* chapter to draft should set the session pointer, not lookahead scenes for chapters further out.
 
 ### Step 6: Look Ahead (Optional)
 Ask: *"Want to sketch the next 2-3 scenes as well, or start writing now?"*

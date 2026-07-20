@@ -209,10 +209,11 @@ For each hit: answer literal-resemblance and real-work honestly. Reject dead sim
       If zero person-relevant facts exist, declare it explicitly: *"People Recording: no new facts established in this chapter beyond what is already in DB."* This is a deliberate statement, not a silent skip.
 
 4. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`.
-5. **Update `plot/timeline.md`** — one real-date row per story-day. MANDATORY.
-6. **No route-matrix update** — memoir documents real settings via research. Note new place names in `research/sources.md` instead.
-7. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with real clock times (`~HH:MM`). MANDATORY (future chapters depend on it).
-8. **Update POV character snapshot** — **§ POV Snapshot Procedure** in `chapter-writing-shared.md`.
+5. **Update session** — MCP `update_session(last_book=book_slug, last_chapter=chapter_slug, last_phase=<chapter status from step 4>)`. **Why:** Keeps the session's ephemeral pointer current so `get_current_story_anchor`'s session-fallback resolves to the chapter just worked on instead of erroring empty, and `start-session`'s status line reflects real progress instead of staying permanently empty (Issue #378).
+6. **Update `plot/timeline.md`** — one real-date row per story-day. MANDATORY.
+7. **No route-matrix update** — memoir documents real settings via research. Note new place names in `research/sources.md` instead.
+8. **Update Chapter Timeline** in this chapter's `README.md` — every time-anchored event with real clock times (`~HH:MM`). MANDATORY (future chapters depend on it).
+9. **Update POV character snapshot** — **§ POV Snapshot Procedure** in `chapter-writing-shared.md`.
 
 ### Step 8: Self-Review (both modes)
 - Does the opening hook?
