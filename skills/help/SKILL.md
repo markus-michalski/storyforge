@@ -9,7 +9,13 @@ user-invocable: true
 
 # StoryForge Help
 
-Show the user this overview:
+Show the user this overview, in full and unabridged. This is a static reference the user is
+explicitly asking for — reproduce every Quick Start step, every category table row, and the
+Workflow diagram exactly as written below, regardless of session state (a returning user with
+books/authors already set up still gets the complete list, not a personalized subset) or any urge
+to summarize for brevity. Command syntax (the `/storyforge:...` tokens) must never be translated
+or altered, even when the rest of your response follows the user's configured output language —
+they are invocable strings, not prose.
 
 ## Quick Start
 1. `/storyforge:setup` — First-time setup
