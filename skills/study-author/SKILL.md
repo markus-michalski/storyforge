@@ -37,7 +37,7 @@ Alternatively, detect from context: if the book linked to the author slug has `b
    After the user confirms the genres, validate each slug via MCP `get_genre(slug)`. For any slug not found in the registry:
    > "Genre '{slug}' ist nicht in der StoryForge-Registry. Der Genre-Filter greift erst, sobald das Genre angelegt ist. Jetzt `/storyforge:genre-creator {slug}` ausführen, oder trotzdem fortfahren? (Kein Datenverlust — `source_genres` wird gespeichert, Filter aktiviert sich nach genre-creator.)"
    User kann wählen: Pause für `genre-creator` oder fortfahren. Leeres Feld (unbekanntes/cross-genre Buch) überspringt die Validierung.
-5. **Read the file** — Use the Read tool for text/markdown/PDF files. For EPUB and DOCX, the MCP server's `extract_text_from_file()` handles extraction. Supported: PDF, EPUB, DOCX, TXT, MD. Max 50 MB, max 200k words (larger files are auto-sampled from beginning, middle, and end).
+5. **Read the file** — For EPUB and DOCX, the MCP server's `extract_text_from_file()` handles extraction (the Read tool can't parse these). For text/markdown/PDF files under roughly 200k words, use the Read tool directly. **The beginning/middle/end auto-sampling only happens inside `extract_text_from_file()`** — the Read tool has no sampling behavior of its own. So for a PDF/TXT/MD file that is (or might be) over ~200k words, call `extract_text_from_file()` instead of Read, to get the sampling and the size/word-count guard. Supported: PDF, EPUB, DOCX, TXT, MD. Max 50 MB, max 200k words.
 
 ### Phase 1.5: Build Positive Extraction Checklist
 
@@ -52,9 +52,9 @@ Before analyzing the text, compile a genre-specific checklist of positive craft 
 
 > Example output: "For lgbtq-supernatural-romance I'll specifically track: banter exchange frequency and triggers, sarcasm deployment points, vulnerability reveal pattern, mate/bond tension escalation, pack/found-family dynamic scenes. Additionally from your author's tone profile (sarcastic, playful, warm): humor-as-armor patterns, warmth signals after sarcasm drops."
 
-**Wait for user to confirm or modify the checklist before proceeding to Phase 2. Do not begin text analysis until the user explicitly approves the checklist.**
+**Wait for user to confirm or modify the checklist before proceeding to Phase 2. Do not begin text analysis until the user explicitly approves the checklist.** A general earlier "go ahead"/"sounds good" about running the study does NOT count as approving this specific checklist — the checklist doesn't exist yet at that point in the conversation. Present it, then end your turn and wait for the user's next message; don't present-and-proceed in the same response.
 
-This checklist drives Phase 2. Every item must be answered — "not found" is a valid answer, but the checklist must be worked through.
+This checklist drives Phase 2. **Every item must be answered in the Phase 3 Positive Style Markers section — "not found" is a valid answer, but a checklist item may never simply be absent from the written file.** This applies even under Phase 5's terseness target: negative results get compressed to one line each, not dropped.
 
 ### Phase 2: Analysis
 Analyze the text for these concrete patterns:
@@ -101,7 +101,7 @@ Before writing analysis to disk, ask: **"Has this author profile already had an 
 **Wait for explicit Yes/No answer before proceeding. Do not write any files until confirmed.**
 
 ### Phase 3: Write Analysis
-Save analysis as `~/.storyforge/authors/{slug}/studied-works/analysis-{title}.md`
+Save analysis as `~/.storyforge/authors/{slug}/studied-works/analysis-{book_slug}.md` — reuse the exact `book_slug` derived in Phase 1 step 3, NOT the raw `title` string. The registry-check in step 3 looks for `analysis-{book_slug}.md`; saving under a different filename (e.g. a literal, unslugged title) silently breaks that duplicate-detection.
 
 ```markdown
 ---
@@ -137,10 +137,11 @@ source_genres: "dark-fantasy, lgbtq"
 ### Phase 4: Update Profile
 Update the author's profile using MCP tools to ensure cache invalidation:
 
+- **Conflict check (before writing anything new)** — Call `get_author(slug)` and read the existing `style_principles`/`recurring_tics` Writing Discoveries. Compare each new finding from this pass against them. If a new finding directly contradicts an existing one (e.g. new: "heavy use of expressive dialog tags" vs. existing: "dialog tags are minimal, almost always 'said'"), do NOT write the new Discovery yet — surface the contradiction to the user (quote both sides) and let them decide whether the new work supersedes the old one, both stand as genre/context-specific variants (tag with `genres`), or the new finding is a misread. This is what makes the "flag conflicts between studied works" rule (see Rules, below) actionable instead of aspirational.
 - **Tone / sentence_style / other frontmatter fields** — MCP `update_author(slug, field, value)` per field
 - **Quantitative prose targets from Phase 2's Sentence/Dialog Metrics** — MCP `update_author(slug, field, value)` for each metric computed this pass, as a range centered on the observed value (± a few points to allow natural variance, e.g. an observed 42% dialog ratio → `"37–47%"`): `dialog_ratio_target`, `fragment_ratio_target`, `single_line_paragraph_ratio_target`, `avg_sentence_length_target` (words, not %). Overwrite on each study-author run — the target reflects the most recently studied work, consistent with the profile being a living document.
   **Why:** `author-check` reads these four exact field names (its Phase 1b) to override its generic defaults with author-specific targets (Phase 3 "Note on targets"). Without this write, the computed metrics live only in the analysis file and `author-check` silently falls back to generic defaults every time, regardless of what was actually measured here.
-- **Positive style markers found** — **MANDATORY for every checklist item where a pattern was found.** MCP `write_author_discovery(author_slug, section="style_principles", text=<marker>, book_slug=<analyzed-work-slug>, genres=<source_genres from Phase 1 — empty string if unknown/universal>)` per item. Format: `**[Marker name]** — [concrete observation from this text, with frequency or ratio if measurable].` A positive finding that only lives in `studied-works/analysis-{title}.md` is invisible to chapter-writer. Every found positive marker must become a `style_principles` Writing Discovery. "Not found" items are skipped.
+- **Positive style markers found** — **MANDATORY for every checklist item where a pattern was found.** MCP `write_author_discovery(author_slug, section="style_principles", text=<marker>, book_slug=<analyzed-work-slug>, genres=<source_genres from Phase 1 — empty string if unknown/universal>)` per item. Format: `**[Marker name]** — [concrete observation from this text, with frequency or ratio if measurable].` A positive finding that only lives in `studied-works/analysis-{book_slug}.md` is invisible to chapter-writer. Every found positive marker must become a `style_principles` Writing Discovery. "Not found" items are skipped.
   **Why:** Writing Discoveries are the only data chapter-writer reads at runtime. A positive marker that lives only in the analysis file has zero effect on prose generation — it is permanently invisible to chapter-writer.
 - **Signature Techniques discovered** (beyond the checklist) — MCP `write_author_discovery(author_slug, section="style_principles", text=<technique>, book_slug=<analyzed-work-slug>, genres=<source_genres from Phase 1>)`
   **Why:** Signature techniques not written as Discoveries never reach chapter-writer — analysis files are archives, not active guidance.
@@ -160,12 +161,13 @@ Show a concise summary (~200 words total): top 3 findings, count of banned phras
 
 The goal is opposite to fiction mode: instead of learning *someone else's* craft patterns, we excavate *the author's own unguarded voice* — the one they had before they started thinking about writing.
 
+**Memoir mode has NO Phase 2.5 gate — this is a deliberate divergence from Fiction Mode below, not an oversight.** Fiction Mode's Phase 2.5 blocks studying a text until a `create-author` profile already exists, because bootstrapping a fiction profile from someone else's book risks copying their signature too closely. That risk doesn't exist here: studying your own personal writing IS a valid way to *build* a memoir profile from nothing, not just refine one. Do not port Fiction Mode's "has a profile already been created?" question into this workflow, even out of habit — proceed straight from Phase 1 into Phase 2 regardless of whether `create-author` has been run yet for this author.
+
 ### Phase 1: Input
 1. **Get file path** — User provides path to journals, letters, diary entries, old blog posts, emails, or any personal writing (PDF, TXT, MD)
 2. **Get author** — Which author profile to update? Show list via MCP `list_authors()`
-3. **Read the file** — Same file handling as fiction mode. If the journal is handwritten and photographed, ask the user to transcribe a representative excerpt (~2000–5000 words) first.
-
-**No Phase 2.5 gate in memoir mode.** Studying your own personal writing IS a valid way to build or enrich a memoir author profile — it's not copying someone else's voice.
+3. **Derive `book_slug`** — From the file name (lowercase, hyphens), same rule as fiction mode. Used for the analysis filename in Phase 3.
+4. **Read the file** — Same file handling as fiction mode. If the journal is handwritten and photographed, ask the user to transcribe a representative excerpt (~2000–5000 words) first.
 
 ### Phase 2: Analysis (Memoir-Specific)
 
@@ -200,7 +202,7 @@ Analyze for these patterns — focused on authentic personal voice, not craft pe
 - What do they *not* say but circle around? (absence patterns)
 
 ### Phase 3: Write Analysis
-Save as `~/.storyforge/authors/{slug}/studied-works/analysis-{title}.md`
+Save as `~/.storyforge/authors/{slug}/studied-works/analysis-{book_slug}.md` — the `book_slug` derived in Phase 1 step 3.
 
 ```markdown
 ---
@@ -238,6 +240,7 @@ mode: memoir
 ### Phase 4: Update Profile
 Update the author's profile using MCP tools to ensure cache invalidation:
 
+- **Conflict check (before writing anything new)** — Call `get_author(slug)` and read the existing `style_principles`/`recurring_tics` Writing Discoveries. Compare each new finding against them; if a new finding directly contradicts an existing one, surface it to the user before writing (same rule as Fiction Mode's Phase 4 — see Rules, below).
 - **Tense / self-reference style / other frontmatter fields** — MCP `update_author(slug, field, value)` per field
 - **Unguarded phrases to preserve** — MCP `write_author_discovery(author_slug, section="style_principles", text=<phrase>, book_slug=<analyzed-work-slug>)`
 - **Hedging / avoidance patterns to flag** — MCP `write_author_banned_phrase(author_slug, phrase, reason="memoir-anti-ai: avoidance pattern")` per phrase
