@@ -159,9 +159,7 @@ For **disagree** verdicts, always provide (max ~100 words of evidence total):
 - The evidence that it's intentional (quote from canon-log, arcs, tone, or per-book CLAUDE.md callbacks — confirmed against the draft itself per Phase 3's verification rule, not the source alone)
 - Why changing it would hurt the book
 
-Present the full triage table to the user, then write it to `{project}/research/beta-feedback-triage.md` using `templates/beta-feedback-triage.md` as scaffold — the chat presentation is ephemeral, but the triage record needs to persist so it survives the session and can be referenced from Phase 5 onward.
-
-Wait for confirmation before proceeding to Phase 5.
+Present the full triage table to the user and wait for confirmation — the author may want to correct a verdict before it's persisted, and writing first would lock in a verdict that's about to change. Once confirmed, write the (corrected, if applicable) triage table to `{project}/research/beta-feedback-triage.md` using `templates/beta-feedback-triage.md` as scaffold — the chat presentation is ephemeral, but the triage record needs to persist so it survives the session and can be referenced from Phase 5 onward — then proceed to Phase 5.
 
 ### Phase 5: Revision Plan
 
@@ -188,6 +186,8 @@ Output format (keep each task to 1-3 lines; cascade notes are 1 line each):
 - **[CRITICAL] FB-002 (character):** Kael's prohibition needs a visible trigger in the scene. Add 2-3 lines showing what he sees/realizes that makes him act. Setup in Ch 20 is sufficient but the payoff moment is too abrupt.
 ```
 
+**Wait for the user to acknowledge the plan** — this is a review checkpoint, not the same as authorizing execution (that's Phase 6's separate gate; acknowledging a plan looks reasonable is not the same as saying "go ahead and rewrite the prose"). Once acknowledged, write it to `{project}/research/beta-feedback-revision-plan.md` using `templates/beta-feedback-revision-plan.md` as scaffold, then update the triage report's `## Next Step` section (written in Phase 4) to point to this file instead of leaving its placeholder unfilled.
+
 ### Phase 6: Execute (optional, user-triggered)
 
 **Wait for explicit user approval before executing any revision.** This phase rewrites prose — auto-execution corrupts drafts.
@@ -210,7 +210,11 @@ Resolution status format — append to each `## FB-NNN` section:
 
 ### Triage Report: `{project}/research/beta-feedback-triage.md`
 
-Written at the end of Phase 4, right after the triage table is presented to the user (see Phase 4's closing step) — generated using `templates/beta-feedback-triage.md` as scaffold.
+Written at the end of Phase 4, after the user confirms the triage table (see Phase 4's closing step) — generated using `templates/beta-feedback-triage.md` as scaffold, reflecting the confirmed (possibly corrected) verdicts, not the initially-presented ones.
+
+### Revision Plan: `{project}/research/beta-feedback-revision-plan.md`
+
+Written at the end of Phase 5, after the user acknowledges the plan (see Phase 5's closing step) — generated using `templates/beta-feedback-revision-plan.md` as scaffold. The Triage Report's `## Next Step` section is updated to point to this file once it exists.
 
 ## Integration with Existing Skills
 
