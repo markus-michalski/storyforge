@@ -75,6 +75,8 @@ Ask probing questions. Listen first:
 
 Reference `theme-development.md` — theme as QUESTION, not answer.
 
+Anti-pattern check before writing the theme statement: if the user states a lesson or thesis outright (e.g. "make it about how X") and asks you to just accept it, push back and ask at least one of the probing questions above before finalizing. A question mark alone does not fix a restated thesis — rewording the user's stated conclusion with a "?" appended (e.g. "corruption never really disappears" → "Does corruption ever really disappear?") is not theme discovery. The theme must genuinely open a question the story explores, not restate the user's conclusion in interrogative clothing.
+
 Write to `{project}/README.md` under "## Themes". Theme statement: 1-2 sentences, concise — theme-as-question, not thesis.
 
 **STOP HERE — Phase Gate 2/5.** Present the theme draft above. Do NOT generate any Phase 3 content. Wait for the user to confirm or revise before continuing.
