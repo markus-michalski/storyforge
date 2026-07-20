@@ -101,7 +101,7 @@ Before writing analysis to disk, ask: **"Has this author profile already had an 
 **Wait for explicit Yes/No answer before proceeding. Do not write any files until confirmed.**
 
 ### Phase 3: Write Analysis
-Save analysis as `~/.storyforge/authors/{slug}/studied-works/analysis-{title}.md`
+Save analysis as `~/.storyforge/authors/{slug}/studied-works/analysis-{book_slug}.md` — reuse the exact `book_slug` derived in Phase 1 step 3, NOT the raw `title` string. The registry-check in step 3 looks for `analysis-{book_slug}.md`; saving under a different filename (e.g. a literal, unslugged title) silently breaks that duplicate-detection.
 
 ```markdown
 ---
@@ -163,7 +163,8 @@ The goal is opposite to fiction mode: instead of learning *someone else's* craft
 ### Phase 1: Input
 1. **Get file path** — User provides path to journals, letters, diary entries, old blog posts, emails, or any personal writing (PDF, TXT, MD)
 2. **Get author** — Which author profile to update? Show list via MCP `list_authors()`
-3. **Read the file** — Same file handling as fiction mode. If the journal is handwritten and photographed, ask the user to transcribe a representative excerpt (~2000–5000 words) first.
+3. **Derive `book_slug`** — From the file name (lowercase, hyphens), same rule as fiction mode. Used for the analysis filename in Phase 3.
+4. **Read the file** — Same file handling as fiction mode. If the journal is handwritten and photographed, ask the user to transcribe a representative excerpt (~2000–5000 words) first.
 
 **No Phase 2.5 gate in memoir mode.** Studying your own personal writing IS a valid way to build or enrich a memoir author profile — it's not copying someone else's voice.
 
@@ -200,7 +201,7 @@ Analyze for these patterns — focused on authentic personal voice, not craft pe
 - What do they *not* say but circle around? (absence patterns)
 
 ### Phase 3: Write Analysis
-Save as `~/.storyforge/authors/{slug}/studied-works/analysis-{title}.md`
+Save as `~/.storyforge/authors/{slug}/studied-works/analysis-{book_slug}.md` — the `book_slug` derived in Phase 1 step 3.
 
 ```markdown
 ---
