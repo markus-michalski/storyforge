@@ -15,6 +15,8 @@ from pathlib import Path
 from tools.analysis.tactical_checker import (
     verify_tactical_setup as _verify_tactical_setup_impl,
 )
+from tools.db.connection import open_session_db
+from tools.db.sessions import get_session_from_db
 from tools.shared.gate_derivation import derive_from_tactical_setup
 from tools.shared.gate_result import wrap_legacy
 from tools.shared.paths import resolve_chapter_path, resolve_project_path
@@ -42,6 +44,12 @@ from tools.timeline_anchor import get_story_anchor
 
 from . import _app
 from ._app import _cache, mcp
+
+# Issue #280 moved session storage to SQLite; this module's own fallback
+# must read the same store update_session() writes to, not the file-backed
+# state cache (which keeps a permanently-empty "session" placeholder — see
+# tools/state/indexer.py's build_state()). Matches routers/state.py's value.
+_SESSION_USER_ID = "local"
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
@@ -71,7 +79,11 @@ def get_current_story_anchor(book_slug: str, chapter_slug: str = "") -> str:
         return json.dumps({"error": f"Book '{book_slug}' not found"})
 
     if not chapter_slug:
-        session = state.get("session", {}) or {}
+        conn = open_session_db()
+        try:
+            session = get_session_from_db(conn, _SESSION_USER_ID)
+        finally:
+            conn.close()
         chapter_slug = session.get("last_chapter") or ""
     if not chapter_slug:
         return json.dumps(
