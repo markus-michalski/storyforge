@@ -146,6 +146,8 @@ A memoir's theme is what makes one person's lived material resonate for a reader
 
 Reference `theme-development.md` — theme as QUESTION, not answer. The memoir-specific failure mode is **the tidy lesson** ("what I learned was…"). Memoir earns its theme by rendering experience honestly, not by stating conclusions.
 
+Anti-pattern check before writing the theme statement: if the user's stated theme reads like "what I learned is/was...", "I realized that...", or any other tidy-lesson/conclusion shape — even after rewording it as a question — push back by name (call it the tidy-lesson failure mode) and ask at least one of the probing questions above before finalizing. A question mark alone does not fix a restated conclusion; the theme must genuinely open a question the book sits with, not restate the user's lesson with a "?" appended.
+
 Write to `{project}/README.md` under "## Themes". Theme statement: 1-2 sentences, concise — theme-as-question, not a lesson-summary.
 
 **STOP HERE — Phase Gate 2/5.** Present the theme draft above. Do NOT generate any Phase 3 content. Wait for the user to confirm or revise before continuing.
