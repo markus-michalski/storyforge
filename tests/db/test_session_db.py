@@ -99,3 +99,16 @@ class TestSessionDb:
         result = get_session_from_db(conn, USER_ID)
         assert "last_book" not in result
         assert result.get("active_author", "") == ""
+
+    def test_last_book_last_chapter_last_phase_set_together_on_fresh_row(self, conn):
+        # The exact call shape chapter-writer/chapter-writer-memoir/rolling-planner
+        # use (Issue #378) — all three column-backed fields in a single call on a
+        # row that has never been written before, not built up field-by-field like
+        # the other tests above.
+        update_session_in_db(
+            conn, USER_ID, last_book="firelight", last_chapter="30-the-hunt", last_phase="Review"
+        )
+        result = get_session_from_db(conn, USER_ID)
+        assert result["last_book"] == "firelight"
+        assert result["last_chapter"] == "30-the-hunt"
+        assert result["last_phase"] == "Review"
