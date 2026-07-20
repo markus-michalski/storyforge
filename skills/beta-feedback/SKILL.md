@@ -37,6 +37,7 @@ Beta-reader feedback is qualitatively different from inline review comments:
    **Why:** The absolute project root is required to read feedback file, draft chapters, and cross-reference docs — relative paths break across content-root configurations. (Omitting the component argument returns the book root directly; `"book"` is not a valid component and resolves to a non-existent subdirectory.)
 4. Load per-book CLAUDE.md via MCP `get_book_claudemd(slug)` — Rules, Callbacks, Workflow
    **Why:** Carries persisted Rules, Callbacks, and Workflow overrides that govern triage verdicts — without this, deliberate authorial choices are misread as errors.
+   If the book has no CLAUDE.md yet, the call returns an error (not an empty Rules/Callbacks/Workflow object) — but by this point the slug is already validated (Prerequisites 1-2 would have failed first on a bad slug), so treat the error here as "no persisted overrides exist yet" and proceed rather than as a prerequisite-load failure.
 5. Read the feedback file:
    - Default: `{project}/research/beta-feedback.md`
    - Custom: path from `--file` argument
@@ -127,6 +128,8 @@ For each **non-positive** item:
 4. **Check against tone.md** — Is the pacing concern valid per the tonal arc for that chapter's position, or is the reader expecting the wrong genre mode? Check the Tonal Arc table, Warning Signs, and Non-Negotiable Rules.
 5. **Check against arcs.md** — Is the character motivation actually set up (just subtly)? Is the reader missing foreshadowing?
 
+**Verify planning docs and canon facts against the manuscript, not just the reader against them.** Steps 2-5 above check the reader's claim against canon/timeline/tone/arcs — but those sources describe authorial *intent*, not necessarily what's actually dramatized on the page. If a source claims a fact or setup that step 1's real draft read doesn't corroborate (e.g. arcs.md claims a chapter has a foreshadowing line, but that chapter's actual text has no such line), the gap is real regardless of what the source says — treat the manuscript as ground truth for "what the reader experiences," and the source's claim as unverified until it's actually confirmed on the page. This applies to Phase 4's disagree-verdict evidence too (below): a canon-log/arcs/tone/callback citation only counts as evidence of intent if the draft itself bears it out — not on the source's word alone.
+
 Document evidence for each check in ~2-3 bullet points per source. This evidence is critical for Phase 4 verdicts.
 
 After documenting all cross-reference findings, present a summary table:
@@ -134,7 +137,7 @@ After documenting all cross-reference findings, present a summary table:
 | FB-ID | Sources checked | Key finding per source |
 |-------|----------------|----------------------|
 | FB-001 | draft, timeline, tone | draft confirms slow pacing; timeline: no error; tone: position is mid-crisis, slow pace is deliberate |
-| FB-002 | draft, arcs, canon | motivation gap confirmed in draft; arcs show setup exists but is too subtle |
+| FB-002 | draft, arcs, canon | motivation gap confirmed in draft; arcs claim setup exists, draft confirms it's present but too subtle |
 
 **Wait for user confirmation before proceeding to Phase 4 (Triage).** The author may want to correct a misread passage or provide additional context before verdicts are rendered.
 
@@ -153,33 +156,37 @@ Present each item with a verdict and supporting evidence:
 
 For **disagree** verdicts, always provide (max ~100 words of evidence total):
 - The specific passage the reader is reacting to (quote from draft)
-- The evidence that it's intentional (quote from canon-log, arcs, tone, or per-book CLAUDE.md callbacks)
+- The evidence that it's intentional (quote from canon-log, arcs, tone, or per-book CLAUDE.md callbacks — confirmed against the draft itself per Phase 3's verification rule, not the source alone)
 - Why changing it would hurt the book
 
-Present the full triage table to the user. Wait for confirmation before proceeding to Phase 5.
+Present the full triage table to the user and wait for confirmation — the author may want to correct a verdict before it's persisted, and writing first would lock in a verdict that's about to change. Once confirmed, write the (corrected, if applicable) triage table to `{project}/research/beta-feedback-triage.md` using `templates/beta-feedback-triage.md` as scaffold — the chat presentation is ephemeral, but the triage record needs to persist so it survives the session and can be referenced from Phase 5 onward — then proceed to Phase 5.
 
 ### Phase 5: Revision Plan
 
-For all items the user confirms as `valid + actionable`:
+For all items the user confirms as `valid + actionable` or `valid + cosmetic` — cosmetic verdicts still deserve a concrete task, just a lighter one; "note for polish pass" (Phase 4) means it belongs in the plan, not that it gets dropped:
 
 1. **Group by affected chapter** — one section per chapter, ordered by chapter number
 2. **Propose concrete revision tasks** — what to change, why, which scene(s)
 3. **Flag cascades** — if changing Ch 18 pacing affects Ch 19-20 setup, note it
 4. **Flag conflicts** — if two feedback items suggest contradictory changes, surface it
-5. **Prioritize** — Critical (structural/plot) before cosmetic (prose/pacing polish)
+5. **Prioritize** — every `valid + cosmetic` item is automatically **[MINOR]**. For `valid + actionable` items, tag **[CRITICAL]** or **[MINOR]** by impact, not by feedback category: a plot hole, character-consistency break, or continuity error is critical even if the fix reads like a small edit; prose/pacing polish with no story-logic stakes is minor. Chapter-number ordering (step 1) is for navigation, not urgency — a critical fix in a late chapter can otherwise read as lower-priority than a minor one in an early chapter, so open the plan with a Priority Order line that ranks FB-IDs by tag regardless of chapter position.
 
 Output format (keep each task to 1-3 lines; cascade notes are 1 line each):
 
 ```markdown
 ## Revision Plan
 
+**Priority order:** FB-002 (critical) → FB-001 (minor)
+
 ### Chapter 18: Palace Arrival
-- **FB-001 (pacing):** Cut the hallway description from 3 paragraphs to 1. Move world-building details to dialog with the steward instead. Estimated: tighten by ~400 words.
+- **[MINOR] FB-001 (pacing):** Cut the hallway description from 3 paragraphs to 1. Move world-building details to dialog with the steward instead. Estimated: tighten by ~400 words.
   - CASCADE: Ch 19 opening references "the endless corridors" — update if hallway description changes.
 
 ### Chapter 21: The Prohibition
-- **FB-002 (character):** Kael's prohibition needs a visible trigger in the scene. Add 2-3 lines showing what he sees/realizes that makes him act. Setup in Ch 20 is sufficient but the payoff moment is too abrupt.
+- **[CRITICAL] FB-002 (character):** Kael's prohibition needs a visible trigger in the scene. Add 2-3 lines showing what he sees/realizes that makes him act. Setup in Ch 20 is sufficient but the payoff moment is too abrupt.
 ```
+
+**Wait for the user to acknowledge the plan** — this is a review checkpoint, not the same as authorizing execution (that's Phase 6's separate gate; acknowledging a plan looks reasonable is not the same as saying "go ahead and rewrite the prose"). Once acknowledged, write it to `{project}/research/beta-feedback-revision-plan.md` using `templates/beta-feedback-revision-plan.md` as scaffold, then update the triage report's `## Next Step` section (written in Phase 4) to point to this file instead of leaving its placeholder unfilled.
 
 ### Phase 6: Execute (optional, user-triggered)
 
@@ -203,7 +210,11 @@ Resolution status format — append to each `## FB-NNN` section:
 
 ### Triage Report: `{project}/research/beta-feedback-triage.md`
 
-Generate using `templates/beta-feedback-triage.md` as scaffold.
+Written at the end of Phase 4, after the user confirms the triage table (see Phase 4's closing step) — generated using `templates/beta-feedback-triage.md` as scaffold, reflecting the confirmed (possibly corrected) verdicts, not the initially-presented ones.
+
+### Revision Plan: `{project}/research/beta-feedback-revision-plan.md`
+
+Written at the end of Phase 5, after the user acknowledges the plan (see Phase 5's closing step) — generated using `templates/beta-feedback-revision-plan.md` as scaffold. The Triage Report's `## Next Step` section is updated to point to this file once it exists.
 
 ## Integration with Existing Skills
 
@@ -220,7 +231,7 @@ Generate using `templates/beta-feedback-triage.md` as scaffold.
 - Always present the triage and wait for user approval before executing any revision. Auto-execution is forbidden.
 - Quote specific passages from the draft when providing evidence for verdicts.
 - Quote specific entries from canon-log, arcs, tone, or callbacks when disagreeing with feedback.
-- Positive feedback is worth logging — it tells the author what's working. Treat it as protected from revision changes.
+- Positive feedback is worth logging — it tells the author what's working. Treat it as protected from revision changes: if a later request would touch a positive-verdict chapter (even incidentally, e.g. "we're already in there"), say so explicitly and ask the user to confirm before including it — don't fold it into the plan as routine scope expansion.
 - If multiple feedback items conflict with each other, surface the conflict explicitly and let the author decide.
 - The author already pre-filtered the feedback. Respect that curation — only push back on the verdict (valid vs. disagree), not on inclusion.
 - Track cascade effects rigorously. A change in one chapter that breaks another is worse than the original problem.
