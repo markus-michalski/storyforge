@@ -159,7 +159,7 @@ Reference `scene-vs-summary.md` and `real-people-ethics.md` before this conversa
 - "For each: what's their relationship to you, and what's their consent status (granted / pending / refused / unknown)?"
 - "Anyone you're considering anonymizing or composite-ing? What's the ethical reasoning?"
 
-This is not a full real-people roster (that's `/storyforge:character-creator` in memoir mode, #59). At Phase 3 we just identify the **structural cast** — the people without whom the memoir collapses.
+This is not a full real-people roster (that's `/storyforge:character-creator-memoir`, #59). At Phase 3 we just identify the **structural cast** — the people without whom the memoir collapses.
 
 #### 3c. Deliberate exclusions
 - "What are you *not* writing about, even though it happened in this period?"
@@ -211,4 +211,4 @@ Ask: *"Ready to shape the narrative arc? → `/storyforge:plot-architect-memoir`
 - Every fiction concept needs ALL three of premise + theme + conflict. Every memoir concept needs ALL three of premise + theme + scope. Skipping one ships an incomplete concept.
 - Load genre conventions for both modes — fiction uses them as plot-shape contracts, memoir uses them as thematic-tag conventions.
 - Memoir mode: re-check `memoir-anti-ai-patterns.md` against any prose generated in Phase 1, 2, and 5 before finalizing — these are the phases most prone to AI-shaped reflection.
-- Memoir mode: the `## Scope` section in the book README is mandatory output. Without it, downstream memoir skills (plot-architect, character-creator, chapter-writer in memoir mode) cannot calibrate.
+- Memoir mode: the `## Scope` section in the book README is mandatory output. Without it, downstream memoir skills (plot-architect-memoir, character-creator-memoir, chapter-writer in memoir mode) cannot calibrate.
