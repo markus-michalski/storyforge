@@ -69,5 +69,8 @@ Use MCP `update_author(slug, field, value)` to apply changes.
 1. Ask which author profile to edit via MCP `list_authors()`
 2. Show current value via MCP `get_author(slug)`
 3. Ask for new value with AskUserQuestion (Outliner / Plantser / Discovery)
+   Even if the user already stated a value in their message, still check it against these three
+   options before applying it — don't skip validation just because an explicit re-ask feels
+   redundant.
 4. Apply via MCP `update_author(slug, "author_writing_mode", value)`
 5. Confirm the change
