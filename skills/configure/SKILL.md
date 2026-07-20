@@ -32,7 +32,15 @@ user-invocable: true
    ```
 3. **Ask what to change** via AskUserQuestion
 4. **Update config.yaml** — Edit the YAML file directly
+   Before writing: if the field's Options column names a closed list of values (not "Any valid
+   path" / free text), check the requested value against it. If it isn't one of the listed values,
+   tell the user so explicitly and confirm before writing it anyway — don't silently write an
+   unlisted or mismatched value (this also covers a value that's valid for a *different* field,
+   e.g. a `book_type` value requested for `book_category`).
 5. **Verify** — Re-read and confirm changes
+   The Edit tool's own success response is not sufficient — actually call `Read` on
+   `~/.storyforge/config.yaml` again after editing, confirm the new value is present in the
+   re-read content, then report it to the user.
 
 ## Configurable Settings
 
