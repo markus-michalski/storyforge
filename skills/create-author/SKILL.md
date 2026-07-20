@@ -132,14 +132,34 @@ Ask open-ended questions tailored to memoir:
 
 ## Shared Phase 4: Create Profile
 
-1. Use MCP `create_author()` with collected data
+**Critical — `create_author()` only accepts `name`, `genres`, `tone`, `voice`, `tense`.** Every other
+field it writes (`sentence_style`, `vocabulary_level`, `dialog_style`, `pacing`, `themes`,
+`influences`) is a hardcoded template default (`"varied"` / `"moderate"` / `"naturalistic"` /
+`"tension-driven"` / `[]` / `[]`), regardless of what the user actually answered in Phase 2/3/1. If
+the user's answer differs from the default, it is silently lost unless patched with `update_author()`
+afterward — always compare each collected value against the tool's defaults and patch every field
+that differs, not just the three named in steps 2-3 below.
+
+1. Use MCP `create_author()` with collected data (name, genres, tone, voice, tense only)
 2. Call MCP `update_author(slug, "author_writing_mode", value)` to persist writing mode
 3. Call MCP `update_author(slug, "native_language", value)` and `update_author(slug, "preferred_writing_language", value)`
-4. For memoir authors, also call `update_author(slug, "subject_position", value)` and `update_author(slug, "off_limits", value)`
-4. Load the generated `profile.md` and `vocabulary.md`
-5. Review the banned words list (AI tells) — ask if user wants to add/remove any (brief: list entries only, no prose commentary)
-6. For memoir: pre-populate memoir-specific AI tells from `book_categories/memoir/craft/memoir-anti-ai-patterns.md` (reflective platitudes, "looking back I realize", tidy lesson endings)
-7. Show the complete profile as a compact YAML-style summary (~150 words). Do not add prose commentary.
+4. Call MCP `update_author()` once per remaining Phase 2/3 answer that differs from `create_author()`'s
+   defaults: `sentence_style`, `vocabulary_level`, `dialog_style`, `pacing` (Phase 2), and `themes`,
+   `influences` (Phase 1/3, collected as prose — join into a list). These are real `_ALLOWED_AUTHOR_FIELDS`
+   and are NOT persisted by `create_author()` itself — skipping this step means the user's actual
+   answers get silently replaced by generic defaults.
+5. For memoir authors, also call `update_author(slug, "subject_position", value)`,
+   `update_author(slug, "relationship_to_material", value)`, and `update_author(slug, "off_limits", value)`
+   — all three memoir-specific fields collected in Phase 2, not just the two most obviously named.
+6. Load the generated `profile.md` and `vocabulary.md`
+7. Review the banned words list (AI tells) — ask if user wants to add/remove any (brief: list entries only, no prose commentary)
+8. For memoir: call MCP `write_author_banned_phrase(author_slug, phrase, reason)` once per memoir-specific
+   AI tell from `book_categories/memoir/craft/memoir-anti-ai-patterns.md` (at minimum: "reflective
+   platitude", "looking back I realize", "tidy lesson ending") — this must be a real write, not just a
+   claim in the summary; show these separately from the base fiction/universal banned-words list so
+   the user can see what was added.
+9. Show the complete profile as a compact YAML-style summary (~150 words). Do not add prose commentary
+   — no greeting, no closing sentence, output ends with the summary block itself.
 
 ## Shared Phase 5: Study (Optional)
 - **Fiction:** "Do you have PDFs from authors whose style you want to channel? → `/storyforge:study-author`"
