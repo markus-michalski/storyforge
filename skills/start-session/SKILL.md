@@ -18,6 +18,7 @@ user-invocable: true
 
 2. **Load session context** via MCP `get_session()`
    - Show last active book, chapter, phase
+   - If `get_session()` reports no active book, note that explicitly — do NOT infer one from `list_books()` (e.g. by picking the most recently modified book)
 
 3. **List projects** via MCP `list_books()`
    - Show all books with status and word count
@@ -35,9 +36,10 @@ user-invocable: true
    
    Last worked on: [book] — Chapter [N]
    ```
+   - If `get_session()` reported no active book: print `Active Book: None yet` and omit the `Last worked on` line entirely rather than leaving a placeholder or fabricating a book.
 
-6. **Suggest action** — Based on session state:
+6. **Suggest action** — Based on session state, checked in this order (first match wins):
    - If no authors: "Create your first author profile with `/storyforge:create-author`"
    - If no books: "Start a new book with `/storyforge:new-book`"
-   - If active book: "Continue with `/storyforge:resume [slug]`"
-   - If unclear: "What would you like to work on?"
+   - If `get_session()` returned an active book: "Continue with `/storyforge:resume [slug]`"
+   - Otherwise (authors and books both exist, but no active book is set): "What would you like to work on?"
