@@ -1,8 +1,8 @@
 ---
-book_categories: [fiction, memoir]
+book_categories: [fiction]
 craft_topic: voice-and-truth
 status: stable
-last_reviewed: 2026-04-27
+last_reviewed: 2026-07-20
 ---
 
 # Theme Development: The Hidden Argument
