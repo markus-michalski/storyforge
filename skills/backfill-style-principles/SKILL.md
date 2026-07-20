@@ -111,10 +111,10 @@ For each analysis file in the list, in order:
 ### 5.1 Read the file
 
 Read directly from
-`~/.storyforge/authors/{slug}/studied-works/analysis-{title}.md`.
+`~/.storyforge/authors/{slug}/studied-works/analysis-{book_slug}.md`.
 
 If the file is missing or empty → skip:
-`[{title}] Could not read analysis file, skipping.`
+`[{book_slug}] Could not read analysis file, skipping.`
 
 ### 5.2 Identify available sections
 
@@ -125,7 +125,7 @@ order — do not skip ahead to the section check before resolving scope:
    (written by `study-author`). If
    `mode: memoir`, this is a memoir voice-excavation file — out of
    scope. Record it and move to the next file:
-   `[{title}] Memoir voice-excavation file, out of scope for style_principles extraction, skipping.`
+   `[{book_slug}] Memoir voice-excavation file, out of scope for style_principles extraction, skipping.`
    If the frontmatter has no `mode:` field (older analysis files
    predating that field), fall back to checking for memoir-specific
    section headings (`## Natural Voice Fingerprints`,
@@ -148,7 +148,7 @@ order — do not skip ahead to the section check before resolving scope:
    If none of the four are present (e.g. a corrupt or genuinely thin
    file — scope was already ruled out in step 1), record the file as
    skipped-empty and move on:
-   `[{title}] No extractable sections found, skipping.`
+   `[{book_slug}] No extractable sections found, skipping.`
 
 **Deduplication before writing:** Before calling `write_author_discovery`,
 consolidate patterns that appear across multiple sections into a single
@@ -291,9 +291,9 @@ each file's report line concise — one line plus optional sub-lines, no
 prose elaboration:
 
 ```
-[{title}] {new} new / {skipped} already present
+[{book_slug}] {new} new / {skipped} already present
   ⚠ lint: [{warning text}] — pattern written but flagged; review manually
-  Checklist misses in {title}: {comma-separated list of items not found in
+  Checklist misses in {book_slug}: {comma-separated list of items not found in
   this file, or omit this line entirely if none}
 ```
 
@@ -322,7 +322,7 @@ If `## Anti-Patterns Observed` (or `## Anti-Patterns`) contains entries
 specific enough for a banned-phrase rule, surface them after the file is
 processed:
 
-> "Found {N} anti-pattern(s) in {title} that could become Don'ts rules:
+> "Found {N} anti-pattern(s) in {book_slug} that could become Don'ts rules:
 > [list]. Want me to write these via `write_author_banned_phrase`?"
 
 Do NOT write these automatically — anti-patterns require explicit user
