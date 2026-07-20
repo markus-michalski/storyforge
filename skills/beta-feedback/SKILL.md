@@ -224,7 +224,7 @@ Written at the end of Phase 4, right after the triage table is presented to the 
 - Always present the triage and wait for user approval before executing any revision. Auto-execution is forbidden.
 - Quote specific passages from the draft when providing evidence for verdicts.
 - Quote specific entries from canon-log, arcs, tone, or callbacks when disagreeing with feedback.
-- Positive feedback is worth logging — it tells the author what's working. Treat it as protected from revision changes.
+- Positive feedback is worth logging — it tells the author what's working. Treat it as protected from revision changes: if a later request would touch a positive-verdict scene (even incidentally, e.g. "we're already in that chapter"), say so explicitly and ask the user to confirm before including it — don't fold it into the plan as routine scope expansion.
 - If multiple feedback items conflict with each other, surface the conflict explicitly and let the author decide.
 - The author already pre-filtered the feedback. Respect that curation — only push back on the verdict (valid vs. disagree), not on inclusion.
 - Track cascade effects rigorously. A change in one chapter that breaks another is worse than the original problem.
