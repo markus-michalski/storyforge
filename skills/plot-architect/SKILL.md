@@ -195,6 +195,8 @@ If `book-conceptualizer` has run, confirm or refine the existing premise. Otherw
 - Must name: protagonist, what they must do/achieve, and the stakes
 - Example: "A disgraced knight must recover a stolen relic before war consumes the kingdom."
 
+If the user hands you a version that blows past 15 words or is missing the protagonist, goal, or stakes, say so and ask them to tighten it — don't silently accept it or trim it yourself before writing it via `update_field()`.
+
 Write or update via MCP `update_field(book_slug, "premise", ...)`.
 
 **Wait for user confirmation before proceeding to Snowflake Step 2.** The one-sentence summary is the seed — if it's wrong, everything downstream is wrong.
