@@ -16,7 +16,7 @@ argument-hint: "<series-name>"
 Before asking questions, check whether the user is resuming work on an existing series:
 - If a series slug is provided or deducible, call `list_series_trackers_for_book(series_slug, "B1")` to surface existing trackers.
 - Report how many trackers exist and which characters are already tracked — this prevents duplicates and gives the user immediate orientation.
-- Skip the check when the series doesn't exist yet (Step 2 will create it).
+- Skip the check when the user's own framing makes clear this is a brand-new series (e.g. "I want to plan a new series called X", "let's start a new series") — trust that signal rather than querying anyway just to double-check. Only call the lookup when a slug is given/deducible AND nothing in the request signals "new."
 
 ## Workflow
 
