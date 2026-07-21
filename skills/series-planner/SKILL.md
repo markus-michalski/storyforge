@@ -121,7 +121,7 @@ After each `add_book_to_series()` call, verify the link with `get_book_full(book
 - Report status and any warnings to the user before continuing
 
 ## Rules
-- Canon.md is sacred — once established, treat it as permanent. Changes require a series-level revision pass.
+- Canon.md is sacred — once established, treat it as permanent. Changes require a series-level revision pass. This holds even when the change is framed as minor or casual ("no big deal") mid-conversation — do not edit canon.md inline to accommodate the request; name it explicitly as needing a dedicated revision pass instead.
 - Each book must work as a standalone reading experience (even in a trilogy).
 - Series-level foreshadowing needs a PLANT & PAYOFF map across books.
 - Track what each character KNOWS at each point in the series — info inconsistencies are the most common series-level failure.
