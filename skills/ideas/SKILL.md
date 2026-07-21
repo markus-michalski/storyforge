@@ -16,7 +16,8 @@ argument-hint: "[status] [genre]"
 ### 1. Load ideas
 Call MCP `list_ideas()` with optional filters:
 - If user provided a status argument (e.g. "ready", "explored"), pass it as `status`
-- If user mentioned a genre, pass it as `genre`
+- If user mentioned a genre, normalize it to the genre system's lowercase slug (e.g. "Fantasy" /
+  "Fantasy-Ideen" → `fantasy`) and pass it as `genre`
 - Default: load all ideas (no filters)
 
 ### 2. Display
@@ -36,7 +37,9 @@ Genres: {genres}
 {logline}
 ```
 
-Show counts per group. Example:
+Show counts per group. Only show a heading for a status that has at least one idea — skip
+empty groups entirely, don't render e.g. `## Developed (0)`. Example (Developed/Shelved/Promoted
+omitted here because none exist):
 ```
 ## Ready (1)
 ## Explored (3)
@@ -55,7 +58,8 @@ After listing, offer contextual follow-ups:
 If user asks about a specific idea (e.g. "show me the clockmaker idea"):
 1. Call `get_idea(slug)` or find the matching slug from the list
 2. Show full details including body content
-3. Offer: update status, continue brainstorming, or promote to book
+3. Offer exactly these three next actions, nothing else: update status, continue brainstorming,
+   or promote to book
 
 ### 5. Status update (inline)
 
@@ -63,8 +67,20 @@ If user says "mark X as developed" or "shelve the clockmaker idea":
 1. Call `update_idea(slug, "status", new_status)`
 2. Confirm the change
 
+### 6. Deletion requests
+
+If user asks to delete an idea (any phrasing — "delete", "remove", "get rid of", "I'll never use it"):
+1. Do NOT delete it — there is no delete tool, and ideas are never deleted per the Rules below.
+2. Say so explicitly: ideas are only shelved, never deleted.
+3. Offer to shelve it instead, and call `update_idea(slug, "status", "shelved")` if the user agrees.
+
 ## Rules
-- This is a read-mostly skill — be fast, don't over-explain
-- `promoted` ideas should be greyed out / shown last — they're done
-- `shelved` ideas: show them but make clear they're parked, not abandoned
+- This is a read-mostly skill — be fast, don't over-explain. Lead directly with the grouped
+  list (or the "no ideas" message) — no introductory paragraph explaining what the dashboard is
+- `promoted` ideas should be greyed out / shown last — they're done. Concretely: append
+  "(already a book — see the project)" after the status, and don't include them in any
+  Step 3 develop/promote offer.
+- `shelved` ideas: show them but make clear they're parked, not abandoned. Concretely: append
+  "(parked, not abandoned)" after the status, and use "parked"/"on hold" wording (never
+  "abandoned"/"discarded") in any status-update confirmation for a shelve action too.
 - Never delete ideas — only shelve them
