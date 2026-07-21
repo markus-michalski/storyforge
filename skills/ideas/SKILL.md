@@ -74,6 +74,10 @@ If user asks to delete an idea (any phrasing — "delete", "remove", "get rid of
 
 ## Rules
 - This is a read-mostly skill — be fast, don't over-explain
-- `promoted` ideas should be greyed out / shown last — they're done
-- `shelved` ideas: show them but make clear they're parked, not abandoned
+- `promoted` ideas should be greyed out / shown last — they're done. Concretely: append
+  "(already a book — see the project)" after the status, and don't include them in any
+  Step 3 develop/promote offer.
+- `shelved` ideas: show them but make clear they're parked, not abandoned. Concretely: append
+  "(parked, not abandoned)" after the status, and use "parked"/"on hold" wording (never
+  "abandoned"/"discarded") in any status-update confirmation for a shelve action too.
 - Never delete ideas — only shelve them
