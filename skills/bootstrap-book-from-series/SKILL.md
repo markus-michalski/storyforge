@@ -48,7 +48,11 @@ If `/storyforge:new-book` has not run yet for the new book, this skill cannot pr
 4. Determine bands:
    - `prev_band = "B{prev_book.series_number}"`
    - `new_band = "B{new_book.series_number}"`
-   - Confirm `new_band > prev_band` (catch reversed args).
+   - Confirm `new_band > prev_band`. If it isn't, this is very likely a reversed
+     argument order (author passed `<new-book-slug> <prev-book-slug>` instead of
+     `<prev-book-slug> <new-book-slug>`) — say so explicitly and use
+     AskUserQuestion to confirm the intended prev/new order rather than erroring
+     out generically or silently proceeding.
 5. Determine `book_category` (must match between prev and new — error if not).
 
 ## Step 2: List recurring trackers
