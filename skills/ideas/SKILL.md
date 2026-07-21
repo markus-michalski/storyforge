@@ -36,7 +36,9 @@ Genres: {genres}
 {logline}
 ```
 
-Show counts per group. Example:
+Show counts per group. Only show a heading for a status that has at least one idea — skip
+empty groups entirely, don't render e.g. `## Developed (0)`. Example (Developed/Shelved/Promoted
+omitted here because none exist):
 ```
 ## Ready (1)
 ## Explored (3)
