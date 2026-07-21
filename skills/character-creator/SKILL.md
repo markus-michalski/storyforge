@@ -183,7 +183,7 @@ Map relationships to other characters:
 Update the character file with all developed details via direct Write.
 Update `{project}/characters/INDEX.md` with the new character.
 
-After all major characters are created, update book status to "Characters Created".
+Before updating book status, explicitly confirm with the user whether any other major characters are still outstanding — do not update book status to "Characters Created" after finishing only one character on the assumption that it was the last. Only once the user confirms no major characters remain, update book status to "Characters Created".
 
 Ask: *"Need world-building? → `/storyforge:world-builder`. Ready to write? → `/storyforge:chapter-writer`."*
 
