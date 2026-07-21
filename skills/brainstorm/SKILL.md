@@ -100,6 +100,8 @@ Once the user identifies the material, press on the three memoir foundation ques
 
 If the user can answer all three strongly, the memoir has a foundation. If they can't yet, help them discover the answers — don't let them proceed with a vague impulse. This applies even if the user offers a ready-made premise or asks to skip straight to saving — a user-supplied premise does not substitute for having answered the three questions; ask them anyway before moving to Phase 3.
 
+A vague or circular answer ("it happened to me and that's enough," "I don't know, I guess") is not a strong answer, even though it technically responds to the question. Follow up with a sharper version of the same question (e.g. "Yes, but what specifically would a reader gain from your version of this that they couldn't get from just knowing it happened?") until the answer names something concrete, before moving on.
+
 ### Phase 3: Develop
 Once the three questions are answered (be concise — this is ideation, not prose; ~120 words total for this block, regardless of how much detail the user's own answers contained — don't scale this block's length to match theirs):
 - **One-sentence premise:** What this memoir is about, in terms of the author's transformation or reckoning — not a plot summary
