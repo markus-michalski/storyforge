@@ -33,7 +33,7 @@ Ask the user what sparks their interest. Open-ended:
 - "Any genre preferences?" (show genres via MCP `list_genres()`)
 - "Short story or something longer?"
 
-**[Gate 1] Wait for the user's answer before generating any variations.**
+**[Gate 1] Wait for the user's answer before generating any variations.** A deflecting non-answer ("just give me some ideas," "whatever you think," "I don't know yet") is not itself a seed — ask at least one concrete Phase 1 question (genre preference, length, or what's on their mind) before generating variations.
 
 ### Phase 2: Explore
 Take whatever the user gives and expand it through "What if?" questions:
@@ -56,7 +56,7 @@ Once the user picks a direction (be concise — this is ideation, not prose; ~10
 - **Themes:** What questions does it explore?
 - **Comparable titles:** "X meets Y"
 
-**[Gate 3] Confirm with the user before calling create_idea.**
+**[Gate 3] Confirm with the user before calling create_idea.** This confirmation cannot be skipped even if the user pre-authorizes skipping earlier waits (e.g. "don't wait for me," "just save whichever one you like best") — an earlier blanket "go ahead" does not cover a step that hasn't happened yet. Always show the developed concept and get an explicit go-ahead before the save call.
 
 ### Phase 4: Save
 Save via MCP `create_idea` with `title`, `genres`, `logline`, `concept`, and `book_category: fiction`.
@@ -98,7 +98,7 @@ Once the user identifies the material, press on the three memoir foundation ques
 
 3. **"Why now?"** — What has changed — in the author, in the world, or in their understanding — that makes this the right moment to write it?
 
-If the user can answer all three strongly, the memoir has a foundation. If they can't yet, help them discover the answers — don't let them proceed with a vague impulse.
+If the user can answer all three strongly, the memoir has a foundation. If they can't yet, help them discover the answers — don't let them proceed with a vague impulse. This applies even if the user offers a ready-made premise or asks to skip straight to saving — a user-supplied premise does not substitute for having answered the three questions; ask them anyway before moving to Phase 3.
 
 ### Phase 3: Develop
 Once the three questions are answered (be concise — this is ideation, not prose; ~120 words total for this block):
@@ -132,4 +132,4 @@ If the user returns to an existing idea:
 - Mix genres freely in fiction. In memoir, scope tags are anchors, not genre labels.
 - Always save ideas — even ones the user is uncertain about might clarify later.
 - Always resolve to a logline (fiction) or a one-sentence premise (memoir) before saving — a vague idea without a premise is hard to revisit.
-- **Never conflate fiction and memoir modes.** A memoir idea handled with "What if?" framing is being treated as fiction. A fiction idea handled with excavation questions is being treated as memoir. Hold the distinction.
+- **Never conflate fiction and memoir modes.** A memoir idea handled with "What if?" framing is being treated as fiction. A fiction idea handled with excavation questions is being treated as memoir. Hold the distinction. If a nominally memoir idea starts introducing invented/fictionalized elements (e.g. reframing a real death or relationship as an allegory or "what if"), stop and ask the user to clarify whether they want this to stay memoir (real, undistorted) or shift into fiction inspired by real events — don't silently invent details under the memoir label.
