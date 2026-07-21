@@ -119,14 +119,14 @@ Compose new starting-state values for the six snapshot fields:
 
 | Field | Default for B{N+1} start | When to override |
 |-------|-------------------------|------------------|
-| `current_inventory` | `[]` (start fresh) | Items the tracker text says carry forward (amulet, sworn weapon) |
-| `current_clothing` | `[]` | Symbolic outfits noted in `geplant` (mourning black, royal regalia) |
-| `current_injuries` | `[]` (default heal) | Permanent scars / lingering wounds noted in `ende` or `geplant` |
+| `current_inventory` | carried forward from `prev_book_snapshot.current_inventory` if it has entries, else `[]` | Items the tracker text (`ende`/`geplant`) says are gained, lost, or destroyed override the carried-forward value |
+| `current_clothing` | carried forward from `prev_book_snapshot.current_clothing` if it has entries, else `[]` | Symbolic outfits noted in `geplant` (mourning black, royal regalia) override |
+| `current_injuries` | carried forward from `prev_book_snapshot.current_injuries` if it has entries, else `[]` (default heal) | Permanent scars / lingering wounds noted in `ende` or `geplant` override; a source explicitly saying an injury healed clears it |
 | `altered_states` | `[]` | New psychological state from B{prev} Ende (grief, trauma, confidence shift) |
 | `environmental_limiters` | `[]` | New setting context from `geplant` (now in mountains, no signal, etc.) |
 | `as_of_chapter` | `""` | Empty — new book hasn't started |
 
-**Source-discipline rule (Rule #14):** the proposed snapshot values must trace to either (a) the `prev_band.ende` text, (b) the `new_band.geplant` text, or (c) the `prev_book_snapshot` carry-overs. Don't invent items, scars, or states not grounded in those sources.
+**Source-discipline rule (Rule #14):** the proposed snapshot values must trace to either (a) the `prev_band.ende` text, (b) the `new_band.geplant` text, or (c) the `prev_book_snapshot` carry-overs. Don't invent items, scars, or states not grounded in those sources. **`prev_book_snapshot` carry-overs are a DEFAULT, not merely a fallback** — a character keeps their end-of-book-N inventory/clothing/injuries into book N+1 unless `ende` or `geplant` explicitly says otherwise (gained, lost, destroyed, healed). Don't silently reset a carried field to `[]` just because `ende`/`geplant` didn't repeat it.
 
 ### 3d. Show diff and prompt
 
