@@ -187,6 +187,8 @@ Ask: *"Characters next? → `/storyforge:character-creator`"*
 
 *Theory and step descriptions in `reference/craft/story-structure.md` (loaded as prerequisite). This section covers StoryForge-specific execution: file paths, MCP tools, and skill integrations.*
 
+**On the "wait for confirmation" gates between steps below:** each one exists because a later step consumes the previous step's output (Step 5's POV synopses need the Step 4 skeleton; Step 8's scene list needs Steps 5–7's synopses and charts). A general "just go ahead, I trust you, skip to the end" from the user is not itself confirmation of any specific intermediate step — it doesn't tell you whether they've understood what a skipped step would have surfaced. Don't jump straight to a later step on that basis. Either keep working the sequence, or, if the user insists on skipping specific steps, name which step(s) you're skipping and what it normally catches (e.g. "Step 5's POV synopses often reveal plot holes — skipping means we go into the scene list without that check") and get an explicit yes to that specific tradeoff before skipping.
+
 ### Snowflake Step 1: One-Sentence Summary
 
 If `book-conceptualizer` has run, confirm or refine the existing premise. Otherwise write it now:
