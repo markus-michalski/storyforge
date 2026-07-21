@@ -98,7 +98,7 @@ For the chosen structure, work through each beat WITH the user:
 
 Write to `{project}/plot/acts.md`.
 
-**Wait for user approval of the beat map before proceeding to Step 4.** Subplot architecture (Step 4) and foreshadowing (Step 5) depend on locked main-plot beats.
+**Wait for user approval of the beat map before proceeding to Step 4.** Subplot architecture (Step 4) and foreshadowing (Step 5) depend on locked main-plot beats. "Approval" means the complete beat map, not one approved act while another is still under discussion — if the user signs off on some acts but wants to keep talking through another, keep working that act rather than treating the partial approval as sufficient to move on.
 
 ### Step 4: Subplot Architecture
 
