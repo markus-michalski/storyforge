@@ -104,6 +104,7 @@ PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
     "new-book": {"prev", "tracker_slug"},
     "promote-rule": {"date", "from_scope", "source_file", "target_file", "to_scope"},
     "report-issue": {"book_title", "chapter_number"},
+    "genre-creator": {"parent", "slug"},  # slug-in-file-path path examples: `genres/{parent}/README.md` and `genres/{slug}/README.md` illustrate subgenre vs. standalone paths
     "researcher": {"topic-slug"},  # slug-in-file-path, self-evident from "{topic-slug}.md"
     "rules-audit": {"book_title", "code", "count", "index", "message", "raw_text"},
     "series-planner": {"title", "book-level-slug", "tracker-slug"},  # tracker/book-level-slug: kwarg-value placeholders in a code example, self-evident from inline comments
