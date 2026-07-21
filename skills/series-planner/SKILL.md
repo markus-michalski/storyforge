@@ -45,7 +45,7 @@ For sequential/trilogy series — plan the OVERARCHING arc with the user:
 - **Escalation Map**: What raises the stakes between each book?
 - **Protagonist Growth Arc**: How does the main character change across the entire series?
 
-Present each arc element as a **concise proposal (1–2 sentences each)**. Do not elaborate further until the user reacts — avoid walls of text during the planning phase.
+Present each arc element as a **concise proposal (1–2 sentences each)**. Do not elaborate further until the user reacts — avoid walls of text during the planning phase. This still applies when the user front-loads full arc detail unprompted in one message — restate it back as the four concise elements and wait for explicit approval before writing; a fully-detailed answer is not itself approval.
 
 Once agreed, use the Write tool to populate `series-arc.md` at the path returned by `create_series()`. Structure the file as:
 
