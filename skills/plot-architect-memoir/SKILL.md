@@ -65,7 +65,7 @@ Ask the user:
 
 Write the through-line to `{project}/plot/outline.md` under "## Through-line". This is what the chapter spine in Step M5 will serve.
 
-**STOP. Do not proceed to Step M2 until the user has replied in this conversation. Structure choice cascades from this sentence.**
+**STOP. Do not proceed to Step M2 until the user has replied in this conversation. Structure choice cascades from this sentence.** This applies even when the user's own message already supplied the through-line answer — end this turn once it's written, rather than opening Step M2's structure-type question in the same response. Let the user see the recorded through-line before structure discussion begins.
 
 ### Step M2: Choose structure type
 
@@ -80,7 +80,11 @@ Reference `memoir-structure-types.md` (loaded as prerequisite). Use AskUserQuest
 
 Reference the **decision tree** at the bottom of `memoir-structure-types.md` if the user is torn between two types — pick the one whose **failure modes you can avoid**, not the one with the prettier examples.
 
+If the user's framing blends two types (e.g. "chronological but with braided flashback chapters"), never persist a fifth/hybrid value like `chronological-braided` — pick one of the four canonical values for `set_memoir_structure_type` and capture the hybrid nuance in the Step M3 arc-mapping prose instead.
+
 After the user picks, persist the choice via MCP `set_memoir_structure_type(book_slug, structure_type)`. The tool validates against the four allowed values and writes to `plot/structure.md` frontmatter so downstream skills (`chapter-writer` memoir mode #57, `rolling-planner`) can read it.
+
+A blanket delegation ("you pick", "whatever you think is best", "let's just move fast") does not substitute for this gate: still present the four options via AskUserQuestion (naming a recommendation is fine and encouraged) and get an explicit pick in a reply before calling `set_memoir_structure_type` — a delegation is not the same as the user having seen and reacted to the four options.
 
 **STOP. Do not proceed to Step M3 until the user has replied in this conversation.** Every downstream step branches on this choice.
 
@@ -91,7 +95,7 @@ The arc-mapping shape depends on the structure type. Pick the matching sub-step:
 #### M3-chronological — Time-bounded arc
 
 - **Begin point** — *not* the chronological start, the **narrative** start. *In medias res* is the default. Where does the reader enter? (~20 words)
-- **Hinge moments** — name 3–6 events that turned the period. Compress aggressively between them. (~30–40 words per hinge event description)
+- **Hinge moments** — name 3–6 events that turned the period. Compress aggressively between them. (~30–40 words per hinge event description) If the user offers more than 6, ask them to consolidate/cut to this range before writing to `outline.md` — do not write an over-long list as-is.
 - **End point** — where does the narrative close? Has the question the through-line raises been *answered*, *re-framed*, or deliberately *left open*? (~20 words)
 - **Compression strategy** — for each gap between hinges, decide: paragraph / scene cluster / single image / cut. (one line per gap)
 
@@ -101,7 +105,7 @@ Write to `{project}/plot/outline.md` under "## Narrative arc — chronological".
 
 - **Theme list** — typically 5–9 concrete themes. *Money / Faith / Bodies / Hunger / Silence* — concrete, not abstract. Kill *Truth / Beauty / Love* and pick substitutes. (one word or short phrase per theme)
 - **Through-line thread** — what runs across the themes? A relationship, a place, a recurring question. Visible by Chapter 3 or the reader bails. (~20 words)
-- **Argumentative order** — chapter sequence is an argument, not a list. Why does Chapter 5 need to come *after* Chapter 4? (one sentence per transition rationale)
+- **Argumentative order** — chapter sequence is an argument, not a list. Why does Chapter 5 need to come *after* Chapter 4? (one sentence per transition rationale) If the user proposes an arbitrary or "whatever feels natural" order, ask for the one-sentence rationale per transition before writing the sequence to `outline.md` — an unjustified order is a list, not an argument.
 - **Scene-spine per theme** — each thematic chapter still needs scene work; theme alone is essay-shaped. (one line per theme)
 
 Write to `{project}/plot/outline.md` under "## Narrative arc — thematic" (theme list + through-line) and "## Argument order" (chapter sequence rationale).
@@ -118,10 +122,10 @@ Write to `{project}/plot/outline.md` under "## Narrative arc — braided".
 
 #### M3-vignette — Mosaic with a through-line
 
-- **Through-line** — recurring image, place, relationship, unanswered question. Visible by Chapter 3. (~15 words)
-- **Vignette inventory** — list 12–25 candidate vignettes (more than you'll use). For each: title + 5–8 words summary + which through-line element it touches. (one line per vignette)
-- **Selection** — cut to 8–18 strong vignettes. Weak vignettes stop the read; vignette memoirs cannot carry filler. (note cut rationale in one word: "redundant" / "too-thin" / "off-thread")
-- **Order as argument** — vignettes are arranged, not collected. The order is craft. Group by theme, contrast, or cumulative weight — the pattern is itself a craft choice. (one sentence stating the ordering principle)
+- **Through-line** — recurring image, place, relationship, unanswered question. Visible by Chapter 3. (~15 words) If the user's proposed sentence runs well past ~15 words or reads as an abstract list rather than naming one concrete image/place/relationship/question, ask them to tighten it before writing to `outline.md`.
+- **Vignette inventory** — list 12–25 candidate vignettes (more than you'll use). For each: title + 5–8 words summary + which through-line element it touches. (one line per vignette) If the user offers fewer than 12, ask them to keep brainstorming until the range is reached before moving to Selection.
+- **Selection** — cut to 8–18 strong vignettes. Weak vignettes stop the read; vignette memoirs cannot carry filler. (note cut rationale in one word: "redundant" / "too-thin" / "off-thread") If the user resists cutting (e.g. "keep them all, they're all meaningful"), push back using this same framing — vignette memoirs cannot carry filler — and ask them to tag the weakest entries with one of the three cut-rationale words before finalizing.
+- **Order as argument** — vignettes are arranged, not collected. The order is craft. Group by theme, contrast, or cumulative weight — the pattern is itself a craft choice. (one sentence stating the ordering principle) If the user proposes an order based on recall sequence or chronology-of-thought rather than a deliberate principle, ask them to choose one of theme/contrast/cumulative-weight (or a comparably deliberate alternative) first.
 
 Write to `{project}/plot/outline.md` under "## Narrative arc — vignette" (through-line + ordered vignette list).
 
@@ -154,6 +158,8 @@ For each chapter:
 - Through-line touchpoint — how this chapter advances the through-line
 - POV vantage — past-self, present-self, or both (relevant for chronological + braided especially)
 - Rough word target
+
+Every entry needs a genuine through-line touchpoint. If the user wants to include a chapter that doesn't connect ("it's a great story but it doesn't really connect to the through-line, I just want to include it"), don't add it as-is — ask them to find the real connection or reconsider its place in this book. A chapter that drifts from the through-line is scope-failure dressed as "more material" (see Rules).
 
 Offer to create chapter directories via MCP `create_chapter()` once the spine is locked.
 
@@ -190,8 +196,8 @@ Steps:
    - Are there non-negotiable rules? (e.g. no retrospective wisdom voice, no therapy vocabulary on past-self)
    - What would be a WARNING sign that the tone is drifting?
 2. **Populate the Tonal Arc** based on the chosen structure type.
-3. **Define the Litmus Test** — 5–6 yes/no questions the chapter-writer answers after every chapter. Specific to *this* memoir, not generic craft questions. (one sentence per question, max 15 words each)
-4. **Non-Negotiable Rules** — Memoir-specific prose rules beyond the author profile's general style. (max 4 rules, one sentence each)
+3. **Define the Litmus Test** — 5–6 yes/no questions the chapter-writer answers after every chapter. Specific to *this* memoir, not generic craft questions. (one sentence per question, max 15 words each) If the user asks for more "to be thorough," hold the line at 5–6 — more questions dilute what the chapter-writer can realistically check after every chapter.
+4. **Non-Negotiable Rules** — Memoir-specific prose rules beyond the author profile's general style. (max 4 rules, one sentence each) If the user lists more than 4, ask them to prioritize down to the 4 most important before writing to `tone.md`.
 5. Write the completed document to `{project}/plot/tone.md`.
 
 Update book status to "Plot Outlined" via MCP `update_field()`.
