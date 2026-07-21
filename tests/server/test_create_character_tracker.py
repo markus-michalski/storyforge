@@ -258,6 +258,60 @@ class TestCreateCharacterTrackerEvolutionSections:
         assert sections["B1"]["shape"] == "h3"
         assert sections["B2"]["shape"] == "h3"
 
+    def test_ende_placeholder_not_parsed_as_existing_content(
+        self, mock_config, content_root: Path
+    ):
+        """Issue #394: a freshly-scaffolded, never-harvested tracker's
+        ``Ende``/``Start``/``(geplant)`` slots must parse as empty — the
+        instructional placeholder prose (\"Filled by the harvest tool at
+        end-of-book...\") is not real harvested content."""
+        from tools.state.loaders.series import parse_evolution_sections
+
+        _make_series(content_root, "my-series")
+        create_character_tracker(
+            series_slug="my-series",
+            name="Kael",
+            slug="kael",
+            role="protagonist",
+            recurs_in=["B1"],
+        )
+        tracker_path = (
+            content_root / "series" / "my-series" / "characters" / "kael.md"
+        )
+        sections = parse_evolution_sections(tracker_path)
+        assert sections["B1"]["start"] == ""
+        assert sections["B1"]["ende"] == ""
+        assert sections["B2"]["geplant"] == ""
+
+    def test_all_placeholder_hint_variants_parse_as_empty(
+        self, mock_config, content_root: Path
+    ):
+        """Issue #394: `_build_tracker_content()` emits two distinct hint
+        phrasings — the i==0 band's ("Filled at planning time." /
+        "Filled by the harvest tool...") and every subsequent band's
+        ("Filled by the bootstrap tool from {prev} Ende." / "Filled by
+        the harvest tool at end-of-book."). A two-band tracker exercises
+        both variants plus the next-band geplant hint in one scaffold."""
+        from tools.state.loaders.series import parse_evolution_sections
+
+        _make_series(content_root, "my-series")
+        create_character_tracker(
+            series_slug="my-series",
+            name="Kael",
+            slug="kael",
+            role="protagonist",
+            recurs_in=["B1", "B2"],
+        )
+        tracker_path = (
+            content_root / "series" / "my-series" / "characters" / "kael.md"
+        )
+        sections = parse_evolution_sections(tracker_path)
+        assert sections["B1"]["start"] == ""
+        assert sections["B1"]["ende"] == ""
+        assert sections["B2"]["start"] == ""
+        assert sections["B2"]["ende"] == ""
+        assert sections["B3"]["geplant"] == ""
+
 
 class TestCreateCharacterTrackerUpdatesLog:
     def test_updates_log_has_initial_entry(self, mock_config, content_root: Path):

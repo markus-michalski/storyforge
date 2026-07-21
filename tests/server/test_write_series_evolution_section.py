@@ -15,6 +15,7 @@ import pytest
 
 import routers._app as _app
 from routers.series import (
+    create_character_tracker,
     list_series_trackers_for_book,
     write_series_evolution_section,
 )
@@ -248,6 +249,25 @@ class TestListSeriesTrackersForBook:
             "kael",
             recurs_in=["B1"],
             body="## Evolution per Band\n\n### B1 Firelight\n- **Start:** Just start.\n",
+        )
+        result = json.loads(list_series_trackers_for_book("my-series", "B1"))
+        entry = result["trackers"][0]
+        assert entry["has_existing_ende"] is False
+        assert entry["existing_ende"] == ""
+
+    def test_has_existing_ende_false_for_freshly_scaffolded_tracker(
+        self, mock_config, content_root: Path
+    ):
+        """Issue #394: create_character_tracker's placeholder prose in the
+        Ende slot must not be reported as pre-existing harvest content —
+        the tracker has never been harvested."""
+        (content_root / "series" / "my-series").mkdir(parents=True)
+        create_character_tracker(
+            series_slug="my-series",
+            name="Kael",
+            slug="kael",
+            role="protagonist",
+            recurs_in=["B1"],
         )
         result = json.loads(list_series_trackers_for_book("my-series", "B1"))
         entry = result["trackers"][0]

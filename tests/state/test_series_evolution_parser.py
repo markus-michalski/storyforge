@@ -63,6 +63,19 @@ class TestParseEvolutionSectionsBulletShape:
         assert sections["B1"]["ende"] == "Mit Theo zusammen."
         assert sections["B1"]["geplant"] == ""
 
+    def test_strips_placeholder_hint_too(self, tmp_path: Path) -> None:
+        # Defensive coverage (Issue #394): bullet shape strips placeholder
+        # hint text the same way h3 shape does, even though the current
+        # scaffold template never produces this shape/placeholder combo.
+        path = _write_tracker(
+            tmp_path / "kael.md",
+            "## Evolution per Band\n\n### B1 Firelight\n"
+            "- **Ende:** *Filled by the harvest tool at end-of-book "
+            "from book-level frontmatter snapshot fields and relationships.*\n",
+        )
+        sections = parse_evolution_sections(path)
+        assert sections["B1"]["ende"] == ""
+
     def test_recognizes_geplant_in_heading_suffix(self, tmp_path: Path) -> None:
         path = _write_tracker(
             tmp_path / "kael.md",
@@ -148,6 +161,61 @@ class TestParseEvolutionSectionsH3Shape:
         sections = parse_evolution_sections(path)
         assert "First paragraph" in sections["B1"]["ende"]
         assert "Second paragraph" in sections["B1"]["ende"]
+
+    def test_real_content_starting_with_filled_is_preserved(self, tmp_path: Path) -> None:
+        # Issue #394 fix boundary: the placeholder-detection regex must not
+        # blank real authored content just because it's italicized and
+        # contains the word "Filled" — only the scaffold's exact hint
+        # phrases ("Filled at planning time" / "Filled by the harvest/
+        # bootstrap tool") count as an unedited placeholder.
+        path = _write_tracker(
+            tmp_path / "kael.md",
+            "## Evolution per Band\n\n"
+            "### B1 Ende\n"
+            "*Filled with quiet resolve, Kael closes the ledger and walks away.*\n",
+        )
+        sections = parse_evolution_sections(path)
+        assert sections["B1"]["ende"] == "*Filled with quiet resolve, Kael closes the ledger and walks away.*"
+
+
+class TestPlaceholderDetectionBoundaries:
+    """Issue #394: `_RE_PLACEHOLDER_HINT` is deliberately narrow — single
+    line (no re.DOTALL), fully italic-wrapped (`^\\*...\\*$`), and anchored
+    on the scaffold's exact hint phrases. These tests lock in that design
+    so a future "simplification" (e.g. adding re.DOTALL back, or matching
+    on the bare word "Filled") gets caught."""
+
+    def test_missing_closing_asterisk_is_preserved(self, tmp_path: Path) -> None:
+        # An author mid-edit who deleted the trailing "*" first — not a
+        # match, must not be blanked.
+        path = _write_tracker(
+            tmp_path / "kael.md",
+            "## Evolution per Band\n\n### B1 Ende\n*Filled by the harvest tool at end-of-book.\n",
+        )
+        sections = parse_evolution_sections(path)
+        assert sections["B1"]["ende"] == "*Filled by the harvest tool at end-of-book."
+
+    def test_hint_phrase_without_italics_is_preserved(self, tmp_path: Path) -> None:
+        # The exact hint phrase, but never italic-wrapped in the source
+        # file — the scaffold never emits this shape, so it's not a match.
+        path = _write_tracker(
+            tmp_path / "kael.md",
+            "## Evolution per Band\n\n### B1 Ende\nFilled by the harvest tool at end-of-book.\n",
+        )
+        sections = parse_evolution_sections(path)
+        assert sections["B1"]["ende"] == "Filled by the harvest tool at end-of-book."
+
+    def test_hint_phrase_spanning_multiple_lines_is_preserved(self, tmp_path: Path) -> None:
+        # Every real placeholder is a single line — a multi-line italic
+        # block containing the hint phrase must not be stripped (locks in
+        # the "no re.DOTALL" decision explicitly).
+        path = _write_tracker(
+            tmp_path / "kael.md",
+            "## Evolution per Band\n\n### B1 Ende\n*line one\nFilled by the harvest tool at end-of-book.\nline two*\n",
+        )
+        sections = parse_evolution_sections(path)
+        assert "Filled by the harvest tool" in sections["B1"]["ende"]
+        assert "line two" in sections["B1"]["ende"]
 
 
 class TestParseEvolutionSectionsEdgeCases:

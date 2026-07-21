@@ -75,6 +75,22 @@ _RE_KEYED_BULLET = re.compile(
 # where every bullet is a planning point rather than a Start/Ende keyed one.
 _RE_PLAIN_BULLET = re.compile(r"^-\s+(?P<value>.+)$")
 
+# Unedited scaffold placeholder written by `_build_tracker_content()`'s
+# h3-shape template (Issue #394) — instructional prose wrapped in italics,
+# never confirmed content. Anchored on the scaffold's exact hint phrases
+# (not just the bare word "Filled") so real authored content that happens
+# to start "Filled with ..." (e.g. "*Filled with quiet resolve...*") is
+# never mistaken for an unedited placeholder. Single line only — every
+# real placeholder is one sentence, so no DOTALL.
+_RE_PLACEHOLDER_HINT = re.compile(
+    r"^\*.*Filled (?:at planning time|by the (?:harvest|bootstrap) tool)\b.*\*$"
+)
+
+
+def _strip_placeholder(value: str) -> str:
+    """Return ``""`` when ``value`` is unedited scaffold placeholder text."""
+    return "" if _RE_PLACEHOLDER_HINT.match(value.strip()) else value
+
 
 def parse_series_tracker(path: Path) -> dict[str, Any]:
     """Parse a series-character-tracker frontmatter into a dict.
@@ -422,7 +438,7 @@ def parse_evolution_sections(path: Path) -> dict[str, dict[str, Any]]:
                 slot = "start"
             else:
                 slot = "ende"
-            slots[slot] = section_body.strip()
+            slots[slot] = _strip_placeholder(section_body.strip())
             entry: dict[str, Any] = {
                 "band": band,
                 "title": title,
@@ -450,9 +466,9 @@ def parse_evolution_sections(path: Path) -> dict[str, dict[str, Any]]:
             "band": band,
             "title": title,
             "shape": "bullet",
-            "start": slots["start"],
-            "ende": slots["ende"],
-            "geplant": slots["geplant"],
+            "start": _strip_placeholder(slots["start"]),
+            "ende": _strip_placeholder(slots["ende"]),
+            "geplant": _strip_placeholder(slots["geplant"]),
             "raw_body": section_body,
         }
 
