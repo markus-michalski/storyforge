@@ -75,7 +75,8 @@ If user asks to delete an idea (any phrasing — "delete", "remove", "get rid of
 3. Offer to shelve it instead, and call `update_idea(slug, "status", "shelved")` if the user agrees.
 
 ## Rules
-- This is a read-mostly skill — be fast, don't over-explain
+- This is a read-mostly skill — be fast, don't over-explain. Lead directly with the grouped
+  list (or the "no ideas" message) — no introductory paragraph explaining what the dashboard is
 - `promoted` ideas should be greyed out / shown last — they're done. Concretely: append
   "(already a book — see the project)" after the status, and don't include them in any
   Step 3 develop/promote offer.
