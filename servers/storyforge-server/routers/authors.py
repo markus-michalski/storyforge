@@ -9,7 +9,10 @@ from __future__ import annotations
 from mcp.types import ToolAnnotations
 
 import json
+import os
 import re
+import shutil
+import stat
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -32,11 +35,13 @@ from tools.db.author_discoveries import (
     discovery_exists,
     get_discoveries,
     insert_discovery,
+    remove_author_discoveries,
     remove_discovery,
     update_source_genres,
 )
 from tools.db.connection import open_authors_db
 from tools.shared.paths import (
+    find_projects,
     resolve_author_path,
     resolve_project_path,
     slugify,
@@ -215,6 +220,128 @@ avoid: ["purple-prose", "info-dumps", "deus-ex-machina"]
             "message": f"Author profile '{name}' created at {author_dir}",
         }
     )
+
+
+def _clear_readonly_and_retry(func: Any, path: Any, exc: BaseException) -> None:
+    """shutil.rmtree onexc handler: clear a read-only bit and retry once.
+
+    Windows raises ``PermissionError`` when rmtree meets a read-only file; the
+    standard remedy is to clear the attribute and re-run the failed operation.
+    If the retry still fails it re-raises, so delete_author()'s ``except`` can
+    turn it into a structured error instead of a raw traceback.
+    """
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+@mcp.tool(annotations=ToolAnnotations(destructiveHint=True, idempotentHint=False))
+def delete_author(slug: str, force: bool = False) -> str:
+    """Delete an author profile directory and all its writing discoveries (Issue #385).
+
+    Removes ``~/.storyforge/authors/{slug}/`` (the whole tree) and every
+    ``author_discoveries`` row for the author. Refuses when any book's README
+    ``author`` field still references the slug — unless ``force=True``, which
+    proceeds and reports the now-orphaned books so the caller can fix them.
+
+    This is the supported alternative to a manual ``rm -rf`` of the author dir:
+    it validates the slug, guards against deleting anything outside the authors
+    root, checks book references, cleans up the DB, and refreshes the cache.
+
+    Args:
+        slug: Author slug to delete (e.g. ``ethan-cole``).
+        force: When True, delete even if books still reference the author.
+
+    Returns ``{success, slug, deleted_path, removed_discoveries, referencing_books, message}``
+    on success, or ``{error, ...}`` on failure — unknown/unsafe slug, or a book
+    reference block when ``force`` is False (then also ``referencing_books``).
+    """
+    if not slug or not slug.strip():
+        return json.dumps({"error": "slug is required"})
+
+    config = _app.load_config()
+    try:
+        author_dir = resolve_author_path(config, slug)
+    except (KeyError, ValueError) as exc:
+        return json.dumps({"error": str(exc)})
+
+    # Defense in depth: never let a resolved path escape the authors root,
+    # even if _validate_slug is ever loosened. rmtree gets a vetted path only.
+    authors_root = Path(config["paths"]["authors_root"]).resolve()
+    try:
+        resolved_dir = author_dir.resolve()
+    except (OSError, RuntimeError) as exc:
+        return json.dumps({"error": f"Invalid author slug '{slug}': {exc}"})
+    if resolved_dir == authors_root or authors_root not in resolved_dir.parents:
+        return json.dumps({"error": f"Refusing to delete '{slug}': path escapes the authors root"})
+
+    if not (author_dir / "profile.md").is_file():
+        return json.dumps({"error": f"Author '{slug}' not found"})
+
+    # Reference integrity: which books still point at this author?
+    referencing: list[str] = []
+    for book_dir in find_projects(config):
+        readme = book_dir / "README.md"
+        if not readme.is_file():
+            continue
+        try:
+            meta = parse_book_readme(readme)
+        except (OSError, ValueError):
+            # Unreadable / non-UTF-8 README: skip rather than crash the whole
+            # delete (mirrors _read_book_meta's error handling in connection.py).
+            continue
+        if str(meta.get("author", "")).strip() == slug:
+            referencing.append(book_dir.name)
+
+    if referencing and not force:
+        return json.dumps({
+            "error": (
+                f"Author '{slug}' is referenced by {len(referencing)} book(s): "
+                f"{referencing}. Pass force=True to delete anyway — this leaves "
+                f"those books with a dangling author field."
+            ),
+            "referencing_books": referencing,
+        })
+
+    # Clear the author's DB discoveries first, then remove the directory tree.
+    conn = open_authors_db()
+    try:
+        removed = remove_author_discoveries(conn, slug)
+    finally:
+        conn.close()
+
+    try:
+        # onexc is the Python 3.12+ replacement for the deprecated onerror;
+        # type-ignore because the bundled shutil stub predates it.
+        shutil.rmtree(author_dir, onexc=_clear_readonly_and_retry)  # type: ignore[call-arg]
+    except OSError as exc:
+        # DB rows are already gone but the directory survives (e.g. a locked
+        # file on Windows). Report it as JSON instead of throwing; re-running
+        # finishes the job since profile.md still exists for the existence gate.
+        return json.dumps({
+            "error": (
+                f"Removed DB discoveries for '{slug}' but could not delete "
+                f"{author_dir}: {exc}. Re-run to finish removing the directory."
+            ),
+            "removed_discoveries": removed,
+        })
+
+    _cache.invalidate()
+
+    message = f"Author '{slug}' deleted ({removed} discovery row(s) removed)."
+    if referencing:
+        message += (
+            f" WARNING: {len(referencing)} book(s) now reference a missing "
+            f"author: {referencing}."
+        )
+
+    return json.dumps({
+        "success": True,
+        "slug": slug,
+        "deleted_path": str(author_dir),
+        "removed_discoveries": removed,
+        "referencing_books": referencing,
+        "message": message,
+    })
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
