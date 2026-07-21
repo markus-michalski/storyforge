@@ -171,7 +171,7 @@ Create `{project}/plot/tone.md` from template `plot-tone.md`. This step is MANDA
    - Map dominant/secondary tone per act/stage
    - Define warning signs per stage (what would be WRONG)
    - The tonal arc should SHIFT across the story — monotone is death
-3. **Define the Litmus Test** — 5-6 yes/no questions the chapter-writer answers after every chapter. These should be specific to THIS book, not generic craft questions.
+3. **Define the Litmus Test** — 5-6 yes/no questions the chapter-writer answers after every chapter. These should be specific to THIS book, not generic craft questions. This bar applies even when the user hands you ready-made questions directly — check them against it before writing to `tone.md`, and if they're generic (e.g. "is the pacing good?", "is the dialogue natural?") ask for book-specific alternatives instead of accepting them as-is.
 4. **Non-Negotiable Rules** — Book-specific prose rules beyond the author profile's general style.
 5. Write the completed document to `{project}/plot/tone.md`.
 
