@@ -66,6 +66,8 @@ Work through Goal / Motivation / Conflict:
 - **Motivation:** WHY do they want it? (emotional, rooted in backstory — not "because it's important" but a specific wound or desire)
 - **Conflict:** What stops them? (both external obstacles and internal resistance)
 
+If the Motivation the user offers is generic or circular ("because it's important," "because she has to") rather than a specific wound or desire, do not treat GMC as confirmed — ask one follow-up question that pushes toward the emotional root before moving on.
+
 **Wait for user to confirm the GMC before proceeding to Step 4.**
 
 ### Step 4: Want vs. Need
