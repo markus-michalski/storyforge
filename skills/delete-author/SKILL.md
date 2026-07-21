@@ -65,7 +65,11 @@ options via AskUserQuestion:
 3. **Cancel** — abandon the deletion.
 
 **Never** force-delete without the user explicitly choosing option 2 for these
-specific books.
+specific books. This does not carry over across authors: a force-approval (or a
+stated blanket tolerance like "I don't care about orphaning") given for one
+author's deletion never applies to a different author's deletion later in the
+same session — each new `delete_author(slug)` target gets its own fresh Phase 2
+probe and, if blocked, its own fresh Phase 3/4 confirmation cycle.
 
 ### Phase 4: Confirm and delete
 
