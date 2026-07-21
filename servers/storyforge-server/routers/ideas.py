@@ -137,7 +137,7 @@ def list_ideas(status: str = "", genre: str = "") -> str:
 
         if status and idea_status != status:
             continue
-        if genre and genre not in idea_genres:
+        if genre and not any(genre in str(g) for g in idea_genres):
             continue
 
         ideas.append(

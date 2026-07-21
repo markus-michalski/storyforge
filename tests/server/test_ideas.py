@@ -221,6 +221,50 @@ class TestListIdeas:
         assert by_slug["fiction-one"]["book_category"] == "fiction"
         assert by_slug["memoir-one"]["book_category"] == "memoir"
 
+    def test_filter_by_genre_is_partial_match(self, server_module, content_root: Path):
+        # Issue #389: docstring promises "partial match against each idea's
+        # genres list", but the implementation did an exact membership check.
+        # Mix genres in this plugin are named "{modifier}-{base}" (e.g.
+        # "dark-fantasy", "paranormal-romance"), so genre="fantasy" must also
+        # surface ideas tagged with the mix genre "dark-fantasy".
+        ideas_dir = content_root / "ideas"
+        _write_idea_file(ideas_dir, "a", "A", genres=["fantasy"])
+        _write_idea_file(ideas_dir, "b", "B", genres=["dark-fantasy"])
+        _write_idea_file(ideas_dir, "c", "C", genres=["sci-fi"])
+
+        result = json.loads(server_module.list_ideas(genre="fantasy"))
+        assert result["count"] == 2
+        slugs = {i["slug"] for i in result["ideas"]}
+        assert slugs == {"a", "b"}
+
+    def test_filter_by_genre_tolerates_non_string_genre_entries(self, server_module, content_root: Path):
+        # Regression guard: `genre in g` (substring op) requires g to support
+        # `in`, unlike the old exact-membership check which tolerated any
+        # element type. A YAML-parsed non-string genre entry (e.g. an
+        # unquoted year) must not crash the whole list_ideas() call.
+        # The non-string entry is listed FIRST so `any()` cannot short-circuit
+        # past it via an earlier string match — this is the shape that would
+        # actually raise TypeError without the str(g) coercion.
+        ideas_dir = content_root / "ideas"
+        ideas_dir.mkdir(parents=True, exist_ok=True)
+        (ideas_dir / "malformed.md").write_text(
+            "---\n"
+            'title: "Malformed"\n'
+            'slug: "malformed"\n'
+            'status: "raw"\n'
+            "genres: [2024, fantasy]\n"
+            'logline: ""\n'
+            f"created: {date.today().isoformat()}\n"
+            f"last_touched: {date.today().isoformat()}\n"
+            "promoted_to: null\n"
+            "---\n\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(server_module.list_ideas(genre="fantasy"))
+        assert result["count"] == 1
+        assert result["ideas"][0]["slug"] == "malformed"
+
     def test_excludes_archive(self, server_module, content_root: Path):
         ideas_dir = content_root / "ideas"
         archive_dir = ideas_dir / "_archive"
