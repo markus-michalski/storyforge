@@ -223,7 +223,7 @@ Next steps:
 
 ## Out of scope
 
-- **B{N} Start writes back to the tracker** — D-1 writes Ende; D-2 writes the new book file. The tracker's `B{new} Start` slot stays as the series-planner's planning text and is not modified by this skill.
+- **B{N} Start writes back to the tracker** — D-1 writes Ende; D-2 writes the new book file. The tracker's `B{new} Start` slot stays as the series-planner's planning text and is not modified by this skill. Holds even if the author explicitly asks for it in the moment — explain the D-1/D-2 split rather than writing to the tracker's Start slot.
 - **Three-way conflict resolution** when the author has hand-edited both the tracker AND the new book file. The skill shows both and lets the user choose.
 - **Auto-trigger on new-book** — the skill is intentionally manual so the author runs it after harvest is complete, not at scaffold time.
 
