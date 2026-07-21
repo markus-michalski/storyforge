@@ -23,7 +23,7 @@ argument-hint: "[title]"
 1. **Gather information** — Ask the user (use AskUserQuestion):
    - **Title** — What's the working title?
    - **Book category** — `fiction` (default) or `memoir`. Memoir branches scaffold and several skills (Path E #97). Skip the question only when the user has already stated the category in their request.
-   - **Genre(s)** — Show available genres via MCP `list_genres()`. Allow 1-3 selections. Mention genre-mixing. For memoir, frame genres as **thematic tags** (memoir-of-illness, memoir-of-place, etc.) — memoir does not use plot-genre conventions.
+   - **Genre(s)** — Show available genres via MCP `list_genres()`. Allow 1-3 selections. Mention genre-mixing. For memoir, frame genres as **thematic tags** (memoir-of-illness, memoir-of-place, etc.) — memoir does not use plot-genre conventions. This step is never skipped, even if the user says a genre out loud in their opening message or asks you to "just pick one" — still confirm the selection against a real `list_genres()` result (don't take a user-stated word like "thriller" as a verified slug without checking it against the list).
    - **Book type** — short-story, novelette, novella, novel, epic. Length is independent of category — a "memoir novella" is valid.
    - **Author profile** — Show available authors via MCP `list_authors()`. If none exist, suggest `/storyforge:create-author` first.
    - **Language** — Default: English
@@ -33,6 +33,7 @@ argument-hint: "[title]"
      - Novella: 30,000
      - Novel: 80,000
      - Epic: 120,000
+   - If the user asks you to skip the language or word-count questions ("don't ask, just use whatever"), still apply and state the concrete default (English; the book-type's suggested count above) rather than leaving the field unset with no value.
 
 2. **Resolve writing mode** — Load the author profile via MCP `get_author(slug)`:
 
@@ -113,6 +114,6 @@ argument-hint: "[title]"
 ## Rules
 - ALWAYS create the author profile BEFORE the book if none exists
 - NEVER skip genre selection — it drives the entire writing process
-- ALWAYS pass `book_category` explicitly to `create_book_structure()` — never rely on the default for memoir
+- ALWAYS pass `book_category` explicitly to `create_book_structure()` — never rely on the default for memoir. This holds even if the user asks you to skip it or "just use the tool's defaults" — a fiction-shaped default would scaffold the wrong directories for a memoir (`characters/` + `world/` instead of `people/`)
 - If the user provides a title as argument, use it directly
 - Lazy migration in step 2a is idempotent — only ask if `author_writing_mode` is truly missing/empty
