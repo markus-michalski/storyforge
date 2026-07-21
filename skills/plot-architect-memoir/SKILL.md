@@ -91,7 +91,7 @@ The arc-mapping shape depends on the structure type. Pick the matching sub-step:
 #### M3-chronological — Time-bounded arc
 
 - **Begin point** — *not* the chronological start, the **narrative** start. *In medias res* is the default. Where does the reader enter? (~20 words)
-- **Hinge moments** — name 3–6 events that turned the period. Compress aggressively between them. (~30–40 words per hinge event description)
+- **Hinge moments** — name 3–6 events that turned the period. Compress aggressively between them. (~30–40 words per hinge event description) If the user offers more than 6, ask them to consolidate/cut to this range before writing to `outline.md` — do not write an over-long list as-is.
 - **End point** — where does the narrative close? Has the question the through-line raises been *answered*, *re-framed*, or deliberately *left open*? (~20 words)
 - **Compression strategy** — for each gap between hinges, decide: paragraph / scene cluster / single image / cut. (one line per gap)
 
@@ -118,9 +118,9 @@ Write to `{project}/plot/outline.md` under "## Narrative arc — braided".
 
 #### M3-vignette — Mosaic with a through-line
 
-- **Through-line** — recurring image, place, relationship, unanswered question. Visible by Chapter 3. (~15 words)
-- **Vignette inventory** — list 12–25 candidate vignettes (more than you'll use). For each: title + 5–8 words summary + which through-line element it touches. (one line per vignette)
-- **Selection** — cut to 8–18 strong vignettes. Weak vignettes stop the read; vignette memoirs cannot carry filler. (note cut rationale in one word: "redundant" / "too-thin" / "off-thread")
+- **Through-line** — recurring image, place, relationship, unanswered question. Visible by Chapter 3. (~15 words) If the user's proposed sentence runs well past ~15 words or reads as an abstract list rather than naming one concrete image/place/relationship/question, ask them to tighten it before writing to `outline.md`.
+- **Vignette inventory** — list 12–25 candidate vignettes (more than you'll use). For each: title + 5–8 words summary + which through-line element it touches. (one line per vignette) If the user offers fewer than 12, ask them to keep brainstorming until the range is reached before moving to Selection.
+- **Selection** — cut to 8–18 strong vignettes. Weak vignettes stop the read; vignette memoirs cannot carry filler. (note cut rationale in one word: "redundant" / "too-thin" / "off-thread") If the user resists cutting (e.g. "keep them all, they're all meaningful"), push back using this same framing — vignette memoirs cannot carry filler — and ask them to tag the weakest entries with one of the three cut-rationale words before finalizing.
 - **Order as argument** — vignettes are arranged, not collected. The order is craft. Group by theme, contrast, or cumulative weight — the pattern is itself a craft choice. (one sentence stating the ordering principle)
 
 Write to `{project}/plot/outline.md` under "## Narrative arc — vignette" (through-line + ordered vignette list).
@@ -190,8 +190,8 @@ Steps:
    - Are there non-negotiable rules? (e.g. no retrospective wisdom voice, no therapy vocabulary on past-self)
    - What would be a WARNING sign that the tone is drifting?
 2. **Populate the Tonal Arc** based on the chosen structure type.
-3. **Define the Litmus Test** — 5–6 yes/no questions the chapter-writer answers after every chapter. Specific to *this* memoir, not generic craft questions. (one sentence per question, max 15 words each)
-4. **Non-Negotiable Rules** — Memoir-specific prose rules beyond the author profile's general style. (max 4 rules, one sentence each)
+3. **Define the Litmus Test** — 5–6 yes/no questions the chapter-writer answers after every chapter. Specific to *this* memoir, not generic craft questions. (one sentence per question, max 15 words each) If the user asks for more "to be thorough," hold the line at 5–6 — more questions dilute what the chapter-writer can realistically check after every chapter.
+4. **Non-Negotiable Rules** — Memoir-specific prose rules beyond the author profile's general style. (max 4 rules, one sentence each) If the user lists more than 4, ask them to prioritize down to the 4 most important before writing to `tone.md`.
 5. Write the completed document to `{project}/plot/tone.md`.
 
 Update book status to "Plot Outlined" via MCP `update_field()`.
