@@ -26,6 +26,7 @@ argument-hint: "[title]"
    - **Genre(s)** — Show available genres via MCP `list_genres()`. Allow 1-3 selections. Mention genre-mixing. For memoir, frame genres as **thematic tags** (memoir-of-illness, memoir-of-place, etc.) — memoir does not use plot-genre conventions. This step is never skipped, even if the user says a genre out loud in their opening message or asks you to "just pick one" — still confirm the selection against a real `list_genres()` result (don't take a user-stated word like "thriller" as a verified slug without checking it against the list).
    - **Book type** — short-story, novelette, novella, novel, epic. Length is independent of category — a "memoir novella" is valid.
    - **Author profile** — Show available authors via MCP `list_authors()`. If none exist, suggest `/storyforge:create-author` first.
+   - **Point of view & tense** — Ask (e.g. first-person / third-limited / third-omniscient; past / present). Step 4's `init_book_claudemd()` call needs both — don't reach Step 4 without having asked, and don't silently pass blank or guessed values just because the tool accepts empty strings.
    - **Language** — Default: English
    - **Target word count** — Suggest based on book type:
      - Short Story: 5,000
@@ -60,7 +61,7 @@ argument-hint: "[title]"
 
 6. **Auto-copy recurring characters from prior book in series** (Issue #196) — If the new book is part of an existing series AND there is a prior book in that series:
 
-   a. Resolve the series link. The user may pass it explicitly: `/storyforge:new-book moonrise --series=blood-and-binary --copy-recurring-from=blood-and-binary-firelight`. Or — if `series:` is set on the new book and there's exactly one prior book in `series/{slug}/books/`, auto-detect it.
+   a. Resolve the series link. The user may pass it explicitly: `/storyforge:new-book moonrise --series=blood-and-binary --copy-recurring-from=blood-and-binary-firelight`. Or — if `series:` is set on the new book and there's exactly one prior book in `series/{slug}/books/`, auto-detect it. If there is **more than one** prior book and no explicit `--copy-recurring-from` was given, do NOT guess (not "most recent", not "book 1") and do NOT silently skip the step — list the candidate prior books and ask the user which one to copy from.
 
    b. Compute the new book's band from `series_number` (set by `add_book_to_series()`): `band = f"B{series_number}"`. Skip this step entirely when `series_number` is missing or `1` (first book — nothing to copy from).
 
