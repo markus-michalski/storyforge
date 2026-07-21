@@ -136,6 +136,11 @@ Tracker {n}/{total} — {tracker_slug} ({name}, {role})
   Source: projects/{prev_book_slug}/{characters|people}/{book_slug}.md
   Dest:   projects/{new_book_slug}/{characters|people}/{book_slug}.md
           [{exists | missing — will copy from prev}]
+          [if the dest file already exists AND its content diverges from a
+           straight copy of Source (author hand-edited it directly): "Note:
+           this file already has hand-edited content different from a plain
+           copy — shown below so you can reconcile it against the tracker's
+           proposal:" + the diverging content]
 
   {prev_band} Ende (from tracker):
     {prev_band.ende or "(empty)"}
@@ -224,7 +229,7 @@ Next steps:
 ## Out of scope
 
 - **B{N} Start writes back to the tracker** — D-1 writes Ende; D-2 writes the new book file. The tracker's `B{new} Start` slot stays as the series-planner's planning text and is not modified by this skill. Holds even if the author explicitly asks for it in the moment — explain the D-1/D-2 split rather than writing to the tracker's Start slot.
-- **Three-way conflict resolution** when the author has hand-edited both the tracker AND the new book file. The skill shows both and lets the user choose.
+- **Three-way conflict resolution** when the author has hand-edited both the tracker AND the new book file. The skill shows both (Step 3d's dest-divergence note surfaces the hand-edited file content alongside the tracker's ende/geplant text) and lets the user choose — it does not auto-merge or pick one source as authoritative.
 - **Auto-trigger on new-book** — the skill is intentionally manual so the author runs it after harvest is complete, not at scaffold time.
 
 ## References
