@@ -39,6 +39,8 @@ Use MCP `create_series()` with collected info.
 `create_series()` scaffolds the directory and creates placeholder files including `series-arc.md`, `timeline.md`, `world/canon.md`, and `README.md`. Confirm the path from the response before proceeding to Step 3.
 
 ### Step 3: Series Arc
+This step applies to sequential and duology/trilogy series only. For standalone-connected or episodic series (no overarching plot by definition), skip this step entirely — do not manufacture a Big Question or Escalation Map that would contradict the series type the user already chose in Step 1 — and go straight to Step 4.
+
 For sequential/trilogy series — plan the OVERARCHING arc with the user:
 - **Big Question**: What is the central dramatic question that spans ALL books?
 - **Per-Book Answers**: How does each book answer one piece of it (without resolving the whole)?
