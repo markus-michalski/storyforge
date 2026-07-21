@@ -101,7 +101,7 @@ Write to `{project}/plot/outline.md` under "## Narrative arc — chronological".
 
 - **Theme list** — typically 5–9 concrete themes. *Money / Faith / Bodies / Hunger / Silence* — concrete, not abstract. Kill *Truth / Beauty / Love* and pick substitutes. (one word or short phrase per theme)
 - **Through-line thread** — what runs across the themes? A relationship, a place, a recurring question. Visible by Chapter 3 or the reader bails. (~20 words)
-- **Argumentative order** — chapter sequence is an argument, not a list. Why does Chapter 5 need to come *after* Chapter 4? (one sentence per transition rationale)
+- **Argumentative order** — chapter sequence is an argument, not a list. Why does Chapter 5 need to come *after* Chapter 4? (one sentence per transition rationale) If the user proposes an arbitrary or "whatever feels natural" order, ask for the one-sentence rationale per transition before writing the sequence to `outline.md` — an unjustified order is a list, not an argument.
 - **Scene-spine per theme** — each thematic chapter still needs scene work; theme alone is essay-shaped. (one line per theme)
 
 Write to `{project}/plot/outline.md` under "## Narrative arc — thematic" (theme list + through-line) and "## Argument order" (chapter sequence rationale).
@@ -121,7 +121,7 @@ Write to `{project}/plot/outline.md` under "## Narrative arc — braided".
 - **Through-line** — recurring image, place, relationship, unanswered question. Visible by Chapter 3. (~15 words) If the user's proposed sentence runs well past ~15 words or reads as an abstract list rather than naming one concrete image/place/relationship/question, ask them to tighten it before writing to `outline.md`.
 - **Vignette inventory** — list 12–25 candidate vignettes (more than you'll use). For each: title + 5–8 words summary + which through-line element it touches. (one line per vignette) If the user offers fewer than 12, ask them to keep brainstorming until the range is reached before moving to Selection.
 - **Selection** — cut to 8–18 strong vignettes. Weak vignettes stop the read; vignette memoirs cannot carry filler. (note cut rationale in one word: "redundant" / "too-thin" / "off-thread") If the user resists cutting (e.g. "keep them all, they're all meaningful"), push back using this same framing — vignette memoirs cannot carry filler — and ask them to tag the weakest entries with one of the three cut-rationale words before finalizing.
-- **Order as argument** — vignettes are arranged, not collected. The order is craft. Group by theme, contrast, or cumulative weight — the pattern is itself a craft choice. (one sentence stating the ordering principle)
+- **Order as argument** — vignettes are arranged, not collected. The order is craft. Group by theme, contrast, or cumulative weight — the pattern is itself a craft choice. (one sentence stating the ordering principle) If the user proposes an order based on recall sequence or chronology-of-thought rather than a deliberate principle, ask them to choose one of theme/contrast/cumulative-weight (or a comparably deliberate alternative) first.
 
 Write to `{project}/plot/outline.md` under "## Narrative arc — vignette" (through-line + ordered vignette list).
 
