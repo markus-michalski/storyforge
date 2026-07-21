@@ -12,6 +12,7 @@ from tools.db.author_discoveries import (
     discovery_exists,
     get_discoveries,
     insert_discovery,
+    remove_author_discoveries,
     update_source_genres,
 )
 from tools.db.connection import ensure_authors_schema, open_db
@@ -199,3 +200,22 @@ class TestDiscoveriesAsWritingDiscoveries:
         rows = get_discoveries(conn, "a")
         result = discoveries_as_writing_discoveries(rows)
         assert all(len(v) == 0 for v in result.values())
+
+
+class TestRemoveAuthorDiscoveries:
+    def test_removes_all_rows_for_author(self, conn):
+        insert_discovery(conn, author_slug="a", discovery_type="donts", text="x")
+        insert_discovery(conn, author_slug="a", discovery_type="style_principles", text="y")
+        removed = remove_author_discoveries(conn, "a")
+        assert removed == 2
+        assert get_discoveries(conn, "a") == []
+
+    def test_leaves_other_authors_untouched(self, conn):
+        insert_discovery(conn, author_slug="a", discovery_type="donts", text="x")
+        insert_discovery(conn, author_slug="b", discovery_type="donts", text="x")
+        removed = remove_author_discoveries(conn, "a")
+        assert removed == 1
+        assert len(get_discoveries(conn, "b")) == 1
+
+    def test_returns_zero_when_no_rows(self, conn):
+        assert remove_author_discoveries(conn, "ghost") == 0

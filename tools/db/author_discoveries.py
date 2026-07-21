@@ -102,6 +102,20 @@ def remove_discovery(
     return cur.rowcount == 1
 
 
+def remove_author_discoveries(conn: sqlite3.Connection, author_slug: str) -> int:
+    """Delete every discovery row for an author. Returns the number removed (Issue #385).
+
+    Used by delete_author() so removing an author profile also clears its
+    SQLite writing-discoveries instead of orphaning them in the table.
+    """
+    cur = conn.execute(
+        "DELETE FROM author_discoveries WHERE author_slug=?",
+        (author_slug,),
+    )
+    conn.commit()
+    return cur.rowcount
+
+
 def discoveries_as_writing_discoveries(rows: list[dict]) -> dict[str, list[dict]]:
     """Convert DB rows to the writing_discoveries format consumed by get_author().
 

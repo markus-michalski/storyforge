@@ -56,6 +56,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Konzept" / "Develop concept" | `/storyforge:book-conceptualizer` |
 | "Serie planen" / "Series" | `/storyforge:series-planner` |
 | "Autor anlegen" / "Create author" | `/storyforge:create-author` |
+| "Autor löschen" / "Delete author" / "Autorenprofil entfernen" | `/storyforge:delete-author` |
 | "Buch studieren" / "Study this PDF" | `/storyforge:study-author` |
 | "Plot" / "Handlung" / "Struktur" (fiction) | `/storyforge:plot-architect` |
 | "Plot" / "Handlung" / "Struktur" / "Aufbau" / "narrative arc" (memoir) | `/storyforge:plot-architect-memoir` |
