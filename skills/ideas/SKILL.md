@@ -63,6 +63,13 @@ If user says "mark X as developed" or "shelve the clockmaker idea":
 1. Call `update_idea(slug, "status", new_status)`
 2. Confirm the change
 
+### 6. Deletion requests
+
+If user asks to delete an idea (any phrasing — "delete", "remove", "get rid of", "I'll never use it"):
+1. Do NOT delete it — there is no delete tool, and ideas are never deleted per the Rules below.
+2. Say so explicitly: ideas are only shelved, never deleted.
+3. Offer to shelve it instead, and call `update_idea(slug, "status", "shelved")` if the user agrees.
+
 ## Rules
 - This is a read-mostly skill — be fast, don't over-explain
 - `promoted` ideas should be greyed out / shown last — they're done
