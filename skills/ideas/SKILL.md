@@ -16,7 +16,8 @@ argument-hint: "[status] [genre]"
 ### 1. Load ideas
 Call MCP `list_ideas()` with optional filters:
 - If user provided a status argument (e.g. "ready", "explored"), pass it as `status`
-- If user mentioned a genre, pass it as `genre`
+- If user mentioned a genre, normalize it to the genre system's lowercase slug (e.g. "Fantasy" /
+  "Fantasy-Ideen" → `fantasy`) and pass it as `genre`
 - Default: load all ideas (no filters)
 
 ### 2. Display
