@@ -96,6 +96,9 @@ Tracker {n}/{total} — {tracker_slug} (first appearance in {new_band})
   [Skip and continue]
 ```
 
+Do not call `read_tracker_for_bootstrap` for these — there is no prior-book
+source to read, so Step 3b does not apply to first-appearance characters.
+
 ### 3b. Read tracker bootstrap data
 
 ```python
