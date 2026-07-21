@@ -44,6 +44,8 @@ Keep all analytical output concise — bullets or short paragraphs of ≤3 sente
 
 ## Workflow — Fiction (14 steps)
 
+The "wait for confirmation" gates throughout the steps below exist because later steps consume earlier ones directly — a wrong Step 5 answer cascades into Step 6, a wrong Step 3 answer cascades into Step 4, and so on. If a user front-loads answers to several steps at once in a single unprompted message, treat that as raw material, not as confirmation of each individual step: briefly reflect back what was understood for each step in turn (starting from Step 1) and get the user's confirmation before building on it, rather than silently accepting the whole dump and jumping ahead to whichever step comes after the last one covered.
+
 ### Step 1: Character Role
 Ask the user:
 - Who is this character? (name, role: protagonist / antagonist / supporting / minor)
