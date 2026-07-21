@@ -48,7 +48,11 @@ If `/storyforge:new-book` has not run yet for the new book, this skill cannot pr
 4. Determine bands:
    - `prev_band = "B{prev_book.series_number}"`
    - `new_band = "B{new_book.series_number}"`
-   - Confirm `new_band > prev_band` (catch reversed args).
+   - Confirm `new_band > prev_band`. If it isn't, this is very likely a reversed
+     argument order (author passed `<new-book-slug> <prev-book-slug>` instead of
+     `<prev-book-slug> <new-book-slug>`) — say so explicitly and use
+     AskUserQuestion to confirm the intended prev/new order rather than erroring
+     out generically or silently proceeding.
 5. Determine `book_category` (must match between prev and new — error if not).
 
 ## Step 2: List recurring trackers
@@ -72,7 +76,8 @@ Bootstrap plan for {new_book_slug} ({new_band}):
 I'll walk you through them one at a time.
 ```
 
-If list is empty: "No recurring trackers for {new_band}" and exit.
+If the list has zero entries: "No recurring trackers for {new_band}" and exit.
+If the list is non-empty but every entry is first-appearance (`n_with_prior == 0`), this is NOT the empty case — proceed into Step 3 and walk each one through 3a's first-appearance messaging individually, then Step 4's summary.
 
 ## Step 3: Walk each tracker
 
@@ -91,6 +96,9 @@ Tracker {n}/{total} — {tracker_slug} (first appearance in {new_band})
 
   [Skip and continue]
 ```
+
+Do not call `read_tracker_for_bootstrap` for these — there is no prior-book
+source to read, so Step 3b does not apply to first-appearance characters.
 
 ### 3b. Read tracker bootstrap data
 
@@ -112,14 +120,14 @@ Compose new starting-state values for the six snapshot fields:
 
 | Field | Default for B{N+1} start | When to override |
 |-------|-------------------------|------------------|
-| `current_inventory` | `[]` (start fresh) | Items the tracker text says carry forward (amulet, sworn weapon) |
-| `current_clothing` | `[]` | Symbolic outfits noted in `geplant` (mourning black, royal regalia) |
-| `current_injuries` | `[]` (default heal) | Permanent scars / lingering wounds noted in `ende` or `geplant` |
+| `current_inventory` | carried forward from `prev_book_snapshot.current_inventory` if it has entries, else `[]` | Items the tracker text (`ende`/`geplant`) says are gained, lost, or destroyed override the carried-forward value |
+| `current_clothing` | carried forward from `prev_book_snapshot.current_clothing` if it has entries, else `[]` | Symbolic outfits noted in `geplant` (mourning black, royal regalia) override |
+| `current_injuries` | carried forward from `prev_book_snapshot.current_injuries` if it has entries, else `[]` (default heal) | Permanent scars / lingering wounds noted in `ende` or `geplant` override; a source explicitly saying an injury healed clears it |
 | `altered_states` | `[]` | New psychological state from B{prev} Ende (grief, trauma, confidence shift) |
 | `environmental_limiters` | `[]` | New setting context from `geplant` (now in mountains, no signal, etc.) |
 | `as_of_chapter` | `""` | Empty — new book hasn't started |
 
-**Source-discipline rule (Rule #14):** the proposed snapshot values must trace to either (a) the `prev_band.ende` text, (b) the `new_band.geplant` text, or (c) the `prev_book_snapshot` carry-overs. Don't invent items, scars, or states not grounded in those sources.
+**Source-discipline rule (Rule #14):** the proposed snapshot values must trace to either (a) the `prev_band.ende` text, (b) the `new_band.geplant` text, or (c) the `prev_book_snapshot` carry-overs. Don't invent items, scars, or states not grounded in those sources. **`prev_book_snapshot` carry-overs are a DEFAULT, not merely a fallback** — a character keeps their end-of-book-N inventory/clothing/injuries into book N+1 unless `ende` or `geplant` explicitly says otherwise (gained, lost, destroyed, healed). Don't silently reset a carried field to `[]` just because `ende`/`geplant` didn't repeat it.
 
 ### 3d. Show diff and prompt
 
@@ -129,6 +137,11 @@ Tracker {n}/{total} — {tracker_slug} ({name}, {role})
   Source: projects/{prev_book_slug}/{characters|people}/{book_slug}.md
   Dest:   projects/{new_book_slug}/{characters|people}/{book_slug}.md
           [{exists | missing — will copy from prev}]
+          [if the dest file already exists AND its content diverges from a
+           straight copy of Source (author hand-edited it directly): "Note:
+           this file already has hand-edited content different from a plain
+           copy — shown below so you can reconcile it against the tracker's
+           proposal:" + the diverging content]
 
   {prev_band} Ende (from tracker):
     {prev_band.ende or "(empty)"}
@@ -206,15 +219,18 @@ Next steps:
 ## Rules
 
 - **Source-discipline (Rule #14)**: never invent state that isn't in the source. Proposed snapshots trace to `prev_band.ende`, `new_band.geplant`, or `prev_book_snapshot`.
-- **No silent overwrites**: every accepted bootstrap writes a marker `series_evolution_imported_from: {prev_band}`. Re-running the skill replaces the marker (overwrites snapshot) — but each write goes through the per-char prompt.
-- **One tracker at a time**: no batch mode.
+- **No silent overwrites**: every accepted bootstrap writes a marker `series_evolution_imported_from: {prev_band}`. Re-running the skill replaces the marker (overwrites snapshot) — but each write goes through the per-char prompt. An existing marker from a prior run is NOT itself a reason to skip or auto-accept a tracker on a re-run — Step 3d's diff-and-prompt runs exactly as on a first pass, every time.
+- **One tracker at a time**: no batch mode. Holds even if the author explicitly
+  asks to apply the same choice (e.g. "accept" or "skip") to all remaining
+  trackers — explain that each tracker still gets its own Step 3d diff-and-prompt
+  rather than silently batching the rest.
 - **First-appearance characters are skipped**: bootstrap can't help with characters that have no prior source. The summary surfaces them so the author runs `/storyforge:character-creator` next.
 - **Memoir books**: `book_category=memoir` swaps `characters/` → `people/` automatically.
 
 ## Out of scope
 
-- **B{N} Start writes back to the tracker** — D-1 writes Ende; D-2 writes the new book file. The tracker's `B{new} Start` slot stays as the series-planner's planning text and is not modified by this skill.
-- **Three-way conflict resolution** when the author has hand-edited both the tracker AND the new book file. The skill shows both and lets the user choose.
+- **B{N} Start writes back to the tracker** — D-1 writes Ende; D-2 writes the new book file. The tracker's `B{new} Start` slot stays as the series-planner's planning text and is not modified by this skill. Holds even if the author explicitly asks for it in the moment — explain the D-1/D-2 split rather than writing to the tracker's Start slot.
+- **Three-way conflict resolution** when the author has hand-edited both the tracker AND the new book file. The skill shows both (Step 3d's dest-divergence note surfaces the hand-edited file content alongside the tracker's ende/geplant text) and lets the user choose — it does not auto-merge or pick one source as authoritative.
 - **Auto-trigger on new-book** — the skill is intentionally manual so the author runs it after harvest is complete, not at scaffold time.
 
 ## References

@@ -18,6 +18,8 @@ from typing import Any
 
 import yaml
 
+from tools.db.character_snapshots import get_latest_snapshot_for_book
+from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
 from tools.shared.paths import (
     resolve_character_path,
     resolve_people_dir,
@@ -528,10 +530,15 @@ def read_tracker_for_bootstrap(
     - ``prev_band``: dict with ``start`` / ``ende`` / ``geplant`` slot
       values from the tracker (empty strings when absent)
     - ``new_band``: same shape — the planned narrative for the new book
-    - ``prev_book_snapshot``: when ``prev_book_slug`` is provided AND the
-      character file exists there, projects its current snapshot
-      frontmatter (``current_inventory`` etc.) so the skill can show a
-      diff. ``None`` otherwise.
+    - ``prev_book_snapshot``: when ``prev_book_slug`` is provided, projects
+      the character's current snapshot (``current_inventory`` etc.) so the
+      skill can show a diff. Prefers the per-series ``character_snapshots``
+      DB (the canonical end-of-chapter write path since Issue #281 —
+      ``update_character_snapshot`` never touches the character file's
+      frontmatter), falling back to the character file's frontmatter for
+      characters whose snapshot only ever came from a prior
+      ``bootstrap_character_for_new_book`` write or a hand-edit. ``None``
+      when neither source has anything for this character.
     - identity fields: ``name``, ``role``, ``tracker_slug``, ``book_slug``
       (resolved via #194)
 
@@ -589,19 +596,48 @@ def read_tracker_for_bootstrap(
     if prev_book_slug:
         prev_dir = resolve_project_path(config, prev_book_slug)
         if prev_dir.exists():
-            # Try characters/ first, then people/ for memoir layouts.
-            for layout in ("characters", "people"):
-                candidate = prev_dir / layout / f"{book_slug}.md"
-                if candidate.exists():
-                    text = candidate.read_text(encoding="utf-8")
-                    meta, _body = parse_frontmatter(text)
-                    snap: dict[str, Any] = {}
-                    for field in _SNAPSHOT_LIST_FIELDS:
-                        raw = meta.get(field, [])
-                        snap[field] = [str(item) for item in raw] if isinstance(raw, list) else []
-                    snap[_SNAPSHOT_AS_OF_FIELD] = str(meta.get(_SNAPSHOT_AS_OF_FIELD, ""))
-                    payload["prev_book_snapshot"] = snap
-                    break
+            snap: dict[str, Any] | None = None
+
+            # Prefer the per-series character_snapshots DB — the canonical
+            # end-of-chapter write path since Issue #281. update_character_
+            # snapshot() never touches the character file's frontmatter, so
+            # a frontmatter-only read here silently missed any snapshot
+            # tracked during the prev book's actual chapter-by-chapter
+            # writing (only ever saw state left over from a PRIOR bootstrap
+            # write, or nothing at all for a book's first-ever bootstrap).
+            conn = open_canon_db(get_db_slug_for_book(prev_dir))
+            try:
+                db_row = get_latest_snapshot_for_book(conn, book_slug, get_book_num(prev_dir))
+            finally:
+                conn.close()
+            if db_row:
+                env_raw = db_row.get("environmental_limiters") or ""
+                snap = {
+                    "current_inventory": db_row.get("inventory", []),
+                    "current_clothing": db_row.get("clothing", []),
+                    "current_injuries": db_row.get("injuries", []),
+                    "altered_states": db_row.get("altered_states", []),
+                    "environmental_limiters": [s for s in env_raw.split(", ") if s],
+                    _SNAPSHOT_AS_OF_FIELD: "",
+                }
+
+            # Fall back to frontmatter (characters/ then people/ for memoir
+            # layouts) when the DB has nothing for this character/book.
+            if snap is None:
+                for layout in ("characters", "people"):
+                    candidate = prev_dir / layout / f"{book_slug}.md"
+                    if candidate.exists():
+                        text = candidate.read_text(encoding="utf-8")
+                        meta, _body = parse_frontmatter(text)
+                        snap = {}
+                        for field in _SNAPSHOT_LIST_FIELDS:
+                            raw = meta.get(field, [])
+                            snap[field] = [str(item) for item in raw] if isinstance(raw, list) else []
+                        snap[_SNAPSHOT_AS_OF_FIELD] = str(meta.get(_SNAPSHOT_AS_OF_FIELD, ""))
+                        break
+
+            if snap is not None:
+                payload["prev_book_snapshot"] = snap
 
     return json.dumps(payload)
 
