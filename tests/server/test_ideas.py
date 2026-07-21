@@ -160,6 +160,15 @@ class TestCreateIdea:
         meta, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
         assert meta["book_category"] == "memoir"
 
+    def test_rejects_invalid_book_category(self, server_module, content_root: Path):
+        result = json.loads(
+            server_module.create_idea(title="Bad Category", book_category="biography")
+        )
+        assert "error" in result
+        assert "biography" in result["error"]
+        # No file should be written for a rejected category.
+        assert not (content_root / "ideas" / "bad-category.md").exists()
+
 
 # ---------------------------------------------------------------------------
 # list_ideas

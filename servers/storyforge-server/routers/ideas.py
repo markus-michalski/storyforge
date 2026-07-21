@@ -20,6 +20,11 @@ from tools.state.parsers import parse_frontmatter
 from . import _app
 from ._app import _cache, mcp
 
+# Path E (#54): allowed book_category values, same set create_book_structure()
+# and get_book_category_dir() validate against (duplicated per-router in this
+# codebase rather than shared, matching the existing convention).
+_ALLOWED_BOOK_CATEGORIES = ("fiction", "memoir")
+
 
 def _get_ideas_dir(config: dict) -> Path:
     """Return the ideas directory path for the current content root."""
@@ -71,6 +76,10 @@ def create_idea(
                        resumed idea (get_idea) can tell which brainstorm mode
                        it belongs to without re-asking.
     """
+    if book_category not in _ALLOWED_BOOK_CATEGORIES:
+        allowed = ", ".join(_ALLOWED_BOOK_CATEGORIES)
+        return json.dumps({"error": (f"Invalid book_category '{book_category}'. Allowed values: {allowed}.")})
+
     config = _app.load_config()
     ideas_dir = _get_ideas_dir(config)
     ideas_dir.mkdir(parents=True, exist_ok=True)
