@@ -24,7 +24,7 @@ This skill is the fiction variant of character-creator, split out per Issue #177
 Before any other prerequisite load:
 
 1. **Load book data** via MCP `get_book_full(slug)`.
-2. Read `book_category` from the result. Treat missing as `fiction`.
+2. Read `book_category` from the result. Treat missing as `fiction` — but say so: if the field is absent, state in your response that `book_category` isn't set and it's being treated as fiction, rather than proceeding with no mention of the resolution (see the Universal rule below against silent defaults).
 3. If `book_category == "memoir"`, stop and tell the user:
    > *This book's `book_category` is `memoir`. Use `/storyforge:character-creator-memoir` for memoir people work — the fiction character-arc framework (GMC, Fatal Flaw, The Ghost, Want vs. Need) does not apply to real people.*
 4. Otherwise proceed with the fiction workflow below.
@@ -44,6 +44,8 @@ Keep all analytical output concise — bullets or short paragraphs of ≤3 sente
 
 ## Workflow — Fiction (14 steps)
 
+The "wait for confirmation" gates throughout the steps below exist because later steps consume earlier ones directly — a wrong Step 5 answer cascades into Step 6, a wrong Step 3 answer cascades into Step 4, and so on. If a user front-loads answers to several steps at once in a single unprompted message, treat that as raw material, not as confirmation of each individual step: briefly reflect back what was understood for each step in turn (starting from Step 1) and get the user's confirmation before building on it, rather than silently accepting the whole dump and jumping ahead to whichever step comes after the last one covered.
+
 ### Step 1: Character Role
 Ask the user:
 - Who is this character? (name, role: protagonist / antagonist / supporting / minor)
@@ -58,12 +60,15 @@ Identify the primary archetype as a starting point, then immediately look for th
 - Which archetype do they resemble at first glance? (Hero, Mentor, Shadow, Trickster, Ally, Herald, Shapeshifter, Threshold Guardian)
 - **More important:** How do they *break* the archetype? A Mentor with an addiction. A Hero who is physically weak. A Trickster who is genuinely wise.
 - The subversion is what makes them specific. The archetype is what makes them recognizable.
+- **If role == antagonist:** Ask what the antagonist believes justifies their actions — antagonists must believe they're RIGHT. Do not accept "they're just evil" or a purely gratuitous-cruelty framing as a complete answer; push for the internal logic that makes the antagonist the hero of their own story.
 
 ### Step 3: The Core Triangle (GMC)
 Work through Goal / Motivation / Conflict:
 - **Goal (external):** What do they want? (concrete, visible, achievable or not by story's end)
 - **Motivation:** WHY do they want it? (emotional, rooted in backstory — not "because it's important" but a specific wound or desire)
 - **Conflict:** What stops them? (both external obstacles and internal resistance)
+
+If the Motivation the user offers is generic or circular ("because it's important," "because she has to") rather than a specific wound or desire, do not treat GMC as confirmed — ask one follow-up question that pushes toward the emotional root before moving on.
 
 **Wait for user to confirm the GMC before proceeding to Step 4.**
 
@@ -130,6 +135,8 @@ Not just a weakness — a flaw that:
 
 *Weakness vs. flaw: "She is shy" is a weakness. "She is so afraid of rejection that she sabotages every relationship before it can end on someone else's terms" is a flaw.*
 
+**One-word depth test:** if the user ever sums the character up in a single word ("the coward," "the liar"), treat that as a signal the character isn't deep enough yet — dig further rather than accepting it as a finished characterization, here or at any later step.
+
 **Wait for user to identify the Fatal Flaw before proceeding to Step 9.**
 
 ### Step 9: Human Texture
@@ -146,6 +153,7 @@ Practical details that anchor them in the world:
 - Job / Occupation (and how they feel about it — it's rarely neutral)
 - Hobbies (what do they do when no one's watching?)
 - Location (where do they live, and what does that say about them?)
+- **Physical Appearance:** 1-2 SPECIFIC, distinguishing details ("a scar running through his left eyebrow"), never generic ("tall, dark, handsome"). If the user offers only generic descriptors, push for one concrete, specific detail before moving on.
 
 ### Step 11: Voice
 Make this character sound DIFFERENT from every other character:
@@ -177,7 +185,7 @@ Map relationships to other characters:
 Update the character file with all developed details via direct Write.
 Update `{project}/characters/INDEX.md` with the new character.
 
-After all major characters are created, update book status to "Characters Created".
+Before updating book status, explicitly confirm with the user whether any other major characters are still outstanding — do not update book status to "Characters Created" after finishing only one character on the assumption that it was the last. Only once the user confirms no major characters remain, update book status to "Characters Created".
 
 Ask: *"Need world-building? → `/storyforge:world-builder`. Ready to write? → `/storyforge:chapter-writer`."*
 
