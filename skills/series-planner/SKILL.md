@@ -16,7 +16,7 @@ argument-hint: "<series-name>"
 Before asking questions, check whether the user is resuming work on an existing series:
 - If a series slug is provided or deducible, call `list_series_trackers_for_book(series_slug, "B1")` to surface existing trackers.
 - Report how many trackers exist and which characters are already tracked — this prevents duplicates and gives the user immediate orientation.
-- Skip the check when the series doesn't exist yet (Step 2 will create it).
+- Skip the check when the user's own framing makes clear this is a brand-new series (e.g. "I want to plan a new series called X", "let's start a new series") — trust that signal rather than querying anyway just to double-check. Only call the lookup when a slug is given/deducible AND nothing in the request signals "new."
 
 ## Workflow
 
@@ -36,16 +36,18 @@ Ask the user:
 ### Step 2: Create Series
 Use MCP `create_series()` with collected info.
 
-`create_series()` scaffolds the directory and creates placeholder files including `series-arc.md`, `timeline.md`, `world/canon.md`, and `README.md`. Confirm the path from the response before proceeding to Step 3.
+`create_series()` scaffolds the directory and creates placeholder files including `series.yaml`, `series-arc.md`, `timeline.md`, and `world/canon.md` — there is no series-level `README.md`; series metadata lives in `series.yaml`. Confirm the path from the response before proceeding to Step 3.
 
 ### Step 3: Series Arc
+This step applies to sequential and duology/trilogy series only. For standalone-connected or episodic series (no overarching plot by definition), skip this step entirely — do not manufacture a Big Question or Escalation Map that would contradict the series type the user already chose in Step 1 — and go straight to Step 4.
+
 For sequential/trilogy series — plan the OVERARCHING arc with the user:
 - **Big Question**: What is the central dramatic question that spans ALL books?
 - **Per-Book Answers**: How does each book answer one piece of it (without resolving the whole)?
 - **Escalation Map**: What raises the stakes between each book?
 - **Protagonist Growth Arc**: How does the main character change across the entire series?
 
-Present each arc element as a **concise proposal (1–2 sentences each)**. Do not elaborate further until the user reacts — avoid walls of text during the planning phase.
+Present each arc element as a **concise proposal (1–2 sentences each)**. Do not elaborate further until the user reacts — avoid walls of text during the planning phase. This still applies when the user front-loads full arc detail unprompted in one message — restate it back as the four concise elements and wait for explicit approval before writing; a fully-detailed answer is not itself approval.
 
 Once agreed, use the Write tool to populate `series-arc.md` at the path returned by `create_series()`. Structure the file as:
 
@@ -110,7 +112,7 @@ create_character_tracker(
 
 `tracker_type: thin` is correct for characters whose full profile lives in their home book. Use `full` only for characters that span books equally without a "home" book — this is rare.
 
-**STOP after presenting the proposed tracker data for each character. Do NOT call `create_character_tracker()` until the user explicitly confirms the `recurs_in` list.** The `recurs_in` list is load-bearing for bootstrap, harvest, and brief-source tooling — wrong values cascade into broken series continuity tools. Do not proceed to the next character until the current tracker is confirmed.
+**STOP after presenting the proposed tracker data for each character. Do NOT call `create_character_tracker()` until the user explicitly confirms the `recurs_in` list.** This applies even when the user supplies the character's fields in a single directive message (e.g. "also add General Voss, antagonist, recurs in B1 and B2") — restate the proposed fields back and get an explicit yes before calling the tool; providing the data is not the same as confirming it. The `recurs_in` list is load-bearing for bootstrap, harvest, and brief-source tooling — wrong values cascade into broken series continuity tools. Do not proceed to the next character until the current tracker is confirmed.
 
 ### Step 6: Link Books
 As books are created, link them via MCP `add_book_to_series(series_slug, book_slug, number)`.
@@ -121,7 +123,7 @@ After each `add_book_to_series()` call, verify the link with `get_book_full(book
 - Report status and any warnings to the user before continuing
 
 ## Rules
-- Canon.md is sacred — once established, treat it as permanent. Changes require a series-level revision pass.
+- Canon.md is sacred — once established, treat it as permanent. Changes require a series-level revision pass. This holds even when the change is framed as minor or casual ("no big deal") mid-conversation — do not edit canon.md inline to accommodate the request; name it explicitly as needing a dedicated revision pass instead.
 - Each book must work as a standalone reading experience (even in a trilogy).
 - Series-level foreshadowing needs a PLANT & PAYOFF map across books.
 - Track what each character KNOWS at each point in the series — info inconsistencies are the most common series-level failure.
