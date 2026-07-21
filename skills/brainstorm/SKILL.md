@@ -30,7 +30,7 @@ Branch the entire workflow on the answer.
 ### Phase 1: Seed
 Ask the user what sparks their interest. Open-ended:
 - "What's been on your mind? A scene, a character, a feeling, a question?"
-- "Any genre preferences?" (show genres via MCP `list_genres()`)
+- "Any genre preferences?" — always call MCP `list_genres()` and show at least a few concrete options, even if you also ask the question in prose; don't just ask "any genre preferences?" without surfacing real choices.
 - "Short story or something longer?"
 
 **[Gate 1] Wait for the user's answer before generating any variations.** A deflecting non-answer ("just give me some ideas," "whatever you think," "I don't know yet") is not itself a seed — ask at least one concrete Phase 1 question (genre preference, length, or what's on their mind) before generating variations.
@@ -48,7 +48,7 @@ Generate 3-5 premise variations. Each should be 2-3 sentences (~25 words each):
 **[Gate 2] Present the variations and STOP. Do not proceed to Phase 3 until the user picks a direction.**
 
 ### Phase 3: Develop
-Once the user picks a direction (be concise — this is ideation, not prose; ~100 words total for this block):
+Once the user picks a direction (be concise — this is ideation, not prose; ~100 words total for this block, regardless of how much detail the user's own message contained — don't scale this block's length to match theirs):
 - **Logline:** One sentence pitch
 - **Genre(s):** Recommended combination
 - **Book type:** Suggested length
@@ -65,7 +65,7 @@ Save via MCP `create_idea` with `title`, `genres`, `logline`, `concept`, and `bo
 
 **Why:** `storyforge-mcp` maintains a dedicated ideas store at `~/.storyforge/`; other MCP servers (e.g. `project-hub`) write to different databases and silently corrupt the storyforge ideas directory if called here.
 
-The idea gets status `raw` by default. If fully developed (logline + themes + comps), call `update_idea(slug, "status", "explored")` immediately.
+The idea gets status `raw` by default. Treat this as two explicit steps, not one: (1) call `create_idea`, (2) then check whether it's fully developed (logline + themes + comps) — if yes, immediately call `update_idea(slug, "status", "explored")` as a separate follow-up call. Don't stop after step 1 just because the primary save succeeded.
 
 Tell the user the slug. Ask: *"Ready to turn this into a project? → `/storyforge:new-book --from-idea {slug}` — then develop the concept with `/storyforge:book-conceptualizer`."*
 
@@ -101,7 +101,7 @@ Once the user identifies the material, press on the three memoir foundation ques
 If the user can answer all three strongly, the memoir has a foundation. If they can't yet, help them discover the answers — don't let them proceed with a vague impulse. This applies even if the user offers a ready-made premise or asks to skip straight to saving — a user-supplied premise does not substitute for having answered the three questions; ask them anyway before moving to Phase 3.
 
 ### Phase 3: Develop
-Once the three questions are answered (be concise — this is ideation, not prose; ~120 words total for this block):
+Once the three questions are answered (be concise — this is ideation, not prose; ~120 words total for this block, regardless of how much detail the user's own answers contained — don't scale this block's length to match theirs):
 - **One-sentence premise:** What this memoir is about, in terms of the author's transformation or reckoning — not a plot summary
 - **Time window:** What period does it cover? (A year, a decade, a single event and its aftermath?)
 - **Scope tags:** What kind of memoir? (memoir-of-illness, memoir-of-family, memoir-of-place, memoir-of-addiction, memoir-of-reckoning, etc.)
@@ -114,7 +114,7 @@ Once the three questions are answered (be concise — this is ideation, not pros
 ### Phase 4: Save
 Save via MCP `create_idea` with `title`, `genres` (use scope tags as thematic anchors), `logline`, `concept`, and `book_category: memoir`.
 
-The idea gets status `raw`. If three questions are fully answered and scope is clear, call `update_idea(slug, "status", "explored")`.
+The idea gets status `raw`. Treat this as two explicit steps, not one: (1) call `create_idea`, (2) then check whether the three questions are fully answered and scope is clear — if yes, immediately call `update_idea(slug, "status", "explored")` as a separate follow-up call. Don't stop after step 1 just because the primary save succeeded.
 
 Tell the user the slug. Ask: *"Ready to turn this into a memoir project? → `/storyforge:new-book --from-idea {slug}` (choose memoir when prompted) — then shape the concept with `/storyforge:book-conceptualizer`."*
 
