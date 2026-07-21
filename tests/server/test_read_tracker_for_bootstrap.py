@@ -35,6 +35,13 @@ def mock_config(content_root: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     }
     monkeypatch.setattr(_app, "load_config", lambda: cfg)
     _app._cache.invalidate()
+
+    import tools.db.connection as conn_mod
+
+    db_dir = content_root.parent / "db"
+    db_dir.mkdir(exist_ok=True)
+    monkeypatch.setattr(conn_mod, "DB_DIR", db_dir)
+
     return cfg
 
 
@@ -134,6 +141,105 @@ class TestReadTrackerForBootstrap:
     def test_returns_prev_book_snapshot_when_provided(self, mock_config, content_root: Path):
         # When prev_book_slug is provided, also project the prev book's
         # existing snapshot frontmatter — useful for diff display.
+        _make_tracker(
+            content_root,
+            "my-series",
+            "kael",
+            recurs_in=["B1", "B2"],
+            body=("## Evolution per Band\n\n### B1\n- **Ende:** End state.\n"),
+        )
+        _make_book_char(
+            content_root,
+            "firelight",
+            "kael",
+            snapshot={
+                "current_inventory": ["silver knife"],
+                "current_clothing": ["leather coat"],
+                "current_injuries": [],
+                "altered_states": [],
+                "environmental_limiters": [],
+                "as_of_chapter": "30-final",
+            },
+        )
+        result = json.loads(
+            read_tracker_for_bootstrap(
+                "my-series",
+                "kael",
+                "B1",
+                "B2",
+                prev_book_slug="firelight",
+            )
+        )
+        assert result["prev_book_snapshot"]["current_inventory"] == ["silver knife"]
+        assert result["prev_book_snapshot"]["as_of_chapter"] == "30-final"
+
+    def test_prev_book_snapshot_prefers_db_over_frontmatter(self, mock_config, content_root: Path):
+        # Since Issue #281, update_character_snapshot() writes end-of-chapter
+        # state to the per-series character_snapshots DB and never touches
+        # the character file's frontmatter. Before this fix, prev_book_
+        # snapshot only ever read frontmatter, so it silently missed any
+        # snapshot tracked during the prev book's actual chapter-by-chapter
+        # writing. The DB row must win when both exist and disagree.
+        import tools.db.connection as conn_mod
+        from tools.db.character_snapshots import upsert_snapshot
+
+        _make_tracker(
+            content_root,
+            "my-series",
+            "kael",
+            recurs_in=["B1", "B2"],
+            body=("## Evolution per Band\n\n### B1\n- **Ende:** End state.\n"),
+        )
+        _make_book_char(
+            content_root,
+            "firelight",
+            "kael",
+            snapshot={
+                "current_inventory": ["stale frontmatter knife"],
+                "current_clothing": [],
+                "current_injuries": [],
+                "altered_states": [],
+                "environmental_limiters": [],
+                "as_of_chapter": "01-stale",
+            },
+        )
+        conn = conn_mod.open_canon_db(conn_mod.get_db_slug_for_book(content_root / "projects" / "firelight"))
+        try:
+            upsert_snapshot(
+                conn,
+                char_slug="kael",
+                book_num=1,
+                chapter_num=30,
+                inventory=["silver knife", "stolen signet ring"],
+                injuries=["missing left eye"],
+                clothing=[],
+                altered_states=["distrustful"],
+                environmental_limiters="mountains, no signal",
+            )
+        finally:
+            conn.close()
+
+        result = json.loads(
+            read_tracker_for_bootstrap(
+                "my-series",
+                "kael",
+                "B1",
+                "B2",
+                prev_book_slug="firelight",
+            )
+        )
+        snap = result["prev_book_snapshot"]
+        assert snap["current_inventory"] == ["silver knife", "stolen signet ring"]
+        assert snap["current_injuries"] == ["missing left eye"]
+        assert snap["altered_states"] == ["distrustful"]
+        assert snap["environmental_limiters"] == ["mountains", "no signal"]
+        # The stale frontmatter value must NOT leak through.
+        assert "stale frontmatter knife" not in snap["current_inventory"]
+
+    def test_prev_book_snapshot_falls_back_to_frontmatter_when_db_empty(self, mock_config, content_root: Path):
+        # No DB row for this character/book — falls back to frontmatter,
+        # e.g. a character whose snapshot only ever came from a prior
+        # bootstrap_character_for_new_book write, or a hand-edit.
         _make_tracker(
             content_root,
             "my-series",
