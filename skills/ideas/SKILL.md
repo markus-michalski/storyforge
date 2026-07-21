@@ -58,7 +58,8 @@ After listing, offer contextual follow-ups:
 If user asks about a specific idea (e.g. "show me the clockmaker idea"):
 1. Call `get_idea(slug)` or find the matching slug from the list
 2. Show full details including body content
-3. Offer: update status, continue brainstorming, or promote to book
+3. Offer exactly these three next actions, nothing else: update status, continue brainstorming,
+   or promote to book
 
 ### 5. Status update (inline)
 
