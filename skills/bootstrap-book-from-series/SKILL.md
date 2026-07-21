@@ -213,7 +213,7 @@ Next steps:
 ## Rules
 
 - **Source-discipline (Rule #14)**: never invent state that isn't in the source. Proposed snapshots trace to `prev_band.ende`, `new_band.geplant`, or `prev_book_snapshot`.
-- **No silent overwrites**: every accepted bootstrap writes a marker `series_evolution_imported_from: {prev_band}`. Re-running the skill replaces the marker (overwrites snapshot) — but each write goes through the per-char prompt.
+- **No silent overwrites**: every accepted bootstrap writes a marker `series_evolution_imported_from: {prev_band}`. Re-running the skill replaces the marker (overwrites snapshot) — but each write goes through the per-char prompt. An existing marker from a prior run is NOT itself a reason to skip or auto-accept a tracker on a re-run — Step 3d's diff-and-prompt runs exactly as on a first pass, every time.
 - **One tracker at a time**: no batch mode. Holds even if the author explicitly
   asks to apply the same choice (e.g. "accept" or "skip") to all remaining
   trackers — explain that each tracker still gets its own Step 3d diff-and-prompt
