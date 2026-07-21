@@ -76,7 +76,8 @@ Bootstrap plan for {new_book_slug} ({new_band}):
 I'll walk you through them one at a time.
 ```
 
-If list is empty: "No recurring trackers for {new_band}" and exit.
+If the list has zero entries: "No recurring trackers for {new_band}" and exit.
+If the list is non-empty but every entry is first-appearance (`n_with_prior == 0`), this is NOT the empty case — proceed into Step 3 and walk each one through 3a's first-appearance messaging individually, then Step 4's summary.
 
 ## Step 3: Walk each tracker
 
