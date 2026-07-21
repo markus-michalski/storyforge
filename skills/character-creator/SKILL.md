@@ -24,7 +24,7 @@ This skill is the fiction variant of character-creator, split out per Issue #177
 Before any other prerequisite load:
 
 1. **Load book data** via MCP `get_book_full(slug)`.
-2. Read `book_category` from the result. Treat missing as `fiction`.
+2. Read `book_category` from the result. Treat missing as `fiction` — but say so: if the field is absent, state in your response that `book_category` isn't set and it's being treated as fiction, rather than proceeding with no mention of the resolution (see the Universal rule below against silent defaults).
 3. If `book_category == "memoir"`, stop and tell the user:
    > *This book's `book_category` is `memoir`. Use `/storyforge:character-creator-memoir` for memoir people work — the fiction character-arc framework (GMC, Fatal Flaw, The Ghost, Want vs. Need) does not apply to real people.*
 4. Otherwise proceed with the fiction workflow below.
