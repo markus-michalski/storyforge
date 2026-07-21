@@ -416,6 +416,7 @@ def _scan_ideas_dir(ideas_dir: Path) -> list[dict]:
                 "status": meta.get("status", "raw"),
                 "genres": meta.get("genres", []),
                 "logline": meta.get("logline", ""),
+                "book_category": meta.get("book_category", "fiction"),
                 "created": str(meta.get("created", "")),
                 "last_touched": str(meta.get("last_touched", "")),
                 "promoted_to": meta.get("promoted_to"),

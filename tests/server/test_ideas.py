@@ -148,6 +148,27 @@ class TestCreateIdea:
         result = json.loads(server_module.create_idea(title="Hello World"))
         assert result["slug"] == "hello-world"
 
+    def test_book_category_defaults_to_fiction(self, server_module, content_root: Path):
+        server_module.create_idea(title="No Category Given")
+        path = content_root / "ideas" / "no-category-given.md"
+        meta, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
+        assert meta["book_category"] == "fiction"
+
+    def test_book_category_memoir_is_persisted(self, server_module, content_root: Path):
+        server_module.create_idea(title="My Memoir Idea", book_category="memoir")
+        path = content_root / "ideas" / "my-memoir-idea.md"
+        meta, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
+        assert meta["book_category"] == "memoir"
+
+    def test_rejects_invalid_book_category(self, server_module, content_root: Path):
+        result = json.loads(
+            server_module.create_idea(title="Bad Category", book_category="biography")
+        )
+        assert "error" in result
+        assert "biography" in result["error"]
+        # No file should be written for a rejected category.
+        assert not (content_root / "ideas" / "bad-category.md").exists()
+
 
 # ---------------------------------------------------------------------------
 # list_ideas
@@ -191,6 +212,15 @@ class TestListIdeas:
         slugs = {i["slug"] for i in result["ideas"]}
         assert slugs == {"a", "c"}
 
+    def test_projects_book_category(self, server_module, content_root: Path):
+        server_module.create_idea(title="Fiction One", book_category="fiction")
+        server_module.create_idea(title="Memoir One", book_category="memoir")
+
+        result = json.loads(server_module.list_ideas())
+        by_slug = {i["slug"]: i for i in result["ideas"]}
+        assert by_slug["fiction-one"]["book_category"] == "fiction"
+        assert by_slug["memoir-one"]["book_category"] == "memoir"
+
     def test_excludes_archive(self, server_module, content_root: Path):
         ideas_dir = content_root / "ideas"
         archive_dir = ideas_dir / "_archive"
@@ -231,6 +261,21 @@ class TestGetIdea:
     def test_unknown_slug_returns_error(self, server_module):
         result = json.loads(server_module.get_idea("does-not-exist"))
         assert "error" in result
+
+    def test_projects_book_category(self, server_module, content_root: Path):
+        result = json.loads(
+            server_module.create_idea(title="Memoir Seed", book_category="memoir")
+        )
+        loaded = json.loads(server_module.get_idea(result["slug"]))
+        assert loaded["book_category"] == "memoir"
+
+    def test_book_category_defaults_to_fiction_for_legacy_files(
+        self, server_module, content_root: Path
+    ):
+        ideas_dir = content_root / "ideas"
+        _write_idea_file(ideas_dir, "legacy", "Legacy Idea")  # predates book_category field
+        result = json.loads(server_module.get_idea("legacy"))
+        assert result["book_category"] == "fiction"
 
 
 # ---------------------------------------------------------------------------
@@ -332,3 +377,10 @@ class TestScanIdeasDir:
         result = _scan_ideas_dir(ideas_dir)
         assert len(result) == 1
         assert result[0]["slug"] == "valid"
+
+    def test_projects_book_category_defaulting_to_fiction(self, content_root: Path):
+        ideas_dir = content_root / "ideas"
+        _write_idea_file(ideas_dir, "legacy", "Legacy")  # predates book_category field
+
+        result = _scan_ideas_dir(ideas_dir)
+        assert result[0]["book_category"] == "fiction"
