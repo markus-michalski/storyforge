@@ -82,6 +82,7 @@ Based on genre and story type, recommend a structure. Use AskUserQuestion.
 - Author knows the ending but not the middle → **Seven-Point Structure**
 - Pantser / Plantser writing mode → lean toward **3-Act** (minimal) or **Dan Harmon's Story Circle** (8 clear checkpoints)
 - Writer struggles with plot holes or abandons drafts → **Snowflake Method**
+- Author profile states an explicit structural preference (e.g. "always uses 5-Act tragic arcs") → weigh it alongside the genre/story-type signals above and name the preference explicitly in the recommendation, even when genre alone would point elsewhere.
 
 ### Step 3: Map Plot Beats
 
@@ -97,7 +98,7 @@ For the chosen structure, work through each beat WITH the user:
 
 Write to `{project}/plot/acts.md`.
 
-**Wait for user approval of the beat map before proceeding to Step 4.** Subplot architecture (Step 4) and foreshadowing (Step 5) depend on locked main-plot beats.
+**Wait for user approval of the beat map before proceeding to Step 4.** Subplot architecture (Step 4) and foreshadowing (Step 5) depend on locked main-plot beats. "Approval" means the complete beat map, not one approved act while another is still under discussion — if the user signs off on some acts but wants to keep talking through another, keep working that act rather than treating the partial approval as sufficient to move on.
 
 ### Step 4: Subplot Architecture
 
@@ -170,7 +171,7 @@ Create `{project}/plot/tone.md` from template `plot-tone.md`. This step is MANDA
    - Map dominant/secondary tone per act/stage
    - Define warning signs per stage (what would be WRONG)
    - The tonal arc should SHIFT across the story — monotone is death
-3. **Define the Litmus Test** — 5-6 yes/no questions the chapter-writer answers after every chapter. These should be specific to THIS book, not generic craft questions.
+3. **Define the Litmus Test** — 5-6 yes/no questions the chapter-writer answers after every chapter. These should be specific to THIS book, not generic craft questions. This bar applies even when the user hands you ready-made questions directly — check them against it before writing to `tone.md`, and if they're generic (e.g. "is the pacing good?", "is the dialogue natural?") ask for book-specific alternatives instead of accepting them as-is.
 4. **Non-Negotiable Rules** — Book-specific prose rules beyond the author profile's general style.
 5. Write the completed document to `{project}/plot/tone.md`.
 
@@ -186,6 +187,8 @@ Ask: *"Characters next? → `/storyforge:character-creator`"*
 
 *Theory and step descriptions in `reference/craft/story-structure.md` (loaded as prerequisite). This section covers StoryForge-specific execution: file paths, MCP tools, and skill integrations.*
 
+**On the "wait for confirmation" gates between steps below:** each one exists because a later step consumes the previous step's output (Step 5's POV synopses need the Step 4 skeleton; Step 8's scene list needs Steps 5–7's synopses and charts). A general "just go ahead, I trust you, skip to the end" from the user is not itself confirmation of any specific intermediate step — it doesn't tell you whether they've understood what a skipped step would have surfaced. Don't jump straight to a later step on that basis. Either keep working the sequence, or, if the user insists on skipping specific steps, name which step(s) you're skipping and what it normally catches (e.g. "Step 5's POV synopses often reveal plot holes — skipping means we go into the scene list without that check") and get an explicit yes to that specific tradeoff before skipping.
+
 ### Snowflake Step 1: One-Sentence Summary
 
 If `book-conceptualizer` has run, confirm or refine the existing premise. Otherwise write it now:
@@ -193,6 +196,8 @@ If `book-conceptualizer` has run, confirm or refine the existing premise. Otherw
 - Maximum 15 words
 - Must name: protagonist, what they must do/achieve, and the stakes
 - Example: "A disgraced knight must recover a stolen relic before war consumes the kingdom."
+
+If the user hands you a version that blows past 15 words or is missing the protagonist, goal, or stakes, say so and ask them to tighten it — don't silently accept it or trim it yourself before writing it via `update_field()`.
 
 Write or update via MCP `update_field(book_slug, "premise", ...)`.
 
