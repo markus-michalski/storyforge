@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import stat
+import sys
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -222,13 +223,18 @@ avoid: ["purple-prose", "info-dumps", "deus-ex-machina"]
     )
 
 
-def _clear_readonly_and_retry(func: Any, path: Any, exc: BaseException) -> None:
-    """shutil.rmtree onexc handler: clear a read-only bit and retry once.
+def _clear_readonly_and_retry(func: Any, path: Any, _exc: Any) -> None:
+    """shutil.rmtree error handler: clear a read-only bit and retry once.
 
     Windows raises ``PermissionError`` when rmtree meets a read-only file; the
     standard remedy is to clear the attribute and re-run the failed operation.
     If the retry still fails it re-raises, so delete_author()'s ``except`` can
     turn it into a structured error instead of a raw traceback.
+
+    Registered as ``onexc`` on Python 3.12+ and ``onerror`` on 3.11. Both pass
+    three positional args; only the third differs (exception instance vs.
+    ``(type, value, tb)`` tuple) and this handler ignores it, so one function
+    serves both.
     """
     os.chmod(path, stat.S_IWRITE)
     func(path)
@@ -310,9 +316,14 @@ def delete_author(slug: str, force: bool = False) -> str:
         conn.close()
 
     try:
-        # onexc is the Python 3.12+ replacement for the deprecated onerror;
-        # type-ignore because the bundled shutil stub predates it.
-        shutil.rmtree(author_dir, onexc=_clear_readonly_and_retry)  # type: ignore[call-arg]
+        # onexc is the Python 3.12+ replacement for onerror; on 3.11 it does
+        # not exist yet, so pick the keyword the running interpreter supports.
+        rmtree_kwargs: dict[str, Any] = (
+            {"onexc": _clear_readonly_and_retry}
+            if sys.version_info >= (3, 12)
+            else {"onerror": _clear_readonly_and_retry}
+        )
+        shutil.rmtree(author_dir, **rmtree_kwargs)
     except OSError as exc:
         # DB rows are already gone but the directory survives (e.g. a locked
         # file on Windows). Report it as JSON instead of throwing; re-running
