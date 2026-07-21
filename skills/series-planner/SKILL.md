@@ -110,7 +110,7 @@ create_character_tracker(
 
 `tracker_type: thin` is correct for characters whose full profile lives in their home book. Use `full` only for characters that span books equally without a "home" book — this is rare.
 
-**STOP after presenting the proposed tracker data for each character. Do NOT call `create_character_tracker()` until the user explicitly confirms the `recurs_in` list.** The `recurs_in` list is load-bearing for bootstrap, harvest, and brief-source tooling — wrong values cascade into broken series continuity tools. Do not proceed to the next character until the current tracker is confirmed.
+**STOP after presenting the proposed tracker data for each character. Do NOT call `create_character_tracker()` until the user explicitly confirms the `recurs_in` list.** This applies even when the user supplies the character's fields in a single directive message (e.g. "also add General Voss, antagonist, recurs in B1 and B2") — restate the proposed fields back and get an explicit yes before calling the tool; providing the data is not the same as confirming it. The `recurs_in` list is load-bearing for bootstrap, harvest, and brief-source tooling — wrong values cascade into broken series continuity tools. Do not proceed to the next character until the current tracker is confirmed.
 
 ### Step 6: Link Books
 As books are created, link them via MCP `add_book_to_series(series_slug, book_slug, number)`.
