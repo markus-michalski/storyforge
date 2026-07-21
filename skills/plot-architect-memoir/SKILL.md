@@ -80,6 +80,8 @@ Reference `memoir-structure-types.md` (loaded as prerequisite). Use AskUserQuest
 
 Reference the **decision tree** at the bottom of `memoir-structure-types.md` if the user is torn between two types — pick the one whose **failure modes you can avoid**, not the one with the prettier examples.
 
+If the user's framing blends two types (e.g. "chronological but with braided flashback chapters"), never persist a fifth/hybrid value like `chronological-braided` — pick one of the four canonical values for `set_memoir_structure_type` and capture the hybrid nuance in the Step M3 arc-mapping prose instead.
+
 After the user picks, persist the choice via MCP `set_memoir_structure_type(book_slug, structure_type)`. The tool validates against the four allowed values and writes to `plot/structure.md` frontmatter so downstream skills (`chapter-writer` memoir mode #57, `rolling-planner`) can read it.
 
 A blanket delegation ("you pick", "whatever you think is best", "let's just move fast") does not substitute for this gate: still present the four options via AskUserQuestion (naming a recommendation is fine and encouraged) and get an explicit pick in a reply before calling `set_memoir_structure_type` — a delegation is not the same as the user having seen and reacted to the four options.
@@ -156,6 +158,8 @@ For each chapter:
 - Through-line touchpoint — how this chapter advances the through-line
 - POV vantage — past-self, present-self, or both (relevant for chronological + braided especially)
 - Rough word target
+
+Every entry needs a genuine through-line touchpoint. If the user wants to include a chapter that doesn't connect ("it's a great story but it doesn't really connect to the through-line, I just want to include it"), don't add it as-is — ask them to find the real connection or reconsider its place in this book. A chapter that drifts from the through-line is scope-failure dressed as "more material" (see Rules).
 
 Offer to create chapter directories via MCP `create_chapter()` once the spine is locked.
 
