@@ -53,14 +53,23 @@ def _slugify(text: str) -> str:
 
 
 @mcp.tool()
-def create_idea(title: str, genres: str = "", logline: str = "", concept: str = "") -> str:
+def create_idea(
+    title: str,
+    genres: str = "",
+    logline: str = "",
+    concept: str = "",
+    book_category: str = "fiction",
+) -> str:
     """Create a new idea file in ideas/{slug}.md with YAML frontmatter.
 
     Args:
-        title:   Human-readable title of the idea.
-        genres:  Comma-separated genre names (e.g. "fantasy,mystery").
-        logline: One-sentence pitch.
-        concept: Free-text body content describing the idea.
+        title:         Human-readable title of the idea.
+        genres:        Comma-separated genre names (e.g. "fantasy,mystery").
+        logline:       One-sentence pitch.
+        concept:       Free-text body content describing the idea.
+        book_category: "fiction" (default) or "memoir" — carried forward so a
+                       resumed idea (get_idea) can tell which brainstorm mode
+                       it belongs to without re-asking.
     """
     config = _app.load_config()
     ideas_dir = _get_ideas_dir(config)
@@ -76,6 +85,7 @@ def create_idea(title: str, genres: str = "", logline: str = "", concept: str = 
         "status": "raw",
         "genres": genres_list,
         "logline": logline,
+        "book_category": book_category,
         "created": today,
         "last_touched": today,
         "promoted_to": None,
@@ -128,6 +138,7 @@ def list_ideas(status: str = "", genre: str = "") -> str:
                 "status": idea_status,
                 "genres": idea_genres,
                 "logline": meta.get("logline", ""),
+                "book_category": meta.get("book_category", "fiction"),
                 "created": str(meta.get("created", "")),
                 "last_touched": str(meta.get("last_touched", "")),
                 "promoted_to": meta.get("promoted_to"),
@@ -159,6 +170,7 @@ def get_idea(slug: str) -> str:
             "status": meta.get("status", "raw"),
             "genres": meta.get("genres", []),
             "logline": meta.get("logline", ""),
+            "book_category": meta.get("book_category", "fiction"),
             "created": str(meta.get("created", "")),
             "last_touched": str(meta.get("last_touched", "")),
             "promoted_to": meta.get("promoted_to"),
