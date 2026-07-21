@@ -17,7 +17,7 @@ argument-hint: "[title]"
 1. Load the idea via MCP `get_idea(slug)`
 2. Pre-fill title, genres, and logline from the idea's frontmatter
 3. Skip re-asking for fields that are already populated (ask only for missing ones)
-4. After creating the book, call MCP `promote_idea(slug, book_slug)` to mark the idea as promoted
+4. After creating the book, call MCP `promote_idea(slug, book_slug)` to mark the idea as promoted — do this even after the full standard-flow steps below (project creation, CLAUDE.md, session, series copy) have run; it's easy to forget once several other steps separate it from the idea that started this flow
 
 ### Standard flow
 1. **Gather information** — Ask the user (use AskUserQuestion):
@@ -63,7 +63,7 @@ argument-hint: "[title]"
 
    a. Resolve the series link. The user may pass it explicitly: `/storyforge:new-book moonrise --series=blood-and-binary --copy-recurring-from=blood-and-binary-firelight`. Or — if `series:` is set on the new book and there's exactly one prior book in `series/{slug}/books/`, auto-detect it. If there is **more than one** prior book and no explicit `--copy-recurring-from` was given, do NOT guess (not "most recent", not "book 1") and do NOT silently skip the step — list the candidate prior books and ask the user which one to copy from.
 
-   b. Compute the new book's band from `series_number` (set by `add_book_to_series()`): `band = f"B{series_number}"`. Skip this step entirely when `series_number` is missing or `1` (first book — nothing to copy from).
+   b. Compute the new book's band from `series_number` (set by `add_book_to_series()`): `band = f"B{series_number}"`. Skip this step entirely when `series_number` is missing or `1` (first book — nothing to copy from) — this holds even when the user talks about "the series" in conversation; the skip is driven purely by the actual `series_number` value, not by whether a series was mentioned.
 
    c. Show the planned copy (use AskUserQuestion to confirm):
 
@@ -78,7 +78,7 @@ argument-hint: "[title]"
 
       Options: **Yes, copy** (default) / **Skip — I'll do it manually**.
 
-   d. On confirmation, call MCP `copy_recurring_chars_to_new_book(series_slug, prev_book_slug, new_book_slug, band, book_category)`. The tool returns `{copied, skipped, new_chars}`.
+   d. On confirmation, call MCP `copy_recurring_chars_to_new_book(series_slug, prev_book_slug, new_book_slug, band, book_category)` — pass all five parameters, including `book_category` (easy to drop since it's last in the list; the tool needs it to know whether to write into `characters/` or `people/`). The tool returns `{copied, skipped, new_chars}`.
 
    e. Report the result:
 
