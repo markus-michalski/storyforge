@@ -82,6 +82,7 @@ Based on genre and story type, recommend a structure. Use AskUserQuestion.
 - Author knows the ending but not the middle → **Seven-Point Structure**
 - Pantser / Plantser writing mode → lean toward **3-Act** (minimal) or **Dan Harmon's Story Circle** (8 clear checkpoints)
 - Writer struggles with plot holes or abandons drafts → **Snowflake Method**
+- Author profile states an explicit structural preference (e.g. "always uses 5-Act tragic arcs") → weigh it alongside the genre/story-type signals above and name the preference explicitly in the recommendation, even when genre alone would point elsewhere.
 
 ### Step 3: Map Plot Beats
 
