@@ -48,10 +48,10 @@ argument-hint: "[title]"
    - If override: store in book README frontmatter via MCP `update_field(book_readme_path, "author_writing_mode", value)`
    - If same: leave book `author_writing_mode` empty (inherits from author)
 
-   **c) Route based on effective mode:**
-   - `outliner` → suggest `/storyforge:plot-architect` for full outline
-   - `plantser` → suggest `/storyforge:plot-architect` (user will choose minimal outline or Snowflake there)
-   - `discovery` → suggest `/storyforge:rolling-planner` instead of `plot-architect`
+   **c) Route based on effective mode:** this is only a lightweight heads-up at this point in the conversation, not the final recommendation — Step 8 below gives the full, authoritative next-steps message (which always leads with `/storyforge:book-conceptualizer` first). Keep this mention short:
+   - `outliner` → mention `/storyforge:plot-architect` for full outline
+   - `plantser` → mention `/storyforge:plot-architect` (user will choose minimal outline or Snowflake there)
+   - `discovery` → mention `/storyforge:rolling-planner` instead of `plot-architect`
 
 3. **Create project** — Use MCP `create_book_structure()` with collected info. ALWAYS pass `book_category` explicitly (fiction or memoir) — the server branches the scaffold on this field (memoir uses `people/` instead of `characters/` and skips `world/`).
 
@@ -76,6 +76,8 @@ argument-hint: "[title]"
         ⊘ {K} chars excluded (recurs_in does not include {band})
       ```
 
+      Reproduce this exact three-line ✓/⚠/⊘ format with real counts — don't paraphrase it into prose.
+
       Options: **Yes, copy** (default) / **Skip — I'll do it manually**.
 
    d. On confirmation, call MCP `copy_recurring_chars_to_new_book(series_slug, prev_book_slug, new_book_slug, band, book_category)` — pass all five parameters, including `book_category` (easy to drop since it's last in the list; the tool needs it to know whether to write into `characters/` or `people/`). The tool returns `{copied, skipped, new_chars}`.
@@ -99,16 +101,15 @@ argument-hint: "[title]"
 
 7. **Load genre README(s)** — Use MCP `get_genre()` for each selected genre. Show key conventions to the user.
 
-8. **Suggest next steps** — Based on `book_category` and effective `author_writing_mode`:
+8. **Suggest next steps** — Based on `book_category` and effective `author_writing_mode`. This is the final, authoritative next-step message — always give it in full even if Step 2c already mentioned the planning skill in passing; always lead with `/storyforge:book-conceptualizer`:
 
    **Fiction:**
    - **Outliner:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` for the full outline"
    - **Plantser:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` (choose minimal outline or Snowflake)"
    - **Discovery:** "Start with `/storyforge:book-conceptualizer` (concept only, no plot) → then `/storyforge:rolling-planner` before each writing session"
 
-   **Memoir:**
-   - Mention that memoir-aware skills land in Phase 2+ (#97). Until then, manually load `book_categories/memoir/README.md` and the relevant `craft/*.md` docs at the start of each creative skill.
-   - **Outliner:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` to pick a structure type (chronological / thematic / braided / vignette)"
+   **Memoir:** memoir skills branch on `book_category` automatically — `book-conceptualizer`, `plot-architect-memoir`, `character-creator-memoir`, `chapter-writer-memoir`, etc. are already wired (see storyforge's own CLAUDE.md "Memoir Workflows"). Do NOT tell the user to manually load `book_categories/memoir/README.md` or craft docs themselves — the skills below do that on their own.
+   - **Outliner:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` to pick a structure type (chronological / thematic / braided / vignette)" — this is a structure-TYPE choice, never call it "the full outline" (that phrase belongs only to the fiction/outliner case above).
    - **Plantser:** "Start with `/storyforge:book-conceptualizer` → then `/storyforge:plot-architect` for a chapter spine matching your structure type"
    - **Discovery:** "Start with `/storyforge:book-conceptualizer` (concept only) → then `/storyforge:rolling-planner` before each writing session. Skip `plot-architect`."
 
