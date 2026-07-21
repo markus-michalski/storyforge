@@ -65,7 +65,7 @@ Ask the user:
 
 Write the through-line to `{project}/plot/outline.md` under "## Through-line". This is what the chapter spine in Step M5 will serve.
 
-**STOP. Do not proceed to Step M2 until the user has replied in this conversation. Structure choice cascades from this sentence.**
+**STOP. Do not proceed to Step M2 until the user has replied in this conversation. Structure choice cascades from this sentence.** This applies even when the user's own message already supplied the through-line answer — end this turn once it's written, rather than opening Step M2's structure-type question in the same response. Let the user see the recorded through-line before structure discussion begins.
 
 ### Step M2: Choose structure type
 
@@ -81,6 +81,8 @@ Reference `memoir-structure-types.md` (loaded as prerequisite). Use AskUserQuest
 Reference the **decision tree** at the bottom of `memoir-structure-types.md` if the user is torn between two types — pick the one whose **failure modes you can avoid**, not the one with the prettier examples.
 
 After the user picks, persist the choice via MCP `set_memoir_structure_type(book_slug, structure_type)`. The tool validates against the four allowed values and writes to `plot/structure.md` frontmatter so downstream skills (`chapter-writer` memoir mode #57, `rolling-planner`) can read it.
+
+A blanket delegation ("you pick", "whatever you think is best", "let's just move fast") does not substitute for this gate: still present the four options via AskUserQuestion (naming a recommendation is fine and encouraged) and get an explicit pick in a reply before calling `set_memoir_structure_type` — a delegation is not the same as the user having seen and reacted to the four options.
 
 **STOP. Do not proceed to Step M3 until the user has replied in this conversation.** Every downstream step branches on this choice.
 
