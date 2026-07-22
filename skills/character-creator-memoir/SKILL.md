@@ -27,8 +27,13 @@ Real people are not invented; they are **captured** with care for relationship, 
 Before any other prerequisite load:
 
 1. **Load book data** via MCP `get_book_full(slug)`.
-2. Read `book_category`. If it is `fiction` (or missing), stop and tell the user:
+2. Read `book_category`. If it is `fiction`, stop and tell the user:
    > *This book's `book_category` is `fiction`. Use `/storyforge:character-creator` for fiction character work — the real-people handler (consent_status, anonymization, person_category) is for memoir books only. (To work on this as a memoir, set `book_category: memoir` in the README frontmatter first.)*
+
+   If `book_category` is missing entirely (legacy book, field never set), treat it the same as `fiction` — stop with the equivalent message, don't say "is fiction" when it's actually unset:
+   > *This book has no `book_category` set, so it defaults to fiction. Use `/storyforge:character-creator` for fiction character work — the real-people handler (consent_status, anonymization, person_category) is for memoir books only. (To work on this as a memoir, set `book_category: memoir` in the README frontmatter first.)*
+
+   Either way: stop and redirect. Do not ask the user which mode they meant just because they invoked this memoir-specific command — the command name is not authoritative over the book's own `book_category` field.
 3. Otherwise surface a one-line note: *"Working in memoir mode — capturing a real person, not inventing a character. The questions and the saved schema are different."*
 
 ## Prerequisites — MANDATORY LOADS
@@ -135,9 +140,9 @@ Call MCP `create_person()` with:
 
 The MCP tool validates each enum value and refuses to write the file on unknown values — surfacing what the four allowed sets are. If validation fails, fix and retry; do not work around by writing the file directly.
 
-After creation, expand the file body with the Memory anchors from Step M5. Update `{project}/people/INDEX.md` to list the new person under their relationship category (Family / Friends & relationships / Public figures / Pseudonymized / composite).
+After creation, expand the file body with the Memory anchors from Step M5. Update `{project}/people/INDEX.md` to list the new person under one category. Relationship is the primary axis and wins by default — file under `Family`, `Friends & relationships`, or `Public figures` (matching `person_category: public-figure`) based on who this person actually is to the memoirist, even when `anonymization` is `partial` or `pseudonym`; a pseudonym changes how the person is *rendered*, not who they *are*, so a lightly-to-moderately anonymized mother still belongs under `Family`. Reserve `Pseudonymized` / `composite` for entries that don't cleanly map to one relationship bucket in the first place — a `composite` entry merging several minor people, or an entry where the relationship itself is being withheld as part of the anonymization strategy.
 
-After all structural-cast people are captured, update book status to "Characters Created" (the status label is shared with fiction; the meaning shifts per `book_categories/memoir/status-model.md`).
+Before updating book status: compare the people now captured (`people/INDEX.md`) against the structural cast named in the README `## Scope` section. Only once every named structural-cast person has a people file does Step M6 finish — update book status to "Characters Created" (the status label is shared with fiction; the meaning shifts per `book_categories/memoir/status-model.md`) and ask the closing question below. If cast members remain uncaptured, say which ones and offer to continue with the next one instead of updating status or asking "Ready to write?" yet.
 
 Ask: *"Ready to write? → `/storyforge:chapter-writer-memoir`"*
 
