@@ -44,13 +44,19 @@ Before any other prerequisite load:
 
 ### Step M1: Identification
 
+Before asking anything below, the Prerequisites loads must actually have happened — `real-people-ethics.md` in particular, since its four-category model and consent framework is what the rest of this workflow assumes. Do not open Step M1 on a cold read of just this skill file. Say so briefly to the user, don't just load it silently — e.g. *"Working from real-people-ethics.md's four-category model (public figure / private living person / deceased / anonymized-or-composite) and the consent framework — here's who we're capturing first."* A silent load the user never sees is not distinguishable from no load at all.
+
+If the Scope section (`README.md`) already names a structural cast, start from that list rather than asking the user to invent a cast from nothing — e.g. *"Scope names your mother, your brother, and the hospice nurse as the structural cast. Want to start with your mother?"*
+
+If this person's relationship reveals they are the memoirist's own minor child, flag it now: per the Rules section's "For your own children" special case, anonymize aggressively or wait until they can consent — carry this forward into Step M4's anonymization discussion, don't let it default to light treatment.
+
 Ask the user (use AskUserQuestion when the answers branch downstream choices):
 
 - **Name on the page**: How does this person appear in the manuscript? (Their real name, or a pseudonym?)
 - **Real name**: If a pseudonym, what is the real name? (Stored privately in frontmatter; never rendered into prose.)
 - **Relationship to the memoirist**: Free-text. *"My sister. My third-grade teacher. The neighbor who watched me on Saturdays. The doctor who gave me the diagnosis."* Specificity here drives every other decision.
 
-**Wait for user to confirm name, real name (if any), and relationship before proceeding to Step M2.**
+**Wait for user to confirm name, real name (if any), and relationship before proceeding to Step M2 — even if the user's initial answer already contained all three pieces, restate them and get an explicit go-ahead before opening Step M2 in the same turn.**
 
 ### Step M2: Person category
 
@@ -81,6 +87,8 @@ Pick one of five consent statuses:
 
 If `refused` or `not-asking`, ask the user the follow-up: *"What is the path forward — cut, anonymize, or re-frame?"* Capture the answer in the people file's "Consent and ethics notes" section.
 
+"Unknown", "not sure yet", "haven't decided" is not a valid `consent_status` — none of the five values above means "undecided." If the user hasn't decided, walk through the five options and land on the honest one; that is usually `pending` (intend to ask before publication) per the Rules section. Do not record `consent_status: unknown` and do not leave it unset.
+
 **Wait for user to confirm `consent_status` before proceeding to Step M4.**
 
 ### Step M4: Anonymization decision
@@ -96,6 +104,8 @@ Pick one:
 
 If anonymization is not `none`, surface the test from `real-people-ethics.md`: *would someone who knew the real person still identify them from the rendered details?* If yes, the anonymization is too thin — push the user to change another identifier or move to `composite`.
 
+`composite` is for narrative economy only (several minor people who collectively played one role), never as a way to obscure one specific person's identity — that is thin anonymization wearing composite's cover story. Never merge people of meaningfully different moral weight (e.g. a difficult-but-decent ex with an abusive one) into a single composite — the merged character inherits weight neither individual carried. If the user proposes either, push back and point at `pseudonym` (real anonymization of each person) instead.
+
 **Wait for user to confirm anonymization level before proceeding to Step M5.**
 
 ### Step M5: Memory anchors
@@ -105,6 +115,10 @@ The memoir-specific replacement for fiction's Voice + Quirks + Human Texture. As
 - *"What is one specific moment with this person you remember in detail — sensory, gestural, dialogue-fragments-level detail?"*
 - *"What is something about how they spoke, moved, or reacted that was uniquely them — not a generalization, an anchor?"*
 - *"What is a contradiction in them that you noticed? Real people contain multitudes."*
+
+If the user asks for a fatal flaw, a GMC (Goal/Motivation/Conflict) breakdown, or a want-vs-need frame for this person, decline — those are fiction-craft tools; applying them to a real person produces fictionalization, the exact failure mode memoir avoids (see Rules). Redirect to these three questions instead.
+
+If an answer is a generalized summary rather than a specific moment ("she was always caring", "he never gave up") — reject it as a memory anchor. Ask for the one scene: what were they doing, what did they say, what did it look/sound/feel like. A trait description is not an anchor; an anchor earns the trait through a specific, dramatized moment. Do not write a generalized summary into the file as if it were a memory anchor — push back at least once before accepting.
 
 Capture these as the seed material for scenes that involve this person. Reference `emotional-truth.md` and `scene-vs-summary.md` — the goal is anchors that earn dramatization, not summaries that pretend to be character development.
 
