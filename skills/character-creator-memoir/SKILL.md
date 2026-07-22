@@ -53,13 +53,13 @@ Before asking anything below, the Prerequisites loads must actually have happene
 
 If the Scope section (`README.md`) already names a structural cast, start from that list rather than asking the user to invent a cast from nothing — e.g. *"Scope names your mother, your brother, and the hospice nurse as the structural cast. Want to start with your mother?"*
 
-If this person's relationship reveals they are the memoirist's own minor child, flag it now: per the Rules section's "For your own children" special case, anonymize aggressively or wait until they can consent — carry this forward into Step M4's anonymization discussion, don't let it default to light treatment.
-
 Ask the user (use AskUserQuestion when the answers branch downstream choices):
 
 - **Name on the page**: How does this person appear in the manuscript? (Their real name, or a pseudonym?)
 - **Real name**: If a pseudonym, what is the real name? (Stored privately in frontmatter; never rendered into prose.)
 - **Relationship to the memoirist**: Free-text. *"My sister. My third-grade teacher. The neighbor who watched me on Saturdays. The doctor who gave me the diagnosis."* Specificity here drives every other decision.
+
+Once the relationship answer comes in: if it reveals this is the memoirist's own minor child, flag it immediately — per the Rules section's "For your own children" special case, anonymize aggressively or wait until they can consent. Carry this forward into Step M4's anonymization discussion so it doesn't default to light treatment.
 
 **Wait for user to confirm name, real name (if any), and relationship before proceeding to Step M2 — even if the user's initial answer already contained all three pieces, restate them and get an explicit go-ahead before opening Step M2 in the same turn.**
 
