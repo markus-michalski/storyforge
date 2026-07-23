@@ -40,9 +40,11 @@ This returns:
 
 Honor every populated field. Empty lists / null means "file missing — degrade gracefully."
 
+When a field is empty **because of a missing file** (i.e. its source file is named in `errors`), the corresponding Continuity/Timeline report line must say so explicitly (e.g. `"not available — plot/timeline.md missing"`) rather than reporting a bare `0`. A bare `0` implies the check ran and found nothing wrong; for a missing file no check ran at all, and conflating the two misleads the author into trusting an unverified area of the chapter.
+
 ### Step 2 — Load author and craft context
 
-- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` (Issue #151) lists cross-book tics — flag any hit as Major findings. `style_principles` (genre-filtered — skip entries whose `genres` list shares no genre with this book; entries without `genres` are universal) and `donts` feed the same review pass.
+- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` (Issue #151) lists cross-book tics — flag any hit as a Critical finding (the Output Format below has only Critical/Recommended/Minor tiers; a recurring, previously-documented tic is always Critical, never downgraded to Minor). `style_principles` (genre-filtered — skip entries whose `genres` list shares no genre with this book; entries without `genres` are universal) and `donts` feed the same review pass.
 - **World rules** — Read `{project}/world/rules.md` if it exists. **Why:** Canonically fragile facts (room inventories, biology details, dates, Firelight-specific character states) consolidated with world-level rules. Use alongside check 20e. Missing file → skip silently.
 - **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Banned-word scan and preferred-word check both run against this list.
 - **Craft references** via MCP `get_craft_reference()`:
@@ -50,7 +52,7 @@ Honor every populated field. Empty lists / null means "file missing — degrade 
   - `anti-ai-patterns` — AI-tell catalog for the Anti-AI section (5 points).
   - `chapter-construction` — hook/scene-sequel/ending criteria for the Structure section (5 points).
   - `dialog-craft` — subtext, voice differentiation, tag discipline — for points 9 and 15.
-  - `show-dont-tell` — show/tell balance check for points 6 and 24.
+  - `show-dont-tell` — show/tell balance check for points 6 and 32.
   - `simile-discipline` — the two-question test for point 10b.
 - **Detect if Chapter 1:** Check chapter slug (starts with `01-` or `001-`) or frontmatter chapter number. If Chapter 1: also load `openings-and-endings` craft reference.
 
@@ -88,7 +90,7 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 
 ---
 
-## Review Checklist — 28 Points + 1 sub-point
+## Review Checklist — 33 Points + 9 sub-points
 
 ### Structure (5 points)
 1. **Opening hook** — Does the first paragraph grab? Would you keep reading?
@@ -97,7 +99,7 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 4. **Ending** — Does it compel the reader to turn the page?
 5. **Pacing** — Does the chapter breathe? Action/reflection balance?
 
-### Craft (5 points + 1 sub-point)
+### Craft (5 points + 2 sub-points)
 6. **Show don't tell** — Are emotions shown through action/body, not named?
 7. **Sensory details** — Are multiple senses engaged (not just visual)?
 8. **Specific details** — Concrete nouns and precise verbs, not generic descriptions?
@@ -128,9 +130,9 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 20. **Character facts** — Do character descriptions/behaviors match established facts?
 20a. **POV knowledge boundary** — Does the narration attribute domain knowledge the POV character's profile says they don't have? Three remediation options: (a) move into dialog, (b) reframe as lay observation, (c) cut.
 
-### Plot Logic (5 points)
+### Plot Logic (5 sub-points)
 
-Load `analyze_plot_logic(book_slug, scope="chapter", chapter_slug=...)` once before scoring this section. The returned `knowledge_index` provides facts, promises, and chapter story-days.
+Load `analyze_plot_logic(book_slug, scope="chapter", chapter_slug=...)` once before scoring this section. The returned `knowledge_index` provides facts, promises, and chapter story-days. `knowledge_index.promises` is **manuscript-wide** (every chapter's promises, each tagged with its own `source_chapter`) even under `scope="chapter"` — filter to entries where `source_chapter == chapter_slug` before computing point 20f's Promise log line; otherwise another chapter's setup elements get miscounted against this chapter.
 
 20b. **Information leak** — Does the POV character reference any fact established in a later chapter, or in an earlier chapter where the POV was absent? Severity: **high (FAIL)** if demonstrably absent; **WARN** otherwise.
 20c. **Motivation chain** — Does each significant decision follow from the character's established wants and knowledge? Flag contradictions without on-page justification. Severity: **WARN**.
@@ -151,11 +153,11 @@ Load `analyze_plot_logic(book_slug, scope="chapter", chapter_slug=...)` once bef
 28. **Cross-chapter consistency** — Do references to earlier events match the previous chapter's timeline?
 
 ### Anti-AI (5 points)
-21. **AI vocabulary** — Any words from the banned list?
-22. **Structural uniformity** — Paragraphs/sentences suspiciously uniform in length?
-23. **Generic descriptions** — Any "bustling city", "warm smile", "piercing gaze" clichés?
-24. **Emotional telling** — Any "he felt a wave of sadness" instead of showing?
-25. **Neat resolution** — Does every scene wrap up too tidily?
+29. **AI vocabulary** — Any words from the banned list?
+30. **Structural uniformity** — Paragraphs/sentences suspiciously uniform in length?
+31. **Generic descriptions** — Any "bustling city", "warm smile", "piercing gaze" clichés?
+32. **Emotional telling** — Any "he felt a wave of sadness" instead of showing?
+33. **Neat resolution** — Does every scene wrap up too tidily?
 
 ## Output Format
 
