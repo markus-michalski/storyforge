@@ -35,6 +35,7 @@ Before writing a single word:
    - `consent_status_warnings` — if any `refused` tier → halt drafting immediately; route user to `/storyforge:character-creator-memoir` to decide cut / anonymize / re-frame.
    - `review_handle` — store as `{review_handle}`.
 2. **Author profile** — MCP `get_author()`. **Why:** Drives tone, vocabulary, rhythm, voice. Without it prose defaults to generic AI register. **The profile's `writing_discoveries` field carries `recurring_tics` to suppress, `style_principles` to lean into, `donts` to avoid. Apply BEFORE drafting any prose.**
+   **Style Suppressions:** Check book CLAUDE.md `## Style Suppressions` section (available in brief or via `get_book_claudemd`). Any `style_principles` heading matching an entry is **skipped for this book** — omit from Audit 4.5, don't apply. Missing section = all principles apply.
 3. **Book data** — MCP `get_book_full()`. **Why:** Memoir category context, scope, themes — the frame the chapter must fit.
 4. **Genre README(s)** — MCP `get_genre()` for each genre, framed as **thematic tags** (memoir-of-illness, memoir-of-place). **Why:** Memoir uses genre as theme, not as plot-convention contract. Skip plot-genre conventions (HEA, ticking-clock) — they do not apply.
 5. **Craft references — universal** — MCP `get_craft_reference()`:
@@ -53,9 +54,9 @@ Before writing a single word:
 7. **Memoir structure type** — Read `plot/structure.md` frontmatter (`structure_type:` — set by `plot-architect-memoir` #58). **Why:** The chapter's scene/summary ratio and POV vantage vary by structure type (chronological / thematic / braided / vignette). For braided memoir, the chapter spine in `plot/outline.md` flags which thread (A or B) this chapter belongs to.
 8. **Story timeline** — Read `{project}/plot/timeline.md`. **Why:** Memoir uses real chronology; the timeline file anchors story-time so cross-chapter references stay consistent.
 9. **People facts** — Use `canon_brief` from the chapter writing brief (DB-backed since Issue #297 — `plot/people-log.md` is no longer read directly). **Why:** Large logs truncate context. The inlined brief carries `pov_relevant_facts` (trimmed newest-first to 30k char budget) and `changed_facts`. For the unfiltered list call standalone `get_canon_brief(book_slug, chapter_slug)`. If `extraction_method == "none"`, no facts are in DB yet — run `scripts/migrate_canon_log_to_db.py` to import from `plot/people-log.md`, or call `add_canon_fact()` to add facts. Surface `warnings`; do not invent person facts.
-10. **Consent status check** — Read `consent_status_warnings` from the brief. **MANDATORY GATE.** If any warning has tier `refused`, halt drafting and route to `/storyforge:character-creator-memoir`. For tier `missing` or `pending`, surface and confirm before drafting.
+10. **Consent status check** — Read `consent_status_warnings` from the brief. **MANDATORY GATE.** If any warning has tier `refused`, halt drafting and route to `/storyforge:character-creator-memoir`. Tier `missing` requires an explicit user decision before drafting (surface the gap and ask the user how to proceed — e.g. cut, anonymize, or confirm consent is in fact fine to assume — not a routine confirmation). Tier `pending` requires the lighter user confirmation that drafting can proceed while consent is still outstanding.
 
-**Shared procedures** — MCP `get_craft_reference("chapter-writing-shared")`. **Why:** The shared procedures doc is the single source of truth for the user review loop (§ User Review Loop), scene-plan persistence (§ Scene Plan Persistence), chapter completion (§ Chapter Completion), and POV snapshot (§ POV Snapshot Procedure). Without it, all four downstream § references in this skill have no defined behavior — the skill cannot complete Modes A or B. Contains mode selection, scene-plan persistence, user review loop, chapter completion, POV snapshot procedure, and user feedback handling — all referenced inline later by section name (`§`).
+**Shared procedures** — MCP `get_craft_reference("chapter-writing-shared")`. **Why:** The shared procedures doc is the single source of truth for the Pre-Logic Audit (§ Pre-Logic Audit), the EA-Scan Protocol (§ EA-Scan Protocol), the user review loop (§ User Review Loop), scene-plan persistence (§ Scene Plan Persistence), chapter completion (§ Chapter Completion), and POV snapshot (§ POV Snapshot Procedure). Without it, every downstream § reference in this skill has no defined behavior — the skill cannot complete Modes A or B. Contains mode selection, the pre-logic audit, scene-plan persistence, the EA-scan protocol, user review loop, chapter completion, POV snapshot procedure, and user feedback handling — all referenced inline later by section name (`§`).
 
 Note: memoir does **not** read `world/setting.md` (real settings live in `research/sources.md`). Both fiction and memoir read canon facts from DB only (Issue #297) — neither `plot/canon-log.md` nor `plot/people-log.md` is read directly.
 
@@ -81,19 +82,9 @@ Read the chapter README.md outline:
 
 ### Pre-Logic Audit (MANDATORY, both modes)
 
-**Emit a bulleted audit block to chat before any prose enters `draft.md`.** No exceptions, no inlining into the prose response. For each category, answer in one sentence citing the source; if the source is silent, say so — that is the gap to surface, not paper over.
+→ **§ Pre-Logic Audit** in `chapter-writing-shared.md`. Category 2 (Geography) and category 3 (Character biography & relationships) use the memoir-source branch documented there (`research/sources.md` instead of `world/setting.md`; `people/{slug}.md` instead of `characters/{slug}.md`). Category 4.5 (style_principles activation) and category 6 (scene arc) apply identically to memoir.
 
-1. **Inventory (POV character).** What does the POV char physically carry? **Source:** brief's `pov_character_inventory`. If `extraction_method: "none"` or `warnings` non-empty → ask before any item-touching action; do not invent.
-
-2. **Geography.** Which locations, routes, and settings does this scene touch; which is the POV char familiar with? **Source:** `research/sources.md` + chapter setting prose, plus `plot/timeline.md` and `recent_chapter_timelines`. Verify against research notes — memoir uses real places, not a structured matrix.
-
-3. **Character biography & relationships.** For every person on the page: relationship to POV, what POV knows, what is canon-forbidden? **Source:** `people/{slug}.md`, brief's `canon_brief.pov_relevant_facts` + `canon_brief.changed_facts`. For non-POV characters call standalone `get_canon_brief()` → `current_facts`. If `canon_brief.warnings` non-empty → surface and ask.
-
-4. **Banned phrases + author tics.** Scan the *planned* beats against brief's `banned_phrases` and author profile's `writing_discoveries.recurring_tics` / `donts`. Replan offending beats before any prose.
-
-5. **Sensory plausibility.** Can the POV perceive what the planned beat requires? **Source:** brief's `pov_character_state` — `clothing`, `injuries`, `altered_states`, `environmental_limiters`. If any category has `extraction_methods[cat] == "none"` AND the planned beat depends on it → surface and ask.
-
-If any category surfaces a gap, surface it explicitly and ask the user — never paper over it.
+Emit bulleted block before any prose. Mode A: per scene (Step A1b). Mode B: once per chapter (Step 2c). If any category surfaces a gap, ask the user — never paper over it.
 
 ---
 
@@ -124,7 +115,7 @@ Run the **Pre-Logic Audit** (above) **per scene**. Emit the bulleted block to ch
 #### Step A2: Write One Scene
 Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene (~900 words, range 600-1200).
 
-**Pre-append:** run the Step 6c Simile Discipline Scan. No scene enters `draft.md` before the scan.
+**Pre-append:** run the Step 6c Simile Discipline Scan (model fixes autonomously), then the Step 6d Elegant Abstraction Scan (interactive hard-gate — user resolves every hit before appending). No scene enters `draft.md` until both scans are complete and all EA hits resolved or explicitly skipped.
 
 After writing:
 1. **Append directly to `{project}/chapters/{chapter}/draft.md`** — never paste prose into chat. If `draft.md` doesn't exist, create it with `# Chapter N: Title` above the first scene. Separate scenes with a blank line.
@@ -181,12 +172,22 @@ For each hit: answer literal-resemblance and real-work honestly. Reject dead sim
 
 ---
 
+### Step 6d: Elegant Abstraction Scan — Interactive Hard-Gate (MANDATORY, both modes, pre-save)
+
+Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `draft.md` until this scan is fully resolved.** Applies identically to memoir — reflective/reconstructed prose is exactly where these abstraction shapes cluster (a "smooth-but-flat" reflective passage often *is* an unresolved EA hit).
+
+→ **§ EA-Scan Protocol** in `chapter-writing-shared.md`.
+
+After all hits resolved: append to `draft.md` and add `EA-Scan: N fixed, M skipped` to the chat metadata line.
+
+---
+
 ### Step 7: Save and Update (both modes)
 1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
 2. **Extract promises** — Before flipping status to `Review` or `Final`, walk the completed draft and identify setup-elements (unresolved threads, callbacks, foreshadowed events — taxonomy in `reference/craft/plot-logic.md`). Cap at 8 per chapter. Persist via MCP `register_chapter_promises(book_slug, chapter_slug, promises)`.
 3. **People Fact Recording Gate — required before advancing to Review or Final. Skip only when staying at `Draft`.** This gate blocks the status update in step 4 — do not call `update_field()` until the gate is complete.
 
-   a. **Check existing coverage** — Call `get_canon_brief(book_slug, chapter_slug)`. Note the `facts_count` for the current chapter slug. Even when facts already exist (incremental save), still scan the current session's prose for anything added since the last save.
+   a. **Check existing coverage** — `get_canon_brief()` is scoped to *prior* chapters only: it deliberately excludes the current chapter's own facts (a fact recorded for chapter N never appears in its own `current_facts` — by design, verified in `tests/state/test_canon_brief.py::test_current_chapter_db_facts_excluded`), and it has no `facts_count` field at all. It cannot tell you what's already recorded for THIS chapter — do not rely on it for that. Instead, track this session's own `add_canon_fact()` calls for this chapter as the coverage record. On an incremental save (re-entering this step after an earlier partial save in the same session), still scan the full current-session prose for anything added since the last save — new or revised — rather than assuming nothing changed.
 
    b. **Scan the completed draft** for person-relevant facts. Check every category:
       - **People** — new names introduced, physical details, jobs or roles first established
@@ -222,6 +223,7 @@ For each hit: answer literal-resemblance and real-work honestly. Reject dead sim
 - Does the POV character's emotional state change or deepen?
 - Would a reader know which person is speaking without dialog tags?
 - **Simile discipline** — Confirm the Step 6c scan ran. No decorative comparisons survived.
+- **Elegant abstraction** — Confirm the Step 6d scan ran on every scene/section. Any surviving Section 11 shapes are user-approved skips — not oversights. If any shape is present that was not surfaced in the EA-Scan, that is a failure.
 - **Litmus test** — If `plot/tone.md` exists, answer EVERY question. If more than 1 answer is "no", flag to user before proceeding.
 - **Time consistency** — Verify every time reference is consistent with the Chapter Timeline from Step 7.
 
@@ -240,6 +242,7 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 - **Abstain from invention.** If you cannot point to a source in the brief, `people/*.md`, `plot/timeline.md`, `research/sources.md`, or a previous `draft.md` for a concrete detail — do not write it. Surface the gap and ask. Every invented detail in memoir is fabrication.
 - Author profile is LAW. Every scene needs *stakes* — the lived equivalent of conflict. Dialog has subtext. Banned words trigger sentence rewrite.
 - **Simile Discipline (Step 6c) is non-negotiable.** Every scene survives the two-question test before it enters `draft.md`. See `simile-discipline.md`.
+- **Elegant Abstraction Scan (Step 6d) is a non-negotiable interactive hard-gate.** No scene enters `draft.md` until every Section 11 hit is either fixed or explicitly skipped by the user. The model does not fix autonomously — each hit is presented, a replacement proposed, user approves. These shapes look literary but render emotion through abstraction — in memoir this is the "reflective platitude smoothed into elegant prose" failure mode overlapping with `memoir-anti-ai-patterns.md`. See `anti-ai-patterns.md` Section 11.
 - Honor every entry in the brief's `rules_to_honor` (book CLAUDE.md ## Rules). Honor `tone_litmus_questions` (from `plot/tone.md`) when present.
 - Never write a relative time reference without checking against the brief's `story_anchor` and `recent_chapter_timelines`. Adjust prose — not the timeline.
 - The Chapter Timeline section in `README.md` is MANDATORY at review status.
