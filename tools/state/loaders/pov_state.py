@@ -18,14 +18,23 @@ Priority per category (first hit wins):
 1. Frontmatter field in ``characters/{pov_slug}.md``:
    ``current_clothing``, ``current_injuries``, ``altered_states``,
    ``environmental_limiters``.
-2. Timeline regex on chapter README timeline sections — each category has its
+2. ``character_snapshots`` DB row for this character/book (Issue #281 —
+   written by ``update_character_snapshot()`` at chapter close). Skipped
+   entirely when the book's snapshot DB file doesn't exist on disk yet, so
+   books/tests that never wrote a snapshot never touch the filesystem for
+   this tier.
+3. Timeline regex on chapter README timeline sections — each category has its
    own keyword set.
-3. Draft heuristic — best-effort regex over the last review-or-later draft.
-4. ``"none"`` with a warning when the chapter outline references the missing
+4. Draft heuristic — best-effort regex over the last review-or-later draft.
+5. ``"none"`` with a warning when the chapter outline references the missing
    category.
 
 Each category extracts independently — partial coverage (e.g. clothing from
 frontmatter, injuries from timeline) is fine.
+
+Bug note (found live during the chapter-writer skill-eval rollout,
+2026-07-23): tier 2 was entirely missing until this fix — see the matching
+note in ``pov_inventory.py``, same root cause, same fix shape.
 """
 
 from __future__ import annotations
@@ -34,6 +43,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from tools.db.character_snapshots import get_latest_snapshot_for_book
+from tools.db.connection import get_book_num, get_canon_db_path, get_db_slug_for_book, open_canon_db
 from tools.shared.paths import slugify
 from tools.state.parsers import _chapter_rank, parse_chapter_readme, parse_frontmatter
 
@@ -90,6 +101,14 @@ _FRONTMATTER_FIELDS: dict[str, str] = {
     "environmental_limiters": "environmental_limiters",
 }
 
+# character_snapshots DB column name per category (Issue #281).
+_SNAPSHOT_DB_FIELDS: dict[str, str] = {
+    "clothing": "clothing",
+    "injuries": "injuries",
+    "altered_states": "altered_states",
+    "environmental_limiters": "environmental_limiters",
+}
+
 # Keywords in the chapter outline that indicate the category is referenced.
 # If the outline mentions these AND the category is "none", a warning is emitted.
 _OUTLINE_KEYWORDS: dict[str, list[str]] = {
@@ -112,6 +131,12 @@ _REVIEW_RANK_THRESHOLD = 2
 _PRIOR_CHAPTER_LIMIT = 3
 _CHAPTER_DIR_RE = re.compile(r"^(?P<num>\d{1,3})-")
 _TIME_ANCHOR_RE = re.compile(r"~?\d{1,2}:\d{2}")
+
+
+def _chapter_number(chapter_slug: str) -> int:
+    """Parse the leading chapter number out of a chapter slug (mirrors canon_brief)."""
+    m = _CHAPTER_DIR_RE.match(chapter_slug)
+    return int(m.group("num")) if m else 0
 
 
 # ---------------------------------------------------------------------------
@@ -149,12 +174,13 @@ def extract_pov_state(
 
     pov_slug = slugify(pov_character) if pov_character else ""
     chapters = _chapters_for_scan(book_root, chapter_slug)
+    snapshot_row = _load_snapshot_row(book_root, pov_slug, chapter_slug) if pov_slug else None
 
     results: dict[str, list[dict[str, str]]] = {}
     methods: dict[str, str] = {}
 
     for cat in _CATEGORIES:
-        items, method = _extract_category(cat, pov_slug, chars_dir, chapters)
+        items, method = _extract_category(cat, pov_slug, chars_dir, chapters, snapshot_row)
         results[cat] = items
         methods[cat] = method
 
@@ -184,12 +210,17 @@ def _extract_category(
     pov_slug: str,
     chars_dir: Path,
     chapters: list[Path],
+    snapshot_row: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, str]], str]:
     """Return (items, extraction_method) for a single category."""
     if pov_slug:
         items = _from_frontmatter(category, chars_dir, pov_slug)
         if items:
             return items, "frontmatter"
+
+        items = _from_snapshot_row(category, pov_slug, snapshot_row)
+        if items:
+            return items, "snapshot_db"
 
     for ch_dir in chapters:
         items = _from_timeline(category, ch_dir)
@@ -223,6 +254,59 @@ def _from_frontmatter(
         return []
     source = f"character:{pov_slug}:frontmatter:{field}"
     return [{"item": str(entry).strip(), "source": source} for entry in raw if str(entry).strip()]
+
+
+def _load_snapshot_row(book_root: Path, pov_slug: str, chapter_slug: str) -> dict[str, Any] | None:
+    """Fetch the character's latest snapshot row once, shared across categories.
+
+    Bounded to snapshots recorded strictly before ``chapter_slug`` (mirrors
+    ``canon_brief``'s ``up_to_chapter = current_num - 1`` scoping) so that,
+    during non-linear revision (e.g. re-writing chapter 27 after chapters
+    28+ already have snapshots), a later chapter's snapshot never leaks
+    backward into an earlier chapter's brief as if it were already
+    established.
+
+    Returns ``None`` on any miss (no DB file yet, no row, DB error) so callers
+    fall through to the next tier — must never raise or block brief generation.
+    The DB file existence check avoids creating a real ``~/.storyforge/db/{slug}.db``
+    file for books that have never called ``update_character_snapshot()``.
+    """
+    try:
+        db_slug = get_db_slug_for_book(book_root)
+        if not get_canon_db_path(db_slug).is_file():
+            return None
+        book_num = get_book_num(book_root)
+        current_num = _chapter_number(chapter_slug)
+        conn = open_canon_db(db_slug)
+        try:
+            return get_latest_snapshot_for_book(
+                conn, pov_slug, book_num, up_to_chapter=max(0, current_num - 1)
+            )
+        finally:
+            conn.close()
+    except Exception:  # pylint: disable=broad-except
+        return None
+
+
+def _from_snapshot_row(
+    category: str,
+    pov_slug: str,
+    snapshot_row: dict[str, Any] | None,
+) -> list[dict[str, str]]:
+    if not snapshot_row:
+        return []
+    field = _SNAPSHOT_DB_FIELDS[category]
+    raw = snapshot_row.get(field)
+    if category == "environmental_limiters":
+        # Stored as a comma-joined string, not a JSON list (write side joins
+        # it before persisting) — reconstruct a best-effort list.
+        items = [piece.strip() for piece in str(raw or "").split(",") if piece.strip()]
+    else:
+        items = [str(item).strip() for item in (raw or []) if str(item).strip()]
+    if not items:
+        return []
+    source = f"character:{pov_slug}:snapshot_db:{field}"
+    return [{"item": item, "source": source} for item in items]
 
 
 def _from_timeline(category: str, chapter_dir: Path) -> list[dict[str, str]]:

@@ -1,7 +1,7 @@
 """Tests for ``tools.state.loaders.pov_inventory`` — Issue #157.
 
 Deterministic extraction of the POV character's physical inventory at
-the start of a chapter. Priority: frontmatter > timeline_regex >
+the start of a chapter. Priority: frontmatter > snapshot_db > timeline_regex >
 draft_heuristic > none. Surfaces structured items with source pointers
 so the chapter-writer can verify rather than invent.
 """
@@ -402,7 +402,7 @@ class TestSchemaInvariants:
         for key in ("items", "as_of", "extraction_method", "warnings"):
             assert key in result
 
-    def test_extraction_method_is_one_of_four_values(
+    def test_extraction_method_is_one_of_five_values(
         self, tmp_path: Path
     ) -> None:
         book = _make_book(tmp_path)
@@ -411,6 +411,7 @@ class TestSchemaInvariants:
         result = extract_pov_inventory(book, "Theo", "27-the-meet")
         assert result["extraction_method"] in (
             "frontmatter",
+            "snapshot_db",
             "timeline_regex",
             "draft_heuristic",
             "none",
@@ -432,3 +433,148 @@ class TestSchemaInvariants:
             assert "source" in entry
             assert isinstance(entry["item"], str)
             assert isinstance(entry["source"], str)
+
+
+# ---------------------------------------------------------------------------
+# Snapshot DB tier (Issue #281) — regression tests for the chapter-writer
+# skill-eval rollout finding, 2026-07-23: update_character_snapshot() wrote
+# to this table but extract_pov_inventory() never read it back.
+# ---------------------------------------------------------------------------
+
+
+class TestSnapshotDbTier:
+    def test_snapshot_db_used_when_no_frontmatter_inventory(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        import tools.db.connection as _db_conn
+        from tools.db.character_snapshots import upsert_snapshot
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        book = _make_book(tmp_path)
+        _add_character(book, "theo", name="Theo")  # no current_inventory field
+        _add_chapter(book, "27-the-meet", number=27, title="The Meet")
+
+        db_slug = get_db_slug_for_book(book)
+        conn = open_canon_db(db_slug)
+        upsert_snapshot(
+            conn, char_slug="theo", book_num=1, chapter_num=26,
+            inventory=["compass", "silver knife"],
+        )
+        conn.close()
+
+        result = extract_pov_inventory(book, "Theo", "27-the-meet")
+
+        assert result["extraction_method"] == "snapshot_db"
+        assert result["as_of"] == "26"
+        items = {entry["item"] for entry in result["items"]}
+        assert items == {"compass", "silver knife"}
+        assert all("snapshot_db" in entry["source"] for entry in result["items"])
+
+    def test_frontmatter_still_wins_over_snapshot_db(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        import tools.db.connection as _db_conn
+        from tools.db.character_snapshots import upsert_snapshot
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        book = _make_book(tmp_path)
+        _add_character(book, "theo", name="Theo", current_inventory=["map"])
+        _add_chapter(book, "27-the-meet", number=27, title="The Meet")
+
+        db_slug = get_db_slug_for_book(book)
+        conn = open_canon_db(db_slug)
+        upsert_snapshot(conn, char_slug="theo", book_num=1, chapter_num=26, inventory=["compass"])
+        conn.close()
+
+        result = extract_pov_inventory(book, "Theo", "27-the-meet")
+
+        assert result["extraction_method"] == "frontmatter"
+        assert result["items"] == [{"item": "map", "source": "character:theo:frontmatter:current_inventory"}]
+
+    def test_no_snapshot_db_file_falls_through_without_creating_one(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        import tools.db.connection as _db_conn
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        book = _make_book(tmp_path)
+        _add_character(book, "theo", name="Theo")
+        _add_chapter(book, "27-the-meet", number=27, title="The Meet")
+
+        result = extract_pov_inventory(book, "Theo", "27-the-meet")
+
+        assert result["extraction_method"] == "none"
+        assert not list(db_dir.iterdir()), "must not create a DB file when none existed"
+
+    def test_empty_snapshot_inventory_falls_through(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        import tools.db.connection as _db_conn
+        from tools.db.character_snapshots import upsert_snapshot
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        book = _make_book(tmp_path)
+        _add_character(book, "theo", name="Theo")
+        _add_chapter(book, "27-the-meet", number=27, title="The Meet")
+
+        db_slug = get_db_slug_for_book(book)
+        conn = open_canon_db(db_slug)
+        # Snapshot exists but only records injuries, not inventory.
+        upsert_snapshot(conn, char_slug="theo", book_num=1, chapter_num=26, injuries=["bruised hand"])
+        conn.close()
+
+        result = extract_pov_inventory(book, "Theo", "27-the-meet")
+
+        assert result["extraction_method"] == "none"
+
+    def test_later_chapter_snapshot_does_not_leak_into_earlier_revision(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """Non-linear editing: author snapshotted ch 26-28, now revises ch 27.
+
+        The ch-28 snapshot must NOT surface in the ch-27 brief as if it were
+        established before ch 27 — that would be a future-state leak.
+        Bounded lookup should fall back to the ch-26 snapshot instead
+        (mirrors canon_brief's ``up_to_chapter = current_num - 1`` scoping).
+        """
+        import tools.db.connection as _db_conn
+        from tools.db.character_snapshots import upsert_snapshot
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        book = _make_book(tmp_path)
+        _add_character(book, "theo", name="Theo")  # no current_inventory field
+        _add_chapter(book, "26-the-approach", number=26, title="The Approach")
+        _add_chapter(book, "27-the-meet", number=27, title="The Meet")
+        _add_chapter(book, "28-the-fallout", number=28, title="The Fallout")
+
+        db_slug = get_db_slug_for_book(book)
+        conn = open_canon_db(db_slug)
+        upsert_snapshot(conn, char_slug="theo", book_num=1, chapter_num=26, inventory=["compass"])
+        upsert_snapshot(conn, char_slug="theo", book_num=1, chapter_num=28, inventory=["compass", "silver knife"])
+        conn.close()
+
+        result = extract_pov_inventory(book, "Theo", "27-the-meet")
+
+        assert result["extraction_method"] == "snapshot_db"
+        assert result["as_of"] == "26"
+        items = {entry["item"] for entry in result["items"]}
+        assert items == {"compass"}, "must not see the ch-28 snapshot's silver knife while revising ch 27"

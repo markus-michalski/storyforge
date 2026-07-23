@@ -8,14 +8,27 @@ with a structured list and a source pointer the chapter-writer can verify.
 Priority (first hit wins):
 
 1. ``current_inventory`` field in ``characters/{pov_slug}.md`` frontmatter.
-2. Inventory regex (``inventory:``, ``tactical inventory:``, ``gear:``,
+2. ``character_snapshots`` DB row for this character/book (Issue #281 —
+   written by ``update_character_snapshot()`` at chapter close). Skipped
+   entirely when the book's snapshot DB file doesn't exist on disk yet, so
+   books/tests that never wrote a snapshot never touch the filesystem for
+   this tier.
+3. Inventory regex (``inventory:``, ``tactical inventory:``, ``gear:``,
    ``loadout:``, ``carrying:``) on the chapter README's timeline section,
    scanning the current chapter first, then the last 3 review-or-later
    prior chapters.
-3. Draft heuristic (``carried`` / ``had X in his pocket``) over the same
+4. Draft heuristic (``carried`` / ``had X in his pocket``) over the same
    chapter set.
-4. ``extraction_method: "none"`` with a warning surfacing the gap so the
+5. ``extraction_method: "none"`` with a warning surfacing the gap so the
    caller can ask the user instead of inventing.
+
+Bug note (found live during the chapter-writer skill-eval rollout,
+2026-07-23): tier 2 was entirely missing until this fix — ``update_character_snapshot()``
+persists to the ``character_snapshots`` SQLite table and explicitly does NOT
+touch the character file, so its writes were previously invisible to this
+extractor. The documented "Why this matters" claim in
+``chapter-writing-shared.md``'s POV Snapshot Procedure (that the snapshot
+keeps future briefs sharp) was false until this fix closed the read-side gap.
 """
 
 from __future__ import annotations
@@ -24,6 +37,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from tools.db.character_snapshots import get_latest_snapshot_for_book
+from tools.db.connection import get_book_num, get_canon_db_path, get_db_slug_for_book, open_canon_db
 from tools.shared.paths import slugify
 from tools.state.parsers import _chapter_rank, parse_chapter_readme, parse_frontmatter
 
@@ -66,6 +81,12 @@ _PRIOR_CHAPTER_LIMIT = 3
 _CHAPTER_DIR_RE = re.compile(r"^(?P<num>\d{1,3})-")
 
 
+def _chapter_number(chapter_slug: str) -> int:
+    """Parse the leading chapter number out of a chapter slug (mirrors canon_brief)."""
+    m = _CHAPTER_DIR_RE.match(chapter_slug)
+    return int(m.group("num")) if m else 0
+
+
 def extract_pov_inventory(
     book_root: Path,
     pov_character: str,
@@ -85,8 +106,8 @@ def extract_pov_inventory(
     Returns:
         Dict with the structured inventory schema. ``items`` is always a
         list (possibly empty), ``extraction_method`` is one of
-        ``frontmatter`` / ``timeline_regex`` / ``draft_heuristic`` /
-        ``none``, ``as_of`` is the chapter slug for chapter-tied sources
+        ``frontmatter`` / ``snapshot_db`` / ``timeline_regex`` /
+        ``draft_heuristic`` / ``none``, ``as_of`` is the chapter slug for chapter-tied sources
         or ``None`` for frontmatter and ``none``, ``warnings`` is a
         non-empty list when the gap should be surfaced to the user.
     """
@@ -99,6 +120,10 @@ def extract_pov_inventory(
         items = _from_frontmatter(chars_dir, pov_slug)
         if items:
             return _wrap(items, "frontmatter", as_of=None)
+
+        snapshot_items, snapshot_as_of = _from_snapshot_db(book_root, pov_slug, chapter_slug)
+        if snapshot_items:
+            return _wrap(snapshot_items, "snapshot_db", as_of=snapshot_as_of)
 
     chapters = _chapters_for_inventory_scan(book_root, chapter_slug)
 
@@ -145,6 +170,57 @@ def _from_frontmatter(chars_dir: Path, pov_slug: str) -> list[dict[str, str]]:
         for item in raw
         if str(item).strip()
     ]
+
+
+def _from_snapshot_db(
+    book_root: Path,
+    pov_slug: str,
+    chapter_slug: str,
+) -> tuple[list[dict[str, str]], str | None]:
+    """Read the character's latest ``current_inventory`` from the snapshot DB.
+
+    Bounded to snapshots recorded strictly before ``chapter_slug`` (mirrors
+    ``canon_brief``'s ``up_to_chapter = current_num - 1`` scoping) so that,
+    during non-linear revision (e.g. re-writing chapter 27 after chapters
+    28+ already have snapshots), a later chapter's snapshot never leaks
+    backward into an earlier chapter's brief as if it were already
+    established.
+
+    Returns ``([], None)`` on any miss (no DB file yet, no row, empty list,
+    or a DB error) so callers fall through to the next tier — this must
+    never raise or block brief generation. The DB file existence check
+    avoids creating a real ``~/.storyforge/db/{slug}.db`` file for books
+    that have never called ``update_character_snapshot()``.
+    """
+    try:
+        db_slug = get_db_slug_for_book(book_root)
+        if not get_canon_db_path(db_slug).is_file():
+            return [], None
+        book_num = get_book_num(book_root)
+        current_num = _chapter_number(chapter_slug)
+        conn = open_canon_db(db_slug)
+        try:
+            row = get_latest_snapshot_for_book(
+                conn, pov_slug, book_num, up_to_chapter=max(0, current_num - 1)
+            )
+        finally:
+            conn.close()
+    except Exception:  # pylint: disable=broad-except
+        return [], None
+
+    if not row:
+        return [], None
+    inventory = row.get("inventory") or []
+    if not inventory:
+        return [], None
+    source = f"character:{pov_slug}:snapshot_db:current_inventory"
+    chapter_num = row.get("chapter_num")
+    as_of = str(chapter_num) if chapter_num else None
+    return [
+        {"item": str(item).strip(), "source": source}
+        for item in inventory
+        if str(item).strip()
+    ], as_of
 
 
 def _from_timeline(chapter_dir: Path) -> list[dict[str, str]]:
