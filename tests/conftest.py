@@ -23,6 +23,21 @@ if _venv_site.is_dir() and str(_venv_site) not in sys.path:
     sys.path.insert(0, str(_venv_site))
 
 
+@pytest.fixture(autouse=True)
+def _isolate_db_dir(tmp_path, monkeypatch):
+    """Redirect ``tools.db.connection.DB_DIR`` to a per-test tmp dir by default.
+
+    Safety net for Issue #407: a test reaching a DB-backed loader without its
+    own explicit ``DB_DIR`` redirect used to silently create/write to the
+    real ``~/.storyforge/db/`` on the developer's machine. Tests that need a
+    specific ``DB_DIR`` still override it explicitly (their own fixture runs
+    after this one and wins).
+    """
+    import tools.db.connection as _db_conn
+
+    monkeypatch.setattr(_db_conn, "DB_DIR", tmp_path / "db")
+
+
 @pytest.fixture
 def seed_author_discoveries():
     """Factory fixture: seed ``author_discoveries`` DB entries for a test.
