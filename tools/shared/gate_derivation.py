@@ -289,13 +289,12 @@ def derive_from_tactical_setup(result: Mapping[str, Any]) -> GateResult:
 
     metadata = {
         "warnings_count": len(warnings_raw),
-        "characters_present": list(result.get("characters_present") or []),
     }
 
     findings: list[Finding] = []
     for w in warnings_raw:
         sev_raw = (w.get("severity") or "info").lower()
-        severity = "WARN" if sev_raw == "warn" else "WARN"
+        severity = "WARN" if sev_raw == "warn" else "PASS"
         findings.append(
             Finding(
                 code=f"TACTICAL_{sev_raw.upper()}",
