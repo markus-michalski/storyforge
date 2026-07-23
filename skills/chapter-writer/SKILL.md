@@ -180,6 +180,8 @@ After all hits resolved: append to `draft.md` and add `EA-Scan: N fixed, M skipp
 1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
 2–3. **Extract promises + Canon Fact Recording Gate (Issue #150).** → **§ Fact Recording Gate** in `chapter-writing-shared.md` for both sub-steps in full — promise extraction, and the canon-fact scan/record/checklist gate that blocks the status update in step 4. Skip both when staying at `Draft`.
 
+→ **§ Step 7 Draft-Skip Scope** in `chapter-writing-shared.md` for exactly which of steps 1–9 are gated to Review/Final vs. run unconditionally.
+
 4. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
 5. **Update session** — MCP `update_session(last_book=book_slug, last_chapter=chapter_slug, last_phase=<short next-step phrase>)`. `last_phase` is a forward-looking "what's next" pointer, not a bare status echo — derive it from step 4's status: `Draft` → `"Draft in progress — resume writing"`, `Review` → `"Ready for chapter-reviewer"`, `Final` → `"Chapter complete — plan the next chapter"`. **Why:** Keeps the session's ephemeral pointer current so `get_current_story_anchor`'s session-fallback resolves to the chapter just worked on instead of erroring empty, and `start-session`'s status line reflects real, actionable progress instead of staying permanently empty (Issue #378). Matches `rolling-planner`'s `last_phase` convention — both writers describe where to pick up next, not just an enum value (a bare `Final` tells the user nothing about what to do next).
 6. **Update `plot/timeline.md`** — one row per story-day. MANDATORY.
