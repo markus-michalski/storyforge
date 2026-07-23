@@ -178,31 +178,7 @@ After all hits resolved: append to `draft.md` and add `EA-Scan: N fixed, M skipp
 
 ### Step 7: Save and Update (both modes)
 1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
-2. **Extract promises (Issue #150)** — Before flipping status to `Review` or `Final`, walk the completed draft and identify setup-elements (locked drawers, character claims, cryptic warnings, unresolved clues — full taxonomy in `reference/craft/plot-logic.md`). For each: short concrete description (8–14 words), target chapter slug if the chapter outline names it else `unfired`, status `active`. Cap at 8 per chapter. Persist via MCP `register_chapter_promises(book_slug, chapter_slug, promises)`. If the chapter places no promises, pass an empty list — this writes a placeholder so the index knows the chapter was processed. Skip this step when staying at `Draft` (mid-chapter saves don't lock in promises).
-3. **Canon Fact Recording Gate — required before advancing to Review or Final. Skip only when staying at `Draft`.** This gate blocks the status update in step 4 — do not call `update_field()` until the gate is complete.
-
-   a. **No coverage-check call needed.** `get_canon_brief(book_slug, chapter_slug)` scopes its `current_facts` to chapters *before* this one (it never surfaces this chapter's own already-recorded facts — verified live, and there is no `facts_count` field in its response at all). Don't call it here to check what's already recorded. Instead, rely on `add_canon_fact`'s documented idempotency (duplicate `book_num`+`chapter_num`+`subject`+`fact` tuples are silently no-ops) and always scan the FULL completed draft fresh in step (b) below — re-recording an already-known fact from an earlier incremental save costs nothing.
-
-   b. **Scan the completed draft** for canon-relevant events. Check every category:
-      - **Characters** — new names, physical descriptions, abilities, injuries, deaths, status changes
-      - **Locations** — new rooms, buildings, routes, distances, first-visit establishments
-      - **Relationships** — connections established or changed between characters
-      - **Objects** — named items introduced, ownership transfers, destruction
-      - **Timeline** — exact dates/times, durations, relative anchors established
-      - **Events** — plot-significant actions, revelations, decisions with lasting consequences
-      - **Backstory** — origins, histories, past events first revealed in this chapter
-
-   c. **Record each fact** — Call `add_canon_fact(book_slug, chapter_num, subject, fact, domain=...)` for every item identified above. **`chapter_num` is the chapter's integer number (e.g. `4`), not the chapter slug** — verified against the tool's real signature during the live-MCP tier; passing the slug string here will fail. **Pass `domain` by name, not positionally** — the real parameter order is `(book_slug, chapter_num, subject, fact, book_num=1, domain="")`, so a 5th positional argument binds to `book_num`, not `domain`.
-      - `domain`: `character` | `location` | `relationship` | `object` | `timeline` | `event` | `backstory`
-      - For revisions to existing facts: add `is_revision=True`, `old_value=<previous text>`, `revision_impacts=[downstream_chapter_slug, ...]`
-
-   d. **Emit a Canon Fact Checklist** in chat — mandatory, even when the list is short:
-      ```
-      Canon Facts Recorded — Ch. {N}:
-      [✓] subject: <X> | fact: <...> | domain: <...>
-      [✓] subject: <Y> | fact: <...> | domain: <...>
-      ```
-      If zero canon-relevant events exist, declare it explicitly: *"Canon Recording: no new facts established in this chapter beyond what is already in DB."* This is a deliberate statement, not a silent skip.
+2–3. **Extract promises + Canon Fact Recording Gate (Issue #150).** → **§ Fact Recording Gate** in `chapter-writing-shared.md` for both sub-steps in full — promise extraction, and the canon-fact scan/record/checklist gate that blocks the status update in step 4. Skip both when staying at `Draft`.
 
 4. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`. Book-level status auto-derives via the #21 indexer.
 5. **Update session** — MCP `update_session(last_book=book_slug, last_chapter=chapter_slug, last_phase=<short next-step phrase>)`. `last_phase` is a forward-looking "what's next" pointer, not a bare status echo — derive it from step 4's status: `Draft` → `"Draft in progress — resume writing"`, `Review` → `"Ready for chapter-reviewer"`, `Final` → `"Chapter complete — plan the next chapter"`. **Why:** Keeps the session's ephemeral pointer current so `get_current_story_anchor`'s session-fallback resolves to the chapter just worked on instead of erroring empty, and `start-session`'s status line reflects real, actionable progress instead of staying permanently empty (Issue #378). Matches `rolling-planner`'s `last_phase` convention — both writers describe where to pick up next, not just an enum value (a bare `Final` tells the user nothing about what to do next).
