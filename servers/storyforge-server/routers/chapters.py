@@ -270,11 +270,17 @@ def get_review_brief(book_slug: str, chapter_slug: str) -> str:
         chapter_slug: Chapter identifier (e.g. "22-the-night-before").
 
     Returns JSON with:
+        book_category           — "fiction" or "memoir" (defaults "fiction")
         chapter_timeline        — start/end/scenes for the target chapter
         previous_chapter_timeline — same for the preceding chapter (or null)
         canonical_timeline_entries — parsed plot/timeline.md events
-        travel_matrix           — parsed world/setting.md Travel Matrix rows
-        canon_log_facts         — parsed plot/canon-log.md Established Facts
+        travel_matrix           — parsed world/setting.md Travel Matrix rows (empty for
+                                   memoir books — they have no world/ directory)
+        canon_log_facts         — established facts from the canon DB (add_canon_fact);
+                                   populated for both categories, not fiction-only —
+                                   memoir chapters also record facts there
+        consent_status_warnings — memoir only; consent-gate warnings for every real
+                                   person named in this chapter's README or draft.md
         tonal_rules             — non-negotiable rules, litmus, banned patterns
         active_rules            — book_rules DB (rule_type: rule) with severity
         active_callbacks        — book_rules DB (rule_type: callback)

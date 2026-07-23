@@ -23,7 +23,14 @@ from tools.db.brief_helpers import (
     load_canon_facts_for_brief,
     load_rules_for_brief,
 )
+from tools.shared.paths import resolve_people_dir
 from tools.state.chapter_timeline_parser import parse_chapter_timeline_grid
+from tools.state.loaders.chapter_meta import load_book_category
+from tools.state.loaders.people import (
+    consent_status_warnings as _consent_status_warnings,
+    person_payload,
+    scan_for_named_characters,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +300,37 @@ def _sorted_chapter_dirs(book_root: Path) -> list[tuple[int, Path]]:
     return out
 
 
+def _memoir_consent_warnings(book_root: Path, chapter_dir: Path) -> list[dict[str, str]]:
+    """Consent-status warnings for every real person named in this chapter.
+
+    Scans both the chapter's outline (``README.md``) and its ``draft.md`` —
+    unlike ``chapter_writing_brief``'s outline-only scan (appropriate there
+    since the draft may not exist yet at writing time), a *review* brief is
+    assembled against a chapter that already has prose, and a person who
+    only appears in the finished draft (not the original outline) must
+    still trip the consent gate.
+    """
+    people_dir = resolve_people_dir(book_root, "memoir")
+    if not people_dir.is_dir():
+        return []
+
+    combined_text = ""
+    readme_path = chapter_dir / "README.md"
+    if readme_path.is_file():
+        combined_text += readme_path.read_text(encoding="utf-8") + "\n"
+    draft_path = chapter_dir / "draft.md"
+    if draft_path.is_file():
+        combined_text += draft_path.read_text(encoding="utf-8")
+
+    slugs = scan_for_named_characters(combined_text, people_dir)
+    people = []
+    for slug in slugs:
+        path = people_dir / f"{slug}.md"
+        if path.is_file():
+            people.append(person_payload(path))
+    return _consent_status_warnings(people)
+
+
 def _find_previous_chapter_dir(book_root: Path, chapter_slug: str) -> Path | None:
     """Return the chapter directory that immediately precedes chapter_slug."""
     all_chapters = _sorted_chapter_dirs(book_root)
@@ -331,11 +369,17 @@ def build_review_brief(
         chapter_slug: Target chapter identifier (e.g. "22-the-night-before").
 
     Returns dict with:
+        book_category           — "fiction" or "memoir" (README frontmatter; defaults "fiction")
         chapter_timeline        — start/end/scenes for the target chapter
         previous_chapter_timeline — same for the preceding chapter (or None)
         canonical_timeline_entries — parsed plot/timeline.md events
-        travel_matrix           — parsed world/setting.md Travel Matrix rows
-        canon_log_facts         — parsed plot/canon-log.md Established Facts
+        travel_matrix           — parsed world/setting.md Travel Matrix rows (empty for
+                                   memoir books — they have no world/ directory)
+        canon_log_facts         — established facts from the canon DB (add_canon_fact);
+                                   populated for both categories, not fiction-only —
+                                   memoir chapters also record facts there
+        consent_status_warnings — memoir only; consent-gate warnings for every real
+                                   person named in this chapter's README or draft.md
         tonal_rules             — non-negotiable rules, litmus, banned patterns
         active_rules            — book CLAUDE.md ## Rules, structured
         active_callbacks        — book CLAUDE.md ## Callback Register items
@@ -344,6 +388,22 @@ def build_review_brief(
     recorder = _Recorder(errors=[])
     chapters_dir = book_root / "chapters"
     chapter_dir = chapters_dir / chapter_slug
+
+    # ----- book category (Issue #176 — chapter-reviewer/-memoir Step 0) -----
+    book_category = recorder.run(
+        "book.read",
+        lambda: load_book_category(book_root),
+        "fiction",
+    )
+
+    # ----- consent-status warnings (memoir only) -----------------------------
+    consent_warnings: list[dict[str, str]] = []
+    if book_category == "memoir":
+        consent_warnings = recorder.run(
+            "consent_status_warnings",
+            lambda: _memoir_consent_warnings(book_root, chapter_dir),
+            [],
+        )
 
     # ----- chapter timeline -------------------------------------------------
     chapter_timeline = recorder.run(
@@ -422,11 +482,13 @@ def build_review_brief(
     return {
         "book_slug": book_slug,
         "chapter_slug": chapter_slug,
+        "book_category": book_category,
         "chapter_timeline": chapter_timeline,
         "previous_chapter_timeline": previous_chapter_timeline,
         "canonical_timeline_entries": canonical_timeline_entries,
         "travel_matrix": travel_matrix,
         "canon_log_facts": canon_log_facts,
+        "consent_status_warnings": consent_warnings,
         "tonal_rules": tonal_rules,
         "active_rules": active_rules,
         "active_callbacks": active_callbacks,
