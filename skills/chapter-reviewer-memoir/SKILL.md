@@ -62,7 +62,7 @@ This is a review flag, not a halt — the review continues, but consent issues m
 
 ### Step 2 — Load author and craft context
 
-- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` lists cross-book tics — flag any hit as a Critical finding (the Output Format below has only Critical/Recommended/Minor tiers; a recurring, previously-documented tic is always Critical, never downgraded to Minor). `style_principles` and `donts` feed the same review pass.
+- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` lists cross-book tics — flag any hit as a Critical finding (the Output Format below has only Critical/Recommended/Minor tiers; a recurring, previously-documented tic is always Critical, never downgraded to Minor). `style_principles` (genre-filtered — skip entries whose `genres` list shares no genre with this book; entries without `genres` are universal — memoir books carry `genres` the same as fiction ones, so this scoping applies identically) and `donts` feed the same review pass.
 - **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Banned-word scan and preferred-word check both run against this list.
 - **Craft references** via MCP `get_craft_reference()`:
   - `dos-and-donts` — general craft baseline for the Craft section. **Why:** Craft section scoring (points 6–10) requires the dos-and-donts baseline; without it the review defaults to unsourced opinion.
