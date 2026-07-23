@@ -418,3 +418,131 @@ def test_build_review_brief_missing_optional_files_graceful(tmp_path):
     assert result["canon_log_facts"] == []
     assert result["tonal_rules"] == {}
     assert result["errors"] == []
+
+
+# ---------------------------------------------------------------------------
+# book_category + consent_status_warnings (Issue #176 follow-up) — added
+# because chapter-reviewer/chapter-reviewer-memoir's Step 0 / Step 1b both
+# read these fields "from the review brief," but build_review_brief() never
+# computed either one until now — a real gap, not an eval-design issue,
+# found via chapter-reviewer-memoir's live-MCP eval tier.
+# ---------------------------------------------------------------------------
+
+
+def _make_memoir_book(tmp_path: Path) -> tuple[Path, str]:
+    book_slug = "test-memoir-book"
+    book = tmp_path / book_slug
+    (book / "chapters").mkdir(parents=True)
+    (book / "plot").mkdir()
+    (book / "people").mkdir()
+    (book / "README.md").write_text(
+        '---\ntitle: "Test Memoir Book"\nbook_category: "memoir"\n---\n\n# Test Memoir Book\n',
+        encoding="utf-8",
+    )
+    return book, book_slug
+
+
+def _make_person(book: Path, slug: str, *, name: str, consent_status: str) -> None:
+    (book / "people" / f"{slug}.md").write_text(
+        "---\n"
+        f'name: "{name}"\n'
+        'relationship: "relative"\n'
+        'person_category: "private-living-person"\n'
+        f'consent_status: "{consent_status}"\n'
+        "---\n\nNotes.\n",
+        encoding="utf-8",
+    )
+
+
+def test_build_review_brief_book_category_defaults_fiction(tmp_path):
+    book, slug = _make_book(tmp_path)
+    _make_chapter(book, "01-opening", number=1)
+
+    result = build_review_brief(book_root=book, book_slug=slug, chapter_slug="01-opening")
+
+    assert result["book_category"] == "fiction"
+    assert result["consent_status_warnings"] == []
+
+
+def test_build_review_brief_book_category_memoir(tmp_path):
+    book, slug = _make_memoir_book(tmp_path)
+    _make_chapter(book, "01-opening", number=1)
+
+    result = build_review_brief(book_root=book, book_slug=slug, chapter_slug="01-opening")
+
+    assert result["book_category"] == "memoir"
+
+
+def test_build_review_brief_consent_warnings_person_named_in_readme(tmp_path):
+    book, slug = _make_memoir_book(tmp_path)
+    chapter = book / "chapters" / "01-opening"
+    chapter.mkdir(parents=True)
+    (chapter / "README.md").write_text(
+        '---\ntitle: "Chapter 1"\nnumber: 1\nstatus: "Draft"\n---\n\n'
+        "# Chapter 1\n\n## Scene Beats\n\n1. Uncle Frank arrives unannounced.\n",
+        encoding="utf-8",
+    )
+    (chapter / "draft.md").write_text("Some prose without the name.", encoding="utf-8")
+    _make_person(book, "uncle-frank", name="Uncle Frank", consent_status="refused")
+
+    result = build_review_brief(book_root=book, book_slug=slug, chapter_slug="01-opening")
+
+    warnings = result["consent_status_warnings"]
+    assert len(warnings) == 1
+    assert warnings[0]["person"] == "Uncle Frank"
+    assert warnings[0]["tier"] == "refused"
+
+
+def test_build_review_brief_consent_warnings_person_named_only_in_draft(tmp_path):
+    """A person absent from the outline but present in the finished draft
+    must still trip the consent gate — the review brief scans draft.md too,
+    unlike chapter_writing_brief's outline-only scan (see _memoir_consent_warnings
+    docstring for why the two differ)."""
+    book, slug = _make_memoir_book(tmp_path)
+    chapter = book / "chapters" / "01-opening"
+    chapter.mkdir(parents=True)
+    (chapter / "README.md").write_text(
+        '---\ntitle: "Chapter 1"\nnumber: 1\nstatus: "Draft"\n---\n\n# Chapter 1\n',
+        encoding="utf-8",
+    )
+    (chapter / "draft.md").write_text(
+        "Aunt Marie showed up at the door, unannounced.", encoding="utf-8"
+    )
+    _make_person(book, "aunt-marie", name="Aunt Marie", consent_status="pending")
+
+    result = build_review_brief(book_root=book, book_slug=slug, chapter_slug="01-opening")
+
+    warnings = result["consent_status_warnings"]
+    assert len(warnings) == 1
+    assert warnings[0]["person"] == "Aunt Marie"
+    assert warnings[0]["tier"] == "pending"
+
+
+def test_build_review_brief_no_consent_warnings_for_fiction_book(tmp_path):
+    """A fiction book must never run the memoir-only consent-gate scan,
+    even if a people/ directory happens to exist (e.g. a legacy layout)."""
+    book, slug = _make_book(tmp_path)
+    (book / "people").mkdir()
+    _make_person(book, "someone", name="Someone", consent_status="refused")
+    chapter = book / "chapters" / "01-opening"
+    chapter.mkdir(parents=True)
+    (chapter / "README.md").write_text(
+        '---\ntitle: "Chapter 1"\nnumber: 1\nstatus: "Draft"\n---\n\n# Chapter 1\nSomeone.\n',
+        encoding="utf-8",
+    )
+    (chapter / "draft.md").write_text("Someone appears here.", encoding="utf-8")
+
+    result = build_review_brief(book_root=book, book_slug=slug, chapter_slug="01-opening")
+
+    assert result["book_category"] == "fiction"
+    assert result["consent_status_warnings"] == []
+
+
+def test_build_review_brief_no_consent_warnings_when_nobody_named(tmp_path):
+    book, slug = _make_memoir_book(tmp_path)
+    _make_chapter(book, "01-opening", number=1)
+    _make_person(book, "uncle-frank", name="Uncle Frank", consent_status="refused")
+
+    result = build_review_brief(book_root=book, book_slug=slug, chapter_slug="01-opening")
+
+    assert result["consent_status_warnings"] == []

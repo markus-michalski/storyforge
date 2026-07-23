@@ -41,6 +41,12 @@ Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
 - `active_callbacks` — book_rules DB (rule_type: callback)
 - `errors` — non-empty means some files missing; degrade gracefully, do not invent
 
+When a field is empty **because of a missing file** (i.e. its source file is named in `errors`),
+the corresponding Continuity/Timeline report line must say so explicitly (e.g. `"not available —
+plot/timeline.md missing"`) rather than reporting a bare `0`. A bare `0` implies the check ran and
+found nothing wrong; for a missing file no check ran at all, and conflating the two misleads the
+author into trusting an unverified area of the chapter.
+
 People facts are read from DB via `canon_brief` (Issue #297). `plot/people-log.md` is a legacy archive — use `get_canon_brief(book_slug, chapter_slug)` for the authoritative DB-backed fact list. Run `scripts/migrate_canon_log_to_db.py` on books whose people-log was not yet migrated.
 
 ### Step 1b — Consent Gate
@@ -56,11 +62,11 @@ This is a review flag, not a halt — the review continues, but consent issues m
 
 ### Step 2 — Load author and craft context
 
-- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` lists cross-book tics — flag any hit as Major findings. `style_principles` and `donts` feed the same review pass.
+- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` lists cross-book tics — flag any hit as a Critical finding (the Output Format below has only Critical/Recommended/Minor tiers; a recurring, previously-documented tic is always Critical, never downgraded to Minor). `style_principles` and `donts` feed the same review pass.
 - **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Banned-word scan and preferred-word check both run against this list.
 - **Craft references** via MCP `get_craft_reference()`:
   - `dos-and-donts` — general craft baseline for the Craft section. **Why:** Craft section scoring (points 6–10) requires the dos-and-donts baseline; without it the review defaults to unsourced opinion.
-  - `anti-ai-patterns` — universal AI-tell catalog. **Why:** Anti-AI dimension (points 21–25) runs a hard gate against this catalog — missing it means banned words go unflagged.
+  - `anti-ai-patterns` — universal AI-tell catalog. **Why:** Anti-AI dimension (points 29–33) runs a hard gate against this catalog — missing it means banned words go unflagged.
   - `chapter-construction` — hook/scene-sequel/ending criteria. **Why:** Structure dimension (points 1–5) scores hook, scene-sequel flow, and ending against these criteria; missing it produces ungrounded structure ratings.
   - `dialog-craft` — subtext, voice differentiation, tag discipline. **Why:** Dialog quality (point 9) and Dialog voice (point 15) require this reference to assess subtext and tag discipline correctly.
   - `show-dont-tell` — show/tell balance check. **Why:** Show-don't-tell (point 6) is scored against the patterns in this file; without it the check is impressionistic.
@@ -105,7 +111,7 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 
 ---
 
-## Review Checklist — 28 Points + 1 sub-point
+## Review Checklist — 39 Points + 7 sub-points
 
 ### Structure (5 points)
 1. **Opening hook** — Does the first paragraph grab?
@@ -139,7 +145,7 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 20. **Person facts** — Do descriptions and behaviors of named people match what was established in earlier chapters and the people-log?
 20a. **Dialog reconstruction honesty** — Is reconstructed dialog presented with appropriate epistemic humility? Does the chapter claim verbatim precision for conversations that happened years or decades ago? Flag any dialog rendered as if perfectly remembered without qualifying framing.
 
-### Plot Logic (5 points)
+### Plot Logic (5 sub-points)
 
 Load `analyze_plot_logic(book_slug, scope="chapter", chapter_slug=...)` once before scoring this section.
 
@@ -162,22 +168,22 @@ Load `analyze_plot_logic(book_slug, scope="chapter", chapter_slug=...)` once bef
 28. **Cross-chapter consistency** — Do references to earlier events match the previous chapter's timeline?
 
 ### Anti-AI (5 points)
-21. **AI vocabulary** — Any words from the banned list?
-22. **Structural uniformity** — Paragraphs/sentences suspiciously uniform in length?
-23. **Generic descriptions** — Any "bustling city", "warm smile", "piercing gaze" clichés?
-24. **Emotional telling** — Any "he felt a wave of sadness" instead of showing?
-25. **Neat resolution** — Does every scene wrap up too tidily?
+29. **AI vocabulary** — Any words from the banned list?
+30. **Structural uniformity** — Paragraphs/sentences suspiciously uniform in length?
+31. **Generic descriptions** — Any "bustling city", "warm smile", "piercing gaze" clichés?
+32. **Emotional telling** — Any "he felt a wave of sadness" instead of showing?
+33. **Neat resolution** — Does every scene wrap up too tidily?
 
 ### Memoir Anti-AI (6 points)
 
 Load `memoir-anti-ai-patterns.md` (loaded in Step 2). Grade each:
 
-26. **Reflective platitude** — Any generic wisdom claims ("family is complicated", "grief takes time", "I came to realize how much I'd grown")? Flag every instance.
-27. **"Looking back" hinges** — Any "looking back now I can see", "in retrospect", "what I didn't know then was"? Occasional retrospective framing is valid; a pattern is evasion.
-28. **Tidy lesson ending** — Does the chapter close with an explained moral? The best memoir closes on a scene or image, not a lesson.
-29. **Hedging as humility** — Density of "perhaps", "in some way", "I think", "maybe"? Flag if density exceeds 2 per 500 words.
-30. **Therapeutic reframe** — Any "I came to understand that my anger was actually grief" framing? Translates lived experience into therapy-speak.
-31. **Explanation after image** — Does the chapter describe a scene and immediately explain what it meant? The image should land alone.
+34. **Reflective platitude** — Any generic wisdom claims ("family is complicated", "grief takes time", "I came to realize how much I'd grown")? Flag every instance.
+35. **"Looking back" hinges** — Any "looking back now I can see", "in retrospect", "what I didn't know then was"? Occasional retrospective framing is valid; a pattern is evasion.
+36. **Tidy lesson ending** — Does the chapter close with an explained moral? The best memoir closes on a scene or image, not a lesson.
+37. **Hedging as humility** — Density of "perhaps", "in some way", "I think", "maybe"? Flag if density exceeds 2 per 500 words.
+38. **Therapeutic reframe** — Any "I came to understand that my anger was actually grief" framing? Translates lived experience into therapy-speak.
+39. **Explanation after image** — Does the chapter describe a scene and immediately explain what it meant? The image should land alone.
 
 Report memoir AI-tells in their own labeled section, separate from universal Anti-AI findings.
 
@@ -282,5 +288,5 @@ Verdict mapping:
 - Suggest concrete rewrites, not just "make this better."
 - The AI-tell check runs as a hard gate — banned words → flag as NEEDS REVISION regardless of other scores.
 - When the user flags an issue: VERIFY before accepting. Re-read the passage, check context, and push back if the user misunderstood.
-- Run Dimension 26–31 (Memoir Anti-AI) and report in a separate labeled section. Do NOT fold memoir-specific tells into the universal Anti-AI section.
+- Run Dimension 34–39 (Memoir Anti-AI) and report in a separate labeled section. Do NOT fold memoir-specific tells into the universal Anti-AI section.
 - Consent warnings from Step 1b must appear PROMINENTLY — as the first item in the Critical section if any person has `consent_status: refused`. This is a publication blocker, not a craft note.
