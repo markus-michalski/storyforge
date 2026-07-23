@@ -49,6 +49,35 @@ When the user signals feedback ready ("kommentiert", "gelesen", "Feedback", "lie
 ### Step A4: Chapter Completion
 All scenes approved → tell user: "Alle Szenen stehen. Bitte lies das komplette Kapitel." Wait for final read. Apply any remaining corrections. Then proceed to Step 7 with status `Review` or `Final` per user verdict.
 
+## § Fact Recording Gate
+
+Runs at Step 7 (Save and Update) items 2–3, in both `chapter-writer` (Canon Facts, fiction) and `chapter-writer-memoir` (People Facts, memoir). **Skip both sub-steps entirely when staying at `Draft`** — see § Step 7 Draft-Skip Scope for why this pair is gated and the rest of Step 7 mostly isn't.
+
+### Promise / Setup-Element Extraction
+Before flipping status to `Review` or `Final`, walk the completed draft and identify setup-elements (fiction: locked drawers, character claims, cryptic warnings, unresolved clues; memoir: unresolved threads, callbacks, foreshadowed events — full taxonomy in `reference/craft/plot-logic.md`). For each: short concrete description (8–14 words), target chapter slug if the chapter outline names it else `unfired`, status `active`. Cap at 8 per chapter. Persist via MCP `register_chapter_promises(book_slug, chapter_slug, promises)`. If the chapter places no promises, pass an empty list — this writes a placeholder so the index knows the chapter was processed.
+
+### Canon / People Fact Recording Gate
+**Required before advancing to Review or Final.** This gate blocks the status update in Step 7 item 4 — do not call `update_field()` until the gate is complete.
+
+a. **No coverage-check call needed.** `get_canon_brief(book_slug, chapter_slug)` scopes its `current_facts` to chapters *before* this one — it deliberately excludes the current chapter's own facts (verified live; also verified in `tests/state/test_canon_brief.py::test_current_chapter_db_facts_excluded`), and it has no `facts_count` field at all. It cannot tell you what's already recorded for THIS chapter — do not rely on it for that. Instead, rely on `add_canon_fact`'s documented idempotency (duplicate `book_num`+`chapter_num`+`subject`+`fact` tuples are silently no-ops) and always scan the FULL completed draft fresh in step (b) below — re-recording an already-known fact from an earlier incremental save costs nothing.
+
+b. **Scan the completed draft** for fiction: canon-relevant events; memoir: person-relevant facts. Check every category:
+   - Fiction — **Characters** (new names, physical descriptions, abilities, injuries, deaths, status changes), **Locations** (new rooms, buildings, routes, distances, first-visit establishments), **Relationships** (connections established or changed between characters), **Objects** (named items introduced, ownership transfers, destruction), **Timeline** (exact dates/times, durations, relative anchors established), **Events** (plot-significant actions, revelations, decisions with lasting consequences), **Backstory** (origins, histories, past events first revealed in this chapter).
+   - Memoir — **People** (new names introduced, physical details, jobs or roles first established), **Relationships** (connections established or revealed between real people), **Consent-relevant** (details that change a person's consent_status tier), **Timeline** (real dates, durations, sequences confirmed in this chapter), **Events** (factual events described that carry narrative weight across chapters), **Backstory** (past facts about real people first introduced in this chapter).
+
+c. **Record each fact** — Call `add_canon_fact(book_slug, chapter_num, subject, fact, domain=...)` for every item identified above. **`chapter_num` is the chapter's integer number (e.g. `4`), not the chapter slug** — verified against the tool's real signature during the live-MCP tier; passing the slug string here will fail. **Pass `domain` by name, not positionally** — the real parameter order is `(book_slug, chapter_num, subject, fact, book_num=1, domain="")`, so a 5th positional argument binds to `book_num`, not `domain`.
+   - Fiction `domain`: `character` | `location` | `relationship` | `object` | `timeline` | `event` | `backstory`
+   - Memoir `domain`: `character` | `relationship` | `consent` | `timeline` | `event` | `backstory`
+   - For revisions to existing facts: add `is_revision=True`, `old_value=<previous text>`, `revision_impacts=[downstream_chapter_slug, ...]`
+
+d. **Emit a Canon/People Fact Checklist** in chat — mandatory, even when the list is short:
+```
+{Canon|People} Facts Recorded — Ch. {N}:
+[✓] subject: <X> | fact: <...> | domain: <...>
+[✓] subject: <Y> | fact: <...> | domain: <...>
+```
+If zero relevant facts exist, declare it explicitly: *"{Canon|People} Recording: no new facts established in this chapter beyond what is already in DB."* This is a deliberate statement, not a silent skip.
+
 ## § POV Snapshot Procedure
 
 Skip when staying at `Draft`. Execute for `Review` / `Final` closes only (Issues #157 / #160).

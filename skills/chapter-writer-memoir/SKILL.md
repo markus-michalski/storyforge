@@ -184,30 +184,7 @@ After all hits resolved: append to `draft.md` and add `EA-Scan: N fixed, M skipp
 
 ### Step 7: Save and Update (both modes)
 1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
-2. **Extract promises** — Before flipping status to `Review` or `Final`, walk the completed draft and identify setup-elements (unresolved threads, callbacks, foreshadowed events — taxonomy in `reference/craft/plot-logic.md`). Cap at 8 per chapter. Persist via MCP `register_chapter_promises(book_slug, chapter_slug, promises)`.
-3. **People Fact Recording Gate — required before advancing to Review or Final. Skip only when staying at `Draft`.** This gate blocks the status update in step 4 — do not call `update_field()` until the gate is complete.
-
-   a. **Check existing coverage** — `get_canon_brief()` is scoped to *prior* chapters only: it deliberately excludes the current chapter's own facts (a fact recorded for chapter N never appears in its own `current_facts` — by design, verified in `tests/state/test_canon_brief.py::test_current_chapter_db_facts_excluded`), and it has no `facts_count` field at all. It cannot tell you what's already recorded for THIS chapter — do not rely on it for that. Instead, track this session's own `add_canon_fact()` calls for this chapter as the coverage record. On an incremental save (re-entering this step after an earlier partial save in the same session), still scan the full current-session prose for anything added since the last save — new or revised — rather than assuming nothing changed.
-
-   b. **Scan the completed draft** for person-relevant facts. Check every category:
-      - **People** — new names introduced, physical details, jobs or roles first established
-      - **Relationships** — connections established or revealed between real people
-      - **Consent-relevant** — details that change a person's consent_status tier (new sensitive revelations)
-      - **Timeline** — real dates, durations, sequences confirmed in this chapter
-      - **Events** — factual events described that carry narrative weight across chapters
-      - **Backstory** — past facts about real people first introduced in this chapter
-
-   c. **Record each fact** — Call `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)` for every item identified above.
-      - `domain`: `character` | `relationship` | `consent` | `timeline` | `event` | `backstory`
-      - For corrections to existing facts: add `is_revision=True`, `old_value=<previous text>`, `revision_impacts=[downstream_chapter_slug, ...]`
-
-   d. **Emit a People Fact Checklist** in chat — mandatory, even when the list is short:
-      ```
-      People Facts Recorded — Ch. {N}:
-      [✓] subject: <X> | fact: <...> | domain: <...>
-      [✓] subject: <Y> | fact: <...> | domain: <...>
-      ```
-      If zero person-relevant facts exist, declare it explicitly: *"People Recording: no new facts established in this chapter beyond what is already in DB."* This is a deliberate statement, not a silent skip.
+2–3. **Extract promises + People Fact Recording Gate.** → **§ Fact Recording Gate** in `chapter-writing-shared.md` for both sub-steps in full — promise extraction, and the people-fact scan/record/checklist gate that blocks the status update in step 4. Skip both when staying at `Draft`.
 
 4. Chapter status: MCP `update_field()` on `chapter.yaml` → `Review` / `Final` (per user) or leave `Draft`.
 5. **Update session** — MCP `update_session(last_book=book_slug, last_chapter=chapter_slug, last_phase=<short next-step phrase>)`. `last_phase` is a forward-looking "what's next" pointer, not a bare status echo — derive it from step 4's status: `Draft` → `"Draft in progress — resume writing"`, `Review` → `"Ready for chapter-reviewer-memoir"`, `Final` → `"Chapter complete — plan the next chapter"`. **Why:** Keeps the session's ephemeral pointer current so `get_current_story_anchor`'s session-fallback resolves to the chapter just worked on instead of erroring empty, and `start-session`'s status line reflects real, actionable progress instead of staying permanently empty (Issue #378). Matches `rolling-planner`'s `last_phase` convention — both writers describe where to pick up next, not just an enum value (a bare `Final` tells the user nothing about what to do next).
