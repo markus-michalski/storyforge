@@ -30,15 +30,18 @@ Branch Prerequisites and Workflow Steps 3, 5, 6 on `book_category`.
 Call MCP `get_continuity_brief(book_slug)`. This returns:
 
 - `canonical_calendar` — parsed `plot/timeline.md` events (story_day/real_date/chapter_slug/key_events)
-- `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (**fiction only** — empty for memoir)
-- `canon_log_facts` — canon facts from DB (**fiction only** — empty for memoir; Issue #297)
+- `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (**fiction only** — empty for memoir, since memoir books have no `world/setting.md`)
+- `canon_log_facts` — canon facts from the shared `canon_facts` DB table for this book (Issue #297/#280). **Not category-filtered by the brief itself** — for a memoir book this list may already be non-empty if facts were previously recorded (e.g. by this skill's own Step 6, or by `chapter-writer-memoir`). An empty list means no facts have been recorded yet for this book, not that the book is memoir — use the Memoir supplement below (`get_canon_brief`) for the authoritative category-scoped view.
 - `character_index` — all character/people files as flat list (slug/name/role/description)
 - `chapter_timelines` — intra-day timeline grids for ALL chapters
+- `character_snapshots` — latest per-character state (injuries/clothing/inventory/altered_states) from the `character_snapshots` DB table (Issue #281), one entry per character that has ever had a snapshot recorded. May be empty if no skill has called `update_character_snapshot` for this book yet — treat as supplementary signal for Step 6, not a required source.
 - `errors` — graceful degrade: non-empty means some files were missing or unreadable
 
-Honor every populated field. Empty lists mean "file missing — degrade gracefully, do not invent."
+Honor every populated field. Empty lists mean "file missing — degrade gracefully, do not invent." Each field degrades **independently** — an error or missing file recorded against one field (e.g. `world/setting.md` missing, surfaced in `errors`) does not block processing of any other, unrelated field (e.g. `canon_log_facts` or `chapter_timelines` are still used for their own checks even when a different section failed to load).
 
 **Memoir supplement:** If `book_category == "memoir"`, call `get_canon_brief(book_slug, chapter_slug)` to get people facts from DB (Issue #297). If `extraction_method == "none"`, the DB has no facts yet — note this and advise running `scripts/migrate_canon_log_to_db.py` to import from `plot/people-log.md`.
+
+Also call MCP `check_memoir_consent(book_slug)` — this is the **only** source for `consent_status` in this skill. `character_index` (from Step 1 above) is built from `characters/`, not `people/`, and carries no `consent_status` field regardless of category; `canon_log_facts` doesn't carry it either. `check_memoir_consent` reads every profile in `people/` directly and returns a `people` list with a per-person verdict (`PASS`/`WARN`/`FAIL`, where `FAIL` means `consent_status: refused`). Use its `FAIL`-verdict entries as the input to the Step 7/Step 9 refused-consent rule below.
 
 ### Step 2 — Load book metadata
 
@@ -143,29 +146,30 @@ Branch by `book_category`:
 
 **Fiction — Canon Facts:**
 
-Use `canon_log_facts` from the brief (DB, Issue #297):
-1. For each `changed_facts` entry, scan all chapters AFTER the revision for references to the OLD version
-2. For each `current_facts` entry, verify it isn't contradicted in any chapter
+Use `canon_log_facts` from the brief (DB, Issue #297) — a **flat** list; each entry carries `status` (`"ACTIVE"` or `"CHANGED"`), `fact`, `subject`, `established_in` (e.g. `"Ch 4"`), `notes`, `domain`. There is no `changed_facts`/`current_facts` sub-split and no per-entry `revision_impact(s)` list on these entries (those belong to the differently-shaped, uncalled `get_canon_brief` tool — see the Memoir note below for why that tool isn't the data source here either):
+1. For each entry with `status == "CHANGED"`, `notes` holds the OLD value being replaced — scan **every** chapter AFTER `established_in` for references to that old value. Read and check ALL later chapter drafts yourself; there is no impact list to shortcut this with, so a stale reference in any later chapter (however recently added) must be caught here.
+2. For each entry with `status == "ACTIVE"`, verify it isn't contradicted in any chapter
+3. Cross-check against `character_snapshots` from the brief (Issue #281), if any entries exist: flag a **FACT CONFLICT** if a chapter describes a character's injuries/clothing/inventory/altered_states in a way that contradicts their latest recorded snapshot with no intervening scene explaining the change.
 
-If `canon_log_facts` is empty (`extraction_method == "none"`):
+If `canon_log_facts` is empty (no facts recorded yet for this book):
 1. Extract key facts from each chapter (character traits, abilities, relationships, rules)
 2. Build a proposed fact set organized by domain (Character, Relationship, World, Plot)
 3. Identify contradictions between chapters
-4. Insert facts into DB via `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)` with `[RECONSTRUCTED]` note in subject or fact
+4. Insert facts into DB via `add_canon_fact(book_slug, chapter_num, subject, fact, domain=domain)` — `chapter_num` is the chapter's integer number (not its slug), with `[RECONSTRUCTED]` note in subject or fact
 
 Fact categories: character abilities/limitations, descriptions, relationship status, world rules, object ownership.
 
 **Memoir — People Facts:**
 
-Call `get_canon_brief(book_slug, chapter_slug)` to get people facts from DB (Issue #297):
-1. For each `current_facts` entry, verify all chapters referencing that person are consistent
+Use `canon_log_facts` from the Step 1 brief as the primary source — it is **not** windowed by chapter. `get_canon_brief` is shaped differently and only partially windowed: its `current_facts` key returns a bounded `scope_chapters`-sized window (default 8 chapters, ending *before* a single given chapter — designed for chapter-writer's narrower "what do I know so far" use case), but its `changed_facts` key returns all revision entries regardless of age. Neither key is the right source for a whole-manuscript scan — use `canon_log_facts` for both ACTIVE and CHANGED facts here. Only use the `get_canon_brief` call from Step 1's Memoir supplement for its `extraction_method` signal (DB empty or not) — don't re-fetch facts through it as the data source here, or chapters more than `scope_chapters` back will silently drop out of the check.
+1. For each `canon_log_facts` entry, verify all chapters referencing that person are consistent
 2. Flag any chapter that contradicts an established fact entry
 
-If `extraction_method == "none"` (DB empty):
+If `extraction_method == "none"` (DB empty, from the Step 1 Memoir supplement's `get_canon_brief` call):
 1. Extract key facts about named people from each chapter (descriptions, behaviors, quotes attributed to them, relationship status)
 2. Build a proposed People fact set organized by person
 3. Identify contradictions between chapters (e.g., Ch 3 says "she never spoke about the accident" but Ch 7 has her describing it)
-4. Insert into DB via `add_canon_fact(book_slug, chapter_slug, subject, fact, domain)` with `[RECONSTRUCTED]` note
+4. Insert into DB via `add_canon_fact(book_slug, chapter_num, subject, fact, domain=domain)` — `chapter_num` is the chapter's integer number (not its slug), with `[RECONSTRUCTED]` note
 
 People fact categories: physical description, relationship to author, what they said/did/believed in each chapter, consent_status if known.
 
@@ -195,7 +199,7 @@ VERDICT: PASS | WARN | FAIL
 Verdict mapping (per the gate contract — see `reference/gate-contract.md`):
 - PASS — zero CONFLICTS and zero WARNINGS.
 - WARN — WARNINGS only (ambiguous time markers, missing matrix entries, minor people-log gaps).
-- FAIL — at least one CONFLICT, OR any chapter contradicts a `consent_status: refused` person.
+- FAIL — at least one CONFLICT, OR (memoir only) any person `check_memoir_consent` marked `FAIL` (i.e. `consent_status: refused`) **appears** in a chapter draft at all (per Step 9's memoir CRITICAL rule below — mere appearance is enough, it does not need to also contradict an established fact; appearing at all already violates that person's refused consent).
 
 ---
 
@@ -255,12 +259,12 @@ Suggest: Fix conflicts manually or ask chapter-reviewer to address specific chap
 
 **Fiction:** If the DB was reconstructed or new facts were discovered:
 1. All facts already inserted via `add_canon_fact()` in Step 6 (see above).
-2. Report to the user which chapters appear in any `revision_impacts` list — those drafts may now reference outdated facts and need a re-read against the new canon.
+2. Report to the user which chapters were flagged in Step 6.1 as containing a stale reference to a `CHANGED` fact's old value — those drafts may now reference outdated facts and need a re-read against the new canon. (`canon_log_facts` entries carry no per-entry impact list — this is the chapter set found by that scan, not a stored field.)
 
 **Memoir:** If people facts were reconstructed or new facts were discovered:
 1. All facts already inserted via `add_canon_fact()` in Step 6 (see above).
-2. Report which chapters appear in any `revision_impacts` list — those drafts may contradict the new fact set and need a re-read.
-3. If any person with `consent_status: refused` appears in a chapter — flag as CRITICAL, route to `/storyforge:memoir-ethics-checker`
+2. Report which chapters were flagged in Step 6 as contradicting an established `canon_log_facts` entry — those drafts may need a re-read. (Same caveat as the fiction branch: there is no stored per-entry impact list, only the Step 6 findings themselves.)
+3. If `check_memoir_consent(book_slug)` (called in Step 1's Memoir supplement) returned any person with verdict `FAIL` (`consent_status: refused`), check whether that person's name appears in any chapter draft read in Prerequisite Step 3 — if it does, flag as CRITICAL, route to `/storyforge:memoir-ethics-checker`
 
 ## Rules
 - Report ALL conflicts, even minor ones. The author decides what to fix.
