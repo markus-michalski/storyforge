@@ -216,8 +216,10 @@ def get_chapter_writing_brief(book_slug: str, chapter_slug: str) -> str:
         - pov_character_inventory (deterministic extraction of the POV
           character's last established physical inventory; structured
           items with source pointers; extraction_method ∈ {frontmatter,
-          timeline_regex, draft_heuristic, none}; warnings surface gaps
-          so the writer asks instead of inventing — Issue #157)
+          snapshot_db, timeline_regex, draft_heuristic, none}; warnings
+          surface gaps so the writer asks instead of inventing —
+          Issue #157, snapshot_db tier wired to update_character_snapshot's
+          DB write-back in Issue #281)
         - rules_to_honor (book_rules DB rule entries with severity)
         - callbacks_in_register (book_rules DB callback entries)
         - banned_phrases (deduplicated book + author + global banlist)

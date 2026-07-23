@@ -131,6 +131,25 @@ class TestGetLatestSnapshotForBook:
         upsert_snapshot(conn, char_slug="kael", book_num=1, chapter_num=1, inventory=["x"])
         assert get_latest_snapshot_for_book(conn, "kael", book_num=2) is None
 
+    def test_up_to_chapter_bounds_the_lookup(self, conn):
+        """Revising an earlier chapter must not see a later chapter's snapshot."""
+        upsert_snapshot(conn, char_slug="kael", book_num=1, chapter_num=5, inventory=["ch5"])
+        upsert_snapshot(conn, char_slug="kael", book_num=1, chapter_num=10, inventory=["ch10"])
+
+        snap = get_latest_snapshot_for_book(conn, "kael", book_num=1, up_to_chapter=7)
+        assert snap["inventory"] == ["ch5"]
+        assert snap["chapter_num"] == 5
+
+    def test_up_to_chapter_excluding_all_returns_none(self, conn):
+        upsert_snapshot(conn, char_slug="kael", book_num=1, chapter_num=5, inventory=["ch5"])
+        assert get_latest_snapshot_for_book(conn, "kael", book_num=1, up_to_chapter=4) is None
+
+    def test_up_to_chapter_none_is_unbounded_default(self, conn):
+        upsert_snapshot(conn, char_slug="kael", book_num=1, chapter_num=5, inventory=["ch5"])
+        upsert_snapshot(conn, char_slug="kael", book_num=1, chapter_num=10, inventory=["ch10"])
+        snap = get_latest_snapshot_for_book(conn, "kael", book_num=1)
+        assert snap["inventory"] == ["ch10"]
+
 
 class TestGetAllLatestSnapshots:
     def test_returns_one_per_character(self, conn):

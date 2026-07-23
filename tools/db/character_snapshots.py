@@ -72,12 +72,34 @@ def get_latest_snapshot_for_book(
     conn: sqlite3.Connection,
     char_slug: str,
     book_num: int,
+    *,
+    up_to_chapter: int | None = None,
 ) -> dict | None:
-    """Return the most recent snapshot for a character within a specific book."""
-    row = conn.execute(
-        f"SELECT {_COLS} FROM character_snapshots WHERE char_slug=? AND book_num=? ORDER BY chapter_num DESC LIMIT 1",
-        (char_slug, book_num),
-    ).fetchone()
+    """Return the most recent snapshot for a character within a specific book.
+
+    Args:
+        up_to_chapter: When given, only consider snapshots recorded at or
+            before this chapter number (mirrors ``canon_facts.query_facts``'s
+            ``up_to_chapter`` bound). Callers building a brief for chapter N
+            should pass ``N - 1`` so a snapshot written for a later chapter
+            (e.g. during non-linear revision) never leaks forward into an
+            earlier chapter's brief. ``None`` (the default) returns the
+            book-wide latest regardless of chapter — used by ``upsert_snapshot``
+            to merge inherited fields forward at write time, where the
+            unbounded "latest so far" is the correct semantics.
+    """
+    if up_to_chapter is None:
+        row = conn.execute(
+            f"SELECT {_COLS} FROM character_snapshots WHERE char_slug=? AND book_num=? "
+            "ORDER BY chapter_num DESC LIMIT 1",
+            (char_slug, book_num),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            f"SELECT {_COLS} FROM character_snapshots WHERE char_slug=? AND book_num=? AND chapter_num<=? "
+            "ORDER BY chapter_num DESC LIMIT 1",
+            (char_slug, book_num, up_to_chapter),
+        ).fetchone()
     return _decode_row(dict(row)) if row else None
 
 

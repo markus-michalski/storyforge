@@ -548,3 +548,144 @@ class TestBriefIntegration:
         inv_idx = keys.index("pov_character_inventory")
         state_idx = keys.index("pov_character_state")
         assert state_idx == inv_idx + 1, "pov_character_state must immediately follow pov_character_inventory"
+
+
+# ---------------------------------------------------------------------------
+# Snapshot DB tier (Issue #281) — regression tests for the chapter-writer
+# skill-eval rollout finding, 2026-07-23: update_character_snapshot() wrote
+# to this table but extract_pov_state() never read it back for any of the
+# 4 categories.
+# ---------------------------------------------------------------------------
+
+
+class TestSnapshotDbTier:
+    def test_snapshot_db_used_for_injuries_and_clothing(self, tmp_path: Path, monkeypatch):
+        import tools.db.connection as _db_conn
+        from tools.db.character_snapshots import upsert_snapshot
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        root = _book(tmp_path)
+        _char(root, "theo")  # no current_clothing/current_injuries frontmatter
+        _chapter(root, "27-the-meet", number=27)
+
+        db_slug = get_db_slug_for_book(root)
+        conn = open_canon_db(db_slug)
+        upsert_snapshot(
+            conn, char_slug="theo", book_num=1, chapter_num=26,
+            injuries=["bandaged left hand"], clothing=["tactical boots"],
+        )
+        conn.close()
+
+        result = extract_pov_state(root, "Theo", "27-the-meet")
+
+        assert result["extraction_methods"]["injuries"] == "snapshot_db"
+        assert result["extraction_methods"]["clothing"] == "snapshot_db"
+        assert {e["item"] for e in result["injuries"]} == {"bandaged left hand"}
+        assert {e["item"] for e in result["clothing"]} == {"tactical boots"}
+        # Categories the snapshot didn't touch stay at "none".
+        assert result["extraction_methods"]["altered_states"] == "none"
+        assert result["extraction_methods"]["environmental_limiters"] == "none"
+
+    def test_environmental_limiters_split_from_joined_string(self, tmp_path: Path, monkeypatch):
+        """environmental_limiters is stored comma-joined (not JSON) on the write side."""
+        import tools.db.connection as _db_conn
+        from tools.db.character_snapshots import upsert_snapshot
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        root = _book(tmp_path)
+        _char(root, "theo")
+        _chapter(root, "27-the-meet", number=27)
+
+        db_slug = get_db_slug_for_book(root)
+        conn = open_canon_db(db_slug)
+        upsert_snapshot(
+            conn, char_slug="theo", book_num=1, chapter_num=26,
+            environmental_limiters="gas mask, ear plugs",
+        )
+        conn.close()
+
+        result = extract_pov_state(root, "Theo", "27-the-meet")
+
+        assert result["extraction_methods"]["environmental_limiters"] == "snapshot_db"
+        assert {e["item"] for e in result["environmental_limiters"]} == {"gas mask", "ear plugs"}
+
+    def test_frontmatter_still_wins_over_snapshot_db_per_category(self, tmp_path: Path, monkeypatch):
+        import tools.db.connection as _db_conn
+        from tools.db.character_snapshots import upsert_snapshot
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        root = _book(tmp_path)
+        _char(root, "theo", current_injuries=["scar over left eye"])  # frontmatter set
+        _chapter(root, "27-the-meet", number=27)
+
+        db_slug = get_db_slug_for_book(root)
+        conn = open_canon_db(db_slug)
+        upsert_snapshot(conn, char_slug="theo", book_num=1, chapter_num=26, injuries=["bandaged left hand"])
+        conn.close()
+
+        result = extract_pov_state(root, "Theo", "27-the-meet")
+
+        assert result["extraction_methods"]["injuries"] == "frontmatter"
+        assert {e["item"] for e in result["injuries"]} == {"scar over left eye"}
+
+    def test_no_snapshot_db_file_falls_through_without_creating_one(self, tmp_path: Path, monkeypatch):
+        import tools.db.connection as _db_conn
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        root = _book(tmp_path)
+        _char(root, "theo")
+        _chapter(root, "27-the-meet", number=27)
+
+        result = extract_pov_state(root, "Theo", "27-the-meet")
+
+        assert result["extraction_methods"]["injuries"] == "none"
+        assert not list(db_dir.iterdir()), "must not create a DB file when none existed"
+
+    def test_later_chapter_snapshot_does_not_leak_into_earlier_revision(self, tmp_path: Path, monkeypatch):
+        """Non-linear editing: author snapshotted ch 26-28, now revises ch 27.
+
+        The ch-28 snapshot must NOT surface in the ch-27 brief as if it were
+        established before ch 27 — that would be a future-state leak.
+        Bounded lookup should fall back to the ch-26 snapshot instead
+        (mirrors canon_brief's ``up_to_chapter = current_num - 1`` scoping).
+        """
+        import tools.db.connection as _db_conn
+        from tools.db.character_snapshots import upsert_snapshot
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        root = _book(tmp_path)
+        _char(root, "theo")  # no current_injuries frontmatter
+        _chapter(root, "26-the-approach", number=26)
+        _chapter(root, "27-the-meet", number=27)
+        _chapter(root, "28-the-fallout", number=28)
+
+        db_slug = get_db_slug_for_book(root)
+        conn = open_canon_db(db_slug)
+        upsert_snapshot(conn, char_slug="theo", book_num=1, chapter_num=26, injuries=["bandaged left hand"])
+        upsert_snapshot(conn, char_slug="theo", book_num=1, chapter_num=28, injuries=["broken rib"])
+        conn.close()
+
+        result = extract_pov_state(root, "Theo", "27-the-meet")
+
+        assert result["extraction_methods"]["injuries"] == "snapshot_db"
+        items = {e["item"] for e in result["injuries"]}
+        assert items == {"bandaged left hand"}, "must not see the ch-28 snapshot's broken rib while revising ch 27"

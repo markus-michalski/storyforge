@@ -72,7 +72,7 @@ c. Wait for user confirmation or corrections.
 
 d. Persist via MCP `update_character_snapshot(book_slug, pov_slug, snapshot_json, book_category)` where `snapshot_json` is a JSON object with the confirmed fields plus `as_of_chapter: "{chapter_slug}"`. Fiction: `pov_slug` from `characters/{slug}.md`. Memoir: from `people/{slug}.md` (`book_category="memoir"`).
 
-**Why this matters:** `pov_character_inventory` and `pov_character_state` use `frontmatter` as their highest-priority source. Without this write-back, each new chapter's brief degrades to timeline-regex or draft-heuristic extraction — fragile sources that miss silent state changes. A 30-second confirmation at chapter close keeps the brief sharp for every subsequent chapter.
+**Why this matters:** `pov_character_inventory` and `pov_character_state` check the character file's own frontmatter first (a deliberate author override), then this snapshot's DB write-back (Issue #281, wired into the read side 2026-07-23) as the next-highest source. Without this write-back, each new chapter's brief degrades to timeline-regex or draft-heuristic extraction — fragile sources that miss silent state changes. A 30-second confirmation at chapter close keeps the brief sharp for every subsequent chapter.
 
 **What to include:** only fields that actually changed or were established in this chapter. Omit fields with no new information — partial updates are fine; `update_character_snapshot` merges, not replaces.
 
