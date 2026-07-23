@@ -119,10 +119,10 @@ Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `
 
 **Scan protocol:**
 
-1. Scan all prose in the current scene for the above markers.
+1. Scan all prose being scanned for the above markers — one scene (Mode A) or the complete chapter text (Mode B).
 2. If **zero hits**: emit `EA-Scan: clean ✓` and proceed to append.
-3. If **5 or more hits**: stop and flag it. These shapes cluster — a scene with 5+ hits needs a rewrite, not spot-welding. Tell the user: "This scene has N EA-hits. Patching this many shapes risks losing coherence — recommend rewriting from scratch. Proceed with per-hit fixes or rewrite?" Wait for the user's choice before continuing.
-4. If **1–4 hits**: do NOT append yet. Present each hit to the user one at a time (chat, not prose): shape type, original sentence, proposed fix. Offer `apply / skip / try again`. If this is the **second or later 11.5 hit**, add `[11.5 recurrence — pushback required before skip]` and offer a concrete alternative before accepting a skip.
+3. **Rewrite threshold — scales with scanned word count, not a flat count.** The "these shapes cluster" reasoning is about *density*, not raw hits: a Mode B full-chapter scan covers 2.5–4x the text of a Mode A scene, so the same flat "5+" would false-positive on longer drafts that are proportionally just as clean. Anchor rate: **5 hits per ~900 words** (≈1 per 180 words) — the same density Mode A already uses. Compute the threshold as `round(scanned_word_count / 180)`, floored at 5 (never below Mode A's own bar). Worked examples for typical Mode B lengths: ~2500 words → 14 hits; ~3000 words → 17 hits; ~4000 words → 22 hits. If the computed threshold is met or exceeded: stop and flag it. Tell the user: "This [scene/chapter] has N EA-hits against a threshold of T for its length. Patching this many shapes risks losing coherence — recommend rewriting from scratch. Proceed with per-hit fixes or rewrite?" Wait for the user's choice before continuing.
+4. If hits are below the threshold: do NOT append yet. Present each hit to the user one at a time (chat, not prose): shape type, original sentence, proposed fix. Offer `apply / skip / try again`. If this is the **second or later 11.5 hit**, add `[11.5 recurrence — pushback required before skip]` and offer a concrete alternative before accepting a skip.
 
 5. Wait for user response per hit:
    - `apply` — write the fix into the scene text, proceed to next hit
