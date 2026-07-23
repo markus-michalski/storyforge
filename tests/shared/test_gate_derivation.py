@@ -193,6 +193,18 @@ class TestTacticalSetup:
         )
         assert gate.status == "WARN"
         assert gate.findings[0].code == "TACTICAL_WARN"
+        assert gate.findings[0].severity == "WARN"
+
+    def test_info_only_finding_is_pass_severity(self):
+        gate = derive_from_tactical_setup(
+            {
+                "passes": True,
+                "warnings": [{"severity": "info", "message": "no tactical profile"}],
+            }
+        )
+        assert gate.status == "WARN"
+        assert gate.findings[0].code == "TACTICAL_INFO"
+        assert gate.findings[0].severity == "PASS"
 
 
 class TestStructureValidation:
