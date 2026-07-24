@@ -89,7 +89,7 @@ Resolves Issue #415: Step 7's sub-steps are not uniformly gated to Review/Final 
 
 **Run on every Step 7 execution, regardless of the status chosen (Draft included):**
 - Chapter status update itself, and `update_session` — bookkeeping that must always reflect where the author actually left off.
-- `plot/timeline.md`, Travel Matrix (`world/setting.md`), and the chapter's own `## Chapter Timeline` (README.md) — factual records of what happened in the prose as written so far. CLAUDE.md rules 9/10/11/16 require loading and updating these unconditionally, with no Draft exemption stated anywhere.
+- `plot/timeline.md`, Travel Matrix (`world/setting.md`, fiction) — or, for memoir, the `research/sources.md` new-place note (chapter-writer-memoir Step 7 item 7) — and the chapter's own `## Chapter Timeline` (README.md) — factual records of what happened in the prose as written so far. CLAUDE.md rules 9/10/11/16 require loading and updating these unconditionally, with no Draft exemption stated anywhere.
 
 Why the split holds up: downstream tools that treat chapter maturity as a reliability signal (e.g. `get_recent_chapter_timelines` filtering to status ≥ review) are choosing which *prior* chapters to trust as reference context for a *different* chapter being written — a separate, read-side concern from whether the *current* chapter's own artifacts get written at all. Writing the continuity record every save keeps it current; treating an in-progress sibling chapter's timeline as unreliable context is a judgment call made downstream, not a reason to withhold the write.
 
