@@ -87,8 +87,7 @@ Check the return value for `error` and stop if present.
 
 These files store `canon_facts`, `character_snapshots`, and `book_rules` for each book.
 Deleting them lets the MCP server create them fresh (empty) on next access — this is safe
-because the per-book DB path is `~/.storyforge/db/{book_slug}.db` and is recreated
-automatically.
+because the per-book DB path is derived from the book slug and is recreated automatically.
 
 ```bash
 rm -f ~/.storyforge/db/zz-sandbox-book.db
