@@ -137,6 +137,33 @@ def _seed_book_rules(db_dir: Path, book_slug: str, rules: list[str], book_num: i
     conn.close()
 
 
+def _seed_callback(db_dir: Path, book_slug: str, text: str, book_num: int = 1) -> None:
+    """Create book.db and seed one callback row — the DB-backed counterpart
+    to a legacy CLAUDE.md marker, mirroring what register-callback writes."""
+    import sqlite3
+
+    db_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_dir / f"{book_slug}.db"))
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS book_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_num INTEGER,
+            rule_type TEXT NOT NULL,
+            text TEXT NOT NULL,
+            added_at TEXT DEFAULT '',
+            UNIQUE(book_num, rule_type, text)
+        )
+        """
+    )
+    conn.execute(
+        "INSERT OR IGNORE INTO book_rules (book_num, rule_type, text) VALUES (?, ?, ?)",
+        (book_num, "callback", text),
+    )
+    conn.commit()
+    conn.close()
+
+
 # ---------------------------------------------------------------------------
 # _read_book_rules
 # ---------------------------------------------------------------------------
@@ -1097,13 +1124,35 @@ class TestScanCallbacksIntegration:
         book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {"01": "Some text."})
         assert _scan_callbacks(book) == []
 
-    def test_overdue_expected_return_is_high_severity(self, tmp_path: Path) -> None:
+    def test_overdue_expected_return_legacy_marker_only_is_medium_severity(self, tmp_path: Path) -> None:
+        """_CLAUDEMD_WITH_CALLBACKS is legacy-marker-only (no DB row) — the
+        chapter-writer briefs never saw it (they read the book_rules DB
+        only), so it's capped at "callback_deferred"/medium, never
+        "callback_dropped"/high. See callback_validator.py's
+        _append_dropped_or_capped()."""
         chapters = {
             "01-ch": "She walked down the corridor.",
             "06-ch": "Rain fell outside the window.",
             "10-ch": "The final chapter arrived.",
         }
         book = _write_book(tmp_path, _CLAUDEMD_WITH_CALLBACKS, chapters)
+        findings = _scan_callbacks(book)
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.category == "callback_deferred"
+        assert f.severity == "medium"
+        assert "Theo" in f.phrase or "watch" in f.phrase
+
+    def test_overdue_expected_return_db_backed_is_high_severity(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        """Same overdue scenario, DB-backed entry (what register-callback
+        actually writes) — full "callback_dropped"/high severity applies."""
+        chapters = {
+            "01-ch": "She walked down the corridor.",
+            "06-ch": "Rain fell outside the window.",
+            "10-ch": "The final chapter arrived.",
+        }
+        book = _write_book(tmp_path, "# My Book\n", chapters)
+        _seed_callback(patch_db_dir, book.name, "Theo's watch — expected return by Ch 5.")
         findings = _scan_callbacks(book)
         assert len(findings) == 1
         f = findings[0]
@@ -1132,6 +1181,8 @@ class TestScanCallbacksIntegration:
         assert findings == []
 
     def test_scan_repetitions_includes_callback_findings(self, tmp_path: Path) -> None:
+        # Legacy-marker-only source — capped at "callback_deferred", see
+        # test_overdue_expected_return_legacy_marker_only_is_medium_severity.
         chapters = {
             "01-ch": "She walked away without looking back.",
             "06-ch": "The sun set over the valley.",
@@ -1140,4 +1191,4 @@ class TestScanCallbacksIntegration:
         book = _write_book(tmp_path, _CLAUDEMD_WITH_CALLBACKS, chapters)
         result = scan_repetitions(book)
         categories = {f["category"] for f in result["findings"]}
-        assert "callback_dropped" in categories
+        assert "callback_deferred" in categories

@@ -524,10 +524,7 @@ def _scan_snapshots(
 def _scan_callbacks(book_path: Path) -> list[Finding]:
     """Surface broken callback promises as manuscript findings."""
     claudemd_path = book_path / "CLAUDE.md"
-    if not claudemd_path.exists():
-        return []
-
-    claudemd_text = claudemd_path.read_text(encoding="utf-8")
+    claudemd_text = claudemd_path.read_text(encoding="utf-8") if claudemd_path.exists() else ""
     result = _verify_callbacks(book_path, claudemd_text)
 
     findings: list[Finding] = []
@@ -547,9 +544,15 @@ def _scan_callbacks(book_path: Path) -> list[Finding]:
 
     for entry in result.get("deferred", []):
         chapters_since = entry.get("chapters_since", 0)
-        if chapters_since <= CALLBACK_DEFERRED_SILENCE:
+        # Entries capped here from a would-be FAIL (overdue deadline or
+        # must-not-forget) because they're legacy-marker-only carry their own
+        # strong signal — don't let the plain "quiet so far" silence
+        # threshold below (meant for ordinary never-appeared callbacks)
+        # silently swallow them too.
+        capped_from_drop = entry.get("status") == "legacy_marker_only_capped_at_warn"
+        if not capped_from_drop and chapters_since <= CALLBACK_DEFERRED_SILENCE:
             continue
-        snippet = f"not appeared in {chapters_since} drafted chapters"
+        snippet = entry.get("warning") if capped_from_drop else f"not appeared in {chapters_since} drafted chapters"
         occ = Occurrence(chapter="CLAUDE.md", line=0, snippet=snippet)
         findings.append(
             Finding(
