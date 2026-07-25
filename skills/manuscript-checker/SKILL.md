@@ -93,6 +93,18 @@ findings — memoir-specific recommendations need that context.
 
 **Why:** Memoir-specific recommendations (anonymization blockers, tidy-lesson patterns, reflective-platitude classification) require this context — without it findings will be misclassified and privacy blockers may be downgraded to craft suggestions.
 
+**Regardless of `book_category`** (fiction and memoir alike): also call MCP
+`get_author(book.author)` using the `author` slug from `get_book_full`'s
+response — the interactive fix mode in Step 5 needs the profile's
+`writing_discoveries.style_principles` and `writing_discoveries.recurring_tics`
+fields to honor author-designated stylistic choices (e.g. "flat declarative
+questions are part of the voice") before proposing rewrites (see Rules
+below). Not to be confused with the `signature_phrase` detection category
+above, which is unrelated cross-chapter n-gram repetition. If `author` is
+empty or `get_author` returns an `error` key (legacy books with no `author`
+field), skip this and proceed without profile context — don't block the scan
+on it.
+
 **Memoir mode differences in presentation:**
 - Surface `anonymization_leak` findings first and mark them as
   **pre-publication blockers** — these are not craft suggestions, they are
@@ -168,14 +180,18 @@ finding.
 
 **Chat summary target: max ~300 Wörter.** The full report is on disk — chat is the headline, not the whole story.
 
-1. State chapters scanned + total findings + high-severity count by category.
-2. Show the top 5 highest-severity findings across *all* categories (book rules first, then clichés, then the rest).
-3. Tell the user the report path so they can open it.
-4. Offer the next step (see section 5).
+1. Lead with `gate.status` (PASS / WARN / FAIL) as the literal headline — before the chapter/finding counts, not implied by them. **Caveat:** per `reference/gate-contract.md`, `gate.status` only encodes `book_rule_violation` (→ FAIL); every other category, including memoir's `anonymization_leak`, maps to WARN. A memoir manuscript whose only issues are `anonymization_leak` findings will show `Gate: WARN` — do not let that read as "nothing urgent"; if item 4 below is surfacing pre-publication blockers, annotate the headline itself, e.g. `Gate: WARN — 3 pre-publication privacy blockers`.
+2. State chapters scanned + total findings + high-severity count by category.
+3. Show the top 5 highest-severity findings across *all* categories (book rules first, then clichés, then the rest).
+4. **Memoir books:** re-apply the Step 1b "Memoir mode differences in presentation" here. Use the same priority as the Sort priority line above (`book_rule_violation` → `anonymization_leak` → ...): `anonymization_leak` findings (labeled explicitly as pre-publication blockers) come immediately after `book_rule_violation` findings, ahead of `cliche` and everything else — the same order Step 5's interactive fix mode uses, so summary ordering and walkthrough ordering never disagree.
+5. Tell the user the report path so they can open it.
+6. Offer the next step (see section 5).
 
 Example:
 
 ```
+Gate: FAIL
+
 Manuscript scan complete: 34 chapters, 120 findings.
 High-severity: 3 book-rule violations, 5 clichés, 1 question-as-statement
 cluster, 4 heavy-filter-word chapters, 2 heavy-adverb chapters, 6 repetitions.
@@ -199,7 +215,7 @@ If the user says yes (or passes `--interactive`):
 
 **Process ONE finding at a time. Wait for user response (keep / accept / skip / quit) before showing the next finding.**
 
-**After presenting all findings for a category, STOP and wait for the user to respond before moving to the next category.**
+**After presenting all findings for a category, STOP and wait for the user to respond before moving to the next category — unless that response is `quit`.** The user's keep/accept/skip answer to the *last finding in a category* resolves that finding only — it is NOT implicit consent to start the next category. Ask explicitly (e.g. "Ready to move on to `question_as_statement`?") and wait for that separate answer before showing the first finding of the next category. **`quit` is the one exception:** it ends the entire walkthrough immediately, whether given mid-category or on a category's last finding — never follow a `quit` with a "ready to move on?" prompt.
 
 Process findings in **category priority order**:
 
@@ -211,6 +227,18 @@ Process findings in **category priority order**:
 6. Memoir-specific: `tidy_lesson_ending`, `reflective_platitude`, `timeline_ambiguity`
 7. Repetition categories (`simile`, `character_tell`, etc.)
 8. `real_people_consistency` (last — name-form cleanup, no prose rewrite needed)
+
+**Memoir categories (`anonymization_leak`, `tidy_lesson_ending`, `reflective_platitude`,
+`timeline_ambiguity`) do NOT use the generic snippet+recommendation format below on their own —
+apply Step 1b's "Memoir mode differences in presentation" treatment for each one specifically**
+(pre-publication-blocker framing for `anonymization_leak`; quote the final paragraph and ask
+load-bearing-or-cut for `tidy_lesson_ending`; distinguish narrating-self commentary from filler for
+`reflective_platitude`; propose the smallest anchor rather than an exact date for
+`timeline_ambiguity`) before falling back to the generic steps below for anything the
+category-specific treatment doesn't cover (e.g. still asking keep/accept/skip/quit).
+`real_people_consistency` is also memoir-specific (see Detection categories table above) but has
+no dedicated Step 1b treatment — use the generic snippet+recommendation format for it, same as any
+base-check category.
 
 For each high-severity finding:
 
@@ -250,7 +278,7 @@ If edits were applied, call `add_canon_fact(book_slug, chapter_num=<highest chap
 ## Rules
 
 - Always wait for user confirmation before applying fixes. The detector finds candidates; the human picks the keepers.
-- **Book-rule violations are the user's own rules.** Treat them as authoritative. If the user's prose violates a rule they wrote, that's the most important fix — more important than any generic craft finding.
+- **Book-rule violations are the user's own rules.** Treat them as authoritative. If the user's prose violates a rule they wrote, that's the most important fix — more important than any generic craft finding. If the user asks in the moment to downgrade, skip, or file it as a low-priority note, push back once first: remind them it's a rule *they* wrote for *this book*, so waiving it deserves at least one explicit confirmation rather than a same-breath override. The final call is still theirs — pushback opens a discussion, it never decides the outcome unilaterally (see the "verify user corrections" rule).
 - A repeated phrase isn't always a bug. Some are deliberate motifs
   ("for a hundred and fifty years" might be a thematic refrain). When in
   doubt, ask.
@@ -273,9 +301,10 @@ If edits were applied, call `add_canon_fact(book_slug, chapter_num=<highest chap
   words. Use the top-N display to find the tics, not a blanket banlist.
 - The user explicitly wants to be challenged (see global CLAUDE.md). If you
   think the detector is wrong about a finding, push back.
-- Honor the author profile. If a profile defines a signature phrase or
-  stylistic choice (e.g. "flat declarative questions are part of the voice"),
-  exclude it from rewrite recommendations.
+- Honor the author profile. If `writing_discoveries.style_principles` or
+  `writing_discoveries.recurring_tics` (from Step 1b's `get_author` call)
+  names a stylistic choice (e.g. "flat declarative questions are part of the
+  voice"), exclude it from rewrite recommendations.
 
 ## Book-rule pattern extraction
 
