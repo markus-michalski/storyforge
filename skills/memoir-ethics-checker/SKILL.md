@@ -70,6 +70,8 @@ The tool returns:
       "name": "...",
       "person_category": "...",
       "consent_status": "...",
+      "anonymization": "none" | "partial" | "pseudonym" | "composite",
+      "real_name": "...",
       "verdict": "PASS" | "WARN" | "FAIL",
       "reason": "..."
     }
@@ -86,15 +88,52 @@ The tool returns:
 }
 ```
 
+`real_name` is only populated when `anonymization != "none"`; otherwise it's
+`""`. Match against both `name` and `real_name` in Step 4.
+
 The `gate.status` mirrors `overall` and conforms to the uniform contract in
-`reference/gate-contract.md`. Aggregators (e.g. the export-engineer pre-flight
-or `run_quality_gates`) read `gate.status` rather than `overall`.
+`reference/gate-contract.md`. Both fields are **consent-only** — the tool
+never factors the Step 4 defamation scan into either one (see Step 6).
+Aggregators (e.g. the export-engineer pre-flight or `run_quality_gates`)
+read `gate.status` rather than `overall`, but that doesn't change what it
+covers.
 
 ### 4. Defamation-risk prose scan
 
-After reading the consent report, read each chapter draft that mentions a
-WARN or FAIL person by name (or by their `real_name` if anonymized). Scan for
-the four defamation-risk patterns from `real-people-ethics.md`:
+Load `real-people-ethics.md` now if not already loaded (see Prerequisites) —
+this load happens on every run, including one that turns out to be a clean
+PASS with zero findings; do not skip it because a clean check "won't need
+it". The D1–D4 pattern definitions below are drawn from that doc.
+
+Consent status is not a defamation waiver — a person who gave
+`confirmed-consent` to appear in the memoir has not thereby waived their
+right not to be falsely accused of a crime (D4) or have fabricated dialogue
+attributed to them (D2). So this scan covers **every profiled person,
+regardless of verdict** — PASS, WARN, and FAIL alike — not only the WARN/FAIL
+people from Step 3.
+
+`list_chapters` returns only `slug`/`number`/`title`/`status`/`words` — no
+prose — so which chapters "mention a profiled person" can only be answered
+by reading them, never by filtering on the list_chapters output first. Read
+every chapter that has a draft, then apply the name/`real_name` filter
+*after* reading:
+
+1. Call MCP `list_chapters(book_slug)`. Keep only chapters whose `status` is
+   past `Outline` (`Draft`, `Revision`, `Polished`, `Final`, or an alias
+   thereof) — an `Outline`-status chapter has no `draft.md` yet.
+2. For each kept chapter, call MCP `resolve_path(book_slug, "chapters",
+   "{chapter_slug}/draft.md")` — matching the convention every other skill
+   in this plugin uses (e.g. `chapter-reviewer`, `chapter-humanizer`). If
+   the response has `exists: false`, skip that chapter and note it (in the
+   summary's chapter count, not as a defamation finding) rather than
+   treating the gap as either an error or a clean scan.
+3. Read the chapter at the returned `path`, then search the actual prose
+   for each profiled person's `name` and (if anonymized) `real_name` before
+   applying the D1–D4 patterns below to any matching passage.
+4. Do not guess a chapter's path and do not fabricate "scanned, nothing
+   found" without having actually read real content.
+
+Scan for the four defamation-risk patterns from `real-people-ethics.md`:
 
 **D1. Compressed-time assertion** — a characterization that would be defensible
 with precise scope but reads as a blanket fact without it.
@@ -111,6 +150,8 @@ claim or confession they have not publicly made.
 perception.
 Signal: `"She hated me"`, `"He despised the family"` without perception framing
 (`"I felt that"`, `"It seemed to me"`, `"my impression was"`).
+Converse: an already-framed statement like `"I felt that she hated me"` is
+**not** a D3 hit — the perception framing is exactly what the pattern requires.
 
 **D4. Per-se-defamatory imputation** — imputing crime, professional incompetence,
 or sexual misconduct without verification or protective framing.
@@ -125,6 +166,15 @@ fix direction.
 **Chat summary target: max ~250 words.** Full detail in the sections below
 if needed.
 
+If zero people are profiled yet (`{N}` = 0): frame this explicitly as "no
+people profiled yet — nothing has been reviewed" rather than presenting the
+resulting vacuous PASS as equivalent to a genuine "N people cleared" PASS.
+Also tell the user the consequence, not just the framing: `check_memoir_consent`
+with zero people still returns `overall: PASS`/`gate.status: PASS`, so
+`/storyforge:export-engineer`'s Step 0 gate will clear automatically on this
+vacuous PASS — profiles must be created via `character-creator-memoir`
+first, or the export gate is not actually checking anything.
+
 ```
 Ethics check: "{book_slug}" — {N} people profiled.
 Overall: PASS | WARN | FAIL
@@ -138,7 +188,46 @@ Defamation-risk findings: {n}
   [one line per hit: chapter, person, pattern code, fix direction]
 ```
 
+`Overall` here is this skill's own composite verdict (see Step 6) — never
+paste `check_memoir_consent`'s raw consent-only `overall` field in directly,
+it does not account for defamation-risk findings.
+
 ### 6. Verdict and next step
+
+**Compute this skill's own Overall verdict — do not just copy
+`check_memoir_consent`'s `overall`/`gate.status`.** That field is
+consent-only (Step 3) and never reflects the Step 4 defamation scan, so a
+D4 hit on an otherwise consent-PASS book still comes back as
+`overall: PASS` from the tool. This skill reports its own composite instead:
+
+- **FAIL** — any person's consent verdict is FAIL, OR any D4 defamation hit
+  exists.
+- **WARN** — no FAIL condition above, but any person's consent verdict is
+  WARN, OR any D1–D3 defamation hit exists.
+- **PASS** — no consent WARN/FAIL anywhere and zero defamation hits of any
+  pattern.
+
+Use this composite for both the chat summary's `Overall:` line and the
+Output Format's `### Overall Verdict` line. Map it to the `### Verdict`
+line the same way: FAIL → **EXPORT BLOCKED**, WARN → **RESOLVE BEFORE
+EXPORT**, PASS → **EXPORT CLEAR**.
+
+`/storyforge:export-engineer`'s Step 0 gate calls `check_memoir_consent`
+directly and reads only its consent-only `overall` — it never sees the
+Step 4 defamation scan. So whenever this skill's composite differs from
+the tool's raw `overall` (i.e. whenever any defamation hit exists on an
+otherwise consent-PASS or consent-WARN-only book), tell the user
+explicitly: the **BLOCKED**/**FAIL** label here is this report's own
+finding, not an automatic export gate — running `/storyforge:export-engineer`
+will not stop on a D4 hit by itself. The hit must be resolved (rewrite,
+removal, or the author's explicit informed acceptance of the risk) before
+export, and nothing enforces that except this report and the user's own
+follow-through.
+
+Every non-PASS person gets their own fix presented individually in the
+report, regardless of what the overall verdict is — a FAIL driven by one
+person does not excuse skipping a WARN person's bullet elsewhere in the same
+report.
 
 **PASS (no FAILs, no WARNs, no defamation hits):**
 Tell the user the ethics check is clean. They may proceed to export.
@@ -164,7 +253,9 @@ Hard stop. Export is blocked. Tell the user:
 
 **Defamation-risk hits:**
 Offer rewrites. Prioritize D4 (per-se-defamatory) > D2 (reconstructed
-dialogue) > D3 (unframed mind-reading) > D1 (compressed-time).
+dialogue) > D3 (unframed mind-reading) > D1 (compressed-time). D4 hits are
+labeled **BLOCKED** in the report (see Output Format) — D1–D3 stay
+risk-flags-with-a-rewrite, not blocked prose.
 
 ## Output Format
 
@@ -191,6 +282,10 @@ Fix: {one-sentence fix direction}
 [Specific, ordered action items]
 ```
 
+Append ` — BLOCKED` to the pattern line for D4 hits only (D1–D3 stay
+unmarked). See Step 6 for how D4 hits fold into the `### Overall Verdict`
+and `### Verdict` lines above, and for the limits of that label.
+
 ## Rules
 
 - This skill is **memoir-only**. Do not run it on fiction books.
@@ -201,11 +296,16 @@ Fix: {one-sentence fix direction}
   author consciously confirms the decision before publication, but do not
   pressure them to ask. The `real-people-ethics.md` doc covers why someone
   might not ask (estranged relationship, abuser, deceased-but-survivors-hostile).
+  This guard also holds if the user directly asks for your opinion ("should I
+  ask him anyway? what do you think?") — reflect the WARN framing back (the
+  documented reasoning is theirs to weigh) rather than opining for or against
+  asking.
 - Missing `person_category` always produces WARN even when consent is clean —
   an unclassified person is an unreviewed risk.
 - Defamation patterns D1–D4 are risk flags, not verdicts. Most instances are
   fixable with a single-sentence reframe. Only D4 (per-se-defamatory imputation)
-  warrants treating the passage as blocked prose.
+  warrants treating the passage as blocked prose (labeled **BLOCKED** in the
+  report).
 - Do not re-run the consent check automatically after a profile update — tell
   the user to run `/storyforge:memoir-ethics-checker` again once they have
   made the change.
