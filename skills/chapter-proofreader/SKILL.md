@@ -32,7 +32,7 @@ Call MCP `get_book_full(book_slug)` to read:
   data but must never appear in a proofreading report.
 
 Read the chapter draft directly. Do not assume `{content_root}/projects/{book_slug}/` — series
-books resolve elsewhere (e.g. `{content_root}/series/{series_slug}/{book_slug}/`). Call MCP
+books resolve under a different `content_root` subtree entirely. Call MCP
 `resolve_path(book_slug, "chapters", "{chapter_slug}/draft.md")`, which returns
 `{"path": ..., "exists": bool}` (or `{"error": ...}` for an invalid or content_root-escaping
 path). If `exists: false`, stop and report that the chapter draft is missing rather than guessing
