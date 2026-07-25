@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `book_categories/memoir/craft/memoir-theme-development.md` — memoir-specific theme development, replacing the fiction-only `reference/craft/theme-development.md` for memoir-mode skills (#371)
+- Nothing yet
 
 ### Changed
 - Nothing yet
@@ -20,11 +20,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- `theme-development.md` frontmatter corrected to `book_categories: [fiction]` — it carried zero memoir-applicable content despite claiming `[fiction, memoir]` (#371)
-- `update_field()` now patches a single frontmatter line surgically instead of re-serializing the whole YAML block — preserves key order, quote style, and flow/block style of every untouched field (#372)
+- Nothing yet
 
 ### Security
 - Nothing yet
+
+## [3.2.0] - 2026-07-25
+
+### Added
+- add create-testdata/reset-testdata/delete-testdata skills (#433)
+- add delete_author MCP tool and delete-author skill (#385) (#386)
+
+### Changed
+- list Fact Recording Gate + Draft-Skip Scope in shared-procedures summary (#429)
+- clarify Step 7 per-save vs per-close scope (#427)
+- fix stale add_canon_fact(chapter_slug, ...) call examples (#424)
+- extract Fact Recording Gate to fix skill-bloat (#423, #405) (#428)
+- scale EA-Scan rewrite threshold by word count (#426)
+- add missing genre-filter language to Step 2 (#425)
+- autouse-isolate DB_DIR for the whole test tree (#422)
+- skills(chapter-reviewer): fix severity tier, promise scoping, and Anti-AI numbering collision (#413)
+- skills(chapter-writer-memoir): delegate pre-logic audit + add EA-scan gate (#411)
+- add guardrails from eval-driven hardening pass (#404)
+- skills(world-builder): reinforce Rules/Key-principle constraints inline at trigger points (#403)
+- character-creator-memoir: eval-loop fixes (100% simulated + live) (#402)
+- storyforge: character-creator self-improvement (69/69 simulated) (#399)
+- skills(plot-architect-memoir): close 4 adversarial-eval gaps (numeric-bound enforcement, order-as-argument, STOP-gate/delegation, Rules-section reinforcement) (#398)
+- storyforge/ideas: self-improvement loop, simulated 49/49 + live 5/5 (#390)
+- skills(brainstorm): self-improvement loop + book_category persistence fix (#388)
+- close 4 adversarial-eval gaps found by the skill-improvement loop (#376)
+- scope Python-missing install advice to python.org (#375)
+- update pymupdf requirement in the pip-all group (#346)
+- author-check: require judgments to name their concrete trigger (#348)
+- add /logs to .gitignore
+
+### Fixed
+- document memoir Step 7 unconditional-write mapping (#430)
+- tactical-gate info findings mis-severitized as WARN (#421)
+- wire book_category + consent gate into review brief (#414)
+- correct canon_log_facts schema refs and wire consent-status source (#412)
+- bound snapshot_db lookups to avoid future-state leak (#409)
+- has_existing_ende false-positive for never-harvested trackers (#400)
+- self-improvement loop (simulated 57/57, live 12/12) (#397)
+- self-improvement loop + live-tier MCP bug fix (#396)
+- close 5 adversarial-eval gaps + 1 live-tier factual correction (#395)
+- match genre substrings in list_ideas (#393)
+- close adversarial-eval gaps in genre/category/POV-tense/series-copy handling (#392)
+- close 6 adversarial-eval gaps in skill workflow (#391)
+- scope force-delete approval per author, not per session (#387)
+- unify last_phase semantics + add SKILL.md placeholder lint (#384)
+- wire up chapter/session tracking, fix dead anchor fallback (#383)
+- close 6 adversarial-eval gaps + verify live-MCP tier (#382)
+- close 18 adversarial-eval gaps + 2 live-MCP-tier server bugs (#380)
+- report-format gaps + get_session() schema-drift fix (#379)
+- require full/unabridged reproduction, protect command syntax (#377)
+- patch single field instead of re-dumping whole YAML (#374)
+- add memoir-specific theme-development craft reference (#373)
+- close 4 adversarial-eval gaps in book-conceptualizer (#370)
+- close 7 adversarial-eval gaps in book-conceptualizer (57/68 -> 68/68) (#369)
+- correct stale memoir skill-routing references (#364)
+- close 4 spec gaps found by self-improvement loop (66/71 -> 71/71) (#363)
+- close 6 spec/test issues in one bundle (#349 #350 #354 #358 #359 #360) (#362)
+- close cluster B + C follow-up (78/82 -> 80/82) (#361)
+- distinguish omitted vs. explicit-empty in update_session() (#357)
+- distinct memoir-scope skip message via mode: frontmatter (#356)
+- close 3 spec gaps found by self-improvement loop (#355)
+- resolve chapter paths via resolve_path, not a nonexistent project_path field (#353)
+- allow study-author to persist quantitative targets (#352)
+- remove ${HOME} env override that Claude Code never expands (#351)
 
 ## [3.1.0] - 2026-07-18
 
@@ -563,3 +626,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.0.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.0.1
 [3.0.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.0.2
 [3.1.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.1.0
+[3.2.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.2.0
