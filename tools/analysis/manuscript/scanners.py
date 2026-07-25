@@ -8,6 +8,7 @@ Memoir-specific scanners live in ``memoir_patterns.py``.
 
 from __future__ import annotations
 
+import logging
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -16,6 +17,8 @@ from tools.analysis.callback_validator import verify_callbacks as _verify_callba
 from tools.analysis.manuscript.metadata import _read_allowed_repetitions, _read_snapshot_threshold
 from tools.analysis.manuscript.text_utils import (
     DIALOGUE_RE as _DIALOGUE_RE,
+)
+from tools.analysis.manuscript.text_utils import (
     _make_snippet,
     _ngrams_in_line,
     _read_chapter_drafts,
@@ -39,6 +42,8 @@ from tools.analysis.manuscript.vocabularies import (
 
 # Plugin root: tools/analysis/manuscript/scanners.py is three levels deep.
 _PLUGIN_ROOT = Path(__file__).resolve().parents[3]
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -311,7 +316,7 @@ def _scan_question_as_statement(book_path: Path) -> list[Finding]:
                 last = dialogue[-1]
                 if last != ".":
                     continue
-                if dialogue.endswith("..") or dialogue.endswith("…"):
+                if dialogue.endswith(("..", "…")):
                     continue
                 first_tokens = _tokenise(dialogue)
                 if not first_tokens:
@@ -479,7 +484,7 @@ def _scan_snapshots(
             streak: list[str] = []
             streak_start = para_start_line
 
-            def _flush_streak(streak: list[str], start: int) -> None:
+            def _flush_streak(streak: list[str], start: int, chapter_slug: str = chapter_slug) -> None:
                 if len(streak) >= threshold:
                     snippet = " ".join(streak)[:200].rstrip()
                     if len(" ".join(streak)) > 200:
@@ -587,6 +592,7 @@ def _scan_plot_holes(book_path: Path) -> list[Finding]:
     try:
         result = analyze_plot_logic(book_path, scope="manuscript")
     except Exception:  # pragma: no cover — defensive
+        logger.warning("plot-logic analysis failed for %s", book_path.name, exc_info=True)
         return []
 
     findings: list[Finding] = []
