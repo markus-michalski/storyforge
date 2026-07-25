@@ -22,24 +22,27 @@ The chapter-humanizer is a surgical pass — not a rewrite. Its job is to find A
 
 Before scanning a single line:
 
+0. **Resolve book context** — Call MCP `get_book_full(book_slug)` and extract `author` (→ `author_slug`, needed for step 3 and Pass 2's writing-discoveries lookup).
 1. **Draft** — Call `resolve_path(book_slug, "chapters", "{chapter}/draft.md")` (MCP) to get the correct path (handles series-nested vs. standalone layout), then read `draft.md` at the returned path. If missing (`exists: false`), stop and tell the user: "Kein draft.md für dieses Kapitel gefunden — chapter-writer muss zuerst laufen."
 2. **Anti-AI patterns** — MCP `get_craft_reference("anti-ai-patterns")`. **Why:** Section 11 contains the shape catalog with banned-shape descriptions and examples. Section 1 contains the flagged-vocabulary list. Both are the scan targets.
-3. **Author profile** — MCP `get_author()`. **Why:** Alternatives must be written in the author's documented voice (tone, rhythm, vocabulary). A proposed fix that doesn't match the author's profile is not a fix — it's a different kind of AI output.
-4. **Book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. **Why:** Book-level rules may contain additional banned shapes or construction constraints specific to this book.
+3. **Author profile** — MCP `get_author(author_slug)`. **Why:** Alternatives must be written in the author's documented voice (tone, rhythm, vocabulary). A proposed fix that doesn't match the author's profile is not a fix — it's a different kind of AI output.
+4. **Book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. **Why:** Book-level rules may contain additional banned shapes or construction constraints specific to this book. **If this call returns an `error` key** (no CLAUDE.md exists yet for this book — a real, non-exceptional response, not a failure), treat it as "no additional book-level rules" and continue; do not stop or block on it.
+
+All five loads are mandatory on every run — including load 4, even for a book you suspect has no extra rules. The only way to know is to actually call the tool; skipping it because it "probably" has nothing is not a valid shortcut.
 
 ## Scan — Two Passes
 
 ### Pass 1: Section 11 Elegant Abstraction Shapes
 
-Scan every sentence for the following constructions. For each hit, record: line number (approximate), the offending text verbatim, the shape name.
+Scan every sentence for the following constructions. For each hit, record: line number (approximate), the offending text verbatim, the shape name. A single sentence can match more than one shape (e.g. "the words landed, and the silence held" hits both 11.2 and 11.3) — count and name every matching shape (this feeds the **Section 11 shapes found: N** header count). But when two or more matched shapes fall in the *same sentence*, do NOT report them as separate, independently-appliable hits with their own full-sentence fixes — two overlapping replacements against one sentence cannot both go out in the single write pass (see Applying Changes). Instead, present them as ONE hit numbered entry that names all matched shapes (e.g. "11.2 + 11.3") and carries a single combined "Proposed fix" that resolves every matched shape in that sentence together.
 
 | Shape | What to search for |
 |---|---|
-| **11.1 Word-count commentary** | `One word.` / `Two words.` / `Three words.` followed by narrator editorial about the rarity of those words |
+| **11.1 Word-count commentary** | `One word.` / `Two words.` / `Three words.` / `Four words.` followed by narrator editorial about the rarity of those words |
 | **11.2 Sentence-as-projectile** | `the words landed`, `the line landed`, `the sentence landed`, `settled into the room`, `sat in the room` |
 | **11.3 Room-as-receiver** | `the room received`, `the silence held`, `the hall absorbed`, `the air carried`, `the quiet kept` |
 | **11.4 Economic metaphor** | `most expensive [word/sentence/motion/gesture]`, `the word cost him`, `paid in silence`, `[action] cost her` (non-literal) |
-| **11.5 Near-miss body language** | `did not quite become`, `almost became a`, `never quite [verb]` — flag count per scene |
+| **11.5 Near-miss body language** | `did not quite become`, `almost became a`, `never quite [verb]` — one per scene is acceptable, do NOT flag it; 2+ in the same scene → flag ALL instances |
 | **11.6 Body-part agency** | `[hand\|breath\|stomach\|shoulders\|face\|mouth\|eyes\|chest\|throat\|jaw\|spine\|fingers\|knee\|feet\|legs] + [had been\|was\|were\|kept\|started\|began] + [deciding\|having\|choosing\|wanting\|refusing\|trying\|failing\|knowing]` — see Section 11.6 for full regex |
 | **11.6 Trust-split** | `trust his/her/my face`, `trust his/her voice`, `trust his/her hands` + `distrust`/`not trust` variants |
 | **11.7 Backward-negation loop** | `what [pronoun] had been refusing/unable/failing to [verb]` where the verb echoes the sentence's opening action |
@@ -47,21 +50,19 @@ Scan every sentence for the following constructions. For each hit, record: line 
 | **11.9 Negation-as-assertion loop** | `It wasn't [X]. It was [Y].` or `Not [X]. [Y].` — flag on 2nd+ occurrence per scene |
 | **11.10 Hedge-word density** | `seemed`, `appeared to`, `as if` (non-simile use), `might have` — flag when 3+ combined instances per scene |
 
-**11.5 scoring:** One near-miss per scene is acceptable. Two or more in the same scene → flag all instances.
-
 **11.9 / 11.10 density rules:** Count instances per scene. 11.9: flag from the second negation-assertion per scene onward. 11.10: flag when *seemed* / *appeared to* / *as if* (non-simile) / *might have* reaches 3+ combined per scene — report the count and all instances.
 
 ### Pass 2: Flagged Vocabulary (Section 1)
 
 Scan for the 60 flagged words and phrases from Section 1 of anti-ai-patterns.md. Entries 1–55 include core AI-vocabulary (`delve`, `tapestry`, `nuanced`, `vibrant`, `landscape` (metaphorical), `embark`, `resonate`, `pivotal`, `realm`, `testament`, `intricate`, `myriad`, `unprecedented`, `foster`, `navigate` (metaphorical), etc.). Entries 56–60 are formal transition tells: `Furthermore`, `Moreover`, `In addition`, `Conversely`, `On the other hand`.
 
-For each hit: record word, sentence, context. Flag only non-literal uses — words that are clearly literal or in-character dialect are excluded from the scan.
+For each hit: record word, sentence, context. Flag only non-literal uses — words that are clearly literal or in-character dialect are excluded from the scan (e.g. flag "the tapestry of lies wove tighter" — metaphorical; do NOT flag "she folded the tapestry on the loom" — literal physical object).
 
 Also check the author profile's `writing_discoveries.donts` — these are book/author-specific additions. *(The SQLite-backed `donts` entries are authoritative; `vocabulary.md` is superseded — Issue #281.)*
 
 ## Output: Scan Report
 
-After both passes, present the findings as a numbered list. All changes are held until the user's approval response below.
+After both passes, present the findings as a numbered list. All changes are held until the user's approval response below. **Hard cap: ≤ 20 hits per batch.** Before writing the report, count total hits — if there are more than 20, present only the first 20 now, apply those per the user's response, then present the next batch (do not dump all hits in one report).
 
 ```
 ## Humanizer Scan — {book-slug} / {chapter-slug}
@@ -95,8 +96,6 @@ Proposed fix: *"...the tension between them, which neither named..."*
 **Instructions:** Reply with the hit numbers you want to apply as-is, numbers you want a different alternative for (e.g. "3: shorter"), and numbers you want to skip. Example: "apply 1, 2, 4 / rework 3: make it one sentence / skip none"
 ```
 
-**Present hits in batches of ≤ 20.** If the chapter has more, present the first 20, apply those, then continue with the next batch.
-
 ## Interaction Loop
 
 ### User Response Formats
@@ -118,11 +117,13 @@ When the user requests a rework (`N: [instruction]`), generate a revised alterna
 
 Present the rework for confirmation before applying: *"Rework for [N]: '[revised text]' — ok?"*
 
+If the user's response mixes a rework with plain apply/skip instructions (e.g. `apply 1, 4 / skip 2 / 3: shorter`), do NOT write any of the batch yet — even the plain-apply hits. Resolve the rework's confirmation first, THEN apply the full batch (plain-applies + confirmed reworks, minus skips) together in the single write pass described below.
+
 ### Applying Changes
 
 After the user approves (or applies with reworks confirmed):
 
-1. Read the full `draft.md` again before writing (GH#27 — file may have changed if the session has been long).
+1. Read the full `draft.md` again before writing (GH#27 — file may have changed if the session has been long). Do this even though you already have its content from the Prerequisites load or the scan pass — that copy may be stale, and reusing it instead of issuing a fresh Read is exactly the GH#27 failure mode.
 2. Apply ALL approved changes in a single write pass — one write, all changes together.
 3. Report: *"Applied N changes. Skipped M. Draft updated."*
 4. If flagged vocabulary was accepted to stay, note it: *"[word] kept at your request."*
@@ -131,7 +132,7 @@ After the user approves (or applies with reworks confirmed):
 
 After applying, offer: *"Möchtest du noch eine Runde? Oder weiter zu `/storyforge:chapter-proofreader`?"*
 
-If the user wants another pass: re-scan the updated draft (the fixes may have introduced new issues — rare but possible). Cap at 2 iterations per session.
+If the user wants another pass: re-scan the updated draft (the fixes may have introduced new issues — rare but possible). Track how many **scans** (not batches) have run in this session — this initial scan is pass 1, the first re-scan is pass 2. A single scan that needs multiple ≤20-hit batches (Output: Scan Report) is still ONE pass: batches within one scan never increment the counter, only a re-scan of the already-updated draft does. **Hard cap: 2 passes (scans) per session.** If the user asks for a 3rd scan after pass 2 has completed, decline and redirect instead of re-scanning again: *"Zwei Humanizer-Runden sind für diese Session das Limit. Für weitere Änderungen: neue Session starten oder direkt manuell anpassen."*
 
 ## Surgical Mode — Core Constraints
 
@@ -140,7 +141,7 @@ All fixes in this skill operate under the following four rules:
 1. **Touch only the flagged construction.** The replacement covers the hit and nothing else — surrounding prose, style, and content remain as the chapter-reviewer left them.
 2. **Verify alternatives before proposing.** Confirm that the proposed replacement is free of Section 11 shapes, flagged vocabulary, and other known AI-tells before presenting it.
 3. **Author voice is mandatory.** Every proposed alternative must match the author's documented tone, rhythm, and vocabulary. An alternative that sounds like a different author is a regression, not a fix.
-4. **Read the full file before writing.** GH#27 applies here. Always re-read `draft.md` before the write pass, then write once with all approved changes.
+4. **Read the full file before writing.** GH#27 applies here — see Applying Changes, step 1, for the exact re-read requirement.
 
 ## Rules
 
