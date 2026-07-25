@@ -55,6 +55,8 @@ Both workflows below use "STOP HERE — Phase Gate" checkpoints and Socratic pro
 
 ## Workflow — Fiction (5 phases)
 
+> **Path resolution:** `{project}` throughout this skill refers to the book's root directory. Call `resolve_path(book_slug, component, sub_path)` (MCP) before any file I/O — this handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts. Components: `plot`, `research`, `export`, etc.
+
 ### Phase 1: Premise Refinement
 Start with whatever the user has. Ask probing questions:
 - "What's the ONE thing that excites you about this story?"

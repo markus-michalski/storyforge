@@ -18,7 +18,7 @@ argument-hint: "<book-slug> [chapter-slug]"
 - **`prose-style` reference** via MCP. **Why:** Defines what good sentence-level craft looks like — the positive counterpart to the anti-pattern list, used for scoring specificity and rhythm.
 - **`dos-and-donts` reference** via MCP. **Why:** The craft-rule baseline — many "AI-tells" are also general bad-craft tells; this reference distinguishes "AI-bad" from "fiction-bad."
 - **Author profile** via MCP `get_author()`. **Why:** "AI-like" is relative to the author's documented voice — a sparse-prose author and a maximalist author cannot be graded by the same baseline.
-- **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Preferred/banned word list — the per-author enforcement layer that overrides the generic AI-tell list when in conflict.
+- **Author vocabulary** from the already-loaded author profile: `writing_discoveries.donts` (banned phrases) and `writing_discoveries.style_principles` (preferred patterns). **Why:** Preferred/banned word list — the per-author enforcement layer that overrides the generic AI-tell list when in conflict. *(The SQLite-backed Writing Discoveries are authoritative — Issue #281. Do not read `vocabulary.md` directly.)*
 - Read the text to check (chapter draft or entire book).
 
 **Memoir mode — additional mandatory load:**

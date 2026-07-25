@@ -54,9 +54,12 @@ Load the book via MCP `get_book_full(slug)` and read `effective_author_writing_m
 
 ### Step 1: Read Existing Work
 
-- Read `{project}/README.md` for premise, themes, concept
-- Read `{project}/plot/outline.md` for any existing outline
-- Read `{project}/characters/` if characters exist already
+> **Path resolution:** `{project}` throughout this skill refers to the book's root directory. Call `resolve_path(book_slug, component, sub_path)` (MCP) before any file I/O — this handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts. Components match the top-level dirs: `chapters`, `plot`, `world`, `characters`, `people`, `research`, `export`, `promo`.
+
+- Call `resolve_path(book_slug, "plot", "")` (MCP) to get the plot directory, then read `README.md`, `plot/outline.md`, and `characters/` from the resolved base path.
+- Read `README.md` for premise, themes, concept
+- Read `plot/outline.md` for any existing outline
+- Read `characters/` if characters exist already
 
 ### Step 2: Choose Structure
 

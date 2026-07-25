@@ -22,7 +22,7 @@ The chapter-humanizer is a surgical pass — not a rewrite. Its job is to find A
 
 Before scanning a single line:
 
-1. **Draft** — Read `{project}/chapters/{chapter}/draft.md` in full. If missing, stop and tell the user: "Kein draft.md für dieses Kapitel gefunden — chapter-writer muss zuerst laufen."
+1. **Draft** — Call `resolve_path(book_slug, "chapters", "{chapter}/draft.md")` (MCP) to get the correct path (handles series-nested vs. standalone layout), then read `draft.md` at the returned path. If missing (`exists: false`), stop and tell the user: "Kein draft.md für dieses Kapitel gefunden — chapter-writer muss zuerst laufen."
 2. **Anti-AI patterns** — MCP `get_craft_reference("anti-ai-patterns")`. **Why:** Section 11 contains the shape catalog with banned-shape descriptions and examples. Section 1 contains the flagged-vocabulary list. Both are the scan targets.
 3. **Author profile** — MCP `get_author()`. **Why:** Alternatives must be written in the author's documented voice (tone, rhythm, vocabulary). A proposed fix that doesn't match the author's profile is not a fix — it's a different kind of AI output.
 4. **Book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. **Why:** Book-level rules may contain additional banned shapes or construction constraints specific to this book.
@@ -57,7 +57,7 @@ Scan for the 60 flagged words and phrases from Section 1 of anti-ai-patterns.md.
 
 For each hit: record word, sentence, context. Flag only non-literal uses — words that are clearly literal or in-character dialect are excluded from the scan.
 
-Also check author profile's `writing_discoveries.donts` and `vocabulary.md` banned list — these are book/author-specific additions.
+Also check the author profile's `writing_discoveries.donts` — these are book/author-specific additions. *(The SQLite-backed `donts` entries are authoritative; `vocabulary.md` is superseded — Issue #281.)*
 
 ## Output: Scan Report
 

@@ -29,7 +29,7 @@ Read `book_category` from MCP `get_book_full(book_slug)`. Treat missing as `fict
 - **Book data** via MCP `get_book_full()`. **Why:** Genre, premise, characters — world-building must serve the story, not exist in parallel to it.
 - **`world-building` craft reference** via MCP `get_craft_reference()`. **Why:** Sanderson's Laws, iceberg principle, conflict-driven culture — the framework Steps 3-5 apply. If this load fails (missing/error), tell the user the mandatory framework isn't available before proceeding — do not silently substitute invented framework guidance and present it as if it came from the reference.
 - **Genre README(s)** — load one per genre tag on the book, including cross-cutting genres (e.g. `lgbtq`), not just the primary/base genre. **Why:** Fantasy needs full world rules, contemporary needs almost none — depth scales with genre.
-- Read existing world files: `{project}/world/`. If they already establish a fact (a place name, geography, a rule) that conflicts with what's being discussed now, flag the contradiction explicitly and ask the user to confirm the retcon before overwriting — never silently overwrite established lore.
+- Read existing world files under `world/`. Call `resolve_path(book_slug, "world", "")` (MCP) first to get the resolved path — `{project}` throughout this skill refers to the resolved book root and handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts. If they already establish a fact (a place name, geography, a rule) that conflicts with what's being discussed now, flag the contradiction explicitly and ask the user to confirm the retcon before overwriting — never silently overwrite established lore.
 
 ## When World-Building Matters
 - **Essential:** Fantasy, Sci-Fi, Supernatural, Historical, Dark Fantasy
@@ -115,7 +115,7 @@ For `{project}/world/glossary.md` (keep to 10-20 core terms — expand later if 
 If the accumulated invented-term count already exceeds ~20, or the user asks for every term used so far, curate down to the 10-20 most reader/writer-critical terms rather than listing everything — note explicitly that you're curating, don't silently comply with a full dump.
 
 ### Step 7: Consistency Check
-Before creating the checklist, actually check the world content generated in this session (and any prior session) against itself — flag contradictions between Step 3 (magic/tech/supernatural rules), Step 4 (culture/economy), and Step 5 (history) rather than letting them stand unresolved (e.g. a Step 3 rule that magic access is gated by wealth vs. a later Step 4 claim that it's unrelated to wealth). If chapter drafts already exist under `{project}/chapters/`, spot-check their concrete details (place names, stated travel times, established rules) against `world/` and flag any conflicts found.
+Before creating the checklist, actually check the world content generated in this session (and any prior session) against itself — flag contradictions between Step 3 (magic/tech/supernatural rules), Step 4 (culture/economy), and Step 5 (history) rather than letting them stand unresolved (e.g. a Step 3 rule that magic access is gated by wealth vs. a later Step 4 claim that it's unrelated to wealth). If chapter drafts already exist, call `resolve_path(book_slug, "chapters", "")` and spot-check their concrete details (place names, stated travel times, established rules) against `world/` and flag any conflicts found.
 
 Create a consistency checklist in `{project}/world/rules.md`:
 - [ ] Travel times between locations are realistic

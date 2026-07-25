@@ -14,15 +14,16 @@ argument-hint: "<book-slug> [platform]"
 ## Prerequisites
 - Load book data via MCP `get_book_full()` — read `book_category`
   **Why:** `book_category` gates every structural branch in Steps 1–4; without it the blurb structure, quote card rules, and content-type menus are wrong.
-- Read `{project}/synopsis.md` for pitch material
+- Call `resolve_path(book_slug, "export", "")` (MCP) to get the resolved book root — `{project}` throughout this skill refers to that base path and handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts.
+- Read `synopsis.md` (via resolved path) for pitch material
   **Why:** The Short Synopsis section is the raw material for Step 1; without it the blurb has no factual anchor.
 - Load author profile via MCP `get_author()` — promo voice should match author brand
   **Why:** Promo voice must match the author brand and respect the banned-word list; mismatches break authenticity and can violate hard author rules.
 - Load genre README(s) — genre audiences have different platform habits
   **Why:** Genre expectations shape blurb tone and platform strategy; wrong tone signals repel the target readership.
-- **Fiction:** Read `{project}/characters/INDEX.md` for character-driven content
+- **Fiction:** Call `resolve_path(book_slug, "characters", "INDEX.md")` then read `characters/INDEX.md` for character-driven content
   **Why:** Character names and defining traits are required for Step 3 character-introduction posts; guessing them risks canon errors.
-- **Memoir:** Read `{project}/people/INDEX.md` (or `{project}/characters/INDEX.md` for legacy projects) — use real names as they appear in the memoir (or their anonymization aliases)
+- **Memoir:** Call `resolve_path(book_slug, "people", "INDEX.md")` then read `people/INDEX.md` (or `characters/INDEX.md` for legacy projects) — use real names as they appear in the memoir (or their anonymization aliases)
   **Why:** Anonymization aliases must be used consistently in all public promo; using real names for protected persons is an ethics violation.
 - Read `{plugin_root}/reference/promo/platforms.md` — platform characteristics and content-type templates
   **Why:** Platform-native format and character limits are required for Step 3 content generation; without this file Steps 3–6 cannot produce native per-platform content.
@@ -34,7 +35,7 @@ argument-hint: "<book-slug> [platform]"
 The book blurb is the single most important marketing text — it must exist before any platform content is written. Do this first, always.
 
 **Load:**
-- `{project}/synopsis.md` — Short Synopsis section is the raw material
+- `synopsis.md` (via resolved path from Prerequisites) — Short Synopsis section is the raw material
 - Genre README(s) — tone guidance for the blurb voice
 
 Branch the blurb structure on `book_category`:

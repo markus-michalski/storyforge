@@ -732,12 +732,26 @@ The countermeasure is the same in every case: **route the emotional weight throu
 
 These shapes are **auto-scanned at warn severity for every author**. The `manuscript-checker` reports them as `global_shape_violation` (medium severity); the `validate_chapter.py` hook surfaces them as `warn`. No per-author or per-book copy needed — the catalog regex above is loaded directly.
 
-To promote a shape to **hard-block** for a specific author (so the next `Write` containing the shape fails with `exit 2`), copy the regex into that author's `~/.storyforge/authors/{slug}/profile.md ## Writing Discoveries / ### Don'ts`:
+To promote a shape to **hard-block** for a specific author, use MCP
+`add_vocabulary_entry(author_slug, entry_type="banned", text=<phrase-or-description>)` — this
+writes to the author's `donts` entries in the SQLite-backed Writing Discoveries (Issue #281).
 
-```markdown
-### Don'ts
+Alternatively, use the `/storyforge:promote-rule` skill, which handles promotion from book scope →
+author scope automatically and calls `write_author_banned_phrase(author_slug, phrase, reason)`
+internally.
 
-- **Never personify rooms or silences as receivers** — `\bthe (room|silence|hall|space|air|quiet|chamber|stillness)\s+(received|did|held|kept|carried|absorbed|listened|quieted|made|hung|spoke|whispered|breathed|had received|had quieted)\b`. Examples (do not use): *The room received it.* / *the silence held it.*
+> **Do not** hand-edit `profile.md`'s `### Don'ts` markdown section. The SQLite store is
+> authoritative; `get_author()` reads from it, not from the markdown file. A Don't written only
+> into `profile.md` text is invisible to every tool that enforces the vocabulary.
+
+Example — promoting the room-as-receiver shape for a specific author:
+
+```
+mcp__storyforge-mcp__add_vocabulary_entry(
+    author_slug="<author-slug>",
+    entry_type="banned",
+    text="room-as-receiver: the (room|silence|hall|air|quiet) + (received|held|carried|absorbed|kept) — Section 11 shape"
+)
 ```
 
 Dedup: when the same chapter line matches both an author-level Don't (block) and a catalog shape (warn), the catalog finding is suppressed for that hit so the user doesn't see the same line flagged twice.

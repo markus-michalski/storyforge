@@ -36,7 +36,7 @@ Before any other prerequisite load:
   - `character-arcs` — **Why:** Positive/negative/flat arc patterns — Step 12 maps the character to one of them.
   - `dialog-craft` — **Why:** Voice differentiation — Step 11's "cover the name" test depends on the principles in this reference.
 - **Genre README(s)** for genre-specific character expectations. **Why:** Romance protagonists ≠ horror protagonists ≠ literary protagonists — genre dictates expected archetypes and arc patterns.
-- Read `{project}/plot/outline.md` and `{project}/plot/arcs.md` for story context.
+- Call `resolve_path(book_slug, "plot", "")` (MCP) to get the resolved book root — `{project}` throughout this skill refers to that base path and handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts. Then read `plot/outline.md` and `plot/arcs.md` for story context.
 
 ## Output Length Guidance
 

@@ -49,7 +49,9 @@ Also call MCP `check_memoir_consent(book_slug)` — this is the **only** source 
 
 ### Step 3 — Read the chapter drafts (direct file reads)
 
-- Read ALL chapter drafts: `{project}/chapters/*/draft.md`
+> **Path resolution:** `{project}` is not a literal path — call `resolve_path(book_slug, component, sub_path)` (MCP) to get the correct absolute path before any file I/O. This handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts.
+
+- Call `resolve_path(book_slug, "chapters", "")` (MCP) to get the chapters directory, then read all `draft.md` files within it.
 
 ## Workflow
 
@@ -251,7 +253,7 @@ Verdict mapping (per the gate contract — see `reference/gate-contract.md`):
 
 ### Step 8: Save Report
 
-Write report to `{project}/research/continuity-report.md`.
+Write report to the path returned by `resolve_path(book_slug, "research", "continuity-report.md")`.
 
 Suggest: Fix conflicts manually or ask chapter-reviewer to address specific chapters.
 

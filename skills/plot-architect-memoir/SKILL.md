@@ -40,8 +40,8 @@ Before any other prerequisite load:
   - `scene-vs-summary.md` — **Why:** the structure type drives scene/summary ratio decisions in the chapter spine (Step M5).
   - `emotional-truth.md` — **Why:** the structure type must serve the felt sense of the lived material, not impose a fictional plot shape on it.
   - `memoir-anti-ai-patterns.md` — **Why:** prevents drift toward "looking back I realize" framing in the through-line statement.
-- Read `{project}/README.md` `## Scope` (Phase 3 of `book-conceptualizer` #60) — the time window, structural cast, and exclusions are inputs to structure-type choice.
-- Read `{project}/people/INDEX.md` if real-people profiles already exist (`character-creator` memoir mode #59) — structure-type cadence in Step M3 may vary by who carries which thread.
+- Read `README.md` `## Scope` (Phase 3 of `book-conceptualizer` #60) — the time window, structural cast, and exclusions are inputs to structure-type choice. Call `resolve_path(book_slug, "plot", "")` (MCP) first to get the resolved book root — `{project}` throughout this skill refers to that base path and handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts.
+- Read `people/INDEX.md` if real-people profiles already exist (`character-creator` memoir mode #59) — structure-type cadence in Step M3 may vary by who carries which thread.
 
 ## Workflow
 
@@ -49,10 +49,10 @@ The memoir flow has 6 steps. Step M5 preserves the chapter-spine concept; Step M
 
 ### Step M0: Read existing concept
 
-- Read `{project}/README.md` for premise, theme, **and the `## Scope` section** that `book-conceptualizer` (#60) wrote in Phase 3 (time window, structural cast, deliberate exclusions). The scope decisions gate Step M2 — a memoir whose scope is "thematic exclusions across decades" cannot honestly choose chronological.
+- Call `resolve_path(book_slug, "plot", "")` (MCP) to get the resolved book root, then read `README.md` for premise, theme, **and the `## Scope` section** that `book-conceptualizer` (#60) wrote in Phase 3 (time window, structural cast, deliberate exclusions). The scope decisions gate Step M2 — a memoir whose scope is "thematic exclusions across decades" cannot honestly choose chronological.
 - If `## Scope` is missing, stop and route to `/storyforge:book-conceptualizer` first. Memoir plot-architect builds on scope; building it without scope produces structure-shopping, not structure-choosing.
-- Read `{project}/plot/outline.md` for any existing through-line draft (the `book-conceptualizer` Phase 4 sketch — Step M3 below refines it).
-- Read `{project}/people/INDEX.md` if it exists (post-`character-creator` memoir mode #59).
+- Read `plot/outline.md` for any existing through-line draft (the `book-conceptualizer` Phase 4 sketch — Step M3 below refines it).
+- Read `people/INDEX.md` if it exists (post-`character-creator` memoir mode #59).
 
 ### Step M1: Confirm or refine the through-line
 

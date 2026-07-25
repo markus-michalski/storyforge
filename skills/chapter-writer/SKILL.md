@@ -39,11 +39,13 @@ Before writing a single word:
    - `anti-ai-patterns` — **Why:** The negative-space catalog — what to NOT do at all costs.
    - `prose-style` — **Why:** Word choice, rhythm, devices — sentence-level craft.
    - `simile-discipline` — **Why:** The two-question test for every comparison — mandatory for the pre-save scan in Step 6c.
-6. **World files** — Read `{project}/world/setting.md`. **Why:** Travel Matrix and location facts — invented travel times break continuity. Mandatory when the chapter involves travel or specific places.
-7. **Story timeline** — Read `{project}/plot/timeline.md`. **Why:** Canonical day/date calendar — the brief's `recent_chapter_timelines` covers intra-day grids; `timeline.md` covers the macro arc.
+6. **World files** — Call `resolve_path(book_slug, "world", "setting.md")` (MCP) to get the correct path, then read it. **Why:** Travel Matrix and location facts — invented travel times break continuity. Mandatory when the chapter involves travel or specific places.
+7. **Story timeline** — Call `resolve_path(book_slug, "plot", "timeline.md")` (MCP) to get the correct path, then read it. **Why:** Canonical day/date calendar — the brief's `recent_chapter_timelines` covers intra-day grids; `timeline.md` covers the macro arc.
 8. **Canon log** — Use `canon_brief` from the chapter writing brief. Provides `pov_relevant_facts` (POV-filtered primary signal) + `changed_facts` (all `CHANGED` entries). `warnings` non-empty → surface to user, do not invent. `pov_relevant_facts_truncated == true` or need broader context → call standalone `get_canon_brief(book_slug, chapter_slug, scope_chapters=N)`; returns same projection + `current_facts`.
 9. **Series canon** — If part of a series, read `{series}/world/canon.md`. **Why:** Series-level facts and constraints carry across books.
-9b. **World Rules** — Read `{project}/world/rules.md` if it exists. **Why:** Documents canonically fragile facts the model would otherwise fill with plausible-sounding inventions: species biology, room inventories, character-specific timeline details, distances, healing rates. Any fact documented here overrides model defaults and the "Abstain from invention" rule treats it as a valid source. Missing file → skip silently; do NOT invent rules for uncovered categories.
+9b. **World Rules** — Call `resolve_path(book_slug, "world", "rules.md")` (MCP) to get the path, then check `exists` — if `true`, read the file. **Why:** Documents canonically fragile facts the model would otherwise fill with plausible-sounding inventions: species biology, room inventories, character-specific timeline details, distances, healing rates. Any fact documented here overrides model defaults and the "Abstain from invention" rule treats it as a valid source. Missing file → skip silently; do NOT invent rules for uncovered categories.
+
+> **Path resolution:** `{project}` throughout this skill refers to the book's root directory. Always call `resolve_path(book_slug, component, sub_path)` (MCP) before any file I/O — this handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts. Components match the top-level dirs: `chapters`, `plot`, `world`, `characters`, `research`.
 10. **Previous chapter draft** — `brief.prev_chapter_draft` (Issue #342). Already bundled in the brief — no separate Read needed. Contains the last ~600–700 words (3500 chars) of the directly preceding chapter's `draft.md`. `null` = Chapter 1 or predecessor has no draft yet. **Why:** Canon-log gives you facts; the previous draft gives you voice-in-relationship. The prose reveals how these specific characters talk to each other — their sentence rhythm, physical shorthand, what gets left unsaid, who deflects and who pushes. Without this, dialog defaults to briefing mode: characters explaining things both parties already know. **Critical:** Before writing Scene 1, check what emotional state, facts, and events the previous chapter established — do not re-establish them. If the predecessor covered a conversation or conflict in detail, this chapter opens *after* that resolution, not by replaying it.
 
 **Shared procedures** — MCP `get_craft_reference("chapter-writing-shared")`. Contains mode selection, scene-plan persistence, user review loop, chapter completion, POV snapshot procedure, the fact recording gate, the Step 7 draft-skip scope, and user feedback handling — all referenced inline later by section name (`§`).
@@ -111,7 +113,7 @@ Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene.
 **Pre-append:** run the Step 6c Simile Discipline Scan (model fixes autonomously), then the Step 6d Elegant Abstraction Scan (interactive hard-gate — user resolves every hit before appending). No scene enters `draft.md` until both scans are complete and all EA hits resolved or explicitly skipped.
 
 After writing:
-1. **Append directly to `{project}/chapters/{chapter}/draft.md`** — never paste prose into chat. If `draft.md` doesn't exist, create it with `# Chapter N: Title` above the first scene. Separate scenes with a blank line.
+1. **Append directly to the chapter draft** — call `resolve_path(book_slug, "chapters", "{chapter}/draft.md")` (MCP) to get the correct path (handles series books), then append. Never paste prose into chat. If `draft.md` doesn't exist at that path, create it with `# Chapter N: Title` above the first scene. Separate scenes with a blank line.
 2. Report in chat ONLY: scene number, word count, one-line summary.
 3. **WAIT for user feedback** as `{review_handle}:` blocks inside `draft.md`.
 
@@ -177,7 +179,7 @@ After all hits resolved: append to `draft.md` and add `EA-Scan: N fixed, M skipp
 ---
 
 ### Step 7: Save and Update (both modes)
-1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
+1. Draft is at the path returned by `resolve_path(book_slug, "chapters", "{chapter}/draft.md")`. Count words — report to user.
 2–3. **Extract promises + Canon Fact Recording Gate (Issue #150).** → **§ Fact Recording Gate** in `chapter-writing-shared.md` for both sub-steps in full — promise extraction, and the canon-fact scan/record/checklist gate that blocks the status update in step 4. Skip both when staying at `Draft`.
 
 → **§ Step 7 Draft-Skip Scope** in `chapter-writing-shared.md` for exactly which of steps 1–9 are gated to Review/Final vs. run unconditionally.

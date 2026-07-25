@@ -53,7 +53,9 @@ Use WebSearch to find authoritative sources:
 
 ### Step 3: Synthesize
 
-Write findings to `{project}/research/notes/{topic-slug}.md`.
+Call `resolve_path(book_slug, "research", "notes/{topic-slug}.md")` (MCP) before writing — `{project}` throughout this skill refers to the resolved book root and handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts.
+
+Write findings to the resolved `research/notes/{topic-slug}.md`.
 **Scope: ~300–500 words per topic; bullet-point style; depth over length.**
 
 **Fiction captures:**
