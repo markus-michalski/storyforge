@@ -39,6 +39,11 @@ writer has to do the work — the skill creates the conditions for it.
 
 ## Prerequisites — MANDATORY LOADS
 
+Resolve the target and verify memoir mode (Steps 1–2 below) first if
+`book_category` isn't already known to be `memoir` — don't spend these loads
+against a book that turns out to be fiction. Then return here and complete
+these four loads before Step 3.
+
 - **`emotional-truth.md`** via MCP `get_book_category_dir("memoir")` +
   `/craft/emotional-truth.md`. **Why:** The full taxonomy of emotional-truth
   failure modes — thoroughness, avoidance, retrospective vantage, dialogue
@@ -59,23 +64,43 @@ writer has to do the work — the skill creates the conditions for it.
 
 ### 1. Resolve target
 
-Use the user-supplied slugs if provided. Otherwise call MCP `get_session()`
-for the active book + chapter. If no active chapter, show the chapter list
-via `get_book_full()` and ask which scene to interrogate.
+**Book slug:** use the user-supplied book slug if provided. Otherwise call MCP
+`get_session()` and use its active book (`last_book`), if any. If neither is
+available, call `list_books()`, filter (or clearly mark) the results to
+`book_category: memoir` entries, and ask the user to pick one before doing
+anything else — do not guess or fall back to a recently used project.
+
+Once the book slug is resolved, call MCP `get_book_full(book_slug)` once and
+keep the result — Step 2 reads `book_category` from it and the chapter-list
+branch below reads chapter data from it, so this is the only full-book fetch
+needed on this path.
+
+**Chapter slug:** use the user-supplied chapter slug if provided. Otherwise
+check `get_session()`'s `last_chapter` — but only use it if that same
+session's `last_book` matches the book slug resolved above. `get_session()`
+stores `last_book` and `last_chapter` as independent, unvalidated fields, not
+a validated pair, so a chapter slug from the session is only trustworthy when
+the session's own book agrees with the book you're about to interrogate.
+Otherwise (the session's chapter belongs to a different book, or there is no
+session chapter at all), show the chapter list from the `get_book_full`
+result already fetched above and ask which scene to interrogate.
 
 ### 2. Verify memoir mode
 
-Call MCP `get_book_full(book_slug)` and read `book_category`.
+Read `book_category` from the `get_book_full(book_slug)` result fetched in
+Step 1 (no new call needed).
 
 If `book_category` is not `memoir`: stop. Explain this skill is memoir-only.
 Offer `/storyforge:chapter-reviewer` as the fiction analogue.
 
 ### 3. Read the chapter draft
 
-Read `{chapter-path}/draft.md` in full. Do not summarize it — you need to
-work from the actual text.
+Resolve and read the chapter draft: `resolve_path(book_slug, "chapters",
+"{chapter-slug}/draft.md")` → read the returned `path` in full. Do not
+summarize it — you need to work from the actual text.
 
-Also read the chapter README for context (POV, timeline anchor, what the
+Also read the chapter README (`resolve_path(book_slug, "chapters",
+"{chapter-slug}/README.md")`) for context (POV, timeline anchor, what the
 chapter is supposed to accomplish in the narrative arc).
 **Why:** POV, timeline anchor, and intended narrative function are required
 to calibrate ET2 (retrospective vantage) and ET6 (scene/summary mode)
@@ -91,6 +116,9 @@ so clearly.
 ---
 
 #### ET1 — Implicit Feeling (what the narrator feels but doesn't say)
+
+**Calibrate to the author profile before flagging** (see Rules section) —
+check the documented voice before treating implicit feeling as a hit.
 
 **What to look for:**
 - Emotional states that are named abstractly: "She felt sad." "I was afraid."
@@ -276,10 +304,17 @@ DEEPEN — address flagged dimensions before review |
 REWRITE — scene mode errors or extensive avoidance; structural rework needed]
 ```
 
-**After presenting the Emotional Truth Report, STOP and wait for the user
-to respond. Do NOT proceed to Step 7 until the user either answers a
-question (→ Step 6) or explicitly signals they want the verdict summary
-(e.g., "done", "ready for reviewer", "proceed").**
+**After presenting the Emotional Truth Report — which already includes the
+Verdict line per the template above — STOP and wait for the user to respond.
+Do NOT append Step 7's follow-through (the concrete next-step message: the
+chapter-reviewer suggestion for PASS, or the "work the questions and return"
+message for DEEPEN/REWRITE) in that same turn, even though the Verdict
+category is already visible. These are two separate branches, not one wait
+condition satisfied by either: if the user answers one of the report's
+questions, go to Step 6 and stay there — deepen that answer, then stop again
+and wait; answering a question never by itself releases Step 7. Only an
+explicit, unprompted done/proceed signal from the user (e.g., "done", "ready
+for reviewer", "proceed" — not an answer to a question) releases Step 7.**
 
 ### 6. Interactive deepening _(optional)_
 

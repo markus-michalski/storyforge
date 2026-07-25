@@ -87,7 +87,6 @@ PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
     "bootstrap-book-from-series": {"n_accepted", "n_edited", "n_new", "n_skipped", "n_with_prior"},
     "chapter-proofreader": {"count"},
     "continuity-checker": {"date"},
-    "emotional-truth-prompt": {"chapter-path"},  # slug-in-file-path, self-evident from "{chapter-path}/draft.md"
     "harvest-author-rules": {"idx"},
     "harvest-character-evolution": {
         "n_accepted",
