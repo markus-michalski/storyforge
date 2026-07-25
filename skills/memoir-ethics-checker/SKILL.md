@@ -57,6 +57,13 @@ analogue.
 
 ### 3. Run the consent scan
 
+If `real-people-ethics.md` (Prerequisites) has not yet been loaded this
+session, load it now via `get_book_category_dir('memoir')` +
+`/craft/real-people-ethics.md` before calling the tool below. This is
+required on **every** run, including one that turns out to be a clean PASS
+with zero findings — do not skip it just because the scan looks like it's
+going to be uneventful.
+
 Call MCP `check_memoir_consent(book_slug)`.
 
 The tool returns:
@@ -70,6 +77,8 @@ The tool returns:
       "name": "...",
       "person_category": "...",
       "consent_status": "...",
+      "anonymization": "...",
+      "real_name": "...",
       "verdict": "PASS" | "WARN" | "FAIL",
       "reason": "..."
     }
@@ -92,9 +101,32 @@ or `run_quality_gates`) read `gate.status` rather than `overall`.
 
 ### 4. Defamation-risk prose scan
 
-After reading the consent report, read each chapter draft that mentions a
-WARN or FAIL person by name (or by their `real_name` if anonymized). Scan for
-the four defamation-risk patterns from `real-people-ethics.md`:
+Defamation risk is independent of consent status — a person who has
+confirmed consent to appear in the book has not thereby waived the right
+not to be falsely accused of a crime, incompetence, or misconduct. Scan
+chapters for mentions of **every** person profiled in `people/`, not only
+WARN/FAIL people — a clean consent_status narrows what needs resolving
+before export, it does not narrow what counts as defamation risk.
+
+To read the actual prose: call MCP `list_chapters(book_slug)` to enumerate
+chapters. Skip any chapter with `words == 0` (no draft written yet — nothing
+to scan). For each remaining chapter, call MCP
+`resolve_path(book_slug, "chapters", "{chapter_slug}/draft.md")`; if the
+response has `exists: false`, skip that chapter silently (no draft on disk
+despite a nonzero word count is a state-sync edge case, not this skill's
+concern). Otherwise read `draft.md` at the returned `path`. Do not guess or
+fabricate a chapter's file path or content.
+
+Work through chapters in order, one at a time, accumulating hits as you go
+— do not attempt to hold the whole manuscript in context at once. On a long
+memoir (many chapters), this scan can be substantial; if you have to stop
+before reaching the last chapter (context or turn limits), say so explicitly
+in the report — list which chapters were scanned and which were not, rather
+than presenting a partial scan as a complete one.
+
+For each chapter, check every passage that mentions a profiled person by
+name (or by their `real_name` if anonymized). Scan for the four
+defamation-risk patterns from `real-people-ethics.md`:
 
 **D1. Compressed-time assertion** — a characterization that would be defensible
 with precise scope but reads as a blanket fact without it.
@@ -110,7 +142,10 @@ claim or confession they have not publicly made.
 **D3. Unframed mind-reading** — internal state stated as fact rather than
 perception.
 Signal: `"She hated me"`, `"He despised the family"` without perception framing
-(`"I felt that"`, `"It seemed to me"`, `"my impression was"`).
+(`"I felt that"`, `"It seemed to me"`, `"my impression was"`). A statement that
+already uses this framing (e.g. `"I felt, at the time, that she hated me"`) is
+**not** a D3 hit — the framing is itself the fix. Do not flag an already-framed
+statement again out of caution.
 
 **D4. Per-se-defamatory imputation** — imputing crime, professional incompetence,
 or sexual misconduct without verification or protective framing.
@@ -135,23 +170,41 @@ Consent status:
   FAIL ({n}): [names — EXPORT BLOCKED]
 
 Defamation-risk findings: {n}
-  [one line per hit: chapter, person, pattern code, fix direction]
+  [one line per hit: chapter, person, pattern code — BLOCKED if D4, fix direction]
 ```
 
 ### 6. Verdict and next step
 
-**PASS (no FAILs, no WARNs, no defamation hits):**
-Tell the user the ethics check is clean. They may proceed to export.
+`Overall Verdict` (PASS/WARN/FAIL) is the consent-only `gate.status` from
+Step 3 — it is a machine-facing contract other aggregators (export-engineer
+Step 0, `run_quality_gates`) read verbatim, so do not fold defamation
+findings into it. The report's bottom-line `Verdict` line (EXPORT CLEAR /
+RESOLVE BEFORE EXPORT / EXPORT BLOCKED), by contrast, is this skill's own
+recommendation to the human reading the report, and **must** account for
+defamation hits too — see the four cases below. **Only the consent side of
+this gate is machine-enforced** (export-engineer Step 0 calls
+`check_memoir_consent` and branches on `overall`); a D4 defamation hit is
+not read by any automated gate. If the bottom-line Verdict says EXPORT
+BLOCKED for a D4-only reason while Overall Verdict still says PASS/WARN, the
+author must track and act on that manually — running export anyway is not
+stopped by machinery, only by the author reading this report.
 
-**WARN only (no FAILs, no defamation hits):**
-Tell the user: these are resolvable before publication. For each WARN person,
-propose the smallest concrete fix:
+**Consent PASS, no defamation hits at all:**
+Tell the user the ethics check is clean. Bottom-line Verdict: `EXPORT CLEAR`.
+
+**Consent WARN (no FAILs), and/or D1–D3 hits (no D4, no FAIL):**
+Tell the user: all of this is resolvable before publication, none of it is a
+hard block. For each WARN person, propose the smallest concrete fix:
 - `pending` → ask the person; if refused, re-profile.
 - `not-asking` → confirm the decision is deliberate and documented.
 - Missing `person_category` → fill in the four-category field.
 - Missing/unknown `consent_status` → fill in a valid value.
+For each D1–D3 hit, offer a rewrite (see below). This branch also covers a
+consent PASS with D1–D3 hits (no WARN people at all) — the WARN-fix list
+above simply has nothing to add in that case. Bottom-line Verdict:
+`RESOLVE BEFORE EXPORT`.
 
-**FAIL (any refused consent):**
+**FAIL (any refused consent), regardless of defamation findings:**
 Hard stop. Export is blocked. Tell the user:
 
 > **Export blocked** — {name} has refused consent. Options:
@@ -162,9 +215,23 @@ Hard stop. Export is blocked. Tell the user:
 > 3. Obtain consent (unlikely if already refused — but if the situation has
 >    changed, update the profile and re-run).
 
-**Defamation-risk hits:**
+Bottom-line Verdict: `EXPORT BLOCKED`.
+
+**Any D4 hit, regardless of consent Overall Verdict (PASS/WARN/FAIL):**
+Set the bottom-line Verdict to `EXPORT BLOCKED` even if Overall Verdict
+above it reads PASS or WARN — call out explicitly in the report text that
+the two lines are tracking different things (see the note above) so the
+author does not read a "PASS" and stop paying attention. Tell the user this
+specific passage should not go to export or beta readers as written, until
+it is rewritten or the claim is verified. This is this skill's own
+recommendation, not a machine-enforced block — see the note above.
+
+**Defamation-risk hits generally:**
 Offer rewrites. Prioritize D4 (per-se-defamatory) > D2 (reconstructed
-dialogue) > D3 (unframed mind-reading) > D1 (compressed-time).
+dialogue) > D3 (unframed mind-reading) > D1 (compressed-time). Label D4
+hits **BLOCKED** in the report (not just "flagged"); D1–D3 findings are
+risk flags with a suggested rewrite and do not affect the bottom-line
+Verdict on their own.
 
 ## Output Format
 
@@ -191,6 +258,10 @@ Fix: {one-sentence fix direction}
 [Specific, ordered action items]
 ```
 
+For a D4 hit, append ` — BLOCKED` to the end of the "Pattern D{n}: {pattern
+name}" line (e.g. `Pattern D4: Per-se-defamatory imputation — BLOCKED`). Do
+not append it for D1–D3 hits.
+
 ## Rules
 
 - This skill is **memoir-only**. Do not run it on fiction books.
@@ -201,6 +272,11 @@ Fix: {one-sentence fix direction}
   author consciously confirms the decision before publication, but do not
   pressure them to ask. The `real-people-ethics.md` doc covers why someone
   might not ask (estranged relationship, abuser, deceased-but-survivors-hostile).
+  If the user directly asks whether they should ask anyway, stay neutral
+  rather than refusing to engage: lay out the relevant considerations from
+  `real-people-ethics.md` (both directions) so they can weigh them, but do
+  not tell them what to decide and do not push them toward asking or not
+  asking — the decision, and the responsibility for it, stays theirs.
 - Missing `person_category` always produces WARN even when consent is clean —
   an unclassified person is an unreviewed risk.
 - Defamation patterns D1–D4 are risk flags, not verdicts. Most instances are
