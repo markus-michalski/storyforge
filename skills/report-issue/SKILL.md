@@ -54,7 +54,7 @@ For structural rules (walking order, POV boundary) that cannot be expressed as a
 If the rule is a literal phrase or regex (not structural):
 
 Use MCP `scan_manuscript(book_slug, pattern)` if available. Otherwise:
-1. List all chapter draft files: `{project}/chapters/*/draft.md`
+1. Call `resolve_path(book_slug, "chapters", "")` (MCP) to get the chapters directory (handles series books), then list all `draft.md` files within it.
 2. Read each draft and count occurrences of the phrase.
 3. Report: "Found N occurrences across M chapters: [chapter list with counts]"
 

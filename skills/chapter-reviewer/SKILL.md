@@ -46,7 +46,7 @@ When a field is empty **because of a missing file** (i.e. its source file is nam
 
 - **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` (Issue #151) lists cross-book tics — flag any hit as a Critical finding (the Output Format below has only Critical/Recommended/Minor tiers; a recurring, previously-documented tic is always Critical, never downgraded to Minor). `style_principles` (genre-filtered — skip entries whose `genres` list shares no genre with this book; entries without `genres` are universal) and `donts` feed the same review pass.
 - **World rules** — Read `{project}/world/rules.md` if it exists. **Why:** Canonically fragile facts (room inventories, biology details, dates, Firelight-specific character states) consolidated with world-level rules. Use alongside check 20e. Missing file → skip silently.
-- **Author vocabulary** from `~/.storyforge/authors/{slug}/vocabulary.md`. **Why:** Banned-word scan and preferred-word check both run against this list.
+- **Author vocabulary** from the already-loaded author profile: `writing_discoveries.donts` (banned phrases) and `writing_discoveries.style_principles` (preferred patterns). **Why:** Banned-word scan and preferred-word check both run against these lists. *(The SQLite-backed Writing Discoveries are authoritative — Issue #281. Do not read `vocabulary.md` directly.)*
 - **Craft references** via MCP `get_craft_reference()`:
   - `dos-and-donts` — general craft baseline for the Craft section (5 points).
   - `anti-ai-patterns` — AI-tell catalog for the Anti-AI section (5 points).
@@ -58,10 +58,12 @@ When a field is empty **because of a missing file** (i.e. its source file is nam
 
 ### Step 3 — Read the prose (direct file reads)
 
-- Read the chapter draft: `{project}/chapters/{chapter}/draft.md`
-- Read the chapter outline: `{project}/chapters/{chapter}/README.md`
-- Read previous chapter draft for continuity context
-- Optional: If `{project}/research/manuscript-report.md` exists, check whether any of THIS chapter's distinctive 5-7 word phrases appear in earlier chapters. Flag matches in the Continuity Report.
+> **Path resolution:** `{project}` is not a literal path — call `resolve_path(book_slug, component, sub_path)` (MCP) to get the correct absolute path before any file I/O. This handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts. All `{project}/X/Y` references below are shorthand for `resolve_path(book_slug, "X", "Y")`.
+
+- Resolve and read the chapter draft: `resolve_path(book_slug, "chapters", "{chapter}/draft.md")` → read the returned `path`.
+- Resolve and read the chapter outline: `resolve_path(book_slug, "chapters", "{chapter}/README.md")` → read the returned `path`.
+- Read previous chapter draft for continuity context (resolve its path the same way).
+- Optional: check `resolve_path(book_slug, "research", "manuscript-report.md")` — if `exists: true`, read it and flag any THIS chapter's distinctive 5-7 word phrases that appear in earlier chapters. Flag matches in the Continuity Report.
 
 ## First Chapter Checklist — 13 Points (ONLY for Chapter 1)
 

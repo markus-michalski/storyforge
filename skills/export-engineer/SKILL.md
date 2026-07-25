@@ -38,13 +38,16 @@ Run MCP `run_pre_export_gates()`. If BLOCKED, show the issues and stop.
 If WARN-only, show warnings and ask if user wants to proceed anyway.
 
 ### Step 2: Assemble Manuscript
-Create a combined markdown file at `{project}/export/output/manuscript.md`:
 
-1. **Front matter** — Read `{project}/export/front-matter.md`
-2. **Chapters** — Read all `{project}/chapters/*/draft.md` in order
+> **Path resolution:** Call `resolve_path(book_slug, "export", "")` (MCP) to get the resolved book root before any file I/O — this handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts.
+
+Create a combined markdown file at the resolved `export/output/manuscript.md`:
+
+1. **Front matter** — Read `export/front-matter.md` (via resolved path)
+2. **Chapters** — Call `resolve_path(book_slug, "chapters", "")` then read all `chapters/*/draft.md` in order
    - Add `# Chapter N: Title` headers
    - Add page breaks between chapters (`\newpage` for PDF, `---` for EPUB)
-3. **Back matter** — Read `{project}/export/back-matter.md`
+3. **Back matter** — Read `export/back-matter.md` (via resolved path)
 
 ### Step 3: Generate Output
 Ask user for format if not specified (default from config):

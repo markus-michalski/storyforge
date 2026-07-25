@@ -39,19 +39,22 @@ Beta-reader feedback is qualitatively different from inline review comments:
    **Why:** Carries persisted Rules, Callbacks, and Workflow overrides that govern triage verdicts — without this, deliberate authorial choices are misread as errors.
    If the book has no CLAUDE.md yet, the call returns an error (not an empty Rules/Callbacks/Workflow object) — but by this point the slug is already validated (Prerequisites 1-2 would have failed first on a bad slug), so treat the error here as "no persisted overrides exist yet" and proceed rather than as a prerequisite-load failure.
 5. Read the feedback file:
-   - Default: `{project}/research/beta-feedback.md`
+   - Default: resolve via `resolve_path(book_slug, "research", "beta-feedback.md")` (MCP) — handles series books.
    - Custom: path from `--file` argument
    **Why:** The feedback file is the sole input — without it, no items can be parsed and the workflow cannot proceed.
+
+> **Path resolution:** `{project}` throughout this skill is shorthand for the book's root directory. Call `resolve_path(book_slug, component, sub_path)` (MCP) before any file I/O — this handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts.
+
 6. Read cross-reference sources:
    - Canon facts via `get_canon_brief(book_slug, chapter_slug)` — DB-backed established facts and revision tracking (Issue #297)
      **Why:** Identifies whether a reader-reported error is already-fixed in a revision vs. a real problem (`revision_impacts` field prevents chasing ghost issues).
-   - `{project}/plot/timeline.md` — canonical timeline
+   - `resolve_path(book_slug, "plot", "timeline.md")` → canonical timeline
      **Why:** Required to assess whether timeline complaints reflect real errors or reader miscounting of story-days.
-   - `{project}/plot/tone.md` — tonal rules, warning signs, litmus tests
+   - `resolve_path(book_slug, "plot", "tone.md")` → tonal rules, warning signs, litmus tests
      **Why:** Pacing complaints must be validated against the tonal arc for that chapter's position — without tone.md, valid deliberate pacing choices get wrongly flagged.
-   - `{project}/plot/arcs.md` — character arcs and motivation setup
+   - `resolve_path(book_slug, "plot", "arcs.md")` → character arcs and motivation setup
      **Why:** Character-motivation complaints require verifying what setup already exists — without arcs.md, existing foreshadowing is invisible.
-7. Read chapter drafts as needed during cross-referencing: `{project}/chapters/{slug}/draft.md`
+7. Read chapter drafts as needed during cross-referencing: `resolve_path(book_slug, "chapters", "{slug}/draft.md")`
 
 ## Input Format
 
@@ -122,7 +125,7 @@ FB-003: Kevin scene was perfect → positive
 
 For each **non-positive** item:
 
-1. **Read the affected chapter draft(s)** — `{project}/chapters/{slug}/draft.md`
+1. **Read the affected chapter draft(s)** — resolve via `resolve_path(book_slug, "chapters", "{slug}/draft.md")` (MCP), then read the returned path.
 2. **Check against canon brief (DB)** — Is the reader pointing at something that's actually correct canon? Was there a revision (`canon_brief.changed_facts`) that the reader's copy didn't include?
 3. **Check against timeline.md** — Is there a real timeline issue, or is the reader miscounting days?
 4. **Check against tone.md** — Is the pacing concern valid per the tonal arc for that chapter's position, or is the reader expecting the wrong genre mode? Check the Tonal Arc table, Warning Signs, and Non-Negotiable Rules.
@@ -159,7 +162,7 @@ For **disagree** verdicts, always provide (max ~100 words of evidence total):
 - The evidence that it's intentional (quote from canon-log, arcs, tone, or per-book CLAUDE.md callbacks — confirmed against the draft itself per Phase 3's verification rule, not the source alone)
 - Why changing it would hurt the book
 
-Present the full triage table to the user and wait for confirmation — the author may want to correct a verdict before it's persisted, and writing first would lock in a verdict that's about to change. Once confirmed, write the (corrected, if applicable) triage table to `{project}/research/beta-feedback-triage.md` using `templates/beta-feedback-triage.md` as scaffold — the chat presentation is ephemeral, but the triage record needs to persist so it survives the session and can be referenced from Phase 5 onward — then proceed to Phase 5.
+Present the full triage table to the user and wait for confirmation — the author may want to correct a verdict before it's persisted, and writing first would lock in a verdict that's about to change. Once confirmed, write the (corrected, if applicable) triage table to `resolve_path(book_slug, "research", "beta-feedback-triage.md")` using `templates/beta-feedback-triage.md` as scaffold — the chat presentation is ephemeral, but the triage record needs to persist so it survives the session and can be referenced from Phase 5 onward — then proceed to Phase 5.
 
 ### Phase 5: Revision Plan
 
@@ -186,7 +189,7 @@ Output format (keep each task to 1-3 lines; cascade notes are 1 line each):
 - **[CRITICAL] FB-002 (character):** Kael's prohibition needs a visible trigger in the scene. Add 2-3 lines showing what he sees/realizes that makes him act. Setup in Ch 20 is sufficient but the payoff moment is too abrupt.
 ```
 
-**Wait for the user to acknowledge the plan** — this is a review checkpoint, not the same as authorizing execution (that's Phase 6's separate gate; acknowledging a plan looks reasonable is not the same as saying "go ahead and rewrite the prose"). Once acknowledged, write it to `{project}/research/beta-feedback-revision-plan.md` using `templates/beta-feedback-revision-plan.md` as scaffold, then update the triage report's `## Next Step` section (written in Phase 4) to point to this file instead of leaving its placeholder unfilled.
+**Wait for the user to acknowledge the plan** — this is a review checkpoint, not the same as authorizing execution (that's Phase 6's separate gate; acknowledging a plan looks reasonable is not the same as saying "go ahead and rewrite the prose"). Once acknowledged, write it to `resolve_path(book_slug, "research", "beta-feedback-revision-plan.md")` using `templates/beta-feedback-revision-plan.md` as scaffold, then update the triage report's `## Next Step` section (written in Phase 4) to point to this file instead of leaving its placeholder unfilled.
 
 ### Phase 6: Execute (optional, user-triggered)
 
@@ -196,7 +199,7 @@ For each approved revision task:
 - **Prose/pacing fixes:** Use `/storyforge:chapter-writer` in rewrite mode for the affected scene
 - **Continuity fixes:** Call `add_canon_fact()` to update DB first (Issue #297), then rewrite the affected passage
 - **Character fixes:** Re-read the character file and `plot/arcs.md`, assess if the arc doc needs updating, then rewrite
-- **After all revisions:** Update `{project}/research/beta-feedback.md` with resolution status per item
+- **After all revisions:** Update `resolve_path(book_slug, "research", "beta-feedback.md")` with resolution status per item
 
 Resolution status format — append to each `## FB-NNN` section:
 
@@ -208,11 +211,11 @@ Resolution status format — append to each `## FB-NNN` section:
 
 ## Output Artifacts
 
-### Triage Report: `{project}/research/beta-feedback-triage.md`
+### Triage Report: `research/beta-feedback-triage.md`
 
-Written at the end of Phase 4, after the user confirms the triage table (see Phase 4's closing step) — generated using `templates/beta-feedback-triage.md` as scaffold, reflecting the confirmed (possibly corrected) verdicts, not the initially-presented ones.
+Written at the end of Phase 4, after the user confirms the triage table (see Phase 4's closing step) — generated using `templates/beta-feedback-triage.md` as scaffold, reflecting the confirmed (possibly corrected) verdicts, not the initially-presented ones. Path resolved via `resolve_path(book_slug, "research", "beta-feedback-triage.md")`.
 
-### Revision Plan: `{project}/research/beta-feedback-revision-plan.md`
+### Revision Plan: `research/beta-feedback-revision-plan.md`
 
 Written at the end of Phase 5, after the user acknowledges the plan (see Phase 5's closing step) — generated using `templates/beta-feedback-revision-plan.md` as scaffold. The Triage Report's `## Next Step` section is updated to point to this file once it exists.
 

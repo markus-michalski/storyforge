@@ -52,7 +52,9 @@ Before writing a single word:
    - `memoir-anti-ai-patterns.md` — **Why:** Memoir-specific tells the universal anti-AI doc misses — "looking back I realize", reflective platitudes, tidy lessons learned, hedged intimacy.
    - `real-people-ethics.md` — **Why:** Consent gate enforcement before any scene with a named living person; framing for anonymized portrayals; defamation-trigger awareness.
 7. **Memoir structure type** — Read `plot/structure.md` frontmatter (`structure_type:` — set by `plot-architect-memoir` #58). **Why:** The chapter's scene/summary ratio and POV vantage vary by structure type (chronological / thematic / braided / vignette). For braided memoir, the chapter spine in `plot/outline.md` flags which thread (A or B) this chapter belongs to.
-8. **Story timeline** — Read `{project}/plot/timeline.md`. **Why:** Memoir uses real chronology; the timeline file anchors story-time so cross-chapter references stay consistent.
+8. **Story timeline** — Call `resolve_path(book_slug, "plot", "timeline.md")` (MCP) to get the correct path, then read it. **Why:** Memoir uses real chronology; the timeline file anchors story-time so cross-chapter references stay consistent.
+
+> **Path resolution:** `{project}` throughout this skill refers to the book's root directory. Always call `resolve_path(book_slug, component, sub_path)` (MCP) before any file I/O — this handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts.
 9. **People facts** — Use `canon_brief` from the chapter writing brief (DB-backed since Issue #297 — `plot/people-log.md` is no longer read directly). **Why:** Large logs truncate context. The inlined brief carries `pov_relevant_facts` (trimmed newest-first to 30k char budget) and `changed_facts`. For the unfiltered list call standalone `get_canon_brief(book_slug, chapter_slug)`. If `extraction_method == "none"`, no facts are in DB yet — run `scripts/migrate_canon_log_to_db.py` to import from `plot/people-log.md`, or call `add_canon_fact()` to add facts. Surface `warnings`; do not invent person facts.
 10. **Consent status check** — Read `consent_status_warnings` from the brief. **MANDATORY GATE.** If any warning has tier `refused`, halt drafting and route to `/storyforge:character-creator-memoir`. Tier `missing` requires an explicit user decision before drafting (surface the gap and ask the user how to proceed — e.g. cut, anonymize, or confirm consent is in fact fine to assume — not a routine confirmation). Tier `pending` requires the lighter user confirmation that drafting can proceed while consent is still outstanding.
 
@@ -118,7 +120,7 @@ Apply ALL craft rules (Steps 3-6 from Mode B). Write ONLY this scene (~900 words
 **Pre-append:** run the Step 6c Simile Discipline Scan (model fixes autonomously), then the Step 6d Elegant Abstraction Scan (interactive hard-gate — user resolves every hit before appending). No scene enters `draft.md` until both scans are complete and all EA hits resolved or explicitly skipped.
 
 After writing:
-1. **Append directly to `{project}/chapters/{chapter}/draft.md`** — never paste prose into chat. If `draft.md` doesn't exist, create it with `# Chapter N: Title` above the first scene. Separate scenes with a blank line.
+1. **Append directly to the chapter draft** — call `resolve_path(book_slug, "chapters", "{chapter}/draft.md")` (MCP) to get the correct path (handles series books), then append. Never paste prose into chat. If `draft.md` doesn't exist at that path, create it with `# Chapter N: Title` above the first scene. Separate scenes with a blank line.
 2. Report in chat ONLY: scene number, word count, one-line summary.
 3. **WAIT for user feedback** as `{review_handle}:` blocks inside `draft.md`.
 
@@ -183,7 +185,7 @@ After all hits resolved: append to `draft.md` and add `EA-Scan: N fixed, M skipp
 ---
 
 ### Step 7: Save and Update (both modes)
-1. Draft is at `{project}/chapters/{chapter}/draft.md`. Count words — report to user.
+1. Draft is at the path returned by `resolve_path(book_slug, "chapters", "{chapter}/draft.md")`. Count words — report to user.
 2–3. **Extract promises + People Fact Recording Gate.** → **§ Fact Recording Gate** in `chapter-writing-shared.md` for both sub-steps in full — promise extraction, and the people-fact scan/record/checklist gate that blocks the status update in step 4. Skip both when staying at `Draft`.
 
 → **§ Step 7 Draft-Skip Scope** in `chapter-writing-shared.md` for exactly which of steps 1–9 are gated to Review/Final vs. run unconditionally.

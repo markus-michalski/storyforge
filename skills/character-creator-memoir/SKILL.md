@@ -42,8 +42,8 @@ Before any other prerequisite load:
   - `real-people-ethics.md` — **Why:** the four-category model and the consent decisions are the schema this skill writes. Read this before asking the user anything.
   - `emotional-truth.md` — **Why:** keeps the "Memory anchors" prompt grounded in specific moments rather than reflective summary.
   - `memoir-anti-ai-patterns.md` — **Why:** prevents the description from drifting into "looking back I realize" platitudes.
-- Read `{project}/plot/outline.md` and `{project}/plot/structure.md` for which people the chosen narrative arc actually needs on the page.
-- Read `{project}/README.md` `## Scope` section (created by `book-conceptualizer` in memoir mode, #60). **Why:** Phase 3 of the conceptualizer already identified the structural cast and consent posture per person — this skill operationalizes those decisions, not re-decides them.
+- Call `resolve_path(book_slug, "plot", "")` (MCP) to get the resolved book root — `{project}` throughout this skill refers to that base path and handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts. Then read `plot/outline.md` and `plot/structure.md` for which people the chosen narrative arc actually needs on the page.
+- Read `README.md` `## Scope` section (created by `book-conceptualizer` in memoir mode, #60). **Why:** Phase 3 of the conceptualizer already identified the structural cast and consent posture per person — this skill operationalizes those decisions, not re-decides them.
 
 ## Workflow — Real-People Handler (6 steps)
 
