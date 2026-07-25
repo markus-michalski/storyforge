@@ -40,7 +40,7 @@ Ask the user:
    to `create_author()`.
 3. **Writing influences** — Which published authors inspire this persona? (e.g., "Stephen King meets Carmen Maria Machado"). If a named influence doesn't read as a real, published author — an invented-sounding name, or something offered as clearly fictional — ask the user to confirm it's real rather than persisting it as stated; see Rules below.
 4. **Native language** — What is the author's mother tongue? (ISO 639-1 code, e.g. `de`, `fr`, `es`, `ja`) — used for explanations in language-aware skills like the proofreader
-5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `book_language` set. (default: `en`)
+5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `language` set. (default: `en`)
 
 **Wait for user to answer all Phase 1 questions before moving to Phase 2.** This includes native
 language and preferred writing language — don't treat them as optional metadata just because they
@@ -102,7 +102,7 @@ Ask the user:
 2. **Memoir scope tags** — What kind of memoir? (e.g., memoir-of-illness, memoir-of-family, memoir-of-place, memoir-of-addiction, memoir-of-work — these are not genres but thematic anchors)
 3. **Writing influences** — Which memoirists or essayists inspire this voice? (e.g., Mary Karr, Tara Westover, Carmen Maria Machado, Ta-Nehisi Coates, Kiese Laymon, Roxane Gay, Paul Kalanithi). If a named influence doesn't read as a real, published author, ask the user to confirm it's real rather than persisting it as stated; see Rules below.
 4. **Native language** — What is the author's mother tongue? (ISO 639-1 code, e.g. `de`, `fr`, `es`, `ja`) — used for explanations in language-aware skills like the proofreader
-5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `book_language` set. (default: `en`)
+5. **Preferred writing language** — Which language does this author primarily write in? Used as fallback when a book has no `language` set. (default: `en`)
 
 **Wait for user to answer all Phase 1 questions before moving to Phase 2.**
 
