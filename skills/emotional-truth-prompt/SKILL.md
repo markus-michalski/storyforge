@@ -39,6 +39,10 @@ writer has to do the work — the skill creates the conditions for it.
 
 ## Prerequisites — MANDATORY LOADS
 
+Do Steps 1 and 2 below first (resolve the target, then verify memoir mode)
+if `book_category` isn't already known to be `memoir` — don't spend these
+loads against a book that turns out to be fiction.
+
 - **`emotional-truth.md`** via MCP `get_book_category_dir("memoir")` +
   `/craft/emotional-truth.md`. **Why:** The full taxonomy of emotional-truth
   failure modes — thoroughness, avoidance, retrospective vantage, dialogue
@@ -59,13 +63,22 @@ writer has to do the work — the skill creates the conditions for it.
 
 ### 1. Resolve target
 
-Use the user-supplied slugs if provided. Otherwise call MCP `get_session()`
-for the active book + chapter. If no active chapter, show the chapter list
-via `get_book_full()` and ask which scene to interrogate.
+Resolve `book_slug`: use the user-supplied book slug if provided; otherwise
+call MCP `get_session()` for the active book; if there is no active book
+either, call `list_books()` and ask the user to pick one.
+
+Resolve `chapter_slug`: use the user-supplied chapter slug if provided;
+otherwise use the active chapter from the `get_session()` call above (call
+`get_session()` now if you haven't already); if there is still no chapter
+resolved, show the chapter list via `get_book_full(book_slug)` and ask which
+scene to interrogate. This applies even when `book_slug` came from the
+user but no chapter slug did.
 
 ### 2. Verify memoir mode
 
-Call MCP `get_book_full(book_slug)` and read `book_category`.
+If Step 1's chapter-list fallback already called `get_book_full(book_slug)`,
+reuse `book_category` from that response. Otherwise call MCP
+`get_book_full(book_slug)` and read `book_category`.
 
 If `book_category` is not `memoir`: stop. Explain this skill is memoir-only.
 Offer `/storyforge:chapter-reviewer` as the fiction analogue.
@@ -91,6 +104,15 @@ so clearly.
 ---
 
 #### ET1 — Implicit Feeling (what the narrator feels but doesn't say)
+
+**Calibrate to the author profile before flagging** — see "Honor the author
+profile" in Rules below. A spare/elliptical documented voice legitimately
+leaves feeling implicit in places; do not treat that voice's restraint by
+itself as an automatic hit. This calibration note doesn't suppress the
+patterns below — abstract emotion-naming and body-language-only reporting
+are still genuine ET1 flags for a spare voice, same as for any other; what
+it changes is the third pattern (blank spots), where a spare voice needs a
+real, reader-can't-enter gap, not just brevity, before it counts as a flag.
 
 **What to look for:**
 - Emotional states that are named abstractly: "She felt sad." "I was afraid."
@@ -276,10 +298,15 @@ DEEPEN — address flagged dimensions before review |
 REWRITE — scene mode errors or extensive avoidance; structural rework needed]
 ```
 
-**After presenting the Emotional Truth Report, STOP and wait for the user
-to respond. Do NOT proceed to Step 7 until the user either answers a
-question (→ Step 6) or explicitly signals they want the verdict summary
-(e.g., "done", "ready for reviewer", "proceed").**
+**After presenting the Emotional Truth Report — which already includes the
+Verdict line per the template above — STOP and wait for the user to
+respond. What is being withheld here is Step 7's concrete follow-through
+message (the chapter-reviewer suggestion, or the "work the questions and
+come back" instruction), not the Verdict itself, which is already shown.
+Do NOT proceed to Step 7 until the user either answers a question (→ Step 6)
+or signals they're ready to hear what's next — this doesn't require having
+finished revising, just being ready for the follow-through message (e.g.,
+"done", "ready for reviewer", "proceed", "what next?").**
 
 ### 6. Interactive deepening _(optional)_
 
@@ -295,7 +322,7 @@ If the user asks for a rewrite, decline:
 > The felt-sense work has to come from you — I can't feel what you felt. What
 > I can do is show you where the gap is and give you a frame for entering it.
 
-### 7. Mark the chapter
+### 7. Hand off
 
 If the overall verdict is PASS, tell the user the scene is ready for
 `chapter-reviewer`. Suggest `/storyforge:chapter-reviewer {chapter-slug}`.
@@ -323,8 +350,10 @@ return for a second pass.
   already on the voice-checker pass list, flag them here but note the
   overlap rather than running a full duplicate analysis.
 - Honor the author profile. A spare, elliptical voice legitimately leaves
-  feeling implicit; that is a style choice, not an ET1 failure. Only flag
-  when the implicit feeling creates a blank spot the reader cannot enter.
+  feeling implicit in places; that restraint alone is a style choice, not
+  an ET1 failure. This doesn't exempt a spare voice from the abstract-naming
+  or body-language-only patterns — it means the blank-spot pattern needs a
+  real, reader-can't-enter gap, not just brevity, before it counts as a flag.
 - This skill runs before `chapter-reviewer`. Chapter-reviewer handles
   line-level craft (dialog punctuation, filter words, show-don't-tell).
   Emotional truth is the structural layer underneath line craft. Don't mix
