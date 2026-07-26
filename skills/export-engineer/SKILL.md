@@ -12,16 +12,21 @@ argument-hint: "<book-slug> [format]"
 # Export Engineer
 
 ## Prerequisites
-- Run MCP `run_pre_export_gates()` — check if book is ready
-- Load book data via MCP `get_book_full()`
+- Load book data via MCP `get_book_full()` — needed first to read `book_category`, since Step 0
+  gates memoir books before pre-export gates ever run. Reuse this same result in Step 0 — don't
+  call it again.
 - Verify Pandoc is installed: `pandoc --version`
 - For MOBI: verify Calibre's ebook-convert is installed
+
+Pre-export gates (`run_pre_export_gates()`) are run in Step 1, not here — for memoir books, only
+*after* Step 0's consent gate has passed.
 
 ## Workflow
 
 ### Step 0: Memoir consent gate _(memoir books only)_
 
-Call MCP `get_book_full(book_slug)` and read `book_category`.
+Read `book_category` from the `get_book_full()` result already loaded in Prerequisites — don't
+call it again.
 
 If `book_category == "memoir"`: call MCP `check_memoir_consent(book_slug)`
 **before** running pre-export gates.
@@ -43,23 +48,50 @@ If WARN-only, show warnings and ask if user wants to proceed anyway.
 
 Create a combined markdown file at the resolved `export/output/manuscript.md`:
 
-1. **Front matter** — Read `export/front-matter.md` (via resolved path)
+1. **Front matter** — Read `export/front-matter.md` (via resolved path). **Stop** here per the
+   "NEVER export without assembled front-matter" rule below — tell the user front matter is
+   missing/incomplete and export cannot proceed until they fill it in — if any of:
+   - the file does not exist or is empty
+   - it still contains the scaffold placeholder text `[Author Name]` (the `*by [Author Name]*`
+     title-page line written by `create_book_structure()` at scaffold time)
+   - its YAML frontmatter has an empty `author: ""` field
+
+   Never fabricate a placeholder title page or copyright line yourself. Once the gate passes,
+   strip the file's own leading YAML frontmatter block (`---\n...\n---\n`) before concatenating —
+   it's scaffold metadata, not manuscript content, and its `author: ""` would otherwise sit at the
+   head of `manuscript.md` and silently compete with the `--metadata author="{author}"` passed to
+   pandoc in Step 3.
 2. **Chapters** — Call `resolve_path(book_slug, "chapters", "")` then read all `chapters/*/draft.md` in order
-   - Add `# Chapter N: Title` headers
+   - Each `draft.md` already starts with its own `# Chapter N: Title` line (written by
+     `create_chapter()` at scaffold time) — do **not** prepend another header, or every chapter
+     ends up with a duplicate title line in the assembled manuscript
+   - Strip any leading YAML frontmatter block (`---\n...\n---\n`) from each draft before
+     concatenating — it's scaffold metadata, not manuscript content
+   - Check for any un-deleted `{review_handle}:` blocks first — call `get_review_handle_config()`
+     for the configured `review_handle` value — these are inline author-review comments left in
+     `draft.md` by the chapter-writer review loop and must never ship in the exported manuscript.
+     If any remain, **stop** and ask the user to resolve or delete them before export continues
    - Add page breaks between chapters (`\newpage` for PDF, `---` for EPUB)
 3. **Back matter** — Read `export/back-matter.md` (via resolved path)
 
 ### Step 3: Generate Output
-Ask user for format if not specified (default from config):
+If the format wasn't specified in the request: read `export.default_format` from
+`~/.storyforge/config.yaml` (direct file read — no MCP tool covers config; `/storyforge:configure`
+uses the same pattern). If a default is set, tell the user which format you're using (e.g.
+"Using default format from config: EPUB — say a different format to switch") and proceed. Only
+ask the user to choose (EPUB/PDF/MOBI) when the config file is missing or has no default set.
 
 **EPUB:**
 ```bash
 pandoc manuscript.md -o "{title}.epub" \
   --metadata title="{title}" \
   --metadata author="{author}" \
+  --metadata lang="{language}" \
   --toc --toc-depth=1 \
   --epub-chapter-level=1
 ```
+`{language}` is the book's `language` field from `get_book_full()` (default `"en"`) — EPUB
+requires a `dc:language` element; without it pandoc warns and epubcheck flags the output.
 
 **PDF:**
 ```bash
@@ -74,12 +106,17 @@ pandoc manuscript.md -o "{title}.pdf" \
 ```
 
 **MOBI (via Calibre):**
-First generate EPUB, then convert:
+First generate EPUB, then convert. Run both commands from the resolved `export/output/` directory
+(the path from Step 2's `resolve_path(book_slug, "export", "")` call) — the bare filenames below
+only land in `export/output/` if that's the shell's current directory:
 ```bash
 ebook-convert "{title}.epub" "{title}.mobi"
 ```
+Keep the intermediate EPUB alongside the final MOBI in `export/output/` — don't delete it.
 
 ### Step 4: Verify
+- If the pandoc/ebook-convert command exited non-zero, or the expected output file doesn't exist:
+  **stop** and report the actual error to the user (don't proceed to Step 5 as if it succeeded).
 - Check file exists and has reasonable size
 - Report: format, file size, page/word count
 - Show file path
@@ -90,7 +127,9 @@ ebook-convert "{title}.epub" "{title}.mobi"
 - "Need a cover? → `/storyforge:cover-artist`"
 
 ## Rules
-- ALWAYS run pre-export gates first
-- NEVER export without assembled front-matter (title page, copyright)
+- ALWAYS run pre-export gates (Step 1) before assembling the manuscript — for memoir books, only
+  after the Step 0 consent gate has passed
+- NEVER export without assembled front-matter (title page, copyright, no unresolved scaffold
+  placeholders like `[Author Name]` or an empty `author` field)
 - Output files go to `{project}/export/output/`
 - Keep the assembled manuscript.md for reference
