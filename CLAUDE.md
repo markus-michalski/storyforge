@@ -83,7 +83,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "backfill promises" / "promises nachfüllen" / `/storyforge:backfill-promises` | `/storyforge:backfill-promises` |
 | "backfill style principles" / "style principles nachfüllen" / "style_principles backfill" / "positive markers backfill" / `/storyforge:backfill-style-principles` | `/storyforge:backfill-style-principles` |
 | "Recherche" / "Research" | `/storyforge:researcher` |
-| "Sensitivity" / "Problematisch?" | `/storyforge:sensitivity-reader` |
+| "Sensitivity" / "Problematisch?" | `/storyforge:sensitivity-reader` (memoir: Categories 3–5 only; Categories 1–2 route to `memoir-ethics-checker`) |
 | "Ethics check" / "Consent check" / "Einwilligungen prüfen" / "Personen prüfen" | `/storyforge:memoir-ethics-checker` (memoir only) |
 | "Emotional truth" / "Deepen scene" / "Memoir scene check" / "Felt sense" / "Emotionale Wahrheit" / "Szene vertiefen" / "Erinnerung prüfen" | `/storyforge:emotional-truth-prompt` (memoir only) |
 | "Export" / "EPUB" / "PDF" / "MOBI" | `/storyforge:export-engineer` |
@@ -287,6 +287,7 @@ Skills MUST load relevant craft references before generating creative content. U
 - `plot-architect-memoir` (memoir-only, split out in #126) → 6-step narrative-arc workflow (#58) that loads `book_categories/memoir/craft/memoir-structure-types.md`, `scene-vs-summary.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`; the user picks one of four structure types (chronological / thematic / braided / vignette), persisted via `set_memoir_structure_type` MCP tool to `plot/structure.md` frontmatter.
 - `character-creator` (fiction-only since #177) → loads: character-creation, character-arcs, dialog-craft + genre. Refuses memoir books and routes to `character-creator-memoir`.
 - `character-creator-memoir` (memoir-only, split out in #177) → 6-step real-people handler (#59) that loads `book_categories/memoir/craft/real-people-ethics.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`; writes to `people/{slug}.md` via `create_person` MCP tool with the four-category ethics schema.
+- `sensitivity-reader` (category-split) → Categories 1–2 (Representation, Harmful Tropes) are fiction-only and route memoir books to `memoir-ethics-checker`. Categories 3–5 (Cultural Accuracy, Trauma Handling, Power Dynamics) run for both categories — `memoir-ethics-checker` covers consent/defamation only, not these three.
 - `world-builder` → loads: world-building (memoir typically skips this skill — real settings are documented in `world/setting.md` via research, not invention)
 - `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`; runs Dimension 8 memoir-specific AI-tells: reflective platitude, "looking back" hinges, tidy lesson endings, hedging-as-humility, therapeutic reframe, explanation-after-image — Issue #62)
 - `author-check` → loads: author profile (style_principles Writing Discoveries + quantitative targets) via `get_author()`; reads chapter draft directly; optionally reads existing `review.md` for constraint violation count (balance warning). No craft references needed — checks positive presence, not craft quality.

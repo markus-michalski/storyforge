@@ -72,7 +72,7 @@ they are invocable strings, not prose.
 | Command | What it does |
 |---------|-------------|
 | `/storyforge:researcher` | Research topics for authenticity |
-| `/storyforge:sensitivity-reader` | Check for problematic content |
+| `/storyforge:sensitivity-reader` | Check for problematic content (memoir: Categories 3-5 only, see `memoir-ethics-checker` for consent/defamation) |
 
 ### Production
 | Command | What it does |
