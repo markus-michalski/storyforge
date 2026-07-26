@@ -3,7 +3,9 @@ name: voice-checker
 description: |
   Check if written text sounds AI-generated. Compare against author profile for authenticity.
   Use when: (1) User says "voice check", "klingt das nach AI?",
-  (2) After humanizer pass, as an optional holistic score check (0–100 across 7 dimensions).
+  (2) After humanizer pass, as an optional holistic score check (0–100 across 7 dimensions),
+  gated on a clean vocabulary scan — a flagged AI-tell hit returns the flagged-word list
+  and stops there instead of the full score, until the text is rewritten and re-scanned.
   Not a required step in the standard workflow — use chapter-humanizer for targeted AI-tell removal.
 model: claude-opus-4-8
 user-invocable: true
@@ -138,6 +140,31 @@ and which would also affect fiction.
 
 ## Output Format
 
+The Vocabulary Scan is a hard gate — see Rules below for the exact trigger condition and
+precedence over memoir Dimension 8. This section only defines what each path outputs.
+
+**If the gate triggers:** produce only the block below, then stop. Dimensions 2–8, the
+Overall Authenticity Score, and the full report template are not produced this pass —
+they wait until a rewrite clears the gate on a re-scan.
+
+```markdown
+### Vocabulary Scan
+Score: [X]/100 — [Minor flags / Major flags]
+
+### Flagged Words
+[List with line numbers and quoted context — max ~150 words, group by category if many]
+
+VERDICT: WARN | FAIL
+```
+
+Gate-triggered verdict: **WARN** if every hit has a clear single-pass rewrite fix (isolated
+occurrences); **FAIL** if hits are dense or reflect a systemic pattern across the text. Never
+PASS here — the gate only triggers when a flagged hit exists.
+
+**If the gate does not trigger** (Vocabulary Scan comes back Clean): produce the full report
+below, scoring all seven dimensions (eight in memoir mode). The Vocabulary row is always
+"Clean" here — a hit would have produced the gate-triggered block above instead.
+
 ```markdown
 ## Voice Check Report
 
@@ -146,7 +173,7 @@ and which would also affect fiction.
 ### Dimension Scores
 | Dimension | Score | Assessment |
 |-----------|-------|------------|
-| Vocabulary | X/100 | [Clean / Minor flags / Major flags] |
+| Vocabulary | X/100 | Clean |
 | Sentence Variance | X/100 | [Human-like / Borderline / AI-like] |
 | Paragraph Structure | X/100 | [Varied / Somewhat uniform / Uniform] |
 | Dialog Authenticity | X/100 | [Distinct voices / Similar / Identical] |
@@ -154,9 +181,6 @@ and which would also affect fiction.
 | Specificity | X/100 | [Concrete / Mixed / Generic] |
 | Author Match | X/100 | [Strong / Partial / Weak] |
 | Memoir AI-Tells | X/100 | [memoir mode only — omit for fiction] |
-
-### Flagged Words
-[List with line numbers — max ~150 words, group by category if many]
 
 ### Memoir AI-Tells _(memoir mode only — omit section for fiction)_
 [One subsection per pattern found (8a–8f). Quote the offending phrase,
@@ -181,17 +205,37 @@ if both are present — memoir-specific issues are more reader-visible.]
 VERDICT: PASS | WARN | FAIL
 ```
 
-Verdict mapping (per the gate contract — see `reference/gate-contract.md`):
+Verdict mapping for the full-report path (per the gate contract — see `reference/gate-contract.md`):
 
-- **PASS** ↔ AUTHENTIC, score ≥ 70, no AI-tell vocabulary hits.
-- **WARN** ↔ NEEDS WORK, score 50–69, or AI-tell hits with a clear path to a single-pass rewrite.
-- **FAIL** ↔ REWRITE RECOMMENDED, score < 50, or systemic AI-tell patterns that require restructuring.
+- **PASS** ↔ AUTHENTIC, score ≥ 70.
+- **WARN** ↔ NEEDS WORK, score 50–69.
+- **FAIL** ↔ REWRITE RECOMMENDED, score < 50, or systemic non-vocabulary AI-tell patterns
+  (dimensions 2–8) that require restructuring.
 
 ## Rules
 - Run this as the gate before marking a chapter "Polished" — voice-check is the last thing between draft and shipped prose.
-- A score below 70 means revision is needed.
+- A score below 70 means revision is needed (full-report path only — see Output Format).
 - Below 50 means significant rewriting.
-- Run the vocabulary scan as a hard gate before proceeding. If AI-tell words are found, STOP and request a rewrite of the affected sentences before re-scoring.
+- Run the vocabulary scan as a hard gate before proceeding. It triggers when a word from the
+  AI-tell list in `anti-ai-patterns.md` is used in the sense that entry is flagged for: most
+  entries are flagged for any use; entries with a usage qualifier — e.g. "Tapestry
+  (metaphorical)", "Journey (metaphorical)", "Navigate (metaphorical)", "Embrace
+  (metaphorical)", "Landscape (metaphorical)", "Rich (as in 'rich with meaning')" — only
+  trigger on that specific sense. So a literal "rich food", a character named Rich, or "she
+  navigated the stairs" are not hits; "a rich tapestry of voices" and "navigate the
+  complexities" are. When the gate triggers: STOP — do not produce Dimensions 2–8, the
+  Overall Authenticity Score, or the full-report Verdict — output only the gate-triggered
+  block (Vocabulary result + Flagged Words + `VERDICT: WARN | FAIL`, see Output Format) and
+  request a rewrite of the affected sentences before re-scoring. If the user asks for the
+  full report anyway in the same turn: per Important Rule 14 (CLAUDE.md), restate the
+  flagged words and why the gate triggered, and let the user decide — if they still want the
+  full report after that pushback, produce it and say plainly in the output that the gate was
+  overridden by explicit user request.
 - Be specific with line numbers and quotes — generic "it sounds AI" is not actionable; quote the offending text.
-- **Memoir mode:** always run Dimension 8 and report its findings in a separate section. Do NOT fold memoir-specific tells into the universal dimensions — the author needs to see the distinction between "this is bad prose" and "this is bad memoir prose". A passage can score well on universal dimensions and still be riddled with memoir-specific AI patterns.
+- **Memoir mode:** always run Dimension 8 and report its findings in a separate section, unless
+  the vocabulary hard gate above has already triggered a stop — in that case Dimension 8 waits
+  for the same rewrite-and-rescan cycle as Dimensions 2–7. Do NOT fold memoir-specific tells
+  into the universal dimensions — the author needs to see the distinction between "this is bad
+  prose" and "this is bad memoir prose". A passage can score well on universal dimensions and
+  still be riddled with memoir-specific AI patterns.
 - **Memoir mode:** hedging qualifiers (*perhaps*, *in some way*) score differently from fiction mode — in memoir they are performative safety behaviour, not stylistic choice. Flag all density above 2 per 500 words as a pattern, not as individual occurrences.
