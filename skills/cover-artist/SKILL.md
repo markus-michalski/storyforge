@@ -21,7 +21,7 @@ argument-hint: "<book-slug>"
 
 ### Step 2: Cover Brief
 
-Develop with user in `{project}/cover/brief.md`. Branch by `book_category`. Keep each answer concise (~50 words per question). The final agreed brief should be ~150 words total.
+Develop with user in `{project}/cover/brief.md`. Branch by `book_category`. Keep each answer concise (~50 words per question) — if the user's answer runs noticeably longer than that, paraphrase it down to the core content in `brief.md` rather than transcribing it verbatim. The final agreed brief should be ~150 words total.
 
 **Fiction brief questions:**
 - **Mood/atmosphere:** What should the cover FEEL like?
@@ -38,7 +38,7 @@ Develop with user in `{project}/cover/brief.md`. Branch by `book_category`. Keep
 - **Tone:** Intimate and personal? Weighty and serious? Warm and reflective?
 - **Comparable covers:** Memoir covers to reference (e.g., *The Glass Castle*, *Educated*, *Between the World and Me*, *When Breath Becomes Air*)
 
-**After collecting all brief answers:** Summarize the agreed cover brief in ~150 words and present it to the user. Then ask: "Ready to generate prompts? (yes/no)" — **do NOT proceed to Step 3 until confirmed.**
+**After collecting all brief answers:** Summarize the agreed cover brief in ~150 words and present it to the user. Then ask: "Ready to generate prompts? (yes/no)" — **do NOT proceed to Step 3 until confirmed.** If the user responds with a change or correction instead of a clear yes, update the brief accordingly and re-ask the confirmation question — never treat a correction as an implicit yes.
 
 ### Step 3: Generate Prompts
 
@@ -51,8 +51,8 @@ Write to `{project}/cover/prompts.md`. Branch by `book_category`:
 **For Midjourney:**
 ```
 /imagine [description], [style], [mood], [lighting], [composition],
-book cover design, [genre] novel cover, professional book cover art,
---ar 2:3 --stylize [value] --v 6
+book cover design, [genre] novel cover, professional book cover art
+--ar 2:3 --stylize [value] --v 7 --no text
 ```
 
 **For DALL-E:**
@@ -65,7 +65,7 @@ Composition: [centered/asymmetric/dramatic angle].
 No text on the image.
 ```
 
-Fiction prompt variations (generate 3-5; each prompt max 80 words for DALL-E, max 200 characters for Midjourney):
+Fiction prompt variations (generate 3-5; keep each within the DALL-E/Midjourney length limits in ## Rules):
 1. **Symbolic:** Abstract representation of the theme
 2. **Scene:** Key moment from the story
 3. **Character:** Protagonist portrait/silhouette
@@ -81,8 +81,8 @@ Memoir covers lean toward restraint — authenticity over drama. The cover shoul
 **For Midjourney:**
 ```
 /imagine [description], [period/mood], [color palette], [lighting],
-memoir book cover design, literary memoir cover, typographic emphasis,
-professional book cover, --ar 2:3 --stylize [value] --v 6
+memoir book cover design, literary memoir cover,
+professional book cover --ar 2:3 --stylize [value] --v 7 --no text
 ```
 
 **For DALL-E:**
@@ -96,7 +96,7 @@ Composition: [centered portrait / full-bleed place / object against plain backgr
 No text on the image.
 ```
 
-Memoir prompt variations (generate 3-4 — not all will apply; each prompt max 80 words for DALL-E, max 200 characters for Midjourney):
+Memoir prompt variations (generate 3-4 of the four approaches below; not all will apply; keep each within the DALL-E/Midjourney length limits in ## Rules):
 1. **Portrait approach:** Close or medium shot of a person at the relevant age/time period — evokes the human at the center of the story. If using AI: do not use a real person's likeness; generate an anonymous portrait in period-appropriate style.
 2. **Place approach:** A meaningful location from the memoir — a childhood home, a road, a landscape — rendered with emotional weight. Often the strongest memoir cover.
 3. **Object approach:** A significant personal object — a photograph, a letter, a worn item — on a plain or textured background. Works best for intimate, small-scope memoirs.
@@ -117,6 +117,7 @@ Include size requirements:
 
 ## Rules
 - ALWAYS specify "no text" in prompts — text will be added separately
+- Prompt length limits (fiction and memoir alike): DALL-E prompts max 80 words, Midjourney prompts max 200 characters — before finalizing, check each prompt against its limit and trim any that run over
 - Genre conventions matter: horror readers expect dark covers, romance expects warmth
 - Less is more — one strong visual > cluttered composition
 - The cover must work as a THUMBNAIL (social media, online stores)
