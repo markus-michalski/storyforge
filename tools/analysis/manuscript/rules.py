@@ -52,7 +52,10 @@ _REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
 # Cue keywords that mark a rule as containing bannable quoted phrases. Without
 # a cue, quoted strings are treated as examples, not patterns.
 _BAN_CUE_RE = re.compile(
-    r"\b(banned|ban|avoid|never|don[’']?t\s+use|do\s+not\s+use|limit|no\s+\w+)\b",
+    r"\b(banned|ban|avoid|never|don[’']?t\s+use|do\s+not\s+use|limit|no\s+\w+|"
+    r"vermeide[nt]?|nie(?:mals)?(?:\s+(?:verwenden?|nutzen|benutzen|einsetzen))?|"
+    r"kein(?:e[srnm]?)?\b|verboten|raus|"
+    r"nicht\s+(?:\S+\s+)?(?:verwenden?|nutzen|benutzen|einsetzen|schreiben|tippen))\b",
     re.IGNORECASE,
 )
 

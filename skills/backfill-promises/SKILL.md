@@ -64,8 +64,15 @@ Otherwise:
    AskUserQuestion with the output of `list_books()` (active books
    only).
 
-Verify via `find_book(slug)` that the book exists. If not, exit with
-a clear error.
+Verify via `find_book(query=book_slug)` that the book exists. Check
+that exactly one returned match has `slug` exactly equal to `book_slug`
+(not just that the list is non-empty — `find_book` does partial/substring
+matching and can return multiple results). If no exact match: exit with a
+clear error. If multiple matches but none is exact: exit with a clear
+error. If multiple matches and one is exact: proceed with that one.
+(Mirror the pattern from `resume`: if the result is ambiguous and the
+user may have meant a different book, show the list and ask them to pick
+via the exact slug.)
 
 ## Step 2: Parse Arguments
 

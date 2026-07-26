@@ -39,6 +39,7 @@ note in ``pov_inventory.py``, same root cause, same fix shape.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -298,9 +299,18 @@ def _from_snapshot_row(
     field = _SNAPSHOT_DB_FIELDS[category]
     raw = snapshot_row.get(field)
     if category == "environmental_limiters":
-        # Stored as a comma-joined string, not a JSON list (write side joins
-        # it before persisting) — reconstruct a best-effort list.
-        items = [piece.strip() for piece in str(raw or "").split(",") if piece.strip()]
+        # Stored as JSON array since #469 fix (previously comma-joined).
+        # Backward-compat: fall back to comma-split for old rows that predate
+        # the fix so existing data is never silently dropped.
+        raw_str = str(raw or "").strip()
+        try:
+            parsed = json.loads(raw_str) if raw_str.startswith("[") else None
+            if isinstance(parsed, list):
+                items = [str(s).strip() for s in parsed if str(s).strip()]
+            else:
+                items = [s.strip() for s in raw_str.split(",") if s.strip()]
+        except (json.JSONDecodeError, ValueError, AttributeError, TypeError):
+            items = [s.strip() for s in raw_str.split(",") if s.strip()]
     else:
         items = [str(item).strip() for item in (raw or []) if str(item).strip()]
     if not items:

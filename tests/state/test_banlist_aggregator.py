@@ -220,3 +220,110 @@ class TestWritingDiscoveriesSource:
         result = collect_banned_phrases(book, PLUGIN_ROOT)
         phrases = [r["phrase"] for r in result]
         assert "thing" not in phrases
+
+
+# ---------------------------------------------------------------------------
+# Book-rule severity uses classify_rule — not hardcoded "block" (Issue #453)
+# ---------------------------------------------------------------------------
+
+
+def _seed_book_rules(db_dir: "Path", book_slug: str, rules: list[str]) -> None:
+    """Insert book rules into the SQLite DB used by _read_book_rules."""
+    import sqlite3
+    db_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_dir / f"{book_slug}.db"))
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS book_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_num INTEGER,
+            rule_type TEXT NOT NULL,
+            text TEXT NOT NULL,
+            added_at TEXT DEFAULT '',
+            UNIQUE(book_num, rule_type, text)
+        )
+        """
+    )
+    for rule in rules:
+        conn.execute(
+            "INSERT OR IGNORE INTO book_rules (book_num, rule_type, text) VALUES (?, ?, ?)",
+            (1, "rule", rule),
+        )
+    conn.commit()
+    conn.close()
+
+
+class TestBookRuleSeverity:
+    def test_ban_cued_rule_is_block(self, tmp_path, patch_storyforge_home):
+        """``Avoid `phrase` — reason`` is block (ban-cue word + backtick)."""
+        book = _make_book(tmp_path, author="ethan-cole")
+        _make_author_home(tmp_path)
+        _seed_book_rules(
+            patch_storyforge_home / "db",
+            "test-book",
+            ["Avoid `zz-block-phrase` — test block rule"],
+        )
+        result = collect_banned_phrases(book, PLUGIN_ROOT)
+        entry = next((r for r in result if r["phrase"] == "zz-block-phrase"), None)
+        assert entry is not None, "Expected zz-block-phrase in output"
+        assert entry["severity"] == "block"
+
+    def test_watch_for_rule_is_advisory(self, tmp_path, patch_storyforge_home):
+        """``Watch for `phrase` — reason`` is advisory (watch-cue, not ban-cue)."""
+        book = _make_book(tmp_path, author="ethan-cole")
+        _make_author_home(tmp_path)
+        _seed_book_rules(
+            patch_storyforge_home / "db",
+            "test-book",
+            ["Watch for `zz-advisory-phrase` — test advisory rule"],
+        )
+        result = collect_banned_phrases(book, PLUGIN_ROOT)
+        entry = next((r for r in result if r["phrase"] == "zz-advisory-phrase"), None)
+        assert entry is not None, "Expected zz-advisory-phrase in output"
+        # advisory severity must match rules_to_honor — no longer hardcoded "block"
+        assert entry["severity"] == "advisory", (
+            f"Watch-for rule must be advisory, got: {entry['severity']}"
+        )
+
+    @pytest.mark.parametrize("rule,expected", [
+        # English ban cues
+        ("Avoid `ascii-apos` — reason", "block"),
+        ("Don't use `ascii-dont` — reason", "block"),        # ASCII apostrophe
+        ("Don’t use `curly-dont` — reason", "block"),  # curly apostrophe
+        ("Never use `never-phrase`", "block"),
+        ("banned: `banned-phrase`", "block"),
+        # German ban cues
+        ("Vermeide `german-phrase` — reason", "block"),
+        ("Vermeiden: `german-inf`", "block"),
+        ("Niemals `niemals-phrase` verwenden", "block"),
+        ("Kein `kein-phrase` mehr schreiben", "block"),
+        ("Nicht mehr verwenden: `nicht-phrase`", "block"),
+        ("Das Wort ist verboten: `verboten-phrase`", "block"),
+        # Non-ban cues (advisory)
+        ("Watch for `watch-phrase` — use sparingly", "advisory"),
+        ("Use `quotes` for emphasis", "advisory"),
+        ("Note: `note-phrase` can work well", "advisory"),
+    ])
+    def test_classify_rule_cue_table(self, tmp_path, patch_storyforge_home, rule, expected):
+        """classify_rule covers English + German ban cues and non-ban advisory patterns."""
+        book = _make_book(tmp_path, author="ethan-cole")
+        _make_author_home(tmp_path)
+        _seed_book_rules(patch_storyforge_home / "db", "test-book", [rule])
+        result = collect_banned_phrases(book, PLUGIN_ROOT)
+        # Extract the first backtick-phrase from the rule as the phrase key
+        import re
+        m = re.search(r"`([^`]+)`", rule)
+        if m is None:
+            pytest.skip("No backtick phrase in rule")
+        phrase = m.group(1)
+        entry = next((r for r in result if r["phrase"] == phrase), None)
+        if expected == "advisory":
+            # advisory entries may not appear in banned_phrases at all — that is correct
+            assert entry is None or entry["severity"] == "advisory", (
+                f"Rule '{rule}' produced severity={entry['severity'] if entry else 'absent'}, expected advisory"
+            )
+        else:
+            assert entry is not None, f"Expected phrase '{phrase}' in output for rule: {rule!r}"
+            assert entry["severity"] == expected, (
+                f"Rule '{rule}' produced severity={entry['severity']}, expected {expected}"
+            )

@@ -5,7 +5,7 @@ description: |
   Use when: (1) User says "Recherche", "research", "find out about",
   (2) Story requires factual accuracy (historical periods, locations, professions, etc.),
   (3) Memoir author needs to verify dates, period details, or remembered facts.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<topic> [book-slug]"
 ---

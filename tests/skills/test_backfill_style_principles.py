@@ -45,7 +45,7 @@ class TestSkillFile:
     def test_frontmatter_correct(self) -> None:
         fm = _read_frontmatter()
         assert fm["name"] == "backfill-style-principles"
-        assert fm["model"] == "claude-opus-4-8"
+        assert fm["model"] == "claude-opus-5"
         assert fm["user-invocable"] == "true"
 
 

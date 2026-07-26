@@ -4,7 +4,7 @@ description: |
   Check for problematic representations, stereotypes, and harmful tropes.
   Use when: (1) User says "sensitivity", "problematisch?",
   (2) Story involves marginalized groups, trauma, or controversial themes.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> [chapter-slug]"
 ---

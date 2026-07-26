@@ -233,52 +233,60 @@ Ask (AskUserQuestion):
 
 For source `book_rule` only — manuscript findings have no source rule to remove.
 
-**Index drift across the walk** — deleting a book rule (this Remove path, or
-Discard below) shifts every LATER rule's index down by one in the
-`book_rules` DB. `harvest_book_rules()`'s `source_rule_index` values are all
-captured once, at Step 2 — they go stale the moment an EARLIER-indexed rule
-is removed later in the same walk (annotating does not delete a row, so it
-never causes drift — only Remove and Discard do). Track how many
-earlier-indexed rules have already been removed so far in this session and
-subtract that count from `source_rule_index` before every `update_book_rule`
-call below. If unsure, re-run `mcp__storyforge-mcp__list_book_rules(book_slug)`
-immediately before the call and confirm the rule at the adjusted index still
-matches this candidate's original text before touching it.
+**Before every Remove or Discard call, always re-fetch the current rule list** — call
+`mcp__storyforge-mcp__list_book_rules(book_slug)` immediately before the delete and locate
+the candidate by matching its **title** against the `title` field of each row. This is
+mandatory, not optional — it eliminates index-drift silently deleting the wrong rule.
+`source_rule_index` captured at Step 2 is stale by definition the moment any earlier rule
+is removed during the walk; never use it as the sole identifier for a delete.
+
+The rule title lives in `candidate.context` after the ` — ` separator:
+`"From book CLAUDE.md ## Rules — {title}"` → `candidate.context.split(" — ", 1)[-1]`.
+Candidates do not have a `raw_text` field — match on `title`, not `raw_text`.
+
+Once you have the current row: use `rule_index` from the freshly-fetched row (not from
+Step 2's stale value). If the row is missing entirely (title not found), inform the user
+the rule is already gone and skip.
 
 Remove:
 
 ```python
-mcp__storyforge-mcp__update_book_rule(
-    book_slug=book_slug,
-    rule_index=candidate.source_rule_index,
-    delete=True,
-)
+# 1. Always re-fetch to get the drift-corrected current state
+current_rules = mcp__storyforge-mcp__list_book_rules(book_slug)
+# 2. Match the candidate by its rule title — candidates have no raw_text field
+rule_title = candidate.context.split(" — ", 1)[-1] if " — " in (candidate.context or "") else candidate.value
+current_row = next((r for r in current_rules if r["title"] == rule_title), None)
+if current_row is None:
+    # Rule already gone — skip, report to user
+    pass
+else:
+    mcp__storyforge-mcp__update_book_rule(
+        book_slug=book_slug,
+        rule_index=current_row["index"],  # drift-corrected live index, not stale source_rule_index
+        delete=True,
+    )
 ```
 
-Annotate: read the rule's current text first via
-`mcp__storyforge-mcp__list_book_rules(book_slug)` — matched by the row's
-`index` field (there is no `rule_index` field on `list_book_rules` rows;
-`rule_index` is only the request/response key on `update_book_rule`) —
-using that row's `raw_text` field. `update_book_rule`'s `new_text` REPLACES
-the rule body, so the annotation must be appended to the existing text, not
-written in place of it.
+Annotate: the same fresh `current_rules` fetch above provides `current_row["raw_text"]`
+(the DB row does have `raw_text`; only `candidate` does not).
+`update_book_rule`'s `new_text` REPLACES the rule body, so append the note to the existing text.
 
 **Whitespace is collapsed on write, every time, not just here** —
 `update_book_rule` normalizes `new_text` (`re.sub(r"\s+", " ", text.strip())`
 in `tools/claudemd/rules_editor.py`, then stripped again on the DB write)
-before storing it. If `raw_text` spans multiple lines, every newline and
+before storing it. If `current_row["raw_text"]` spans multiple lines, every newline and
 run of spaces collapses into a single space in the row written back — the
 rule's line structure is not preserved. This is inherent to
 `update_book_rule` and not something this call can opt out of; if the
-candidate's `raw_text` is multi-line, mention to the user that the annotated
+matched rule's `raw_text` is multi-line, mention to the user that the annotated
 version will read as one flattened line before writing it.
 
 ```python
 today = date.today().isoformat()  # requires `from datetime import date`
 mcp__storyforge-mcp__update_book_rule(
     book_slug=book_slug,
-    rule_index=candidate.source_rule_index,
-    new_text=f"{raw_text} _(promoted to author profile, {today})_",
+    rule_index=current_row["index"],  # from the live re-fetch above
+    new_text=f"{current_row['raw_text']} _(promoted to author profile, {today})_",
     validate=False,  # raw_text is pre-existing, already-approved book content —
                      # only appending a note, not new prose — so skip the
                      # manuscript-checker re-lint the default validate=True
@@ -294,12 +302,12 @@ harvest ran).
 
 ### Discard (without promote)
 
-Same removal call as Cleanup's Remove path —
-`mcp__storyforge-mcp__update_book_rule(book_slug=book_slug,
-rule_index=candidate.source_rule_index, delete=True)` — no author write. The
-same index-drift adjustment documented under Cleanup's Remove path above
-applies here too: subtract the count of already-removed earlier-indexed
-rules from `source_rule_index` before calling.
+Same re-fetch + remove pattern as Cleanup's Remove path — no author write.
+Always call `list_book_rules(book_slug)` immediately before the delete and
+locate the candidate by title match (same `context.split(" — ", 1)[-1]`
+extraction as the Remove path); use the freshly-fetched `index` for the
+`delete=True` call. Never use the stale `source_rule_index` from Step 2 as
+the sole identifier for a delete.
 
 ### Edit and promote
 

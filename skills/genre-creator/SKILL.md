@@ -4,7 +4,7 @@ description: |
   Create new genre definitions or genre-mix combinations.
   Use when: (1) User says "neues Genre", "genre-mix", "genre creator",
   (2) User needs a genre combination that doesn't exist yet (e.g., "lgbtq-supernatural").
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<genre-name>"
 ---

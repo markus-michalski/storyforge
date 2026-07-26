@@ -5,7 +5,7 @@ description: |
   Use when: (1) User says "Kapitel reviewen", "review chapter",
   (2) After chapter-writer completes a draft.
   Memoir books → use `/storyforge:chapter-reviewer-memoir` instead.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> <chapter-slug>"
 ---

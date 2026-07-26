@@ -9,7 +9,7 @@ description: |
   "character", "Figur", "Person", "real people",
   (2) After plot/structure is outlined, to populate the memoir's cast.
   Fiction books → use `/storyforge:character-creator` instead.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> [name]"
 ---

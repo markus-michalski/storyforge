@@ -593,7 +593,11 @@ def write_author_banned_phrase(author_slug: str, phrase: str, reason: str = "") 
     if not profile_path.is_file():
         return json.dumps({"error": f"Author '{author_slug}' not found at {profile_path}"})
 
-    text = f"**{phrase}**" + (f" — {reason}" if reason else "")
+    # Use backtick wrapping so _extract_dont_patterns()/_HOOK_BACKTICK_RE
+    # recognises the phrase and actually enforces it as a banned pattern.
+    # Bold (**phrase**) matches neither BACKTICK_RE nor ITALIC_RE+BAN_CUE_RE,
+    # making every phrase silently unenforceable (Issue #452).
+    text = f"`{phrase}`" + (f" — {reason}" if reason else "")
 
     conn = open_authors_db()
     try:

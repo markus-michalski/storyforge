@@ -7,7 +7,7 @@ description: |
   gated on a clean vocabulary scan — a flagged AI-tell hit returns the flagged-word list
   and stops there instead of the full score, until the text is rewritten and re-scanned.
   Not a required step in the standard workflow — use chapter-humanizer for targeted AI-tell removal.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> [chapter-slug]"
 ---

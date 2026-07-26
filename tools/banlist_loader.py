@@ -563,7 +563,10 @@ _DONTS_HEADER_RE = re.compile(
 _HOOK_BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 _HOOK_ITALIC_RE = re.compile(r"(?<![\*\w])\*([^*\n]{3,})\*(?![\*\w])")
 _HOOK_BAN_CUE_RE = re.compile(
-    r"\b(banned|ban|avoid|never|don[’']?t\s+use|do\s+not\s+use|limit|no\s+\w+)\b",
+    r"\b(banned|ban|avoid|never|don[’']?t\s+use|do\s+not\s+use|limit|no\s+\w+|"
+    r"vermeide[nt]?|nie(?:mals)?(?:\s+(?:verwenden?|nutzen|benutzen|einsetzen))?|"
+    r"kein(?:e[srnm]?)?\b|verboten|raus|"
+    r"nicht\s+(?:\S+\s+)?(?:verwenden?|nutzen|benutzen|einsetzen|schreiben|tippen))\b",
     re.IGNORECASE,
 )
 _HOOK_REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")

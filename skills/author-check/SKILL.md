@@ -8,7 +8,7 @@ description: |
   (3) When chapter-reviewer finds many violations — catches the flip side,
   (4) Suspicion that banter, sarcasm, or other documented voice traits are missing.
   Counterpart to manuscript-checker (which only catches negatives).
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> <chapter-slug>"
 ---

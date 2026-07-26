@@ -9,7 +9,7 @@ description: |
   "Personen prüfen", (2) Before export of a memoir book, (3) After adding new
   people profiles, (4) During the revision phase of a memoir.
   Only runs on memoir books (book_category: memoir).
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug>"
 ---

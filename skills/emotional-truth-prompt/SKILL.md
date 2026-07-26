@@ -11,7 +11,7 @@ description: |
   (2) After a memoir chapter draft is complete, before chapter-reviewer,
   (3) When a scene feels "smooth" but not alive.
   Only runs on memoir books (book_category: memoir).
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> [chapter-slug]"
 ---

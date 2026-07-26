@@ -82,6 +82,22 @@ _VALID_KINDS = {
 }
 
 
+def _parse_env_limiters(raw: str) -> list[str]:
+    """Parse environmental_limiters from DB storage.
+
+    Stored as JSON array since #469 fix; falls back to comma-split for rows
+    written before the fix so old data is never silently dropped.
+    """
+    raw = raw.strip()
+    try:
+        parsed = json.loads(raw) if raw.startswith("[") else None
+        if isinstance(parsed, list):
+            return [str(s).strip() for s in parsed if str(s).strip()]
+    except (json.JSONDecodeError, ValueError, AttributeError, TypeError):
+        pass
+    return [s.strip() for s in raw.split(", ") if s.strip()]
+
+
 def _parse_leading_chapter_num(value: str) -> int | None:
     """Extract a leading integer from an ``as_of_chapter`` value.
 
@@ -340,7 +356,7 @@ def read_character_for_harvest(
                 "current_clothing": db_row.get("clothing", []),
                 "current_injuries": db_row.get("injuries", []),
                 "altered_states": db_row.get("altered_states", []),
-                "environmental_limiters": [s for s in env_raw.split(", ") if s],
+                "environmental_limiters": _parse_env_limiters(env_raw),
                 _SNAPSHOT_AS_OF_FIELD: (str(db_chapter_num) if db_chapter_num is not None else ""),
             }
             snapshot_source = "db"
@@ -707,7 +723,7 @@ def read_tracker_for_bootstrap(
                     "current_clothing": db_row.get("clothing", []),
                     "current_injuries": db_row.get("injuries", []),
                     "altered_states": db_row.get("altered_states", []),
-                    "environmental_limiters": [s for s in env_raw.split(", ") if s],
+                    "environmental_limiters": _parse_env_limiters(env_raw),
                     _SNAPSHOT_AS_OF_FIELD: "",
                 }
 

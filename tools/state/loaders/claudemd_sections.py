@@ -28,9 +28,15 @@ _COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
 # Same heuristic the linter hook uses: a rule that looks like a
 # banned-phrase declaration is block-severity, everything else advisory.
+# Includes German ban cue words so rules written in German are not
+# silently downgraded from block to advisory (H2 regression guard).
 _BAN_CUE_RE = re.compile(
-    r"\b(banned|ban|avoid|never|don[’']?t\s+use|do\s+not\s+use|"
-    r"limit|stop\s+using)\b",
+    r"\b(banned|ban|avoid|never|don[‘’']?t\s+use|do\s+not\s+use|"
+    r"limit|no\s+\w+|stop\s+using|"
+    r"vermeide[nt]?|nie(?:mals)?(?:\s+(?:verwenden?|nutzen|benutzen|einsetzen))?|"
+    r"kein(?:e[srnm]?)?\b|"
+    r"nicht\s+(?:\S+\s+)?(?:verwenden?|nutzen|benutzen|einsetzen|schreiben|tippen)|"
+    r"verboten|raus)\b",
     re.IGNORECASE,
 )
 

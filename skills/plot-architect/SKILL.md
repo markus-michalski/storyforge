@@ -9,7 +9,7 @@ description: |
   "Plot", "Handlung", "Struktur", "outline", "plot beats",
   (2) After concept is developed, before character creation.
   Memoir books → use `/storyforge:plot-architect-memoir` instead.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug>"
 ---

@@ -59,8 +59,8 @@ Create a combined markdown file at the resolved `export/output/manuscript.md`:
    Never fabricate a placeholder title page or copyright line yourself. Once the gate passes,
    strip the file's own leading YAML frontmatter block (`---\n...\n---\n`) before concatenating —
    it's scaffold metadata, not manuscript content, and its `author: ""` would otherwise sit at the
-   head of `manuscript.md` and silently compete with the `--metadata author="{author}"` passed to
-   pandoc in Step 3.
+   head of `manuscript.md` and silently compete with the `author` field in the `metadata.yaml`
+   passed to pandoc in Step 3.
 2. **Chapters** — Call `resolve_path(book_slug, "chapters", "")` then read all `chapters/*/draft.md` in order
    - Each `draft.md` already starts with its own `# Chapter N: Title` line (written by
      `create_chapter()` at scaffold time) — do **not** prepend another header, or every chapter
@@ -81,24 +81,31 @@ uses the same pattern). If a default is set, tell the user which format you're u
 "Using default format from config: EPUB — say a different format to switch") and proceed. Only
 ask the user to choose (EPUB/PDF/MOBI) when the config file is missing or has no default set.
 
+Before running the pandoc command, use the Write tool to create `export/output/metadata.yaml` with the book's title, author, and language as YAML key-value pairs. This avoids shell and LaTeX injection — never interpolate `{title}` or `{author}` directly into the shell command line (they are user-controlled strings and can contain shell metacharacters or LaTeX control sequences). Example file content:
+```yaml
+---
+title: "Exact Title from get_book_full()"
+author: "Exact Author from get_book_full()"
+lang: "en"
+---
+```
+Escape any double-quote characters inside the value with a backslash. Use the book slug (already URL-safe) as the output filename — never the raw title.
+
 **EPUB:**
 ```bash
-pandoc manuscript.md -o "{title}.epub" \
-  --metadata title="{title}" \
-  --metadata author="{author}" \
-  --metadata lang="{language}" \
+pandoc manuscript.md -o "{book_slug}.epub" \
+  --metadata-file metadata.yaml \
   --toc --toc-depth=1 \
   --epub-chapter-level=1
 ```
-`{language}` is the book's `language` field from `get_book_full()` (default `"en"`) — EPUB
+`lang` in `metadata.yaml` is the book's `language` field from `get_book_full()` (default `"en"`) — EPUB
 requires a `dc:language` element; without it pandoc warns and epubcheck flags the output.
 
 **PDF:**
 ```bash
-pandoc manuscript.md -o "{title}.pdf" \
+pandoc manuscript.md -o "{book_slug}.pdf" \
   --pdf-engine=xelatex \
-  --metadata title="{title}" \
-  --metadata author="{author}" \
+  --metadata-file metadata.yaml \
   --toc \
   -V geometry:margin=1in \
   -V fontsize=11pt \
@@ -106,11 +113,11 @@ pandoc manuscript.md -o "{title}.pdf" \
 ```
 
 **MOBI (via Calibre):**
-First generate EPUB, then convert. Run both commands from the resolved `export/output/` directory
+First generate EPUB (with the metadata file approach above), then convert. Run both commands from the resolved `export/output/` directory
 (the path from Step 2's `resolve_path(book_slug, "export", "")` call) — the bare filenames below
 only land in `export/output/` if that's the shell's current directory:
 ```bash
-ebook-convert "{title}.epub" "{title}.mobi"
+ebook-convert "{book_slug}.epub" "{book_slug}.mobi"
 ```
 Keep the intermediate EPUB alongside the final MOBI in `export/output/` — don't delete it.
 

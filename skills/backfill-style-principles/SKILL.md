@@ -12,7 +12,7 @@ description: |
   (3) Positive patterns documented in analysis files are not reaching
   chapter-writer, (4) Author check finds style_principles section empty
   after multiple studied works.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "[author-slug]"
 ---

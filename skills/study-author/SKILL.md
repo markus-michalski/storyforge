@@ -5,7 +5,7 @@ description: |
   Use when: (1) User says "Buch studieren", "study this PDF", "Stil analysieren",
   (2) User wants to feed reference material to an author profile,
   (3) Memoir author wants to analyze their own journals, letters, or past writing.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<file-path> [author-slug]"
 ---
