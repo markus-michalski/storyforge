@@ -88,7 +88,13 @@ Call the appropriate tool based on scope:
 
 - **Book scope**: MCP `append_book_rule(book_slug, phrase, reason, severity, source_context)`
 - **Author scope**: MCP `write_author_banned_phrase(author_slug, phrase, reason)`
-- **Global scope**: Direct Write — append the rule entry to `{plugin_root}/reference/craft/anti-ai-patterns.md`
+- **Global scope**: Direct Write. Global enforcement is parsed **only** by `tools/banlist_loader.py::load_global_ai_tells()`, which reads numbered entries (`N. **term** — reason`) strictly inside the `### Heavily Flagged Words and Phrases` section of `{plugin_root}/reference/craft/anti-ai-patterns.md`. A rule appended anywhere else (a new section, end-of-file, another heading) is invisible to every scanner. Reproduce the append logic `tools/rule_writer.py::write_global_rule()` already implements (dead code, not MCP-wired — replicate it, don't call it):
+  1. Locate `### Heavily Flagged Words and Phrases` (case-insensitive).
+  2. Find the section's end — the next `##` or `###` heading (currently `### Why These Words Signal AI`).
+  3. Within that slice only, take the highest existing leading entry number `N.` and use `N+1`.
+  4. Insert `{N+1}. **{phrase}** — {reason} _(added {today's date} — source: report-issue based on {book_title} feedback)_` immediately before that next heading.
+  **Never** insert at or after `## 11. Known AI Tells — Elegant Abstraction Register` or the trailing `### Sources` section — that region is parsed by the separate `load_global_shape_bans()`, which has no closing heading before end-of-file, so appended text matching `` **Banned shape:** `regex` `` there would be silently compiled as a global regex ban with no review.
+  A global entry loads at `SEVERITY_WARN` only, never block — weaker enforcement than a book/author-scope rule, regardless of the severity chosen in Step 3.
 
 Where `source_context = "report-issue based on {book_title} Ch {chapter_number} review"`.
 
@@ -113,8 +119,10 @@ Rule added:
 {If occurrences found}: {N} existing violations in {chapter list}.
   Run /storyforge:manuscript-checker to review them.
 
-{If global scope}: Consider opening a PR to share this rule upstream
-  if it's not book-specific vocabulary.
+{If global scope}: This loads at warn severity only, regardless of the
+  {block|warn} choice in Step 3 — global entries never hard-block.
+  Consider opening a PR to share this rule upstream if it's not
+  book-specific vocabulary.
 ```
 
 ## Important Behavior
