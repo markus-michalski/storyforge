@@ -1,9 +1,10 @@
-"""Book CLAUDE.md ## Rules parser + scanner.
+"""Book-rules pattern extraction and scanner.
 
 Two responsibilities, kept in one file because they share the regex
 toolkit (backticks vs quoted phrases, ban cues, regex hint chars):
 
-- Pattern extraction from rule text.
+- Pattern extraction from rule text (rules come from the book_rules DB,
+  not from parsing CLAUDE.md file text — see _read_book_rules()).
 - Scanning chapter drafts against the extracted patterns.
 """
 
@@ -20,22 +21,14 @@ from tools.analysis.manuscript.text_utils import (
 from tools.analysis.manuscript.types import Finding, Occurrence
 from tools.analysis.manuscript.vocabularies import STOP_WORDS
 
-# Match "## Rules" heading through to the next "## " heading or EOF.
-_RULES_SECTION_RE = re.compile(
-    r"^##\s+Rules\s*$(.*?)(?=^##\s+\S|\Z)",
-    re.MULTILINE | re.DOTALL,
-)
-
 # Match a markdown list item that spans until the next blank line, next list
-# item, or section end. This preserves multi-sentence rules written on one
-# logical bullet (continued across wrapped lines).
+# item, or section end. Used by _resolve_donts_section() for author-profile
+# Don'ts parsing — not for CLAUDE.md ## Rules (those come from the DB via
+# _read_book_rules()).
 _RULE_BULLET_RE = re.compile(
     r"^-\s+(?P<body>.+?)(?=^-\s+|^\s*$|^<!--|\Z)",
     re.MULTILINE | re.DOTALL,
 )
-
-# Comment markers inside the Rules section — stripped before bullet parsing.
-_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
 # Backtick-wrapped content. We split on these to distinguish regex hints from
 # plain-literal tokens.

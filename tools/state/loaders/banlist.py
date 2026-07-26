@@ -62,7 +62,7 @@ def collect_banned_phrases(
             out.append(
                 {
                     "phrase": label,
-                    "source": "book CLAUDE.md ## Rules",
+                    "source": "book_rules DB",
                     "severity": severity,
                 }
             )
