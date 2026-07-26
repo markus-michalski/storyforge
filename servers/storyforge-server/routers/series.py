@@ -12,6 +12,7 @@ from mcp.types import ToolAnnotations
 import json
 import re
 import shutil
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -19,7 +20,7 @@ from typing import Any
 import yaml
 
 from tools.db.character_snapshots import get_latest_snapshot_for_book
-from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
+from tools.db.connection import get_book_num, get_canon_db_path, get_db_slug_for_book, open_canon_db
 from tools.shared.paths import (
     resolve_character_path,
     resolve_people_dir,
@@ -79,6 +80,17 @@ _VALID_KINDS = {
     "plan": "geplant",
     "planned": "geplant",
 }
+
+
+def _parse_leading_chapter_num(value: str) -> int | None:
+    """Extract a leading integer from an ``as_of_chapter`` value.
+
+    Handles both plain chapter numbers (``"12"``) and slug-suffixed forms
+    (``"12-the-basement"``, ``"30-final"``). Returns ``None`` when the value
+    doesn't start with digits (empty string, free text, etc.).
+    """
+    match = re.match(r"^(\d+)", value.strip())
+    return int(match.group(1)) if match else None
 
 
 def _extract_relationships_text(body: str) -> str:
@@ -207,16 +219,38 @@ def read_character_for_harvest(
     """Read a book-level character file for the harvest skill (D-1 of #195).
 
     Projects exactly the fields the harvest skill needs to propose a
-    ``B{N} Ende`` summary for the matching series-tracker:
+    ``B{N} Ende`` summary for the matching series-tracker.
+
+    Snapshot resolution prefers the per-series ``character_snapshots`` DB —
+    the canonical end-of-chapter write path since Issue #281
+    (``update_character_snapshot`` never touches the character file's
+    frontmatter) — falling back to frontmatter when the DB has no row for
+    this character/book, OR when the frontmatter's ``as_of_chapter`` names a
+    strictly LATER chapter than the DB's latest snapshot (e.g. a hand-edited
+    final-polish value recorded after the last chapter-close write — the DB
+    is usually right but must not blindly beat a genuinely more current
+    frontmatter). ``snapshot_source`` in the response tells the caller which
+    one won.
 
     - ``snapshot``: dict with ``current_inventory``, ``current_clothing``,
       ``current_injuries``, ``altered_states``, ``environmental_limiters``
-      (all ``list[str]``) and ``as_of_chapter`` (``str``). Missing fields
-      default to empty list / empty string.
+      (all ``list[str]``) and ``as_of_chapter`` (``str``). On the DB path,
+      ``as_of_chapter`` is the winning row's ``chapter_num`` as a string; on
+      the frontmatter path it's the file's own ``as_of_chapter`` value.
+      Missing fields default to empty list / empty string.
+    - ``snapshot_source``: ``"db"`` or ``"frontmatter"`` — which source won.
     - ``relationships_text``: raw text of the ``## Relationships`` (or
       ``## Beziehungen``) section, stripped. Empty string when absent.
     - ``name``, ``role``, ``description``: identity fields from the
       frontmatter; defaults to ``character_slug`` if name is missing.
+    - ``consent_status``: memoir only (``book_category="memoir"``) — the
+      raw ``consent_status`` frontmatter value from this same file
+      (``""`` when absent). Read via this call's own ``resolve_people_dir``
+      legacy fallback, so it stays correct for pre-#59 memoir books whose
+      cast still lives under ``characters/``. Callers doing a consent check
+      should read THIS field, not the state-indexer's ``book.people``
+      projection — that one has no legacy-layout fallback and is empty for
+      those books.
 
     Args:
         book_slug: Book project slug.
@@ -226,8 +260,9 @@ def read_character_for_harvest(
             legacy fallback to ``characters/`` for pre-#59 books).
 
     Returns:
-        ``{name, role, description, snapshot, relationships_text}`` JSON
-        on success, or ``{error}`` on a not-found / IO failure.
+        ``{name, role, description, snapshot, snapshot_source,
+        relationships_text}`` (plus ``consent_status`` for memoir) JSON on
+        success, or ``{error}`` on a not-found / IO failure.
     """
     config = _app.load_config()
 
@@ -248,24 +283,79 @@ def read_character_for_harvest(
     text = char_file.read_text(encoding="utf-8")
     meta, body = parse_frontmatter(text)
 
-    snapshot: dict[str, list[str] | str] = {}
+    # Always build the frontmatter-projected snapshot first — it's both the
+    # fallback when the DB has nothing, and the other half of the recency
+    # check against a DB row (below).
+    fm_snapshot: dict[str, list[str] | str] = {}
     for field in _SNAPSHOT_LIST_FIELDS:
         raw = meta.get(field, [])
-        if isinstance(raw, list):
-            snapshot[field] = [str(item) for item in raw]
-        else:
-            snapshot[field] = []
-    snapshot[_SNAPSHOT_AS_OF_FIELD] = str(meta.get(_SNAPSHOT_AS_OF_FIELD, ""))
+        fm_snapshot[field] = [str(item) for item in raw] if isinstance(raw, list) else []
+    fm_as_of_raw = str(meta.get(_SNAPSHOT_AS_OF_FIELD, ""))
+    fm_snapshot[_SNAPSHOT_AS_OF_FIELD] = fm_as_of_raw
 
-    return json.dumps(
-        {
-            "name": str(meta.get("name", character_slug)),
-            "role": str(meta.get("role", "supporting")),
-            "description": str(meta.get("description", "")),
-            "snapshot": snapshot,
-            "relationships_text": _extract_relationships_text(body),
-        }
-    )
+    # Prefer the per-series character_snapshots DB — the canonical
+    # end-of-chapter write path since Issue #281. update_character_snapshot()
+    # never touches the character file's frontmatter, so a frontmatter-only
+    # read here silently missed any snapshot tracked during the book's actual
+    # chapter-by-chapter writing (same root cause read_tracker_for_bootstrap()
+    # had before its own fix — see that function's snapshot-lookup comment).
+    #
+    # The DB lookup is guarded rather than unconditional: this tool is
+    # annotated readOnlyHint=True, so it shouldn't materialize a brand-new
+    # ~/.storyforge/db/*.db (open_canon_db() creates the file + schema on
+    # open) as a side effect of reading a standalone book that was never
+    # snapshotted. And any DB-layer failure — a malformed `series:`
+    # frontmatter value rejected by slug validation, a locked/corrupt DB
+    # file — falls back to frontmatter instead of raising past this tool's
+    # {"error": ...} JSON contract.
+    db_row: dict[str, Any] | None = None
+    try:
+        db_slug = get_db_slug_for_book(project_dir)
+        db_path = get_canon_db_path(db_slug)
+        if db_path.exists():
+            conn = open_canon_db(db_slug)
+            try:
+                db_row = get_latest_snapshot_for_book(conn, character_slug, get_book_num(project_dir))
+            finally:
+                conn.close()
+    except (ValueError, sqlite3.Error):
+        db_row = None
+
+    snapshot: dict[str, list[str] | str] = fm_snapshot
+    snapshot_source = "frontmatter"
+
+    if db_row:
+        db_chapter_num = db_row.get("chapter_num")
+        fm_chapter_num = _parse_leading_chapter_num(fm_as_of_raw)
+        # The DB wins unless the frontmatter names a strictly LATER chapter
+        # than the DB's latest snapshot (a hand-edited value recorded after
+        # the last chapter-close write — e.g. a final polish pass).
+        if fm_chapter_num is not None and (db_chapter_num is None or fm_chapter_num > db_chapter_num):
+            snapshot = fm_snapshot
+            snapshot_source = "frontmatter"
+        else:
+            env_raw = db_row.get("environmental_limiters") or ""
+            snapshot = {
+                "current_inventory": db_row.get("inventory", []),
+                "current_clothing": db_row.get("clothing", []),
+                "current_injuries": db_row.get("injuries", []),
+                "altered_states": db_row.get("altered_states", []),
+                "environmental_limiters": [s for s in env_raw.split(", ") if s],
+                _SNAPSHOT_AS_OF_FIELD: (str(db_chapter_num) if db_chapter_num is not None else ""),
+            }
+            snapshot_source = "db"
+
+    result: dict[str, Any] = {
+        "name": str(meta.get("name", character_slug)),
+        "role": str(meta.get("role", "supporting")),
+        "description": str(meta.get("description", "")),
+        "snapshot": snapshot,
+        "snapshot_source": snapshot_source,
+        "relationships_text": _extract_relationships_text(body),
+    }
+    if book_category == "memoir":
+        result["consent_status"] = str(meta.get("consent_status", ""))
+    return json.dumps(result)
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))

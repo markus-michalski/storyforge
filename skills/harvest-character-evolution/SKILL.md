@@ -41,7 +41,8 @@ D-3 (brief-source extension) consume what this skill writes.
 ## Step 1: Resolve book + series + band
 
 1. If a book slug was passed as argument, use it. Otherwise check
-   `mcp__storyforge-mcp__get_session()` for `book_slug`.
+   `mcp__storyforge-mcp__get_session()` for `last_book` (the real
+   field name — the tool has no `book_slug` field).
 2. Load the book via `mcp__storyforge-mcp__get_book_full(book_slug)`.
    - Validate `book.status` is one of `Final` / `Export Ready` / `Published`.
    - Read `book.series` (must be non-empty) and `book.series_number`
@@ -95,14 +96,39 @@ mcp__storyforge-mcp__read_character_for_harvest(
 )
 ```
 
-Returns `{name, role, description, snapshot, relationships_text}`. The
-snapshot contains the POV-state fields written by
+Returns `{name, role, description, snapshot, snapshot_source, relationships_text}`
+(plus `consent_status` for memoir books). The snapshot contains the POV-state fields written by
 `update_character_snapshot` at chapter close: `current_inventory`,
 `current_clothing`, `current_injuries`, `altered_states`,
-`environmental_limiters`, `as_of_chapter`.
+`environmental_limiters`, `as_of_chapter` — sourced from the per-series
+DB when available (`snapshot_source == "db"`), else from the character
+file's frontmatter (`snapshot_source == "frontmatter"`).
 
 If the response carries `error` (character not found): show a warning
 and offer **Skip this tracker** vs **Provide manual content**.
+
+**Memoir consent check (right after this call, before synthesizing
+anything):** if `book.book_category == "memoir"`, read `consent_status`
+from THIS response — **not** from `book.people[tracker.book_slug]`.
+The state-indexer's `book.people` projection has no legacy-layout
+fallback and is empty for pre-#59 memoir books whose cast still lives
+under `characters/`; the MCP tool above resolves the file via
+`resolve_people_dir`'s legacy fallback, so it always finds the right
+file and its `consent_status`.
+
+- `consent_status == "refused"`: skip this tracker immediately — no
+  proposed summary, no diff shown, no `write_series_evolution_section`
+  call — and move to the next tracker. Log it in the final Step 4
+  summary the same way a user-chosen "Skip" is logged.
+- `consent_status == ""` (field absent — legacy file never given the
+  field, tracker/person slug mismatch, or a genuine data gap): do
+  **not** proceed silently. Warn the author ("no consent_status found
+  for {name} — cannot confirm this person didn't refuse") and use
+  AskUserQuestion with **Skip this tracker** vs **Continue anyway**
+  (author confirms out-of-band that consent isn't refused). Log
+  whichever choice is made the same way as any other skip/proceed.
+- Any other value (`confirmed-consent`, `pending`, `not-required`,
+  `not-asking`): proceed normally.
 
 ### 3b. Synthesize the B{N} Ende summary
 
@@ -127,7 +153,7 @@ sections shown to you in 3c) for register guidance.
 Tracker {n}/{total} — {tracker_slug} ({name}, {role})
 
   Book file: projects/{book_slug}/{characters|people}/{book_slug}.md
-  Snapshot as of: {snapshot.as_of_chapter or "—"}
+  Snapshot as of: {snapshot.as_of_chapter or "—"} (source: {snapshot_source})
   Recurs in: {recurs_in}
 
   Existing {band} Ende:
@@ -216,11 +242,14 @@ Next steps:
 - **One tracker at a time**: no batch mode. Authors need to see each
   diff to catch drift between draft and final state.
 - **Memoir books**: `book_category=memoir` swaps `characters/` →
-  `people/` automatically via the MCP read tool. Person consent
+  `people/` automatically via the MCP read tool, with a legacy
+  fallback to `characters/` for pre-#59 books. Person consent
   obligations don't apply at series-tracker scope (the tracker is
   internal author tooling, not published content), but if a person's
-  consent_status is `refused` you should skip them — they should not
-  be appearing in series-evolution material.
+  `consent_status` is `refused` you should skip them — they should not
+  be appearing in series-evolution material. Always read
+  `consent_status` from the `read_character_for_harvest` response
+  (Step 3a), never from `book.people[...]` — see 3a for why.
 
 ## Out of scope
 
