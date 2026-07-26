@@ -35,7 +35,9 @@ sweep.
 ## Step 1: Resolve book + author
 
 If a book slug was passed as argument, use it. Otherwise check the active
-session via `mcp__storyforge-mcp__get_session()` for `book_slug`.
+session via `mcp__storyforge-mcp__get_session()` — the book slug is the
+response's `last_book` field (there is no `book_slug` field on that
+response).
 
 If no book is resolvable, ask (AskUserQuestion):
 
@@ -124,9 +126,9 @@ Candidate {n}/{total} — {type}
 
 Use AskUserQuestion with options:
 
-- **Promote (recommended)** — write to author target, optionally remove from book
-- **Keep book-only** — leave the rule in book CLAUDE.md, no author write
-- **Discard** — remove from book CLAUDE.md, do not promote (rule was wrong)
+- **Promote (recommended)** — write to author target, optionally remove from book rules
+- **Keep book-only** — leave the rule in the book_rules DB, no author write
+- **Discard** — remove from the book_rules DB, do not promote (rule was wrong)
 - **Edit and promote** — let user edit the value/text, then promote
 - **Skip for now** — defer this candidate, don't decide
 
@@ -224,22 +226,80 @@ Lint code reference:
 
 Ask (AskUserQuestion):
 
-- **Remove from book CLAUDE.md** — clean break, rule lives only in author scope now
-- **Annotate as promoted** — keep the rule in the book with `_(promoted to author profile, YYYY-MM-DD)_`
+- **Remove from book rules** — clean break, delete the row from the `book_rules`
+  DB, rule lives only in author scope now
+- **Annotate as promoted** — keep the rule in the `book_rules` DB with
+  `_(promoted to author profile, YYYY-MM-DD)_` appended
 
 For source `book_rule` only — manuscript findings have no source rule to remove.
 
+**Index drift across the walk** — deleting a book rule (this Remove path, or
+Discard below) shifts every LATER rule's index down by one in the
+`book_rules` DB. `harvest_book_rules()`'s `source_rule_index` values are all
+captured once, at Step 2 — they go stale the moment an EARLIER-indexed rule
+is removed later in the same walk (annotating does not delete a row, so it
+never causes drift — only Remove and Discard do). Track how many
+earlier-indexed rules have already been removed so far in this session and
+subtract that count from `source_rule_index` before every `update_book_rule`
+call below. If unsure, re-run `mcp__storyforge-mcp__list_book_rules(book_slug)`
+immediately before the call and confirm the rule at the adjusted index still
+matches this candidate's original text before touching it.
+
+Remove:
+
 ```python
-remove_book_rule_after_promotion(
-    claudemd_path=book_claudemd_path,
+mcp__storyforge-mcp__update_book_rule(
+    book_slug=book_slug,
     rule_index=candidate.source_rule_index,
-    mode="remove" | "annotate",
+    delete=True,
 )
 ```
 
+Annotate: read the rule's current text first via
+`mcp__storyforge-mcp__list_book_rules(book_slug)` — matched by the row's
+`index` field (there is no `rule_index` field on `list_book_rules` rows;
+`rule_index` is only the request/response key on `update_book_rule`) —
+using that row's `raw_text` field. `update_book_rule`'s `new_text` REPLACES
+the rule body, so the annotation must be appended to the existing text, not
+written in place of it.
+
+**Whitespace is collapsed on write, every time, not just here** —
+`update_book_rule` normalizes `new_text` (`re.sub(r"\s+", " ", text.strip())`
+in `tools/claudemd/rules_editor.py`, then stripped again on the DB write)
+before storing it. If `raw_text` spans multiple lines, every newline and
+run of spaces collapses into a single space in the row written back — the
+rule's line structure is not preserved. This is inherent to
+`update_book_rule` and not something this call can opt out of; if the
+candidate's `raw_text` is multi-line, mention to the user that the annotated
+version will read as one flattened line before writing it.
+
+```python
+today = date.today().isoformat()  # requires `from datetime import date`
+mcp__storyforge-mcp__update_book_rule(
+    book_slug=book_slug,
+    rule_index=candidate.source_rule_index,
+    new_text=f"{raw_text} _(promoted to author profile, {today})_",
+    validate=False,  # raw_text is pre-existing, already-approved book content —
+                     # only appending a note, not new prose — so skip the
+                     # manuscript-checker re-lint the default validate=True
+                     # would otherwise trigger (that lint pass is scoped to
+                     # genuinely new writes; see write_author_discovery above)
+)
+```
+
+Check the response's `found`/`changed` flags before reporting the rule as
+removed/annotated — `found=False` means the rule no longer exists at that
+index (already removed, or the book's rules were renumbered since the
+harvest ran).
+
 ### Discard (without promote)
 
-Same `remove_book_rule_after_promotion(mode="remove")` call, no author write.
+Same removal call as Cleanup's Remove path —
+`mcp__storyforge-mcp__update_book_rule(book_slug=book_slug,
+rule_index=candidate.source_rule_index, delete=True)` — no author write. The
+same index-drift adjustment documented under Cleanup's Remove path above
+applies here too: subtract the count of already-removed earlier-indexed
+rules from `source_rule_index` before calling.
 
 ### Edit and promote
 
@@ -258,8 +318,9 @@ Promoted to {author_slug}:
   - "{value}" → author_discoveries DB [recurring_tics]
   - ...
 
-Removed from book CLAUDE.md:
-  - rule {idx}: "{title}"
+Removed from book rules (book_rules DB):
+  - rule {candidate.source_rule_index} (original harvest index — not the
+    drift-adjusted index actually passed to update_book_rule): "{title}"
   - ...
 
 Kept book-only:
@@ -302,8 +363,11 @@ read `## Writing Discoveries` on every load.
   Issue #151 and has no `## Writing Discoveries` section. Offer to migrate:
   read the current profile, append the template scaffold (Recurring Tics /
   Style Principles / Don'ts with `_Frei._` placeholders), then retry.
-- **`MarkersNotFoundError` from `harvest_book_rules`** — book CLAUDE.md is
-  missing `<!-- RULES:START -->` / `<!-- RULES:END -->`. Run
-  `mcp__storyforge-mcp__init_book_claudemd(book_slug)` or migrate manually.
+- **`FileNotFoundError` from `harvest_book_rules`** — the book has no
+  CLAUDE.md file at all ("CLAUDE.md not found for book {slug}"). Run
+  `mcp__storyforge-mcp__init_book_claudemd(book_slug)` to scaffold one.
+  (`MarkersNotFoundError` / missing `<!-- RULES:START -->` /
+  `<!-- RULES:END -->` markers can no longer fire here — rules moved to the
+  `book_rules` DB in Phase 4, and those markers stopped being load-bearing.)
 - **No author resolved** — book README has no `author` field. Ask the user
   to specify via `--author` and retry.
