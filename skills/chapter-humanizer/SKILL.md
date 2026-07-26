@@ -7,7 +7,7 @@ description: |
   Use when: (1) User says "humanize chapter", "AI-Tells entfernen", "chapter humanizer",
   (2) After chapter-reviewer craft fixes are applied and the prose still feels AI-generated,
   (3) As a mandatory step in the standard writing workflow between review and proofread.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> <chapter-slug>"
 ---

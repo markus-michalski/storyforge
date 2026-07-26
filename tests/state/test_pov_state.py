@@ -590,8 +590,9 @@ class TestSnapshotDbTier:
         assert result["extraction_methods"]["altered_states"] == "none"
         assert result["extraction_methods"]["environmental_limiters"] == "none"
 
-    def test_environmental_limiters_split_from_joined_string(self, tmp_path: Path, monkeypatch):
-        """environmental_limiters is stored comma-joined (not JSON) on the write side."""
+    def test_environmental_limiters_json_from_snapshot_db(self, tmp_path: Path, monkeypatch):
+        """environmental_limiters stored as JSON array (new format since #469 fix)."""
+        import json
         import tools.db.connection as _db_conn
         from tools.db.character_snapshots import upsert_snapshot
         from tools.db.connection import get_db_slug_for_book, open_canon_db
@@ -606,6 +607,34 @@ class TestSnapshotDbTier:
 
         db_slug = get_db_slug_for_book(root)
         conn = open_canon_db(db_slug)
+        upsert_snapshot(
+            conn, char_slug="theo", book_num=1, chapter_num=26,
+            environmental_limiters=json.dumps(["gas mask", "ear plugs"]),
+        )
+        conn.close()
+
+        result = extract_pov_state(root, "Theo", "27-the-meet")
+
+        assert result["extraction_methods"]["environmental_limiters"] == "snapshot_db"
+        assert {e["item"] for e in result["environmental_limiters"]} == {"gas mask", "ear plugs"}
+
+    def test_environmental_limiters_backward_compat_comma_split(self, tmp_path: Path, monkeypatch):
+        """environmental_limiters stored as old comma-joined string (pre-#469 data) still parses."""
+        import tools.db.connection as _db_conn
+        from tools.db.character_snapshots import upsert_snapshot
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+        root = _book(tmp_path)
+        _char(root, "theo")
+        _chapter(root, "27-the-meet", number=27)
+
+        db_slug = get_db_slug_for_book(root)
+        conn = open_canon_db(db_slug)
+        # Simulate old-format row written before the #469 fix
         upsert_snapshot(
             conn, char_slug="theo", book_num=1, chapter_num=26,
             environmental_limiters="gas mask, ear plugs",

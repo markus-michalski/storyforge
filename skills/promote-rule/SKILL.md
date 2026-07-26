@@ -103,7 +103,11 @@ The `reason` is extracted from the existing rule entry or asked if not present:
 - Author vocabulary: use the section name as reason context
 
 **Remove from source (only when user chose "Yes, promote" in Step 5):**
-- **From book scope**: Call `update_book_rule(book_slug, rule_index=index, delete=True)` using the `rule_index` already captured in Step 1's listing (preferred — avoids substring-match ambiguity entirely). Only fall back to `rule_match=phrase` if no index was captured. Book rules live in the book_rules DB (Phase 4 migration), not in the raw CLAUDE.md file on disk — a direct file Edit targeting the rendered `## Rules` text would silently do nothing, since that text isn't physically present in the file.
+- **From book scope**: Before calling any delete, always show the user the **full `raw_text`** of the matched rule (from Step 1's listing) — not just the promoted phrase. This is mandatory: `update_book_rule(delete=True)` removes the **entire rule row**, not just the promoted phrase, and there is no undo.
+
+  If the `raw_text` contains **multiple distinct phrases or parts** beyond the promoted phrase (e.g. several backtick-wrapped terms, or additional ban-cue clauses), do NOT call `delete=True`. Instead, prefer surgical removal: call `update_book_rule(book_slug, rule_index=index, new_text=<rule_text_with_the_promoted_phrase_stripped_out>, validate=True)` to keep the rest of the rule intact. Only call `update_book_rule(delete=True)` when the rule is provably single-phrase (the entire `raw_text` is just the one phrase being promoted).
+
+  If the rule IS single-phrase: ask the user to confirm the full text they're about to delete (via AskUserQuestion) before calling delete. Call `update_book_rule(book_slug, rule_index=index, delete=True)` using the `rule_index` already captured in Step 1's listing (preferred — avoids substring-match ambiguity entirely). Only fall back to `rule_match=phrase` if no index was captured. Book rules live in the book_rules DB (Phase 4 migration), not in the raw CLAUDE.md file on disk — a direct file Edit targeting the rendered `## Rules` text would silently do nothing, since that text isn't physically present in the file.
   Check the result **error-first**, not `result.found` directly — `update_book_rule` returns `{error, code}` with no `found` key on three paths, and treating an error payload as "not found" reports the rule as already-gone while it is untouched:
   - `code == "ambiguous_match"` (likely for short phrases — `rule_match` is a case-insensitive substring match over the full rule body, so a phrase like "thing" can match several rules): retry the same call with `rule_index` from Step 1's listing instead of `rule_match`.
   - `code == "disagreeing_resolution"` or `"invalid_args"`: stop and report the error to the user — do not claim removal.
@@ -126,9 +130,16 @@ The rule is now active for {scope description}.
 Run /storyforge:manuscript-checker to see existing violations across your library.
 ```
 
-**If the target scope is Global**, append this instead of an unconditional "now active" claim: global entries load at **`SEVERITY_WARN` only** (`tools/banlist_loader.py` — `load_global_ai_tells()` and `load_global_shape_bans()` both hardcode warn severity), never block — a global promotion is always weaker enforcement than a book- or author-scope rule authored at block severity, not stronger. It also only changed the plugin's own local `reference/craft/anti-ai-patterns.md` file — it is not committed and will not persist across a plugin update or sync to other installations until it is. Tell the user: "This now warns locally (not blocks) for every book on this install. Consider committing this change (and opening a PR) so it takes effect for other installations too." Do not claim the promotion is durably, universally active, or block-severity, the way a book/author-scope write can be.
+**If the target scope is Global**, append this instead of an unconditional "now active" claim: global entries load at **`SEVERITY_WARN` only** (`tools/banlist_loader.py` — `load_global_ai_tells()` and `load_global_shape_bans()` both hardcode warn severity), never block — a global promotion is always weaker enforcement than a book- or author-scope rule authored at block severity, not stronger. It also only changed the plugin's own local `reference/craft/anti-ai-patterns.md` file in one deploy location — this plugin installs into two locations (`~/.claude/plugins/marketplaces/storyforge` and `~/.claude/plugins/cache/storyforge/storyforge/<version>`), and only whichever one was active in this session received the edit. The change is uncommitted and will be silently overwritten the next time the plugin is updated or synced from its source repo.
 
-**If the target scope is Author**, soften the claim similarly: `write_author_banned_phrase` currently stores the phrase in bold-Markdown (`**{phrase}**`), which the manuscript-checker's Don'ts scanner does not yet recognize (it looks for backtick-wrapped or italic+ban-cue phrasing) — see [storyforge#452](https://github.com/markus-michalski/storyforge/issues/452), open. Report the write as succeeded, but do not claim the phrase is now actively enforced by manuscript-checker until #452 is fixed.
+Tell the user **all three of these things explicitly**:
+1. "Warns locally only (not blocks) for every book on this install — cannot be promoted to block-severity at global scope."
+2. "Only one of your two deploy locations received this edit. The other location is still unchanged."
+3. "This change is uncommitted. To make it permanent across installs, run `/git-pr-workflows:git-workflow` from `{plugin_root}` now. Until then the next plugin update will overwrite it."
+
+Do not claim the promotion is durably, universally active, or block-severity, the way a book/author-scope write can be.
+
+**If the target scope is Author**, confirm success: `write_author_banned_phrase` now stores the phrase in backtick format (`` `{phrase}` ``), which `_extract_dont_patterns()/_HOOK_BACKTICK_RE` recognizes and enforces — fixed in #452.
 
 ## Important Behavior
 

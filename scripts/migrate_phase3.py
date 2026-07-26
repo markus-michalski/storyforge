@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -272,7 +273,7 @@ def migrate_character_snapshots(content_root: Path, dry_run: bool) -> None:
 
                     env = snap.get("environmental_limiters", "")
                     if isinstance(env, list):
-                        env = ", ".join(env)
+                        env = json.dumps(env)
 
                     label = f"  [{db_slug}] {char_slug} ch{chapter_num}"
                     if dry_run:

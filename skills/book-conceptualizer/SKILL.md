@@ -5,7 +5,7 @@ description: |
   Run after `/storyforge:brainstorm` + `/storyforge:new-book`, before `/storyforge:plot-architect`.
   Use when: (1) User says "Konzept", "develop concept", "Buchkonzept",
   (2) After brainstorming, to deepen an idea into a workable concept.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug>"
 ---

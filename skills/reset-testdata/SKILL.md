@@ -45,6 +45,16 @@ checkout` only touches files under those two directories and cannot affect any r
 `git clean -fdx` removes any files (including git-ignored ones like export output and
 generated PDFs) added by live tests that are not in the tag.
 
+**Full-book blast radius** (Issues #434, #450): the `git checkout sandbox-baseline + git clean -fdx`
+reset is a **whole-directory restore** — it wipes every chapter dir (including `chapters/`
+dirs added by prior skill-rollout live-tier runs) and resets the author profile and all
+writing-discovery rows. Any `sandbox.md` file that documents a chapter fixture or author
+field as "persistent baseline going forward" is only valid until the next `reset-testdata`
+or `create-testdata` run; those conventions predate this full-reset strategy. Before trusting
+a prior skill's documented baseline: re-verify the files actually exist on disk and in git
+(`git ls-files <path>`), and call `get_author("zz-sandbox-author")` for the authoritative
+current author state, rather than assuming anything survived the last reset.
+
 ## Workflow
 
 ### 1. Prefix gate — mandatory, first, unconditional

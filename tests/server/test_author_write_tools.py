@@ -330,7 +330,37 @@ class TestWriteAuthorBannedPhrase:
         ).fetchall()
         conn.close()
         assert len(rows) == 1
-        assert "thing" in rows[0]["text"]
+        # Phrase must be backtick-wrapped so _HOOK_BACKTICK_RE can extract it
+        assert rows[0]["text"] == "`thing` — vague-noun fallback"
+
+    def test_banned_phrase_round_trips_through_dont_scanner(self, author_setup):
+        """Regression for Issue #452: bold (**phrase**) was silently unenforceable.
+
+        A phrase written via write_author_banned_phrase must produce a BannedPattern
+        when processed by _build_patterns_from_dont_db_texts so chapter-writer/
+        chapter-reviewer actually enforce the ban.
+        """
+        write_author_banned_phrase(
+            author_slug="ethan-cole",
+            phrase="zz-test-banned-term",
+            reason="regression test",
+        )
+        conn = _open_authors_db(author_setup)
+        stored_texts = [
+            row["text"]
+            for row in conn.execute(
+                "SELECT text FROM author_discoveries WHERE discovery_type='donts'"
+            ).fetchall()
+        ]
+        conn.close()
+
+        from tools.banlist_loader import _build_patterns_from_dont_db_texts
+        patterns = _build_patterns_from_dont_db_texts(stored_texts)
+        assert patterns, "Expected at least one BannedPattern — phrase was not extracted"
+        labels = [p.label for p in patterns]
+        assert any("zz-test-banned-term" in label for label in labels), (
+            f"Expected 'zz-test-banned-term' in extracted labels, got: {labels}"
+        )
 
     def test_idempotent_already_present(self, author_setup):
         write_author_banned_phrase(author_slug="ethan-cole", phrase="delve", reason="AI tell")

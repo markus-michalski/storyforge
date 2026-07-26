@@ -41,7 +41,10 @@ _QUOTED_CONTENT_RE = re.compile(r'"([^"\n]{3,})"')
 _ITALIC_QUOTED_RE = re.compile(r'\*"[^"\n]+"\*')
 _BAN_CUE_RE = re.compile(
     r"\b(banned|ban|avoid|never|don[’']?t\s+use|do\s+not\s+use|limit|"
-    r"no\s+\w+|stop\s+using)\b",
+    r"no\s+\w+|stop\s+using|"
+    r"vermeide[nt]?|nie(?:mals)?(?:\s+(?:verwenden?|nutzen|benutzen|einsetzen))?|"
+    r"kein(?:e[srnm]?)?\b|verboten|raus|"
+    r"nicht\s+(?:\S+\s+)?(?:verwenden?|nutzen|benutzen|einsetzen|schreiben|tippen))\b",
     re.IGNORECASE,
 )
 # Phrases that indicate the rule already documents what to do instead.

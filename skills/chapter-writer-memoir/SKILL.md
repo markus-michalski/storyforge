@@ -6,7 +6,7 @@ description: |
   Use when: (1) `book_category == "memoir"` AND user says "Kapitel schreiben",
   "write chapter", (2) Book is in Drafting status with chapters outlined.
   Fiction books → use `/storyforge:chapter-writer` instead.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> <chapter-number>"
 ---

@@ -157,8 +157,12 @@ Rule added:
 {If occurrences found}: {N} existing violations in {chapter list}.
   Run /storyforge:manuscript-checker to review them (book/global scope only — see Step 7).
 
-{If global scope}: Consider opening a PR to share this rule upstream
-  if it's not book-specific vocabulary.
+{If global scope}: This write is local and uncommitted — the change will be
+  silently overwritten on the next plugin update or sync. This plugin installs
+  into two deploy locations; only the active one received this edit.
+  To make it permanent: run `/git-pr-workflows:git-workflow` from `{plugin_root}`
+  now to branch, commit, and open a PR. Until merged, the rule warns locally only
+  (global scope is always advisory/warn — no block tier at global scope).
 ```
 
 ## Important Behavior

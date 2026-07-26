@@ -4,7 +4,7 @@ description: |
   Plan a book series: overarching arc, book connections, canon management.
   Use when: (1) User says "Serie planen", "series", "book series",
   (2) User wants to write multiple connected books.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<series-name>"
 ---

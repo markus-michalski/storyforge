@@ -5,7 +5,7 @@ description: |
   consent obligations, and memoir-specific AI-tells.
   Use when: (1) `book_category == "memoir"` AND user says "Kapitel reviewen",
   "review chapter". Fiction books → use `/storyforge:chapter-reviewer` instead.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> <chapter-slug>"
 ---

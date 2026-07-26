@@ -26,7 +26,10 @@ from tools.db.canon_facts import query_facts
 from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
 
 _BAN_CUE_RE = re.compile(
-    r"\b(banned|ban|avoid|never|don['']?t\s+use|do\s+not\s+use|limit|stop\s+using)\b",
+    r"\b(banned|ban|avoid|never|don['‘’]?t\s+use|do\s+not\s+use|limit|stop\s+using|"
+    r"vermeide[nt]?|nie(?:mals)?(?:\s+(?:verwenden?|nutzen|benutzen|einsetzen))?|"
+    r"kein(?:e[srnm]?)?\b|verboten|raus|"
+    r"nicht\s+(?:\S+\s+)?(?:verwenden?|nutzen|benutzen|einsetzen|schreiben|tippen))\b",
     re.IGNORECASE,
 )
 

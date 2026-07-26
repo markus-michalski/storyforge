@@ -5,7 +5,7 @@ description: |
   For fantasy/sci-fi/supernatural/historical: run after `/storyforge:character-creator`, before `/storyforge:chapter-writer`. Optional for contemporary, romance, mystery, drama, literary.
   Use when: (1) User says "Welt", "world", "Setting", "Magic System",
   (2) For fantasy, sci-fi, supernatural, or historical genres.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug>"
 ---

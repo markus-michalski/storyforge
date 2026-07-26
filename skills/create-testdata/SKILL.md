@@ -36,6 +36,14 @@ Full convention: skill-rollout's `reference/self-improving-skills.md`, section
 These exact slugs are the whole contract — `reset-testdata` and `delete-testdata` operate
 on exactly these names. Do not vary them.
 
+**Chapters are NOT part of the base fixture** (Issues #434, #450): `create_book_structure()`
+produces a scaffold with zero chapters. Any chapters (and author writing-discovery rows)
+added by prior skill-rollout live-tier runs are wiped on the next `create-testdata` or
+`reset-testdata` run and do NOT survive. `sandbox.md` files that document per-skill chapter
+fixtures as "persistent baselines" reflect the state at the time of writing only — treat
+them as hints, not guarantees. Always verify with `git ls-files` or a live `list_chapters()`
+call before assuming any chapter fixture exists.
+
 ## Workflow
 
 ### 1. Prefix gate — mandatory, first, unconditional

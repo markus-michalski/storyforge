@@ -220,7 +220,7 @@ def update_character_snapshot(
             inventory=snapshot.get("current_inventory"),
             altered_states=snapshot.get("altered_states"),
             environmental_limiters=(
-                ", ".join(snapshot["environmental_limiters"])
+                json.dumps(snapshot["environmental_limiters"])
                 if isinstance(snapshot.get("environmental_limiters"), list)
                 else snapshot.get("environmental_limiters") or None
             ),

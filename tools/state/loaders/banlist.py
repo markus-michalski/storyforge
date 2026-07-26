@@ -3,7 +3,8 @@
 Collects up to 50 deduplicated banned-phrase entries from four
 sources, in priority order:
 
-1. Book CLAUDE.md ``## Rules`` with backticked phrases (block severity).
+1. Book CLAUDE.md ``## Rules`` — ban-cued backticked phrases are block severity,
+   watch/watch-for phrased rules are advisory (via ``classify_rule``).
 2. Author ``vocabulary.md`` (block severity).
 3. Author ``profile.md`` ``## Writing Discoveries / ### Recurring Tics``
    (block severity) — phrases promoted via ``/storyforge:harvest-author-rules``
@@ -37,6 +38,7 @@ def collect_banned_phrases(
         _read_book_rules,
         _extract_patterns_from_rule,
     )
+    from tools.state.loaders.claudemd_sections import classify_rule as _classify_rule_text
     from tools.banlist_loader import (
         author_slug_from_book,
         load_author_vocab,
@@ -48,6 +50,10 @@ def collect_banned_phrases(
     out: list[dict[str, str]] = []
 
     for rule in _read_book_rules(book_root):
+        # Use classify_rule (same logic as rules_to_honor) instead of hardcoding
+        # "block" — book rules with a watch/watch-for cue are advisory, not block
+        # (Issue #453: banned_phrases and rules_to_honor were internally inconsistent).
+        severity = _classify_rule_text(rule)
         for label, _pattern in _extract_patterns_from_rule(rule):
             key = label.lower()
             if key in seen:
@@ -57,7 +63,7 @@ def collect_banned_phrases(
                 {
                     "phrase": label,
                     "source": "book CLAUDE.md ## Rules",
-                    "severity": "block",
+                    "severity": severity,
                 }
             )
 

@@ -8,7 +8,7 @@ description: |
   "was könnte ich schreiben", "neue Geschichte", (2) User explicitly invokes `/storyforge:brainstorm`,
   (3) Context is clearly a book (genre mentions, character/plot/world, memoir/life-writing, reading material).
   Do NOT trigger on bare "Idee" / "brainstorm" without book context — defer to a more specific plugin.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "[idea-slug]"
 ---

@@ -8,7 +8,7 @@ description: |
   "Charakter", "character", "Figur", "Person",
   (2) After plot/structure is outlined, to populate the story.
   Memoir books → use `/storyforge:character-creator-memoir` instead.
-model: claude-opus-4-8
+model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> [name]"
 ---
