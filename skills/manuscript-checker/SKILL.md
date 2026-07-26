@@ -52,7 +52,7 @@ books additionally get five memoir-specific passes.
 
 | Category | What it catches | Severity logic |
 |---|---|---|
-| `book_rule_violation` | Patterns extracted from `<book>/CLAUDE.md` rules | always high |
+| `book_rule_violation` | Patterns from book_rules DB (rendered in `<book>/CLAUDE.md ## Rules (from DB)`) | always high |
 | `plot_hole` | Causality inversions + dropped/unfired Chekhov's-gun promises (Issue #150). Sub-category in phrase prefix (`[causality_inversion]` / `[chekhov_gun]`). | high — story-logic breaks reader trust |
 | `cliche` | Curated banlist of worn-out phrasings | always high |
 | `question_as_statement` | Dialogue starting with a Q-word but ending with `.` | high if ≥5 hits |
