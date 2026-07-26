@@ -37,7 +37,19 @@ For each file:
 1. Read the first ~30 lines (frontmatter section only)
 2. Extract `source_genres:` — preferred field (set by study-author Phase 1 post-#283)
 3. If `source_genres:` is absent, fall back to `genres:` field (legacy)
-4. Derive `book_slug` from the filename: `analysis-{book_slug}.md` → `{book_slug}`
+4. Strip surrounding quotes and whitespace from the extracted value (study-author writes
+   `source_genres: "dark-fantasy, lgbtq"` with quotes — see `study-author/SKILL.md`).
+   Split on commas and trim each slug. The value passed to `update_discovery_metadata`
+   must be a bare comma-separated slug list with no quote characters — a literal quote
+   in the DB value breaks genre-overlap matching for every consumer (chapter-writer
+   Audit 4.5, author-check).
+5. Validate each slug against the genre registry via MCP `get_genre(slug)`. For any
+   slug not found in the registry, mark it `(unknown genre — will not filter)` in the
+   preview below instead of silently writing it. An unrecognized slug (typo, free
+   text, title-cased name) can turn a previously-universal discovery (empty
+   `source_genres` → always applied) into one that overlaps no book's genres and is
+   permanently filtered out everywhere — the opposite of this skill's purpose.
+6. Derive `book_slug` from the filename: `analysis-{book_slug}.md` → `{book_slug}`
 
 Report what was found before making changes:
 
@@ -48,13 +60,28 @@ Analysis files found: {N}
   analysis-firelight.md          source_genres: light-supernatural, comedy-supernatural
   analysis-some-book.md          source_genres: (none found — will skip)
   analysis-other-book.md         genres: dark-fantasy  (legacy field)
+  analysis-typo-book.md          source_genres: dark-fantsy  (unknown genre — will not filter)
 
 Proceed? (yes/no)
 ```
 
+If `Analysis files found: 0`, or every file found lacks a usable `source_genres`/
+`genres` value, skip the `Proceed?` question — there is nothing to confirm. Report the
+empty result per the template in Step 4 (zero counts, abort reason "no files" or "no
+usable genre field") and stop; do not continue to Step 3.
+
+Stop here and wait for the user's reply. Do not call any write tool, and do not call
+`update_discovery_metadata` in this same turn, before an explicit affirmative answer
+to `Proceed?` is received.
+
 ## Step 3: Apply updates
 
-For each file where `source_genres` or `genres` was found, call:
+Only run this step if the user answered "yes" to the `Proceed?` prompt in Step 2. If
+they answered "no" (or anything else that isn't an affirmative), stop here — do not
+call `update_discovery_metadata` for any file, and report per the Step 4 template with
+zero counts and abort reason "user declined".
+
+For each file where a validated `source_genres` or `genres` was found, call:
 
 ```
 update_discovery_metadata(
@@ -69,7 +96,20 @@ It does not touch rows from other books.
 
 Files with no genre field are skipped (not updated).
 
+If a call returns `{"error": ...}` instead of `{"updated": N}` (e.g. the author profile
+could not be resolved), stop the loop immediately — do not process remaining files.
+Report using the Step 4 template with the counts accumulated so far, and add an explicit
+line naming which files were already applied before the error and which files were never
+attempted.
+
 ## Step 4: Report
+
+Use this template for every outcome — success, the Step 2 zero-result abort, and the
+Step 3 user-declined or mid-loop-error abort. The Step 2 zero-result and Step 3
+user-declined aborts have `0` for "DB rows updated" and "Files processed" (nothing
+was attempted); the mid-loop-error abort reports whatever partial counts were
+accumulated before the error. Add the `Aborted:` line only when the run did not reach
+a normal completion — omit it entirely on success.
 
 ```
 migrate-source-genres complete: {slug}
@@ -77,11 +117,14 @@ migrate-source-genres complete: {slug}
 Files processed:     {N}
 DB rows updated:     {total from all update_discovery_metadata responses}
 Files skipped:       {N} (no source_genres / genres field)
+Aborted:             {reason, e.g. "no analysis files found" / "no usable genre field" /
+                       "user declined at Proceed?" / "update_discovery_metadata error after
+                       {N} files — remaining files not attempted"}
 ────────────────────────────────────────
 ```
 
-Remind the user: chapter-writer and author-check now apply the genre filter
-automatically. No session restart needed.
+On a successful (non-aborted) run, remind the user: chapter-writer and author-check
+now apply the genre filter automatically. No session restart needed.
 
 ## Notes
 
