@@ -7,11 +7,12 @@ and merges the results into one ``GateResult`` envelope.
 """
 
 from __future__ import annotations
-from mcp.types import ToolAnnotations
 
 import json
 import logging
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +136,7 @@ def validate_timeline_consistency(book_slug: str) -> str:
         return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
     try:
         result = validate_timeline(book_path)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("Timeline validation failed for book %s", book_slug)
         return json.dumps({"error": "Timeline validation failed due to an internal error", "book_slug": book_slug})
     gate = derive_from_timeline_validation(result)
@@ -146,9 +147,12 @@ def validate_timeline_consistency(book_slug: str) -> str:
 def verify_callbacks(book_slug: str) -> str:
     """Check the book's Callback Register against all drafted chapters.
 
-    Parses ``## Callback Register`` from the book's CLAUDE.md and searches
-    each drafted chapter for every registered callback name and its derived
-    keywords.
+    Reads registered callbacks from the book_rules DB (the same store
+    ``append_book_callback()``/`register-callback` write to, since the
+    Phase 4 CLAUDE.md-to-DB migration — Issue #282) and searches each
+    drafted chapter for every callback's name and its derived keywords.
+    Any pre-migration ``## Callback Register`` markers still present in
+    CLAUDE.md are merged in too, for books that predate the migration.
 
     Returns three status buckets:
     - ``satisfied``           — callback found in at least one chapter, no overdue deadline
@@ -165,14 +169,7 @@ def verify_callbacks(book_slug: str) -> str:
         return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
 
     claudemd_path = book_path / "CLAUDE.md"
-    if not claudemd_path.exists():
-        return json.dumps(
-            {
-                "error": f"No CLAUDE.md found for '{book_slug}'. Run init_book_claudemd first.",
-            }
-        )
-
-    claudemd_text = claudemd_path.read_text(encoding="utf-8")
+    claudemd_text = claudemd_path.read_text(encoding="utf-8") if claudemd_path.exists() else ""
     result = _verify_callbacks_impl(book_path, claudemd_text)
     gate = derive_from_callback_verification(result)
     return json.dumps(wrap_legacy(result, gate))
@@ -517,7 +514,7 @@ def run_quality_gates(book_slug: str) -> str:
         scan_gate = derive_from_manuscript_scan(scan_result)
         per_gate["manuscript"] = scan_gate.to_json_dict()
         gates.append(scan_gate)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("Manuscript scan failed for book %s", book_slug)
         per_gate["manuscript"] = {
             "status": "WARN",
@@ -532,7 +529,7 @@ def run_quality_gates(book_slug: str) -> str:
         timeline_gate = derive_from_timeline_validation(timeline_result)
         per_gate["timeline"] = timeline_gate.to_json_dict()
         gates.append(timeline_gate)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("Timeline validation failed for book %s", book_slug)
         per_gate["timeline"] = {
             "status": "WARN",
@@ -541,22 +538,22 @@ def run_quality_gates(book_slug: str) -> str:
             "metadata": {},
         }
 
-    # --- Callbacks (only if CLAUDE.md exists) -----------------------
+    # --- Callbacks -------------------------------------------------
     claudemd_path = book_path / "CLAUDE.md"
-    if claudemd_path.exists():
-        try:
-            cb_result = _verify_callbacks_impl(book_path, claudemd_path.read_text(encoding="utf-8"))
-            cb_gate = derive_from_callback_verification(cb_result)
-            per_gate["callbacks"] = cb_gate.to_json_dict()
-            gates.append(cb_gate)
-        except Exception:  # noqa: BLE001
-            logger.exception("Callback verification failed for book %s", book_slug)
-            per_gate["callbacks"] = {
-                "status": "WARN",
-                "reasons": ["callback verification skipped due to an internal error"],
-                "findings": [],
-                "metadata": {},
-            }
+    claudemd_text = claudemd_path.read_text(encoding="utf-8") if claudemd_path.exists() else ""
+    try:
+        cb_result = _verify_callbacks_impl(book_path, claudemd_text)
+        cb_gate = derive_from_callback_verification(cb_result)
+        per_gate["callbacks"] = cb_gate.to_json_dict()
+        gates.append(cb_gate)
+    except Exception:
+        logger.exception("Callback verification failed for book %s", book_slug)
+        per_gate["callbacks"] = {
+            "status": "WARN",
+            "reasons": ["callback verification skipped due to an internal error"],
+            "findings": [],
+            "metadata": {},
+        }
 
     # --- Plot logic (causality_inversion + chekhov_gun) — Issue #150 -
     try:
@@ -564,7 +561,7 @@ def run_quality_gates(book_slug: str) -> str:
         plot_gate = GateResult.from_dict(plot_result["gate"])
         per_gate["plot_logic"] = plot_gate.to_json_dict()
         gates.append(plot_gate)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("Plot-logic analysis failed for book %s", book_slug)
         per_gate["plot_logic"] = {
             "status": "WARN",

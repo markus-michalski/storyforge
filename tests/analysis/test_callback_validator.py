@@ -8,17 +8,65 @@ Covers:
 - _extract_search_terms: phrase and word-level terms
 - verify_callbacks: satisfied / deferred / potentially_dropped status paths,
   expected-return deadline, must-not-forget + silence, no chapters
+- _read_book_callbacks / verify_callbacks DB path: callback data read from
+  the book_rules DB (the store append_book_callback() actually writes to
+  since the Phase 4 migration, Issue #282) — added after a live-tier run of
+  manuscript-checker found verify_callbacks()/_scan_callbacks() only ever
+  read the (permanently empty, post-migration) CLAUDE.md markers, so any
+  callback registered via the real register-callback skill was silently
+  invisible to both.
 """
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
+
+import pytest
 
 from tools.analysis.callback_validator import (
     _extract_search_terms,
+    _parse_callback_body,
+    _read_book_callbacks,
     parse_callback_register,
     verify_callbacks,
 )
+from tools.claudemd.manager import append_callback, init_claudemd
+
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+@pytest.fixture
+def patch_db_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    import tools.db.connection as _conn
+
+    monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
+    return tmp_path / "db"
+
+
+def _seed_callbacks(db_dir: Path, book_slug: str, texts: list[str], book_num: int = 1) -> None:
+    db_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_dir / f"{book_slug}.db"))
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS book_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_num INTEGER,
+            rule_type TEXT NOT NULL,
+            text TEXT NOT NULL,
+            added_at TEXT DEFAULT '',
+            UNIQUE(book_num, rule_type, text)
+        )
+        """
+    )
+    for text in texts:
+        conn.execute(
+            "INSERT OR IGNORE INTO book_rules (book_num, rule_type, text) VALUES (?, ?, ?)",
+            (book_num, "callback", text),
+        )
+    conn.commit()
+    conn.close()
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -216,7 +264,11 @@ class TestVerifyCallbacks:
         # At least one is deferred (no expected_ch, no must_not_forget)
         assert len(result["deferred"]) + len(result["potentially_dropped"]) == 2
 
-    def test_expected_return_overdue_is_potentially_dropped(self, tmp_path: Path) -> None:
+    def test_expected_return_overdue_legacy_marker_only_capped_at_warn(self, tmp_path: Path) -> None:
+        """This entry only exists as a CLAUDE.md marker, no DB row — the
+        chapter-writer briefs never saw it (they read the DB only), so it's
+        capped at deferred (WARN), never potentially_dropped (FAIL). See
+        verify_callbacks()' docstring and _append_dropped_or_capped()."""
         claudemd = """\
 # Book
 
@@ -234,12 +286,29 @@ class TestVerifyCallbacks:
         }
         book = _write_book(tmp_path, claudemd, chapters)
         result = verify_callbacks(book, claudemd)
+        assert len(result["potentially_dropped"]) == 0
+        assert len(result["deferred"]) == 1
+        capped = result["deferred"][0]
+        assert "Theo" in capped["name"] or "vampire" in capped["name"]
+        assert capped["status"] == "legacy_marker_only_capped_at_warn"
+
+    def test_expected_return_overdue_db_backed_is_potentially_dropped(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        """The same overdue scenario, but the entry is DB-backed (what
+        register-callback actually writes) — full FAIL severity applies."""
+        chapters = {
+            "01-opening": "She walked down the corridor in silence.",
+            "06-late": "Rain hammered the windowpane all morning.",
+            "10-final": "The story drew to a close without resolution.",
+        }
+        book = _write_book(tmp_path, "# Book\n", chapters)
+        _seed_callbacks(patch_db_dir, book.name, ["Theo's vampire history book — expected return by Ch 5."])
+        result = verify_callbacks(book)
         assert len(result["potentially_dropped"]) == 1
         dropped = result["potentially_dropped"][0]
         assert "Theo" in dropped["name"] or "vampire" in dropped["name"]
         assert "expected" in dropped["warning"].lower() or "deadline" in dropped["warning"].lower()
 
-    def test_must_not_forget_plus_long_silence_is_potentially_dropped(self, tmp_path: Path) -> None:
+    def test_must_not_forget_plus_long_silence_legacy_marker_only_capped_at_warn(self, tmp_path: Path) -> None:
         claudemd = """\
 # Book
 
@@ -264,7 +333,36 @@ class TestVerifyCallbacks:
         }
         book = _write_book(tmp_path, claudemd, chapters)
         result = verify_callbacks(book, claudemd)
-        # 11 chapters of silence after ch 1 — must-not-forget → potentially_dropped
+        # 11 chapters of silence after ch 1, must-not-forget — but legacy-marker-only,
+        # so capped at deferred (WARN), never potentially_dropped (FAIL)
+        assert len(result["potentially_dropped"]) == 0
+        assert len(result["deferred"]) == 1
+        assert result["deferred"][0]["status"] == "legacy_marker_only_capped_at_warn"
+        assert (
+            "forgotten" in result["deferred"][0]["warning"].lower()
+            or "silence" in result["deferred"][0]["warning"].lower()
+        )
+
+    def test_must_not_forget_plus_long_silence_db_backed_is_potentially_dropped(
+        self, tmp_path: Path, patch_db_dir: Path
+    ) -> None:
+        """Same scenario, DB-backed entry — full FAIL severity applies."""
+        chapters = {
+            "01-opening": "She found the broken compass in the drawer.",
+            "02-ch": "No mention here.",
+            "03-ch": "Nothing.",
+            "04-ch": "Nothing.",
+            "05-ch": "Nothing.",
+            "06-ch": "Nothing.",
+            "07-ch": "Nothing.",
+            "08-ch": "Nothing.",
+            "09-ch": "Nothing.",
+            "10-ch": "Nothing.",
+            "12-ch": "The rain had not let up for days.",
+        }
+        book = _write_book(tmp_path, "# Book\n", chapters)
+        _seed_callbacks(patch_db_dir, book.name, ["the broken compass _(must not be forgotten)_"])
+        result = verify_callbacks(book)
         assert len(result["potentially_dropped"]) == 1
         assert (
             "forgotten" in result["potentially_dropped"][0]["warning"].lower()
@@ -301,3 +399,176 @@ class TestVerifyCallbacks:
         book = _write_book(tmp_path, claudemd, chapters)
         result = verify_callbacks(book, claudemd)
         assert len(result["satisfied"]) == 1 or (len(result["deferred"]) == 0 and result["callbacks_checked"] == 1)
+
+
+# ---------------------------------------------------------------------------
+# TestReadBookCallbacks — the book_rules-DB path (Issue: verify_callbacks
+# round-trip gap found live by manuscript-checker's skill-rollout live tier)
+# ---------------------------------------------------------------------------
+
+
+class TestReadBookCallbacks:
+    def test_reads_plain_text_from_db(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        _seed_callbacks(patch_db_dir, tmp_path.name, ["Gary the cat"])
+        entries = _read_book_callbacks(tmp_path)
+        assert len(entries) == 1
+        assert entries[0].name == "Gary the cat"
+
+    def test_reads_annotated_text_from_db(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        _seed_callbacks(
+            patch_db_dir,
+            tmp_path.name,
+            ["Theo's vampire history book — expected return by Ch 18. _(must not be forgotten)_"],
+        )
+        entries = _read_book_callbacks(tmp_path)
+        assert len(entries) == 1
+        assert entries[0].expected_return_ch == 18
+        assert entries[0].must_not_forget is True
+
+    def test_no_db_returns_empty(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        assert _read_book_callbacks(tmp_path) == []
+
+    def test_bold_name_in_db_text_parsed(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        _seed_callbacks(patch_db_dir, tmp_path.name, ["**French press**"])
+        entries = _read_book_callbacks(tmp_path)
+        assert entries[0].name == "French press"
+
+
+class TestVerifyCallbacksReadsFromDb:
+    """Regression coverage for the round-trip gap: append_book_callback()
+    writes to the book_rules DB only (never CLAUDE.md markers, confirmed
+    live against a real book — the on-disk CLAUDE.md file's <!-- CALLBACKS:
+    START/END --> markers stayed empty after a real append_book_callback()
+    call), but verify_callbacks()/_scan_callbacks() used to read ONLY those
+    markers — so a callback registered the real, documented way
+    (register-callback → append_book_callback) was silently invisible to
+    both. These tests seed the DB directly (the same store the real MCP
+    tool writes to) and confirm verify_callbacks() now picks it up without
+    any CLAUDE.md marker text at all.
+    """
+
+    def test_db_only_callback_is_checked(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        book = tmp_path / "my-book"
+        book.mkdir()
+        (book / "CLAUDE.md").write_text("# Book\n\n## Callback Register\n", encoding="utf-8")
+        _seed_callbacks(patch_db_dir, "my-book", ["Gary the cat"])
+        result = verify_callbacks(book)
+        assert result["callbacks_checked"] == 1
+
+    def test_db_only_callback_satisfied_when_mentioned(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        book = tmp_path / "my-book"
+        book.mkdir()
+        (book / "CLAUDE.md").write_text("# Book\n\n## Callback Register\n", encoding="utf-8")
+        chapters_dir = book / "chapters" / "01-opening"
+        chapters_dir.mkdir(parents=True)
+        (chapters_dir / "draft.md").write_text("Gary the cat sat by the fire.", encoding="utf-8")
+        _seed_callbacks(patch_db_dir, "my-book", ["Gary the cat"])
+        result = verify_callbacks(book)
+        assert len(result["satisfied"]) == 1
+        assert result["satisfied"][0]["name"] == "Gary the cat"
+
+    def test_db_and_legacy_markers_merge_without_duplicates(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        claudemd = """\
+# Book
+
+## Callback Register
+
+<!-- CALLBACKS:START -->
+- **Gary the cat** _(added 2026-01-01)_
+<!-- CALLBACKS:END -->
+"""
+        book = _write_book(tmp_path, claudemd, {})
+        # Same name in the DB too (e.g. a book mid-migration) — must not double-count.
+        _seed_callbacks(patch_db_dir, book.name, ["Gary the cat"])
+        result = verify_callbacks(book, claudemd)
+        assert result["callbacks_checked"] == 1
+
+        # A DB-only callback alongside a marker-only one — both counted.
+        _seed_callbacks(patch_db_dir, book.name, ["French press"])
+        result = verify_callbacks(book, claudemd)
+        assert result["callbacks_checked"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Word-boundary matching (H1) and DB free-text parsing robustness
+# ---------------------------------------------------------------------------
+
+
+class TestWordBoundaryMatching:
+    """A callback name is a whole word/phrase match, not a substring — a plain
+    ``term in text`` check counted "cat" as present inside "cathedral"."""
+
+    def test_short_word_does_not_match_inside_longer_word(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        book = tmp_path / "my-book"
+        book.mkdir()
+        (book / "CLAUDE.md").write_text("# Book\n\n## Callback Register\n", encoding="utf-8")
+        chapters_dir = book / "chapters" / "01-opening"
+        chapters_dir.mkdir(parents=True)
+        (chapters_dir / "draft.md").write_text(
+            "She walked past the cathedral at dawn, hundreds of miles from home.",
+            encoding="utf-8",
+        )
+        _seed_callbacks(patch_db_dir, "my-book", ["Gary the cat"])
+        result = verify_callbacks(book)
+        assert len(result["satisfied"]) == 0
+
+    def test_whole_word_still_matches(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        book = tmp_path / "my-book"
+        book.mkdir()
+        (book / "CLAUDE.md").write_text("# Book\n\n## Callback Register\n", encoding="utf-8")
+        chapters_dir = book / "chapters" / "01-opening"
+        chapters_dir.mkdir(parents=True)
+        (chapters_dir / "draft.md").write_text("The cat jumped onto the table.", encoding="utf-8")
+        _seed_callbacks(patch_db_dir, "my-book", ["Gary the cat"])
+        result = verify_callbacks(book)
+        assert len(result["satisfied"]) == 1
+
+
+class TestFreeTextDbParsing:
+    """DB rows are raw user text from ``Callback: <anything>`` — not the
+    curated bullet format ``parse_callback_register`` was originally built
+    for. A sentence-shaped entry shouldn't turn into junk single-word search
+    terms, and a multi-line entry shouldn't turn into one unmatchable blob."""
+
+    def test_sentence_shaped_name_does_not_split_into_junk_terms(self) -> None:
+        entry = _parse_callback_body(
+            "Gary soll wiederkommen, am besten in Kapitel 12", has_bullet_prefix=False, raw_line=""
+        )
+        assert entry is not None
+        # Only the full phrase is a search term — no lone "soll"/"Kapitel"
+        # that would match ordinary prose in any other chapter.
+        assert entry.search_terms == [entry.name]
+
+    def test_short_name_still_splits_into_word_terms(self) -> None:
+        entry = _parse_callback_body("Gary the cat", has_bullet_prefix=False, raw_line="")
+        assert entry is not None
+        assert "cat" in entry.search_terms
+
+    def test_multiline_entry_derives_name_from_first_line_only(self) -> None:
+        entry = _parse_callback_body(
+            "Die Kette — Ch 20\nzweite Zeile mit mehr Kontext", has_bullet_prefix=False, raw_line=""
+        )
+        assert entry is not None
+        assert entry.name == "Die Kette"
+
+
+class TestVerifyCallbacksEndToEnd:
+    """Regression coverage for the actual write path, not a hand-seeded
+    schema: TestVerifyCallbacksReadsFromDb above seeds book_rules directly
+    with a raw INSERT, which tests the read half only — the original bug was
+    a write/read mismatch. This exercises append_callback() (what
+    /storyforge:register-callback actually calls) end to end."""
+
+    def test_append_callback_is_visible_to_verify_callbacks(self, tmp_path: Path) -> None:
+        content_root = tmp_path / "books"
+        book_dir = content_root / "projects" / "my-book"
+        book_dir.mkdir(parents=True)
+        (book_dir / "README.md").write_text("# My Book\n", encoding="utf-8")
+        config = {"paths": {"content_root": str(content_root)}}
+
+        init_claudemd(config, PLUGIN_ROOT, "my-book")
+        append_callback(config, "my-book", "Gary the cat")
+
+        result = verify_callbacks(book_dir)
+        assert result["callbacks_checked"] == 1
+        assert result["deferred"][0]["name"] == "Gary the cat"
