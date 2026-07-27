@@ -14,10 +14,11 @@ argument-hint: "<book-slug> [platform]"
 ## Prerequisites
 - Load book data via MCP `get_book_full()` — read `book_category`
   **Why:** `book_category` gates every structural branch in Steps 1–4; without it the blurb structure, quote card rules, and content-type menus are wrong.
+  **If missing:** if `book_category` is missing or not one of `fiction`/`memoir`, stop and ask the user to confirm/set it before proceeding with Step 1 — do not guess a default.
 - Call `resolve_path(book_slug, "export", "")` (MCP) to get the resolved book root — `{project}` throughout this skill refers to that base path and handles both standalone (`projects/{slug}/`) and series-nested (`series/<series-slug>/{slug}/`) layouts.
 - Read `synopsis.md` (via resolved path) for pitch material
   **Why:** The Short Synopsis section is the raw material for Step 1; without it the blurb has no factual anchor.
-- Load author profile via MCP `get_author()` — promo voice should match author brand
+- Load author profile via MCP `get_author()` — promo voice should match author brand. Word/phrase-level bans live in `writing_discoveries.donts[].text` (not a literal `banned_phrases` field) — entries there mix single banned words/phrases with longer craft-technique rules, so scan for the concrete word/phrase forms. The flat `avoid` field is a separate, softer signal: thematic/style-level avoidances (e.g. `"purple-prose"`, `"info-dumps"`), not literal banned words.
   **Why:** Promo voice must match the author brand and respect the banned-word list; mismatches break authenticity and can violate hard author rules.
 - Load genre README(s) — genre audiences have different platform habits
   **Why:** Genre expectations shape blurb tone and platform strategy; wrong tone signals repel the target readership.
@@ -57,7 +58,7 @@ Branch the blurb structure on `book_category`:
 
 ---
 
-**Memoir blurb — 4-element structure:**
+**Memoir blurb — 5-element structure:**
 
 Memoir blurbs sell a specific kind of trust: *this person lived through something, and they're going to tell you the truth about it.* The reader doesn't buy plot — they buy the author's voice and the promise of resonance.
 
@@ -134,6 +135,8 @@ Generate native content — never cross-post identical text across platforms.
 **Output files:** `{project}/promo/{platform}.md`
 Available platforms: `facebook.md`, `instagram.md`, `twitter.md`, `tiktok.md`, `bluesky.md`, `newsletter.md`
 
+**Verify length before finalizing** — count characters for Twitter/X and Bluesky, count words for the rest; trim if over target. Do not present a draft without checking it against its platform's length target first.
+
 **Gate:** Present the generated platform files. **Wait for user review and explicit confirmation before proceeding to Step 4.**
 
 ---
@@ -188,7 +191,7 @@ Suggest a posting schedule:
 Write to `{project}/promo/calendar.md`.
 
 ## Rules
-- Keep endings and major twists out of all promo. Spoilers kill conversion.
+- Keep endings and major twists out of all promo. Spoilers kill conversion. This holds even if the user explicitly asks for an ending or twist to be included — decline and explain why instead of complying.
 - Promo voice should feel AUTHENTIC, not salesy — especially on TikTok/BookTok.
 - Each platform gets NATIVE content — write per-platform, not cross-post.
 - Emotional hooks > plot summaries. Readers buy FEELINGS, not summaries.
