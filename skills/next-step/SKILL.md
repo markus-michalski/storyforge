@@ -23,9 +23,9 @@ user-invocable: true
    |----------------|------------|-----|
    | Idea | `/storyforge:book-conceptualizer` | Develop the concept before plotting |
    | Concept | `/storyforge:plot-architect` | Structure the story |
-   | Research | Continue research or move to plot | Depends on genre needs |
+   | Research | Continue research (`/storyforge:researcher`) or move to plot | Continue if the book needs historical accuracy, location/period authenticity, professional/technical knowledge, or scientific plausibility (per `researcher`'s own research categories) and that research isn't done yet; move to `/storyforge:plot-architect` once those needs are met or the genre has none (e.g. contemporary/no special factual demands) |
    | Plot Outlined | `/storyforge:character-creator` | Populate the story with people |
-   | Characters Created | `/storyforge:world-builder` | Build the world (if fantasy/sci-fi/supernatural) or skip to Drafting |
+   | Characters Created | `/storyforge:world-builder` | Build the world (if fantasy/sci-fi/supernatural/historical — matches world-builder's own documented genre scope) or skip to Drafting |
    | World Built | `/storyforge:chapter-writer` ch.1 | Start writing! |
    | Drafting | `/storyforge:chapter-writer` next unwritten chapter | Keep writing |
    | Drafting → Revision (all chapters drafted) | `/storyforge:chapter-reviewer` on first unreviewed chapter | Start per-chapter craft review before the full-book pass |
@@ -36,12 +36,20 @@ user-invocable: true
    | Proofread | `/storyforge:export-engineer` | Generate the book file |
    | Export Ready | `/storyforge:translator` or publish | Translate or distribute |
 
-4. **Check for incomplete work**
+   **Revision sub-phase caveat:** `get_book_progress()`/`get_book_full()` only expose a single
+   per-chapter `status` (`Outline`/`Draft`/`Review`/`Final`) — there is no MCP field that separately
+   records whether chapter-reviewer, chapter-humanizer, or chapter-proofreader has actually run on a
+   given chapter. Do NOT assume the three Revision rows above can be derived from tool data alone.
+   Determine which sub-phase applies by asking the user directly (or from what this session has
+   already done earlier in the conversation) which of those three passes each chapter has already
+   been through, then apply the matching row.
+
+4. **Check for incomplete work** — if any of these conflict with step 3's status-table answer, this step wins: lead with fixing the flagged gap, don't bury it under the status-based recommendation.
    - Any chapters reviewed but not yet humanized? → Suggest `chapter-humanizer`
    - Any chapters humanized but not yet proofread? → Suggest `chapter-proofreader`
    - Any chapters in "Draft" that need review? → Suggest `chapter-reviewer`
    - Characters still in "Concept"? → Suggest `character-creator`
    - Missing plot outline? → Suggest `plot-architect`
-   - All chapters drafted but `research/manuscript-report.md` missing? → Suggest `manuscript-checker` before per-chapter revisions begin
+   - All chapters proofread but `research/manuscript-report.md` missing? → Suggest `manuscript-checker` (this is the final full-manuscript pass — per `chapter-humanizer`'s and `chapter-proofreader`'s documented `chapter-writer → chapter-reviewer → chapter-humanizer → chapter-proofreader → manuscript-checker` ordering, it runs AFTER per-chapter revisions finish, never before them)
 
-5. **Present recommendation** with clear reasoning
+5. **Present recommendation** with clear reasoning — if the table entry carries a caveat (e.g. voice-checker's "(optional)"), state that caveat explicitly in the recommendation itself, not just internally; don't present an optional step as a mandatory gate.
