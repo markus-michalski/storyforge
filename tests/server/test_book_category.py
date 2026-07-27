@@ -104,7 +104,13 @@ def mock_config(content_root: Path):
     }
 
     import routers._app as server_mod
+    import tools.db.connection as db_conn_mod  # noqa: WPS433
     from tools.state import indexer as indexer_mod  # noqa: WPS433
+
+    # Issue #476: get_book_progress now opens the canon_facts DB too — without
+    # redirecting DB_DIR this would create real sqlite files under the user's
+    # ~/.storyforge/db/ (same pattern as test_add_canon_fact.py).
+    fake_db_dir = content_root.parent / "db"
 
     # Patch both server_mod (create_book_structure path) and indexer_mod
     # (cache rebuild path) so the cache scan sees the test content_root.
@@ -112,6 +118,7 @@ def mock_config(content_root: Path):
         patch.object(server_mod, "load_config", return_value=fake_config),
         patch.object(server_mod, "get_content_root", return_value=content_root),
         patch.object(indexer_mod, "load_config", return_value=fake_config),
+        patch.object(db_conn_mod, "DB_DIR", fake_db_dir),
     ):
         server_mod._cache.invalidate()
         yield fake_config

@@ -106,6 +106,87 @@ class TestParseChapterReadme:
         assert result["status"] == "Draft"
         assert result["pov_character"] == "Alex"
 
+    def test_pass_tracking_fields_default_false(self, tmp_path):
+        # Issue #479: chapters written before this feature existed have none
+        # of these fields on disk — must default to False, not error.
+        ch_dir = tmp_path / "01-the-beginning"
+        ch_dir.mkdir()
+        readme = ch_dir / "README.md"
+        readme.write_text('---\ntitle: "The Beginning"\nnumber: 1\nstatus: "Draft"\n---\n\n# Chapter 1\n', encoding="utf-8")
+
+        result = parse_chapter_readme(readme)
+
+        assert result["reviewer_pass_done"] is False
+        assert result["humanizer_pass_done"] is False
+        assert result["proofreader_pass_done"] is False
+
+    def test_pass_tracking_fields_read_from_update_field_string_form(self, tmp_path):
+        # Issue #479: update_field() always writes values as YAML strings —
+        # "true"/"false" round-trip as Python str, not native bool. The
+        # parser must coerce that string form back to a real bool.
+        ch_dir = tmp_path / "01-the-beginning"
+        ch_dir.mkdir()
+        chapter_yaml = ch_dir / "chapter.yaml"
+        chapter_yaml.write_text(
+            "title: 'The Beginning'\nnumber: 1\nstatus: 'Revision'\n"
+            "reviewer_pass_done: 'true'\nhumanizer_pass_done: 'false'\n",
+            encoding="utf-8",
+        )
+        readme = ch_dir / "README.md"
+        readme.write_text("# Chapter 1\n", encoding="utf-8")
+
+        result = parse_chapter_readme(readme)
+
+        assert result["reviewer_pass_done"] is True
+        assert result["humanizer_pass_done"] is False
+        assert result["proofreader_pass_done"] is False
+
+    def test_malformed_chapter_yaml_falls_back_to_readme_frontmatter(self, tmp_path):
+        # Issue #479 follow-up: an invalid chapter.yaml (syntax error) must not
+        # crash parse_chapter_readme — it should degrade to README frontmatter
+        # (or defaults) exactly like the existing parse_frontmatter behavior.
+        ch_dir = tmp_path / "01-the-beginning"
+        ch_dir.mkdir()
+        (ch_dir / "chapter.yaml").write_text(": invalid: yaml: [[\n", encoding="utf-8")
+        readme = ch_dir / "README.md"
+        readme.write_text('---\ntitle: "The Beginning"\nnumber: 1\nstatus: "Draft"\n---\n\n# Chapter 1\n', encoding="utf-8")
+
+        result = parse_chapter_readme(readme)
+
+        assert result["title"] == "The Beginning"
+        assert result["status"] == "Draft"
+        assert result["reviewer_pass_done"] is False
+
+    def test_chapter_yaml_non_dict_top_level_falls_back_to_readme(self, tmp_path):
+        # A syntactically valid YAML list (not a mapping) at the top level of
+        # chapter.yaml must not be treated as metadata — parse_chapter_readme's
+        # isinstance(loaded, dict) guard should ignore it.
+        ch_dir = tmp_path / "01-the-beginning"
+        ch_dir.mkdir()
+        (ch_dir / "chapter.yaml").write_text("- not\n- a\n- mapping\n", encoding="utf-8")
+        readme = ch_dir / "README.md"
+        readme.write_text('---\ntitle: "The Beginning"\nnumber: 1\nstatus: "Draft"\n---\n\n# Chapter 1\n', encoding="utf-8")
+
+        result = parse_chapter_readme(readme)
+
+        assert result["title"] == "The Beginning"
+        assert result["status"] == "Draft"
+
+    def test_pass_tracking_fields_accept_native_bool(self, tmp_path):
+        ch_dir = tmp_path / "01-the-beginning"
+        ch_dir.mkdir()
+        chapter_yaml = ch_dir / "chapter.yaml"
+        chapter_yaml.write_text(
+            "title: 'The Beginning'\nnumber: 1\nstatus: 'Revision'\nproofreader_pass_done: true\n",
+            encoding="utf-8",
+        )
+        readme = ch_dir / "README.md"
+        readme.write_text("# Chapter 1\n", encoding="utf-8")
+
+        result = parse_chapter_readme(readme)
+
+        assert result["proofreader_pass_done"] is True
+
 
 class TestParseCharacterFile:
     def test_parse_character(self, tmp_path):

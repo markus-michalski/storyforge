@@ -34,8 +34,8 @@ Words: [current]/[target] [████████░░░░] [%]%
 Chapters ([final]/[total] final):
 | #  | Title          | Status   | Words | Canon |
 |----|----------------|----------|-------|-------|
-| 1  | The Beginning  | Final    | 3,200 | ?     |
-| 2  | Into the Dark  | Draft    | 2,800 | ?     |
+| 1  | The Beginning  | Final    | 3,200 | 4     |
+| 2  | Into the Dark  | Draft    | 2,800 | 0     |
 | 3  | —              | Outline  | 0     | —     |
 
 Characters ([count]):  ← header reads "Real People" when book_category == "memoir"
@@ -64,25 +64,19 @@ Memoir-aware adjustments:
 - Suggest the matching memoir-mode next-step skill once Phase 2 lands; for now mirror the fiction routing.
 
 **Canon column:**
-- `get_book_progress()` never returns a `canon_facts_count` field per chapter (confirmed live — not
-  an "older MCP version" gap, it's simply absent from the current schema). `get_canon_brief()` is
-  NOT a valid substitute for a per-chapter fact count either: its `current_facts` is a
-  backward-looking context window scoped by `scope_chapters` PRIOR chapters and always EXCLUDES the
-  target chapter's own facts (confirmed live: querying with `chapter_slug` anchored at chapter 10
-  returned facts only from chapters 7-9, never chapter 10 itself) — it answers "what's established
-  context for writing this chapter," not "how many facts does this chapter itself contain." No MCP
-  tool currently exposes a fact count scoped to one specific chapter.
-- Until that capability exists (tracked in a filed GitHub issue), render the Canon column as `?` for
-  any chapter that has prose — do not call `get_canon_brief()` for this purpose, and do not
-  fabricate or guess a number.
+- `get_book_progress()`'s per-chapter map now carries `canon_facts_count` (Issue #476, resolved) —
+  a server-side `COUNT(*) FROM canon_facts WHERE chapter_num = N` for this book. Read it directly;
+  do not call `get_canon_brief()` for this purpose — its `current_facts` is a backward-looking
+  context window that always excludes the target chapter's own facts, structurally the wrong tool
+  for a per-chapter count.
 - **"Has prose" means `words > 0` (or `get_book_full()`'s per-chapter `has_draft: true`), NOT
   `status != "Outline"`.** Confirmed live against real sandbox chapters: a chapter can carry
   `status: "Outline"` while already having a nonzero word count (both `zz-sandbox-book`'s and
   `zz-sandbox-book-memoir`'s chapters currently do — `words: 110`/`41`/`44` respectively, all still
   `status: "Outline"`). Using status alone as the "has prose" proxy would wrongly render `—` for a
   chapter that already has drafted content.
-- `?` — chapter has `words > 0` (drafted, regardless of its status label); fact count currently
-  unknowable via any MCP tool
+- Render the chapter's `canon_facts_count` for any chapter that has prose — including `0`, which is
+  a legitimate ("no facts recorded yet for this chapter") result now, not a placeholder.
 - `—` — chapter has `words == 0`, nothing drafted yet to record facts from
 
 ### If no specific book:

@@ -263,6 +263,19 @@ VERDICT: PASS | WARN | FAIL
 [/storyforge:chapter-writer to revise | move to next chapter]
 ```
 
+## Step 4 — Record pass completion (Issue #479)
+
+After presenting the review — regardless of verdict (PASS/WARN/FAIL) — record that
+chapter-reviewer has run on this chapter, so `next-step` can derive revision sub-phase
+progress instead of asking the user:
+
+1. Call `resolve_path(book_slug, "chapters", chapter_slug)` (MCP) to resolve `chapter_dir` (its `path` field).
+2. Call `update_field(f"{chapter_dir}/chapter.yaml", "reviewer_pass_done", "true")` (MCP).
+
+`chapter.yaml` is guaranteed to exist here — chapters only reach chapter-reviewer after
+`start_chapter_draft` already created it (Issue #16). This step marks the *review pass having
+run*, not the verdict — a FAIL still needs `chapter-writer` revision, but the pass itself is done.
+
 Verdict mapping:
 - **PASS** ↔ no Critical issues, no AI-tell banlist hits, all load-bearing first-chapter rows clear.
 - **WARN** ↔ Recommended issues exist but nothing blocks moving on after a single targeted pass.

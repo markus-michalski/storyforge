@@ -38,7 +38,15 @@ def content_root(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def mock_config(content_root: Path):
+def db_dir(content_root: Path) -> Path:
+    # Issue #476: get_book_progress now opens the canon_facts DB too — without
+    # redirecting DB_DIR these tests would create real sqlite files under the
+    # user's ~/.storyforge/db/ (same pattern as test_add_canon_fact.py).
+    return content_root.parent / "db"
+
+
+@pytest.fixture
+def mock_config(content_root: Path, db_dir: Path):
     fake_config = {
         "paths": {
             "content_root": str(content_root),
@@ -48,6 +56,7 @@ def mock_config(content_root: Path):
     }
 
     import routers._app as server_mod
+    import tools.db.connection as db_conn_mod
     from tools.state import indexer as indexer_mod
 
     # Redirect the persistent state cache to the tmp dir so tests don't
@@ -60,6 +69,7 @@ def mock_config(content_root: Path):
         patch.object(indexer_mod, "load_config", return_value=fake_config),
         patch.object(indexer_mod, "STATE_PATH", fake_state_path),
         patch.object(indexer_mod, "CACHE_DIR", fake_state_path.parent),
+        patch.object(db_conn_mod, "DB_DIR", db_dir),
     ):
         server_mod._cache.invalidate()
         yield fake_config
@@ -303,6 +313,181 @@ class TestGetBookProgress:
         result = json.loads(server_module.get_book_progress("still-planning"))
 
         assert result["status"] == "Plot Outlined"
+
+
+# ---------------------------------------------------------------------------
+# get_book_progress: canon_facts_count per chapter (Issue #476)
+# ---------------------------------------------------------------------------
+
+
+class TestGetBookProgressCanonFactsCount:
+    def test_reports_zero_for_chapter_with_no_facts(self, server_module, content_root: Path):
+        project = _write_book(content_root, "no-facts-book")
+        _write_chapter(project, "01-c", status="Draft", words=100)
+
+        result = json.loads(server_module.get_book_progress("no-facts-book"))
+
+        assert result["chapters"]["01-c"]["canon_facts_count"] == 0
+
+    def test_reports_count_from_canon_facts_db(self, server_module, content_root: Path):
+        from tools.db.canon_facts import insert_fact
+        from tools.db.connection import open_canon_db
+
+        project = _write_book(content_root, "facted-book")
+        _write_chapter(project, "01-c", status="Draft", words=100)
+        _write_chapter(project, "02-c", status="Draft", words=100)
+
+        conn = open_canon_db("facted-book")
+        try:
+            insert_fact(conn, book_num=1, chapter_num=1, subject="A", fact="Fact A")
+            insert_fact(conn, book_num=1, chapter_num=1, subject="B", fact="Fact B")
+        finally:
+            conn.close()
+
+        result = json.loads(server_module.get_book_progress("facted-book"))
+
+        assert result["chapters"]["01-c"]["canon_facts_count"] == 2
+        assert result["chapters"]["02-c"]["canon_facts_count"] == 0
+
+    def test_missing_readme_degrades_to_empty(self, server_module, content_root: Path):
+        # Defensive path inside _canon_facts_per_chapter: a project directory
+        # with no README.md (can't resolve book_num/db_slug from it) must
+        # degrade to {} rather than raise.
+        import routers.books as books_mod
+
+        project = content_root / "projects" / "no-readme-book"
+        project.mkdir(parents=True)
+
+        assert books_mod._canon_facts_per_chapter("no-readme-book") == {}
+
+    def test_unsafe_series_frontmatter_degrades_to_empty(self, server_module, content_root: Path):
+        # A hand-edited `series:` value is unvalidated on read — get_db_slug_for_book
+        # passes it straight to get_canon_db_path, whose slug validation raises
+        # ValueError on path separators. That must degrade to {}, not propagate
+        # out of a helper whose whole job is "never break get_book_progress".
+        import routers.books as books_mod
+
+        project = content_root / "projects" / "unsafe-series-book"
+        project.mkdir(parents=True)
+        (project / "README.md").write_text(
+            '---\ntitle: "Test"\nslug: "unsafe-series-book"\nseries: "some/bad/slug"\n---\n\n# Test\n',
+            encoding="utf-8",
+        )
+
+        assert books_mod._canon_facts_per_chapter("unsafe-series-book") == {}
+
+    def test_quoted_chapter_number_still_resolves_fact_count(self, server_module, content_root: Path):
+        # Issue #476 follow-up: a hand-edited `number: "3"` (quoted string,
+        # not native int) must not silently miss the int-keyed fact_counts
+        # dict via _coerce_chapter_number.
+        from tools.db.canon_facts import insert_fact
+        from tools.db.connection import open_canon_db
+
+        project = _write_book(content_root, "quoted-number-book")
+        ch_dir = project / "chapters" / "01-c"
+        ch_dir.mkdir(parents=True)
+        (ch_dir / "README.md").write_text("# Body\n", encoding="utf-8")
+        (ch_dir / "chapter.yaml").write_text('title: "01-c"\nnumber: "1"\nstatus: "Draft"\n', encoding="utf-8")
+        (ch_dir / "draft.md").write_text("word " * 100, encoding="utf-8")
+
+        conn = open_canon_db("quoted-number-book")
+        try:
+            insert_fact(conn, book_num=1, chapter_num=1, subject="A", fact="Fact A")
+        finally:
+            conn.close()
+
+        result = json.loads(server_module.get_book_progress("quoted-number-book"))
+
+        assert result["chapters"]["01-c"]["canon_facts_count"] == 1
+
+    def test_coerce_chapter_number_direct(self):
+        import routers.books as books_mod
+
+        assert books_mod._coerce_chapter_number(3) == 3
+        assert books_mod._coerce_chapter_number("3") == 3
+        assert books_mod._coerce_chapter_number("not-a-number") == 0
+        assert books_mod._coerce_chapter_number(None) == 0
+
+    def test_db_error_during_canon_facts_lookup_degrades_to_empty(
+        self, server_module, content_root: Path, db_dir: Path
+    ):
+        # The except tuple also covers OSError/sqlite3.Error, not just the
+        # ValueError (unsafe slug) path already regression-tested above.
+        # Simulate a DB file that exists but is corrupted/unreadable.
+        project = _write_book(content_root, "corrupt-db-book")
+        _write_chapter(project, "01-c", status="Draft", words=100)
+
+        db_dir.mkdir(parents=True, exist_ok=True)
+        (db_dir / "corrupt-db-book.db").write_text("not a sqlite file", encoding="utf-8")
+
+        result = json.loads(server_module.get_book_progress("corrupt-db-book"))
+
+        assert result["chapters"]["01-c"]["canon_facts_count"] == 0
+
+    def test_does_not_create_db_file_for_book_with_no_facts(self, server_module, content_root: Path, db_dir: Path):
+        # get_book_progress carries readOnlyHint=True — it must not materialize
+        # an empty <slug>.db as a side effect of a book that has no canon facts.
+        project = _write_book(content_root, "no-side-effect-book")
+        _write_chapter(project, "01-c", status="Draft", words=100)
+
+        server_module.get_book_progress("no-side-effect-book")
+
+        assert not (db_dir / "no-side-effect-book.db").exists()
+
+
+# ---------------------------------------------------------------------------
+# get_book_progress: reviewer/humanizer/proofreader pass tracking (Issue #479)
+# ---------------------------------------------------------------------------
+
+
+class TestGetBookProgressPassTracking:
+    def test_defaults_false_when_fields_absent(self, server_module, content_root: Path):
+        project = _write_book(content_root, "untracked-book")
+        _write_chapter(project, "01-c", status="Draft", words=100)
+
+        result = json.loads(server_module.get_book_progress("untracked-book"))
+
+        chapter = result["chapters"]["01-c"]
+        assert chapter["reviewer_pass_done"] is False
+        assert chapter["humanizer_pass_done"] is False
+        assert chapter["proofreader_pass_done"] is False
+
+    def test_reports_true_after_update_field_writes(self, server_module, content_root: Path):
+        project = _write_book(content_root, "tracked-book")
+        ch_dir = _write_chapter(project, "01-c", status="Revision", words=100)
+        (ch_dir / "chapter.yaml").write_text(
+            'title: "01-c"\nstatus: "Revision"\n'
+            "reviewer_pass_done: 'true'\nhumanizer_pass_done: 'true'\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(server_module.get_book_progress("tracked-book"))
+
+        chapter = result["chapters"]["01-c"]
+        assert chapter["reviewer_pass_done"] is True
+        assert chapter["humanizer_pass_done"] is True
+        assert chapter["proofreader_pass_done"] is False
+
+    def test_update_field_write_is_readable_by_get_book_progress(self, server_module, content_root: Path):
+        # Integration test (as opposed to the two tests above, which hand-write
+        # chapter.yaml to simulate what update_field() is believed to produce):
+        # calls the real update_field() MCP tool — targeting chapter.yaml's
+        # full-reserialize branch, the one the three revision skills actually
+        # use — and reads the result back through the real get_book_progress().
+        project = _write_book(content_root, "live-update-book")
+        ch_dir = _write_chapter(project, "01-c", status="Revision", words=100)
+
+        result = json.loads(server_module.update_field(str(ch_dir / "chapter.yaml"), "reviewer_pass_done", "true"))
+        assert result.get("success") is True
+        result = json.loads(server_module.update_field(str(ch_dir / "chapter.yaml"), "humanizer_pass_done", "true"))
+        assert result.get("success") is True
+
+        progress = json.loads(server_module.get_book_progress("live-update-book"))
+
+        chapter = progress["chapters"]["01-c"]
+        assert chapter["reviewer_pass_done"] is True
+        assert chapter["humanizer_pass_done"] is True
+        assert chapter["proofreader_pass_done"] is False
 
 
 # ---------------------------------------------------------------------------
