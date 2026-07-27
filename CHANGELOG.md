@@ -25,6 +25,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [3.2.1] - 2026-07-27
+
+### Changed
+- Resolve 4 open issues: canon-fact count, revision-pass tracking, manuscript-checker doc, researcher fallback (#476, #478, #479, #483)
+- add .claude/worktrees/ to .gitignore for local-only leftovers
+- fix vocabulary.md refs, resolve_path gaps, and enforce-rule stale doc (#435, #437, #439) (#440)
+- bump actions/setup-python in the actions-all group (#432)
+
+### Fixed
+- use resolve_path for sources.md and harden rules (#484)
+- add routing guards and correct get_book_full return shape (#482)
+- clarify progress fields, DB sections, next-step logic (#481)
+- clarify revision sub-phases and tighten workflow table wording (#480)
+- clarify canon-column gap, session-book resolution, and category grouping (#477)
+- correct banned-phrase field and add missing checks (#475)
+- reconcile correction handling with Rule 14 and close gate loopholes (#474)
+- audit all skills for stale CLAUDE.md-Rules-edit assumption (#473)
+- resolve 14 open plugin issues (ban-severity, JSON format, model bump, skill logic) (#472)
+- close front-matter placeholder gap and pandoc/config issues (#465)
+- fix Midjourney length overflow and prompt conflicts (#464)
+- reconcile vocabulary hard gate with memoir mode and verdict contract (#463)
+- prefer DB snapshot over stale frontmatter with recency check (#462)
+- correct book_rules DB field names and annotate-path gaps (#461)
+- correct MCP fields and un-block character callbacks (#459)
+- correct find_book resolution and rule_match ambiguity guard (#458)
+- fix global-write parser mismatch and error handling (#456)
+- correct enforcement claims for author/global scope rules (#454)
+- gate step 3 on explicit wait, validate genres, strip quotes (#451)
+- read callback register from book_rules DB, not dead CLAUDE.md markers (#449)
+- fix Step 4 chapter scan and D4/export gate mapping (#447)
+- scope memoir hard-stop to Categories 1-2 only (#446)
+- correct ET1 scope, Step 1 fallback, and prerequisite ordering (#445)
+- resolve overlapping-hit apply conflict and pass-vs-batch confusion (#436)
+- correct language-fallback and avoid-list claims (#438)
+
 ## [3.2.0] - 2026-07-25
 
 ### Added
@@ -627,3 +662,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.0.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.0.2
 [3.1.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.1.0
 [3.2.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.2.0
+[3.2.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.2.1
