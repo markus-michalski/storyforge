@@ -19,7 +19,11 @@ Writer's block is not one thing. It has 4 distinct root causes, each requiring a
 
 ### Step 1: Diagnose the Block
 
-Use AskUserQuestion to identify the root cause. Ask warmly, without judgment:
+**Before diagnosing — two quick routing checks:**
+- **Is this actually a workflow question?** If the user is really asking *what to write next* / *was steht als Nächstes an* (not expressing creative resistance), this is the wrong skill: point them to `/storyforge:next-step` and stop — do NOT run the diagnosis below.
+- **Has the block lasted weeks?** If the user signals the block has been going on for weeks (not hours or days), suggest `/storyforge:next-step` *first* — a block that old is often an unclear path, not psychology. Only fall through to the diagnosis below if the path turns out to be clear.
+
+Otherwise, use AskUserQuestion to identify the root cause. Ask warmly, without judgment:
 
 **"Was passiert, wenn du versuchst zu schreiben?"**
 
@@ -40,18 +44,19 @@ Use MCP `get_session()` to find the active book slug.
 
 If no active session: Use AskUserQuestion to ask which book they're working on (`list_books()` for options). Then `get_book_full(book_slug)`.
 
-Load from `get_book_full(book_slug)`:
-- Current chapter (most recently active)
-- Last written scene or last chapter excerpt
-- Protagonist's name and current situation
-- Genre(s) and tone
+Load from `get_book_full(book_slug)` — it returns book metadata + a `chapters_data` map + a `characters` map, **not** prose:
+- **Current chapter** — the most recently active one (cross-reference `get_session()`'s `last_chapter`; per-chapter details live under `chapters_data[<slug>]`).
+- **Current situation** — from that chapter's `summary` and `pov_character` in `chapters_data`. `get_book_full` returns chapter *metadata* (summary, status, word counts, `has_draft`), NOT the scene prose itself — do not expect a scene excerpt in its response. If you want an actual excerpt for flavor, read the chapter's draft file separately (`has_draft: true` tells you one exists).
+- **Protagonist** — from the `characters` map (may be empty for a brand-new book — fall back to the chapter's `pov_character`).
+- **Genre(s) and tone** — the top-level `genres` field.
 
 This context drives the warmup exercise in Step 4 — without it, the exercise is generic and useless.
 
 ### Step 3: Deliver Targeted Intervention
 
 Each cause gets a specific, actionable response. No overlap, no hedging.
-**Length constraint:** Deliver each intervention block in ~150 words total. Max 3 bullet points per block, each ≤ 2 sentences.
+
+**Length constraint (what the user actually receives):** one short reframe sentence (not a bullet), then **at most 3 action bullets**, each ≤ 2 sentences — ~150 words total. The richer *Reframe / truth / two-mode / checklist* prose under each cause below is **source material to draw from, not a script to paste verbatim**: compress it into that one reframe sentence plus the 3 numbered interventions. Do not output every themed sub-list — reproducing all of it blows past the limit and reads as the lecture this skill is meant to avoid.
 
 ---
 
