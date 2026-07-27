@@ -73,7 +73,7 @@ Write findings to the resolved `research/notes/{topic-slug}.md`.
 
 ### Step 4: Update sources
 
-Add to `{project}/research/sources.md`.
+Call `resolve_path(book_slug, "research", "sources.md")` (MCP) to locate the file, then add the sources used to the resolved `research/sources.md`. Let `resolve_path` build the path rather than hand-assembling `{project}/research/sources.md` yourself — the MCP tool resolves both standalone and series-nested layouts correctly, exactly as in Step 3.
 
 ### Step 5: Connect to story
 
@@ -84,7 +84,7 @@ How does this research serve the narrative?
 **Memoir:** Does this verified detail strengthen the narrative's factual grounding? Does it resolve a memory gap? Note if the verified version differs from what the memoirist remembers — that gap itself may be narratively meaningful.
 
 ## Rules
-- Research serves the STORY (fiction) or the TRUTH (memoir), not the encyclopedia
+- Research serves the STORY (fiction) or the TRUTH (memoir), not the encyclopedia — this holds even when the user asks for "everything" or a comprehensive knowledge base. Scope the research to what the narrative actually uses and keep the rest below the iceberg, rather than producing an exhaustive survey.
 - Capture sensory details — those make both fiction and memoir vivid
-- Flag anything that might need sensitivity review
+- Flag anything that might need sensitivity review — surface the flag to the user directly (and note it in the research note); never bury it in the file or silently drop it. Recommend `/storyforge:sensitivity-reader` when the topic warrants a closer pass.
 - **Memoir:** if research surfaces information that contradicts the memoirist's memory, report honestly — do not quietly align findings with memory. The memoirist decides how to handle the discrepancy in prose.
