@@ -3,19 +3,74 @@
 These tools are pure-read against the cached state index — no filesystem
 mutations happen here. The only exception is ``count_words`` which reads
 chapter draft files directly when a chapter slug is supplied.
+``get_book_progress`` additionally reads the canon_facts SQLite DB when one
+already exists for the book (Issue #476) — ``_canon_facts_per_chapter``
+deliberately checks for the DB file's existence first so a book with no
+recorded facts yet never gets an empty DB created as a side effect of a
+read-only progress query.
 """
 
 from __future__ import annotations
 from mcp.types import ToolAnnotations
 
 import json
+import sqlite3
 
+import tools.db.connection as _db_conn
+from tools.db.canon_facts import count_facts_per_chapter
 from tools.shared.paths import resolve_chapter_path, resolve_project_path
 from tools.state.loaders.canon_brief import build_canon_brief
 from tools.state.parsers import count_words_in_file, is_chapter_drafted
 
 from . import _app
 from ._app import _cache, mcp
+
+
+def _canon_facts_per_chapter(slug: str) -> dict[int, int]:
+    """Best-effort per-chapter canon fact counts for ``get_book_progress`` (Issue #476).
+
+    Degrades to ``{}`` on any DB/filesystem/validation error — canon-fact
+    counts are supplementary data, a missing, unreadable, or unresolvable DB
+    must never break the primary progress response. This includes
+    ``ValueError`` from ``get_canon_db_path``'s slug validation: a book's
+    ``series`` frontmatter is user-editable and unvalidated on read, so a
+    hand-edited value containing e.g. a path separator would otherwise
+    propagate out of this "read-only" helper uncaught.
+
+    Also checks the DB file's existence before opening it — ``open_canon_db``
+    creates the file (and its schema) as a side effect if it doesn't exist
+    yet, which would violate this tool's read-only contract for the common
+    case of a book with no canon facts recorded at all.
+    """
+    try:
+        config = _app.load_config()
+        book_root = resolve_project_path(config, slug)
+        if not (book_root / "README.md").is_file():
+            return {}
+        book_num = _db_conn.get_book_num(book_root)
+        db_slug = _db_conn.get_db_slug_for_book(book_root)
+        db_path = _db_conn.get_canon_db_path(db_slug)
+        if not db_path.is_file():
+            return {}
+        conn = _db_conn.open_canon_db(db_slug)
+        try:
+            return count_facts_per_chapter(conn, book_num=book_num)
+        finally:
+            conn.close()
+    except (OSError, sqlite3.Error, ValueError):
+        return {}
+
+
+def _coerce_chapter_number(value: object) -> int:
+    """Coerce a chapter's ``number`` field to ``int`` for fact-count lookups.
+
+    Guards against a hand-edited frontmatter value like ``number: "3"``
+    (quoted string) silently missing the int-keyed fact-counts dict.
+    """
+    try:
+        return int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return 0
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
@@ -95,6 +150,7 @@ def get_book_progress(slug: str) -> str:
     drafted = sum(1 for c in chapters.values() if is_chapter_drafted(c.get("status", "")))
     total_words = book.get("total_words", 0)
     target = book.get("target_word_count", 0)
+    fact_counts = _canon_facts_per_chapter(slug)
 
     return json.dumps(
         {
@@ -113,7 +169,22 @@ def get_book_progress(slug: str) -> str:
             "target_words": target,
             "word_progress_percent": round(total_words / target * 100) if target else 0,
             "chapters": {
-                slug: {"status": ch.get("status"), "words": ch.get("word_count", 0)} for slug, ch in chapters.items()
+                slug: {
+                    "status": ch.get("status"),
+                    "words": ch.get("word_count", 0),
+                    # Issue #476: per-chapter canon fact count, keyed by chapter number.
+                    # Coerce defensively — a hand-edited `number: "3"` (quoted) in
+                    # frontmatter would otherwise silently miss the int-keyed
+                    # fact_counts dict and always report 0.
+                    "canon_facts_count": fact_counts.get(_coerce_chapter_number(ch.get("number", 0)), 0),
+                    # Issue #479: per-chapter revision sub-phase tracking, written by
+                    # chapter-reviewer/chapter-humanizer/chapter-proofreader via update_field()
+                    # on chapter.yaml. Books drafted before this field existed default to False.
+                    "reviewer_pass_done": ch.get("reviewer_pass_done", False),
+                    "humanizer_pass_done": ch.get("humanizer_pass_done", False),
+                    "proofreader_pass_done": ch.get("proofreader_pass_done", False),
+                }
+                for slug, ch in chapters.items()
             },
         }
     )

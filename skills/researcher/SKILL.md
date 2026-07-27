@@ -12,9 +12,17 @@ argument-hint: "<topic> [book-slug]"
 
 # Researcher
 
-## Step 0 — Resolve book category
+## Step 0 — Resolve book and book category
 
-Load `book_category` from MCP `get_book_full(book_slug)`. Treat missing as `fiction`.
+`book-slug` is optional (see `argument-hint`) — resolve it before anything else:
+
+1. If the user provided a `book-slug`, use it directly.
+2. Otherwise call MCP `get_session()` and use its active book, if set.
+3. If there is still no book (no argument, no active session book), call MCP
+   `list_books()` and ask the user which book this research is for. Do not
+   guess or default silently — mirrors `next-step`'s "no active book" branch.
+
+Once resolved, load `book_category` from MCP `get_book_full(book_slug)`. Treat missing as `fiction`.
 Branch Step 1 on `book_category` — the research categories differ fundamentally.
 
 ## Workflow

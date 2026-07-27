@@ -134,6 +134,18 @@ After applying, offer: *"Möchtest du noch eine Runde? Oder weiter zu `/storyfor
 
 If the user wants another pass: re-scan the updated draft (the fixes may have introduced new issues — rare but possible). Track how many **scans** (not batches) have run in this session — this initial scan is pass 1, the first re-scan is pass 2. A single scan that needs multiple ≤20-hit batches (Output: Scan Report) is still ONE pass: batches within one scan never increment the counter, only a re-scan of the already-updated draft does. **Hard cap: 2 passes (scans) per session.** If the user asks for a 3rd scan after pass 2 has completed, decline and redirect instead of re-scanning again: *"Zwei Humanizer-Runden sind für diese Session das Limit. Für weitere Änderungen: neue Session starten oder direkt manuell anpassen."*
 
+## Record Pass Completion (Issue #479)
+
+Once the user moves on (accepts the "weiter zu `/storyforge:chapter-proofreader`" offer, or
+explicitly ends the humanizer session), record that chapter-humanizer has run on this chapter, so
+`next-step` can derive revision sub-phase progress instead of asking the user:
+
+1. Call `resolve_path(book_slug, "chapters", chapter_slug)` (MCP) to resolve `chapter_dir` (its `path` field).
+2. Call `update_field(f"{chapter_dir}/chapter.yaml", "humanizer_pass_done", "true")` (MCP).
+
+`chapter.yaml` is guaranteed to exist here — chapters only reach chapter-humanizer after
+`start_chapter_draft` already created it (Issue #16), and after chapter-reviewer has already run.
+
 ## Surgical Mode — Core Constraints
 
 All fixes in this skill operate under the following four rules:

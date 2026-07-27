@@ -209,6 +209,19 @@ observations that belong in chapter-reviewer. If a chapter is clean, say so in t
 - ISSUES FOUND → Fix listed items, then `/storyforge:manuscript-checker`
 ```
 
+## Step 6 — Record pass completion (Issue #479)
+
+After presenting the report — regardless of verdict (CLEAN/ISSUES FOUND) — record that
+chapter-proofreader has run on this chapter, so `next-step` can derive revision sub-phase
+progress instead of asking the user:
+
+1. Call `resolve_path(book_slug, "chapters", chapter_slug)` (MCP) to resolve `chapter_dir` (its `path` field).
+2. Call `update_field(f"{chapter_dir}/chapter.yaml", "proofreader_pass_done", "true")` (MCP).
+
+`chapter.yaml` is guaranteed to exist here — chapters only reach chapter-proofreader after
+`start_chapter_draft` already created it (Issue #16), and after chapter-reviewer/chapter-humanizer
+have already run.
+
 ## Rules
 
 - Flag errors, not style. If unsure whether something is intentional, check the author profile

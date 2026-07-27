@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.db.canon_facts import insert_fact, query_facts
+from tools.db.canon_facts import count_facts_per_chapter, insert_fact, query_facts
 from tools.db.connection import ensure_schema, open_db
 
 
@@ -86,3 +86,37 @@ class TestQueryFacts:
         results = query_facts(conn, book_num=1, up_to_chapter=10)
         chapters = [r["chapter_num"] for r in results]
         assert chapters == sorted(chapters)
+
+
+class TestCountFactsPerChapter:
+    """Issue #476: book-dashboard needs a per-chapter fact count; neither
+    get_book_progress() nor get_canon_brief() expose one. This aggregates
+    directly from the canon_facts table, scoped to a single book_num."""
+
+    def test_returns_count_per_chapter(self, conn):
+        insert_fact(conn, book_num=1, chapter_num=1, subject="A", fact="Fact 1")
+        insert_fact(conn, book_num=1, chapter_num=1, subject="B", fact="Fact 2")
+        insert_fact(conn, book_num=1, chapter_num=3, subject="C", fact="Fact 3")
+
+        counts = count_facts_per_chapter(conn, book_num=1)
+
+        assert counts == {1: 2, 3: 1}
+
+    def test_chapter_with_zero_facts_is_absent_from_result(self, conn):
+        insert_fact(conn, book_num=1, chapter_num=1, subject="A", fact="Fact 1")
+
+        counts = count_facts_per_chapter(conn, book_num=1)
+
+        assert counts.get(2, 0) == 0
+        assert 2 not in counts
+
+    def test_scoped_to_book_num_only(self, conn):
+        insert_fact(conn, book_num=1, chapter_num=1, subject="A", fact="Book 1 fact")
+        insert_fact(conn, book_num=2, chapter_num=1, subject="B", fact="Book 2 fact")
+
+        counts = count_facts_per_chapter(conn, book_num=1)
+
+        assert counts == {1: 1}
+
+    def test_returns_empty_dict_for_book_with_no_facts(self, conn):
+        assert count_facts_per_chapter(conn, book_num=1) == {}

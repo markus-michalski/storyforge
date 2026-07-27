@@ -36,17 +36,27 @@ user-invocable: true
    | Proofread | `/storyforge:export-engineer` | Generate the book file |
    | Export Ready | `/storyforge:translator` or publish | Translate or distribute |
 
-   **Revision sub-phase caveat:** `get_book_progress()`/`get_book_full()` only expose a single
-   per-chapter `status` (`Outline`/`Draft`/`Review`/`Final`) — there is no MCP field that separately
-   records whether chapter-reviewer, chapter-humanizer, or chapter-proofreader has actually run on a
-   given chapter. Do NOT assume the three Revision rows above can be derived from tool data alone.
-   Determine which sub-phase applies by asking the user directly (or from what this session has
-   already done earlier in the conversation) which of those three passes each chapter has already
-   been through, then apply the matching row.
+   **Revision sub-phase derivation (Issue #479, resolved):** `get_book_progress()`'s per-chapter
+   map carries `reviewer_pass_done` / `humanizer_pass_done` / `proofreader_pass_done` booleans,
+   written by chapter-reviewer, chapter-humanizer, and chapter-proofreader respectively via
+   `update_field()` on `chapter.yaml` once each pass completes. This derivation only applies once
+   **all** chapters are drafted (this table's own precondition, per manuscript-checker's "When to
+   run") — if any chapter is still at Outline, apply the `chapter-writer`/`chapter-reviewer` rows
+   from the Drafting stage instead of jumping ahead to `manuscript-checker` just because every
+   *drafted* chapter happens to be fully revised. Once all chapters are drafted, derive the
+   sub-phase directly — don't ask the user: scan chapters in ascending chapter-number order and
+   find the first one where `reviewer_pass_done` is false → apply the `chapter-reviewer` row; else
+   the first where `humanizer_pass_done` is false → `chapter-humanizer` row; else the first where
+   `proofreader_pass_done` is false → `chapter-proofreader` row; if every chapter has all three
+   true → `manuscript-checker` row. Chapters drafted before this field existed default all three to
+   `false`, which is the correct starting state (no pass has run on them yet) — only ask the user
+   directly if a chapter is clearly already fully revised (e.g. book status is well past Revision)
+   despite the fields reading `false`, since that indicates stale/pre-existing data rather than
+   genuinely unstarted passes.
 
 4. **Check for incomplete work** — if any of these conflict with step 3's status-table answer, this step wins: lead with fixing the flagged gap, don't bury it under the status-based recommendation.
-   - Any chapters reviewed but not yet humanized? → Suggest `chapter-humanizer`
-   - Any chapters humanized but not yet proofread? → Suggest `chapter-proofreader`
+   - Any chapters reviewed but not yet humanized (`reviewer_pass_done: true`, `humanizer_pass_done: false`)? → Suggest `chapter-humanizer`
+   - Any chapters humanized but not yet proofread (`humanizer_pass_done: true`, `proofreader_pass_done: false`)? → Suggest `chapter-proofreader`
    - Any chapters in "Draft" that need review? → Suggest `chapter-reviewer`
    - Characters still in "Concept"? → Suggest `character-creator`
    - Missing plot outline? → Suggest `plot-architect`

@@ -55,6 +55,35 @@ def query_facts(
     return [dict(r) for r in rows]
 
 
+def count_facts_per_chapter(
+    conn: sqlite3.Connection,
+    *,
+    book_num: int,
+) -> dict[int, int]:
+    """Return ``{chapter_num: fact_count}`` for a book's recorded canon facts.
+
+    Issue #476: book-dashboard needs a per-chapter canon-fact count, and
+    neither ``get_book_progress()`` nor ``get_canon_brief()`` expose one —
+    the latter is a backward-looking context window that always excludes the
+    target chapter's own facts, structurally the wrong tool for this. This
+    aggregates directly from the ``canon_facts`` table instead.
+
+    Chapters with zero recorded facts are simply absent from the returned
+    mapping — callers should treat a missing key as a count of 0, not an
+    error.
+    """
+    rows = conn.execute(
+        """
+        SELECT chapter_num, COUNT(*) as cnt
+        FROM canon_facts
+        WHERE book_num = ?
+        GROUP BY chapter_num
+        """,
+        (book_num,),
+    ).fetchall()
+    return {int(r["chapter_num"]): int(r["cnt"]) for r in rows}
+
+
 def import_from_parsed_facts(
     conn: sqlite3.Connection,
     *,

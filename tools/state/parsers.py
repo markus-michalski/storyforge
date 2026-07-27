@@ -104,7 +104,31 @@ def parse_chapter_readme(path: Path) -> dict[str, Any]:
         "pov_character": pov,
         "summary": meta.get("summary", ""),
         "word_count_target": meta.get("word_count_target", 0),
+        # Issue #479: per-chapter revision sub-phase tracking. Written by
+        # chapter-reviewer/chapter-humanizer/chapter-proofreader via update_field()
+        # on chapter.yaml after each pass completes. Absent (pre-existing chapters,
+        # or update_field's quoted-string round-trip) defaults to False.
+        "reviewer_pass_done": _parse_bool_flag(meta.get("reviewer_pass_done", False)),
+        "humanizer_pass_done": _parse_bool_flag(meta.get("humanizer_pass_done", False)),
+        "proofreader_pass_done": _parse_bool_flag(meta.get("proofreader_pass_done", False)),
     }
+
+
+def _parse_bool_flag(value: Any) -> bool:
+    """Coerce a YAML-round-tripped flag to a real bool.
+
+    ``update_field()`` always writes values as YAML strings (Issue #372's
+    surgical patcher renders every value via ``yaml.safe_dump``, which quotes
+    ``"true"``/``"false"`` to avoid bool ambiguity on reload) — so a flag set
+    via ``update_field(..., "true")`` round-trips as the Python string
+    ``"true"``, not the bool ``True``. Also accepts a native bool for callers
+    that write chapter.yaml directly.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return bool(value)
 
 
 def parse_character_file(path: Path) -> dict[str, Any]:

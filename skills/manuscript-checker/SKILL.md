@@ -9,8 +9,10 @@ description: |
   structural patterns, signature phrases).
   Use when: (1) User says "manuscript check", "prose check", "repetition
   check", "Wiederholungen prüfen", "prose tics", "Buch prüfen",
-  (2) Book status transitions from Drafting to Revision, (3) Full-manuscript
-  revision pass, (4) User wants a craft-level health check before export.
+  (2) All chapters have cleared chapter-reviewer → chapter-humanizer →
+  chapter-proofreader (the last step of the revision phase, not the
+  Drafting→Revision transition), (3) Full-manuscript revision pass,
+  (4) User wants a craft-level health check before export.
 model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> [--interactive]"
@@ -27,7 +29,14 @@ violations of rules the author wrote into the book's CLAUDE.md.
 ## When to run
 
 - After **all** chapter drafts exist (or at least most of them).
-- During the **revision phase**, before chapter-reviewer and voice-checker.
+- At the **end** of the revision phase — after every chapter has cleared
+  `chapter-reviewer` → `chapter-humanizer` → `chapter-proofreader` (same
+  ordering `chapter-humanizer` and `chapter-proofreader` document, and the
+  same row `next-step`'s routing table uses: "Revision (all chapters
+  proofread)" → manuscript-checker). It does not run *before*
+  chapter-reviewer — this checker catches cross-chapter drift in prose that
+  has already been through per-chapter craft review, humanizing, and
+  proofreading, not a substitute pre-check for any of those passes.
 - Does not replace `chapter-reviewer` (single-chapter craft check) or
   `voice-checker` (AI-tell gate) or `continuity-checker` (timeline/location).
   This one catches a different problem: prose drift across chapters.
