@@ -166,7 +166,7 @@ description: {json.dumps(description)}
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def set_memoir_structure_type(book_slug: str, structure_type: str) -> str:
     """Persist the memoir's chosen structure type (Path E #58).
 

@@ -52,7 +52,7 @@ from ._app import _cache, mcp
 _SESSION_USER_ID = "local"
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_current_story_anchor(book_slug: str, chapter_slug: str = "") -> str:
     """Resolve the current story-time anchor for a chapter.
 
@@ -103,7 +103,7 @@ def get_current_story_anchor(book_slug: str, chapter_slug: str = "") -> str:
     return json.dumps(anchor.to_dict())
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_recent_chapter_timelines(book_slug: str, n: int = 3) -> str:
     """Load the last N chapters' intra-day timeline grids as structured JSON.
 
@@ -135,7 +135,7 @@ def get_recent_chapter_timelines(book_slug: str, n: int = 3) -> str:
     return json.dumps({"chapters": [g.to_dict() for g in grids]})
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def verify_tactical_setup(
     book_slug: str,
     scene_outline_text: str,
@@ -181,7 +181,7 @@ def verify_tactical_setup(
     return json.dumps(wrap_legacy(result, gate))
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_chapter_writing_brief(book_slug: str, chapter_slug: str) -> str:
     """Architectural keystone for chapter-writer (#78).
 
@@ -253,7 +253,7 @@ def get_chapter_writing_brief(book_slug: str, chapter_slug: str) -> str:
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_review_brief(book_slug: str, chapter_slug: str) -> str:
     """Structured brief for chapter-reviewer — Issue #99 (ADR-0001).
 
@@ -299,7 +299,7 @@ def get_review_brief(book_slug: str, chapter_slug: str) -> str:
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_continuity_brief(book_slug: str) -> str:
     """Structured brief for continuity-checker — Issue #100 (ADR-0001).
 
@@ -333,7 +333,7 @@ def get_continuity_brief(book_slug: str) -> str:
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def start_chapter_draft(book_slug: str, chapter_slug: str) -> str:
     """Mark a chapter as actively being drafted.
 
@@ -428,7 +428,7 @@ def start_chapter_draft(book_slug: str, chapter_slug: str) -> str:
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def register_chapter_promises(
     book_slug: str,
     chapter_slug: str,
@@ -501,7 +501,7 @@ def register_chapter_promises(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_chapter_promises(book_slug: str, chapter_slug: str) -> str:
     """Read the chapter's ``## Promises`` section.
 

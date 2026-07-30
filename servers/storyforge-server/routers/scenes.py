@@ -91,7 +91,7 @@ def create_scene_list(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def update_scene(
     book_slug: str,
     scene_number: int,

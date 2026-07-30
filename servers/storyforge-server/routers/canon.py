@@ -17,7 +17,7 @@ from . import _app
 from ._app import mcp
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def add_canon_fact(
     book_slug: str,
     chapter_num: int,

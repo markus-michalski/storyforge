@@ -143,7 +143,7 @@ def validate_timeline_consistency(book_slug: str) -> str:
     return json.dumps(wrap_legacy(result, gate), indent=2, ensure_ascii=False)
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def verify_callbacks(book_slug: str) -> str:
     """Check the book's Callback Register against all drafted chapters.
 
@@ -175,7 +175,7 @@ def verify_callbacks(book_slug: str) -> str:
     return json.dumps(wrap_legacy(result, gate))
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def check_memoir_consent(book_slug: str) -> str:
     """Check consent status and ethics risk for all people in a memoir book.
 
@@ -215,7 +215,7 @@ def check_memoir_consent(book_slug: str) -> str:
     return json.dumps(wrap_legacy(result, gate))
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def analyze_plot_logic(
     book_slug: str,
     scope: str = "manuscript",
@@ -275,7 +275,7 @@ def analyze_plot_logic(
     return json.dumps(result)
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def validate_chapter(book_slug: str, chapter_slug: str) -> str:
     """Validate a chapter's draft.md against the same rules the PostToolUse
     linter hook applies (#119).
@@ -321,7 +321,7 @@ def validate_chapter(book_slug: str, chapter_slug: str) -> str:
     return json.dumps(payload)
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def validate_book_structure(book_slug: str) -> str:
     """Validate book project structure completeness."""
     config = _app.load_config()
@@ -382,7 +382,7 @@ def validate_book_structure(book_slug: str) -> str:
     return json.dumps(wrap_legacy(legacy, gate))
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def run_pre_export_gates(book_slug: str) -> str:
     """Run quality gates before export."""
     state = _app._cache.get()
@@ -470,7 +470,7 @@ def run_pre_export_gates(book_slug: str) -> str:
     return json.dumps(wrap_legacy(legacy, envelope))
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def run_quality_gates(book_slug: str) -> str:
     """Run every available quality checker for a book and aggregate the results.
 
