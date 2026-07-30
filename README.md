@@ -40,7 +40,7 @@ claude plugin add storyforge
 ```
 storyforge/
 ├── skills/       # 33 specialized skills (SKILL.md files)
-├── servers/      # FastMCP server with 28 MCP tools
+├── servers/      # MCP server (mcp SDK) with 28 MCP tools
 ├── tools/        # Python backend (state, analysis, author, export)
 ├── genres/       # 14 genre definitions (mixable)
 ├── reference/    # 36+ craft & genre reference documents

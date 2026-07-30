@@ -425,7 +425,7 @@ class TestGetBookProgressCanonFactsCount:
         assert result["chapters"]["01-c"]["canon_facts_count"] == 0
 
     def test_does_not_create_db_file_for_book_with_no_facts(self, server_module, content_root: Path, db_dir: Path):
-        # get_book_progress carries readOnlyHint=True — it must not materialize
+        # get_book_progress carries read_only_hint=True — it must not materialize
         # an empty <slug>.db as a side effect of a book that has no canon facts.
         project = _write_book(content_root, "no-side-effect-book")
         _write_chapter(project, "01-c", status="Draft", words=100)

@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Changed
-- Nothing yet
+- Migrated the MCP server from `mcp.server.fastmcp.FastMCP` to `mcp.server.mcpserver.MCPServer` (mcp SDK 2.x); bumped `mcp` to `>=2.0.0,<3.0.0` and removed the temporary Dependabot ignore entry (#486)
+- Renamed `ToolAnnotations` keyword arguments from camelCase to snake_case (`readOnlyHint` -> `read_only_hint`, `destructiveHint` -> `destructive_hint`, `idempotentHint` -> `idempotent_hint`) across all router modules, matching the mcp 2.0.0 field rename — the old names were silently dropped by Pydantic under 2.0.0, so tool annotations stopped taking effect until this fix
 
 ### Deprecated
 - Nothing yet

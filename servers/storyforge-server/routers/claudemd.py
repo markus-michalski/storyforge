@@ -95,7 +95,7 @@ def init_book_claudemd(
     return json.dumps({"path": str(path), "created": True})
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_book_claudemd(book_slug: str) -> str:
     """Read the current CLAUDE.md for a book."""
     config = _app.load_config()
@@ -120,7 +120,7 @@ _SNAPSHOT_FIELDS: frozenset[str] = frozenset(
 )
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def update_character_snapshot(
     book_slug: str,
     character_slug: str,
@@ -239,7 +239,7 @@ def update_character_snapshot(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def append_book_rule(book_slug: str, text: str, validate: bool = True) -> str:
     """Append a rule to the book_rules DB for this book.
 
@@ -274,7 +274,7 @@ def append_book_rule(book_slug: str, text: str, validate: bool = True) -> str:
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_book_rules(book_slug: str) -> str:
     """List all rules stored in the book_rules DB for this book.
 
@@ -305,7 +305,7 @@ def list_book_rules(book_slug: str) -> str:
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def update_book_rule(
     book_slug: str,
     rule_index: int = -1,
@@ -365,7 +365,7 @@ def update_book_rule(
     return json.dumps(result)
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def lint_book_rules(book_slug: str) -> str:
     """Audit every rule in the book's RULES block against the
     manuscript-checker pattern contract.
@@ -387,7 +387,7 @@ def lint_book_rules(book_slug: str) -> str:
     return json.dumps(result)
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def append_book_workflow(book_slug: str, text: str) -> str:
     """Append a workflow instruction to the book_rules DB for this book."""
     config = _app.load_config()
@@ -398,7 +398,7 @@ def append_book_workflow(book_slug: str, text: str) -> str:
     return json.dumps({"rule_id": result["rule_id"], "inserted": result["inserted"], "kind": "workflow", "text": text})
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def append_book_callback(book_slug: str, text: str) -> str:
     """Append a callback to the book_rules DB for this book."""
     config = _app.load_config()
@@ -409,7 +409,7 @@ def append_book_callback(book_slug: str, text: str) -> str:
     return json.dumps({"rule_id": result["rule_id"], "inserted": result["inserted"], "kind": "callback", "text": text})
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def sync_book_claudemd_from_text(book_slug: str, text: str) -> str:
     """Extract prefixed entries (Regel:/Workflow:/Callback:) and persist them.
 

@@ -18,9 +18,11 @@ sys.path.insert(0, str(plugin_root / "servers" / "storyforge-server"))
 # When running with the system pytest (not the venv's pytest), mcp and other
 # dependencies may be missing. Inject the plugin venv's site-packages so that
 # `pytest -q` from the project root works regardless of which Python is active.
-_venv_site = Path.home() / ".storyforge" / "venv" / "lib" / "python3.12" / "site-packages"
-if _venv_site.is_dir() and str(_venv_site) not in sys.path:
-    sys.path.insert(0, str(_venv_site))
+import os  # noqa: E402
+if not os.environ.get("STORYFORGE_TEST_NO_VENV_SITE_INJECT"):
+    _venv_site = Path.home() / ".storyforge" / "venv" / "lib" / "python3.12" / "site-packages"
+    if _venv_site.is_dir() and str(_venv_site) not in sys.path:
+        sys.path.insert(0, str(_venv_site))
 
 
 @pytest.fixture(autouse=True)

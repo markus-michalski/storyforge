@@ -14,11 +14,6 @@ updates:
       pip-all:
         patterns:
           - "*"
-    ignore:
-      # mcp 2.0.0 removed mcp.server.fastmcp.FastMCP, still in use here (#486).
-      # Remove once the FastMCP -> MCPServer migration lands (#486, part 2/2).
-      - dependency-name: "mcp"
-        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

@@ -114,8 +114,8 @@ found, inform user it's needed for MOBI format only.
 
 Test that imports work using the venv's own interpreter:
 
-- POSIX: `~/.storyforge/venv/bin/python3 -c "from mcp.server.fastmcp import FastMCP; print('MCP OK')"`
-- Windows: `& "$env:USERPROFILE\.storyforge\venv\Scripts\python.exe" -c "from mcp.server.fastmcp import FastMCP; print('MCP OK')"`
+- POSIX: `~/.storyforge/venv/bin/python3 -c "from mcp.server.mcpserver import MCPServer; print('MCP OK')"`
+- Windows: `& "$env:USERPROFILE\.storyforge\venv\Scripts\python.exe" -c "from mcp.server.mcpserver import MCPServer; print('MCP OK')"`
 
 ### Step 9: Create Content Root
 

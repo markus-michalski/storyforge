@@ -122,7 +122,7 @@ def _patch_frontmatter_line(fm_body: str, field: str, value: str) -> str | None:
     return patched
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_session() -> str:
     """Get current session context from DB (Issue #280)."""
     conn = open_session_db()
@@ -133,7 +133,7 @@ def get_session() -> str:
     return json.dumps(session)
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def update_session(
     last_book: str | None = None,
     last_chapter: str | None = None,
@@ -162,7 +162,7 @@ def update_session(
     return json.dumps({"success": True, "session": session})
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_review_handle_config() -> str:
     """Return the configured review comment handle from config.
 
@@ -175,7 +175,7 @@ def get_review_handle_config() -> str:
     return json.dumps({"review_handle": handle})
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def rebuild_state() -> str:
     """Force rebuild of the state cache from filesystem.
 
@@ -204,7 +204,7 @@ def rebuild_state() -> str:
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotentHint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
 def update_field(file_path: str, field: str, value: str) -> str:
     """Update a field in a markdown frontmatter block or a plain YAML file.
 
@@ -270,7 +270,7 @@ def update_field(file_path: str, field: str, value: str) -> str:
     return json.dumps({"success": True, "file": file_path, "field": field, "value": value})
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str:
     """Resolve filesystem path for a book component.
 
@@ -314,7 +314,7 @@ def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str
     return json.dumps({"path": str(base), "exists": base.exists()})
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_book_category_dir(category: str) -> str:
     """Resolve the plugin-relative path to a book category's knowledge dir.
 

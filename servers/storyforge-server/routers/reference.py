@@ -13,7 +13,7 @@ from . import _app
 from ._app import mcp
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_genres() -> str:
     """List all available genres."""
     genres_dir = _app.get_genres_dir()
@@ -24,7 +24,7 @@ def list_genres() -> str:
     return json.dumps({"genres": genres, "count": len(genres)})
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_genre(name: str) -> str:
     """Get genre README content."""
     if ".." in name or "/" in name or "\\" in name or "\x00" in name:
@@ -38,7 +38,7 @@ def get_genre(name: str) -> str:
     return genre_path.read_text(encoding="utf-8")
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_craft_reference(name: str) -> str:
     """Load a craft reference document (e.g. 'story-structure', 'dialog-craft').
 
@@ -61,7 +61,7 @@ def get_craft_reference(name: str) -> str:
     return ref_path.read_text(encoding="utf-8")
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_craft_references() -> str:
     """List all available craft and genre reference documents."""
     result: dict[str, list[str]] = {"craft": [], "genre": []}
