@@ -11,8 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Changed
-- Migrated the MCP server from `mcp.server.fastmcp.FastMCP` to `mcp.server.mcpserver.MCPServer` (mcp SDK 2.x); bumped `mcp` to `>=2.0.0,<3.0.0` and removed the temporary Dependabot ignore entry (#486)
-- Renamed `ToolAnnotations` keyword arguments from camelCase to snake_case (`readOnlyHint` -> `read_only_hint`, `destructiveHint` -> `destructive_hint`, `idempotentHint` -> `idempotent_hint`) across all router modules, matching the mcp 2.0.0 field rename — the old names were silently dropped by Pydantic under 2.0.0, so tool annotations stopped taking effect until this fix
+- Nothing yet
 
 ### Deprecated
 - Nothing yet
@@ -21,10 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Capped `mcp` to `<2.0.0` in `requirements.txt` — `mcp` 2.0.0 removed `mcp.server.fastmcp.FastMCP`, which this repo's MCP server still imports; a fresh install could otherwise pull a breaking version (#486)
+- Nothing yet
 
 ### Security
 - Nothing yet
+
+## [3.2.2] - 2026-07-30
+
+### Fixed
+- migrate FastMCP -> MCPServer for mcp 2.0.0, fix ToolAnnotations fields (#488)
+- cap mcp to <2.0.0, guard against dependabot re-widening it (#487)
 
 ## [3.2.1] - 2026-07-27
 
@@ -664,3 +669,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.1.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.1.0
 [3.2.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.2.0
 [3.2.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.2.1
+[3.2.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.2.2
