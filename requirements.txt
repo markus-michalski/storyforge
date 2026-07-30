@@ -1,4 +1,6 @@
-mcp>=1.28.1
+# Upper bound: mcp 2.0.0 removed mcp.server.fastmcp.FastMCP (#486).
+# Remove after the FastMCP -> MCPServer migration (tracked in #486, part 2/2).
+mcp>=1.28.1,<2.0.0
 pyyaml>=6.0.3
 pymupdf>=1.28.0
 python-docx>=1.2.0

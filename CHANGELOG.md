@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Nothing yet
+- Capped `mcp` to `<2.0.0` in `requirements.txt` — `mcp` 2.0.0 removed `mcp.server.fastmcp.FastMCP`, which this repo's MCP server still imports; a fresh install could otherwise pull a breaking version (#486)
 
 ### Security
 - Nothing yet
