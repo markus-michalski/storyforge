@@ -76,10 +76,10 @@ If you accidentally commit a secret:
 
 ## Dependencies
 
-Python dependencies are pinned in `requirements.txt`. Dependabot scans weekly and opens PRs for updates. When adding dependencies:
+Python dependencies are declared with version ranges in `requirements.txt` and pinned exactly in `requirements.lock` (used by CI) for reproducibility. Dependabot scans weekly and opens PRs for updates. When adding dependencies:
 - Prefer well-maintained, popular packages
 - Check for known vulnerabilities (e.g. via `pip-audit`)
-- Pin to specific versions for reproducibility
+- Add an upper bound in `requirements.txt` if a major bump is known to break this repo (see `mcp` for an example)
 
 ## Security Best Practices for Users
 
