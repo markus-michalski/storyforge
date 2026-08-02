@@ -84,7 +84,7 @@ Read the chapter README.md outline:
 
 ### Pre-Logic Audit (MANDATORY, both modes)
 
-→ **§ Pre-Logic Audit** in `chapter-writing-shared.md`. Category 2 (Geography) and category 3 (Character biography & relationships) use the memoir-source branch documented there (`research/sources.md` instead of `world/setting.md`; `people/{slug}.md` instead of `characters/{slug}.md`). Category 4.5 (style_principles activation) and category 6 (scene arc) apply identically to memoir.
+→ **§ Pre-Logic Audit** in `chapter-writing-shared.md`. Category 2 (Geography) and category 3 (Character biography & relationships) use the memoir-source branch documented there (`research/sources.md` instead of `world/setting.md`; `people/{slug}.md` instead of `characters/{slug}.md`). Category 3.5 (ensemble/first-speak voice re-anchor) applies to memoir with the source swapped: `people/{slug}.md` has no `## Voice` section — quote the speech/gesture detail from `## Memory anchors` instead, the memoir-specific replacement for fiction's Voice section. Placeholder text there is a gap: ask, do not paraphrase. Category 4.5 (style_principles activation) and category 6 (scene arc) apply identically to memoir.
 
 Emit bulleted block before any prose. Mode A: per scene (Step A1b). Mode B: once per chapter (Step 2c). If any category surfaces a gap, ask the user — never paper over it.
 
