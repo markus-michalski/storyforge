@@ -144,6 +144,17 @@ Only after validation should the correction be applied.
    > *Example: "Caelan is Sera's father, NOT Theo's. Any 'reminds him of his father' framing is canon-break — cut."*
    > *Texture example: "Ch 31 prose shows Kael asks flat one-word questions when he already knows the answer — he's checking Theo's state, not fishing for info. Theo answers short when he's steady, long when he's scared. They don't explain — they confirm."*
 
+3.5 **Ensemble/first-speak voice re-anchor.** Trigger when either holds: (a) 3+ characters speak in this beat ("council"/ensemble scene) — in Mode B, evaluate this per scene of the outline, not once for the whole chapter; or (b) a character speaks for the first time since the last audit block you emitted. For **every** triggering character — no sampling, no "the others likewise" — **re-quote verbatim**, directly in this audit output, one or two lines of established voice:
+    - **Fiction:** the sample dialogue snippet inside `## Voice` in `characters/{slug}.md`.
+    - **Memoir:** `## Memory anchors` in `people/{slug}.md` — the memoir-specific replacement for fiction's Voice section (see character-creator-memoir Step M5). Quote the speech/gesture anchor itself, not a summary of it. Memoir profiles have no `## Voice` section.
+
+    **Empty or still-placeholder section** (e.g. still reads `*How do they speak? Vocabulary, patterns, tics.*`) is a gap, not a source — name it and ask the user for two lines of that character's voice; never paraphrase a placeholder into an invented voice.
+
+    **Precedence:** where the profile snippet conflicts with how the character actually talks in recent chapter prose (category 3's texture check above), the prose wins — note the divergence so the profile can be corrected later.
+
+    Reading the character file earlier in the session is not sufficient by itself — ensemble scenes in formal/serious settings have been observed to drift into a shared generic register within the same session, minutes after the file was read.
+   > *Example: "Ensemble trigger (3 speaking). Theo — 'Yeah, no, I know. I just — give me a second.' Miriel — 'You will not raise your voice to me in my own house.' Kael — 'Then say it.' No shared council register."*
+
 4. **Banned phrases + author tics.** Scan the *planned* beats against brief's `banned_phrases` and author profile's `writing_discoveries.recurring_tics` / `donts`. Replan offending beats before any prose.
    > *Example: "Planned 'Theo does mental math' → tic `math` → replan as 'Theo cross-checks timing against radio chatter'."*
 
