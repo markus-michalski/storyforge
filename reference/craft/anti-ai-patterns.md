@@ -540,9 +540,9 @@ Real human writers render emotional weight through bodies, actions, and dialog. 
 
 Each of the eight sub-shapes below has been observed repeatedly in chapter drafts. Each is invisible to the standard banned-word lists. Each requires its own countermeasure.
 
-### 11.1 Word-Count Meta-Commentary
+### 11.1 Count-and-Editorialise Fragment
 
-The narrator counts the words a character just said and editorialises on their rarity or significance.
+The narrator counts words, sentences, texts, or another countable unit of speech or writing, and editorialises on the count's rarity or significance.
 
 *AI Example:*
 > "Mother is right."
@@ -554,9 +554,11 @@ The narrator counts the words a character just said and editorialises on their r
 >
 > Caelan's eyes shifted to him. Viktor agreeing with their mother was new.
 
-The bad pattern: a sentence fragment counting the words (*Two words.* / *One word.* / *Three words.*) followed by an observation on how rarely the speaker uses them. No working novelist does this — the reader can count the words themselves; the comment infantilises. Allowed only as a dialog beat where the count is immediately filled by the quoted words (*"Two words." "Yes." "No."* style), never as narrator commentary on the count.
+The bad pattern: a sentence-*opening* fragment counting a unit of speech or writing (*Two words.* / *One word.* / *Three sentences.* / *Twelve texts.* / *Six syllables.*) followed by an observation on the rarity or weight of that count. No working novelist does this — the reader can count themselves; the comment infantilises. Allowed only as a dialog beat where the count is immediately filled by the quoted words (*"Two words." "Yes." "No."* style), never as narrator commentary on the count.
 
-**Banned shape:** `\b(One|Two|Three|Four) words?\.` followed by editorialising clause.
+The generalisation is to countable *units of speech or writing* — not to countable nouns in general. A plain time, distance, or duration count ("He had been gone three days." / "She waited five minutes." / "Twelve seconds," as a countdown) is ordinary, unremarkable prose and must not match; those are measurements, not an utterance the narrator is editorialising about. Only a standalone fragment counting words/sentences/texts/etc., immediately followed by editorial about the count, is the AI signature.
+
+**Banned shape:** `(?m)(?:^|(?<=[.!?"”’]\s)|(?<=[.!?"”’]\s\s))[*_]{0,2}(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve) (word|sentence|syllable|line|phrase|name|letter|text|message)s?\.` followed by editorialising clause.
 
 ### 11.2 Sentence-as-Projectile
 

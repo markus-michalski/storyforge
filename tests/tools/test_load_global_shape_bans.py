@@ -118,3 +118,55 @@ class TestLoadGlobalShapeBans:
             p.pattern.search("The room received it without complaint.")
             for p in patterns
         )
+
+    def test_11_1_count_and_editorialise_anchoring(self):
+        """11.1 must catch spoken/written-unit counts but not plain time/distance counts.
+
+        Regression coverage for a false-positive explosion caught in review: an
+        earlier draft of this pattern widened the noun list to include duration
+        and movement nouns (day, step, second, breath), which made it match
+        ordinary narration ("He had been gone three days.") as well as
+        legitimate countdowns ("Twelve seconds."). The fix narrows the noun
+        list to units of speech/writing and anchors the count to the start of
+        a sentence or dialogue beat.
+        """
+        plugin_root = Path(__file__).resolve().parent.parent.parent
+        patterns = load_global_shape_bans(plugin_root)
+        shape_11_1 = next(
+            p for p in patterns if "One|Two" in p.label and "word" in p.label
+        )
+
+        # Must NOT match: ordinary time/distance/duration narration.
+        for text in (
+            "He had been gone three days.",
+            "She waited five minutes.",
+            "The journey took twelve hours.",
+            "He crossed the room in four steps.",
+            "It was over in ten seconds.",
+            "Wait one second.",
+            "Twelve seconds.",
+            "Two breaths. Three. Then Viktor took two steps.",
+        ):
+            assert not shape_11_1.pattern.search(text), f"false positive: {text!r}"
+
+        # Must match: the actual AI tell (count-and-editorialise fragment).
+        for text in (
+            "Two words. Viktor had not used them often in his life.",
+            '"Mother is right." Two words. He had not used them often.',
+            "Twelve texts. That was what it had taken.",
+            "*Two words.* He never said more.",
+        ):
+            assert shape_11_1.pattern.search(text), f"missed true positive: {text!r}"
+
+        # Must match even right after a chapter heading (write-time-hook path
+        # passes raw, unstripped chapter text with no re.MULTILINE handling
+        # beyond what the pattern itself declares inline).
+        raw_chapter = (
+            "# Chapter 25: Instinct\n\n"
+            "Twelve seconds.\n\n"
+            "He counted them off.\n\n"
+            '"Mother is right."\n\n'
+            "Two words. Viktor had not used them often.\n"
+        )
+        matches = [m.group(0) for m in shape_11_1.pattern.finditer(raw_chapter)]
+        assert matches == ["Two words."], matches

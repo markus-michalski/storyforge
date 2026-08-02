@@ -38,7 +38,7 @@ Scan every sentence for the following constructions. For each hit, record: line 
 
 | Shape | What to search for |
 |---|---|
-| **11.1 Word-count commentary** | `One word.` / `Two words.` / `Three words.` / `Four words.` followed by narrator editorial about the rarity of those words |
+| **11.1 Count-and-editorialise fragment** | `One word.` / `Two sentences.` / `Twelve texts.` / `Six syllables.` — a sentence-opening count of a unit of speech or writing (word/sentence/syllable/line/phrase/name/letter/text/message) followed by narrator editorial about the rarity or weight of that count. Only flag when the fragment opens a sentence/dialogue beat; plain time/distance/duration counts ("He had been gone three days.", a countdown like "Twelve seconds.") are NOT the tell — those are measurements, not editorialised utterances |
 | **11.2 Sentence-as-projectile** | `the words landed`, `the line landed`, `the sentence landed`, `settled into the room`, `sat in the room` |
 | **11.3 Room-as-receiver** | `the room received`, `the silence held`, `the hall absorbed`, `the air carried`, `the quiet kept` |
 | **11.4 Economic metaphor** | `most expensive [word/sentence/motion/gesture]`, `the word cost him`, `paid in silence`, `[action] cost her` (non-literal) |

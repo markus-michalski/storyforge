@@ -159,7 +159,7 @@ If any category surfaces a gap, surface it explicitly and ask the user — never
 
 Runs IMMEDIATELY AFTER the Simile Discipline Scan (Step 6c). **No prose enters `draft.md` until this scan is fully resolved.** Reference: `anti-ai-patterns.md` Section 11 for the full shape catalog and examples.
 
-**Shape catalog:** `anti-ai-patterns.md` Section 11 has the full catalog, markers, and examples (11.1–11.10). Quick-scan markers: *One/Two/Three words.* narrator commentary (11.1); *the words/line landed* (11.2); *the room received / silence held* (11.3); *most expensive sentence / paid in silence* (11.4); *did not quite become* — flag 2+ per scene (11.5); body-part + deciding/refusing/knowing (11.6); *trust his/her/my face/hands* trust-split variants (11.6); backward-negation refusal clauses (11.7); same logical constraint in two consecutive sentences (11.8).
+**Shape catalog:** `anti-ai-patterns.md` Section 11 has the full catalog, markers, and examples (11.1–11.10). Quick-scan markers: sentence-opening count of a speech/writing unit (*One word.* / *Three sentences.* / *Twelve texts.*) + narrator editorial, but NOT plain time/distance counts like a countdown (11.1); *the words/line landed* (11.2); *the room received / silence held* (11.3); *most expensive sentence / paid in silence* (11.4); *did not quite become* — flag 2+ per scene (11.5); body-part + deciding/refusing/knowing (11.6); *trust his/her/my face/hands* trust-split variants (11.6); backward-negation refusal clauses (11.7); same logical constraint in two consecutive sentences (11.8).
 
 **Scan protocol:**
 
