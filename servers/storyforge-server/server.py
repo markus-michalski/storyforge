@@ -33,6 +33,7 @@ import routers  # noqa: E402, F401
 from routers.authors import (  # noqa: E402, F401
     add_vocabulary_entry,
     create_author,
+    delete_author,
     delete_discovery,
     extract_text_from_file,
     get_author,

@@ -27,6 +27,7 @@ reference/research/
 
 # git-workflow skill state — local-only, not for distribution
 .git-workflow/
+.git-workflow.archive-*/
 
 # skill-rollout worktree isolation — local-only leftovers, not for distribution
 .claude/worktrees/

@@ -2,6 +2,7 @@
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
+asyncio_mode = "strict"
 
 [tool.mypy]
 python_version = "3.11"
