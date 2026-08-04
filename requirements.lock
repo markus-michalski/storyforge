@@ -5,8 +5,10 @@ annotated-types==0.8.0
 anyio==4.14.2
 ast_serialize==0.6.0
 attrs==26.1.0
-cffi==2.1.0
+cffi==2.1.1
 click==8.4.2
+# Held at 49.x deliberately — 50.0.0 is a major bump and must land in its own
+# PR with its own testing, not ride along in an unrelated regeneration.
 cryptography==49.0.0
 h11==0.16.0
 httpcore2==2.9.1
@@ -29,6 +31,7 @@ pycparser==3.0
 pydantic==2.13.4
 pydantic_core==2.46.4
 pymupdf==1.28.0
+pytest-asyncio==1.4.0
 pytest==9.1.1
 python-docx==1.2.0
 python-multipart==0.0.32
@@ -41,4 +44,4 @@ truststore==0.10.4
 types-PyYAML==6.0.12.20260724
 typing-inspection==0.4.2
 typing_extensions==4.16.0
-uvicorn==0.52.0
+uvicorn==0.52.1

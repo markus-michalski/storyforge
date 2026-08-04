@@ -8,22 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
-
-### Changed
-- Nothing yet
-
-### Deprecated
-- Nothing yet
-
-### Removed
-- Nothing yet
+- MCP smoke/protocol test parity with the mm-dev-toolkit reference pattern: `tests/smoke/test_mcp_server.py` (module import + dynamic tool-registry/re-export check) and `tests/smoke/test_mcp_protocol.py` (in-process `mcp.client.Client` round-trip, schema validation, output-schema regression guard)
+- `pytest-asyncio` dev dependency + `asyncio_mode = "strict"` for the new protocol tests
 
 ### Fixed
-- Nothing yet
-
-### Security
-- Nothing yet
+- re-export `delete_author` from `server.py` — registered as an `@mcp.tool()` in `routers/authors.py` but missing from the hand-maintained re-export block, so direct-call testers/importers couldn't reach it (found by the new dynamic tool-registry check)
 
 ## [3.2.2] - 2026-07-30
 
