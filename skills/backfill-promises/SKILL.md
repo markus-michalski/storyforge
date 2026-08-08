@@ -78,9 +78,9 @@ via the exact slug.)
 
 - `--force` — re-extract promises even if a chapter already has a
   populated `## Promises` section. Existing entries are merged via
-  `register_chapter_promises` semantics (matching description+target
-  is preserved; new ones append). Default is to skip populated
-  chapters.
+  `register_chapter_promises` semantics (matching description updates
+  target/status; new descriptions append). Default is to skip
+  populated chapters.
 
 When `--force` is set, `get_chapter_promises()` alone isn't a
 reliable signal of prior manual edits — the underlying parser keys
@@ -156,15 +156,12 @@ Walk the draft once. List every setup-element that meets the
   the chapter outline is silent, use `unfired` — the checker will
   flag it for either payoff or retirement.
 
-  `register_chapter_promises` merges by matching `description`+
-  `target` together (Step 2) — a resolved target is a *different* key
-  from `unfired`, so it appends rather than updates. On a `--force`
-  re-run, if the Step 4.1 pre-check already shows an `unfired`-target
-  entry that plainly describes the same element you're re-resolving
-  to a real target now, don't just let both stand: tell the user a
-  stale `unfired` duplicate needs pruning (or resolve it yourself if
-  you're confident it's the same element), rather than silently
-  leaving two rows for one promise.
+  `register_chapter_promises` merges by `description` alone (Step 2,
+  Issue #498) — re-resolving an `unfired` entry to a real target
+  updates that row in place instead of appending a duplicate. Keep
+  the description text stable across a `--force` re-run of the same
+  chapter (don't reword it) so the resolved-target promise matches
+  the original row rather than landing as a new one.
 - **Status:** Always `active` for backfill. The author can later
   set `satisfied` or `retired` manually or via the chapter-reviewer.
 
@@ -199,6 +196,11 @@ the only place the user actually sees the result for this chapter:
   ` — no promises this chapter, placeholder written.`
 - Cap triggered (Step 4.5's eight-promise cap): append
   ` — {K} candidates found, kept the strongest 8.`
+- `deduped` > 0 (two or more rows shared a description — either
+  already in the README, a pre-#498-fix corruption self-healing, or
+  submitted twice in this call; either way `added`+`updated`+
+  `unchanged` can total less than `{N}`): append
+  ` — {d} duplicate-description row(s) collapsed to their last value.`
 
 ### 4.5 Discipline
 

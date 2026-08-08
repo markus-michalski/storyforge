@@ -82,7 +82,7 @@ GLOBAL_ALLOWLIST: set[str] = {"project", "plugin_root", "content_root", "series"
 # that should have been named differently.
 PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
     "author-check": {"date"},
-    "backfill-promises": {"p", "u", "un", "total"},
+    "backfill-promises": {"p", "u", "un", "total", "d"},  # d: register_chapter_promises' `deduped` count field (#498)
     "backfill-style-principles": {"total_new", "total_skipped"},
     "bootstrap-book-from-series": {"n_accepted", "n_edited", "n_new", "n_skipped", "n_with_prior"},
     "chapter-fixer": {"category"},  # finding's category label in the report template, self-evident from "[N] **{category}** — Sc N, ~line M"

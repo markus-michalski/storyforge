@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - re-export `delete_author` from `server.py` — registered as an `@mcp.tool()` in `routers/authors.py` but missing from the hand-maintained re-export block, so direct-call testers/importers couldn't reach it (found by the new dynamic tool-registry check)
+- `register_chapter_promises` can now correct an existing promise's `target` — merge key changed from `description+target` to `description` alone, and pre-existing duplicate rows left by the old bug are self-healed on the next call (#498)
 
 ## [3.2.2] - 2026-07-30
 

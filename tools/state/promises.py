@@ -129,14 +129,23 @@ def upsert_promises(readme_path: Path, new_promises: list[Promise]) -> dict:
     """Merge ``new_promises`` into the chapter README's Promises section.
 
     Merge semantics:
-    - Same description + same target -> update status if changed
-      ("updated"), else no-op ("unchanged").
+    - Same description -> update target/status if either changed
+      ("updated"), else no-op ("unchanged"). ``description`` alone is
+      the merge key (Issue #498) so a caller correcting a promise's
+      ``target`` (e.g. "unfired" -> the actual payoff chapter) updates
+      the existing row instead of appending a duplicate.
     - New description -> append ("added").
     - Existing promises not mentioned in ``new_promises`` are kept
       as-is. To remove a promise, set its status to ``retired`` or
       hand-edit the README.
+    - Duplicate-description rows — pre-existing (a README left over
+      from the #498 bug) or within ``new_promises`` itself — are
+      silently collapsed: the surviving row's target/status comes
+      from the *last* occurrence, kept at the position of the
+      *first*; the collapse is counted in ``deduped``.
 
-    Returns a dict with counts: ``added``, ``updated``, ``unchanged``.
+    Returns a dict with counts: ``added``, ``updated``, ``unchanged``,
+    ``deduped``.
     """
     _validate_promises(new_promises)
 
@@ -162,20 +171,54 @@ def _validate_promises(promises: list[Promise]) -> None:
 
 
 def _merge_promises(existing: list[Promise], incoming: list[Promise]) -> tuple[list[Promise], dict]:
-    """Merge incoming into existing using (description, target) as key.
+    """Merge incoming into existing using stripped ``description`` as key.
 
     Existing-only entries are preserved. Incoming entries are matched
-    by description+target; status changes update, identical entries
-    are unchanged, new entries append.
-    """
-    counts = {"added": 0, "updated": 0, "unchanged": 0}
-    by_key: dict[tuple[str, str], Promise] = {(p.description, p.target): p for p in existing}
+    by description alone (Issue #498) — target and status are the
+    fields a match updates, so a caller correcting a promise's target
+    updates the row in place instead of appending a duplicate.
+    Identical entries are unchanged, new descriptions append. The key
+    is whitespace-stripped so a caller resubmitting the same
+    description with incidental leading/trailing whitespace doesn't
+    reproduce the #498 duplicate-append bug under a new disguise.
 
-    for new in incoming:
-        key = (new.description, new.target)
+    Any duplicate descriptions — whether pre-existing in the README
+    (e.g. a #498-bug leftover) or collapsed within a single
+    ``incoming`` batch (an LLM extractor submitting the same
+    description twice) — are resolved to their last occurrence and
+    counted in ``deduped``, since they weren't a genuine add/update
+    against the prior state.
+    """
+    counts = {"added": 0, "updated": 0, "unchanged": 0, "deduped": 0}
+
+    by_key: dict[str, Promise] = {}
+    for p in existing:
+        key = p.description.strip()
+        if key in by_key:
+            counts["deduped"] += 1
+        by_key[key] = p
+
+    # Collapse duplicate descriptions within `incoming` itself (last
+    # wins) before diffing against `existing`, so each distinct key
+    # contributes exactly one added/updated/unchanged outcome.
+    # Description is normalized to its stripped form so a rendered row
+    # never carries incidental whitespace back into the README.
+    incoming_by_key: dict[str, Promise] = {}
+    incoming_order: list[str] = []
+    for raw_new in incoming:
+        key = raw_new.description.strip()
+        new = raw_new if raw_new.description == key else Promise(key, raw_new.target, raw_new.status)
+        if key in incoming_by_key:
+            counts["deduped"] += 1
+        else:
+            incoming_order.append(key)
+        incoming_by_key[key] = new
+
+    for key in incoming_order:
+        new = incoming_by_key[key]
         if key in by_key:
             old = by_key[key]
-            if old.status == new.status:
+            if old.target == new.target and old.status == new.status:
                 counts["unchanged"] += 1
             else:
                 by_key[key] = new
@@ -184,15 +227,16 @@ def _merge_promises(existing: list[Promise], incoming: list[Promise]) -> tuple[l
             by_key[key] = new
             counts["added"] += 1
 
-    # Preserve original ordering: existing first (in original order), then new entries.
-    seen: set[tuple[str, str]] = set()
+    # Preserve original ordering: existing first (first occurrence, deduped), then new entries.
+    seen: set[str] = set()
     merged: list[Promise] = []
     for p in existing:
-        key = (p.description, p.target)
+        key = p.description.strip()
+        if key in seen:
+            continue
         merged.append(by_key[key])
         seen.add(key)
-    for p in incoming:
-        key = (p.description, p.target)
+    for key in incoming_order:
         if key not in seen:
             merged.append(by_key[key])
             seen.add(key)

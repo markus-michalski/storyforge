@@ -63,6 +63,42 @@ def chapter_readme_no_promises(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def chapter_readme_with_duplicate_promise(tmp_path: Path) -> Path:
+    """README already corrupted by the pre-#498 bug: two rows share a
+    description with different targets, left behind by a target
+    correction that appended instead of updating.
+    """
+    readme = tmp_path / "README.md"
+    readme.write_text(
+        textwrap.dedent(
+            """\
+            ---
+            title: "Test Chapter"
+            ---
+
+            # Chapter 5: Test
+
+            ## Promises
+
+            *Setup elements placed in this chapter that need payoff later.*
+
+            | Promise | Target | Status |
+            |---------|--------|--------|
+            | The locked drawer in the office | 14-the-letter | active |
+            | Theo's rifle claim | unfired | active |
+            | Theo's rifle claim | 07-payoff | active |
+
+            ## Notes
+
+            More notes.
+            """
+        ),
+        encoding="utf-8",
+    )
+    return readme
+
+
+@pytest.fixture
 def chapter_readme_with_promises(tmp_path: Path) -> Path:
     readme = tmp_path / "README.md"
     readme.write_text(
@@ -250,6 +286,104 @@ class TestUpsertPromises:
         assert "| Theo's rifle claim | unfired | satisfied |" in text
         assert "| Theo's rifle claim | unfired | active |" not in text
         assert result["updated"] == 1
+
+    def test_updates_target_correction_on_existing_promise(self, chapter_readme_with_promises: Path):
+        # Issue #498: correcting a promise's target (e.g. "unfired" -> a
+        # payoff chapter) must update the existing row, not append a
+        # duplicate — description alone is the merge key, target/status
+        # are the fields being corrected.
+        result = upsert_promises(
+            chapter_readme_with_promises,
+            [Promise("Theo's rifle claim", "07-the-world-outside", "active")],
+        )
+        text = chapter_readme_with_promises.read_text(encoding="utf-8")
+        assert text.count("Theo's rifle claim") == 1
+        assert "| Theo's rifle claim | 07-the-world-outside | active |" in text
+        assert "| Theo's rifle claim | unfired | active |" not in text
+        assert result["updated"] == 1
+        assert result["added"] == 0
+
+    def test_dedupes_preexisting_duplicate_rows_untouched_by_incoming(
+        self, chapter_readme_with_duplicate_promise: Path
+    ):
+        # A README already corrupted by the pre-#498 bug (two rows,
+        # same description) must self-heal even when the incoming
+        # call doesn't mention that description at all — otherwise
+        # the corruption is stable and invisible ("unchanged").
+        result = upsert_promises(
+            chapter_readme_with_duplicate_promise,
+            [Promise("Maria's camera", "unfired", "active")],
+        )
+        text = chapter_readme_with_duplicate_promise.read_text(encoding="utf-8")
+        assert text.count("Theo's rifle claim") == 1
+        assert "| Theo's rifle claim | 07-payoff | active |" in text
+        assert "| Theo's rifle claim | unfired | active |" not in text
+        assert result["deduped"] == 1
+        assert result["added"] == 1
+
+    def test_dedupes_preexisting_duplicate_rows_touched_by_incoming(
+        self, chapter_readme_with_duplicate_promise: Path
+    ):
+        result = upsert_promises(
+            chapter_readme_with_duplicate_promise,
+            [Promise("Theo's rifle claim", "09-real-payoff", "satisfied")],
+        )
+        text = chapter_readme_with_duplicate_promise.read_text(encoding="utf-8")
+        assert text.count("Theo's rifle claim") == 1
+        assert "| Theo's rifle claim | 09-real-payoff | satisfied |" in text
+        assert result["deduped"] == 1
+        assert result["updated"] == 1
+
+    def test_dedupes_duplicate_descriptions_within_incoming_batch(self, chapter_readme_no_promises: Path):
+        # An LLM extractor submitting the same description twice in one
+        # call must not double-count added/updated, and must not write
+        # two rows — last occurrence in the batch wins.
+        result = upsert_promises(
+            chapter_readme_no_promises,
+            [
+                Promise("The gun on the mantel", "unfired", "active"),
+                Promise("The gun on the mantel", "09-payoff", "active"),
+            ],
+        )
+        text = chapter_readme_no_promises.read_text(encoding="utf-8")
+        assert text.count("The gun on the mantel") == 1
+        assert "| The gun on the mantel | 09-payoff | active |" in text
+        assert result["added"] == 1
+        assert result["updated"] == 0
+        assert result["deduped"] == 1
+
+    def test_dedupes_three_or_more_duplicate_rows_as_n_minus_one(self, chapter_readme_no_promises: Path):
+        # N duplicate rows sharing a description must count as N-1
+        # deduped, not a flat 1 — guards against a future "simplification"
+        # of the dedup loop that stops weighting by group size.
+        result = upsert_promises(
+            chapter_readme_no_promises,
+            [
+                Promise("The gun on the mantel", "unfired", "active"),
+                Promise("The gun on the mantel", "07-a", "active"),
+                Promise("The gun on the mantel", "09-b", "active"),
+            ],
+        )
+        text = chapter_readme_no_promises.read_text(encoding="utf-8")
+        assert text.count("The gun on the mantel") == 1
+        assert "| The gun on the mantel | 09-b | active |" in text
+        assert result["added"] == 1
+        assert result["deduped"] == 2
+
+    def test_strips_whitespace_from_merge_key(self, chapter_readme_with_promises: Path):
+        # Incidental leading/trailing whitespace on a resubmitted
+        # description must not defeat the description-only merge key —
+        # that would reproduce the #498 duplicate-append bug under a
+        # new disguise.
+        result = upsert_promises(
+            chapter_readme_with_promises,
+            [Promise("  Theo's rifle claim  ", "07-payoff", "active")],
+        )
+        text = chapter_readme_with_promises.read_text(encoding="utf-8")
+        assert text.count("Theo's rifle claim") == 1
+        assert "| Theo's rifle claim | 07-payoff | active |" in text
+        assert result["updated"] == 1
+        assert result["added"] == 0
 
     def test_idempotent_second_call_no_change(self, chapter_readme_no_promises: Path):
         promises = [Promise("Drawer", "14-letter", "active")]
