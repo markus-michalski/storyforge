@@ -85,6 +85,7 @@ PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
     "backfill-promises": {"p", "u", "un", "total"},
     "backfill-style-principles": {"total_new", "total_skipped"},
     "bootstrap-book-from-series": {"n_accepted", "n_edited", "n_new", "n_skipped", "n_with_prior"},
+    "chapter-fixer": {"category"},  # finding's category label in the report template, self-evident from "[N] **{category}** — Sc N, ~line M"
     "chapter-proofreader": {"count"},
     "continuity-checker": {"date"},
     "emotional-truth-prompt": {"chapter-path"},  # slug-in-file-path, self-evident from "{chapter-path}/draft.md"

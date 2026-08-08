@@ -69,6 +69,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Kapitel reviewen" / "Review chapter" (memoir) | `/storyforge:chapter-reviewer-memoir` |
 | "Humanize chapter" / "AI-Tells entfernen" / "chapter humanizer" / "AI-Sätze raus" | `/storyforge:chapter-humanizer` |
 | "Kapitel proofreaden" / "Proofread chapter" / "Korrekturlesen" / "Spelling check" / "Grammar check" | `/storyforge:chapter-proofreader` |
+| "chapter fixer" / "Findings fixen" / "Review-Findings umsetzen" / "fix reviewer findings" | `/storyforge:chapter-fixer` |
 | "Continuity prüfen" / "Check continuity" / "Zeitlinie prüfen" / "Timeline prüfen" | `/storyforge:continuity-checker` |
 | "Voice check" / "Klingt das nach AI?" | `/storyforge:voice-checker` |
 | "Author check" / "Style check" / "Positive check" / "Banter fehlt" / "Sarcasm fehlt" / "Stil prüfen" / "Positive Marker" | `/storyforge:author-check` |
@@ -137,7 +138,12 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 6. `/storyforge:rolling-planner` — Scene-by-scene planning buffer (3-5 scenes ahead)
 8. `/storyforge:chapter-writer` — Write chapters in author's voice (loads timeline + travel matrix + tonal document + chapter timeline)
 9. `/storyforge:continuity-checker` — (Optional, after several chapters) Validate timeline and location consistency
-10. `/storyforge:chapter-reviewer` — Review each chapter for craft, voice, structure, and AI-tells
+10. `/storyforge:chapter-reviewer` — Review each chapter for craft, voice, structure, and AI-tells.
+    On FAIL/WARN, apply the findings via `/storyforge:chapter-fixer` (ad hoc, not a fixed pipeline
+    step) as targeted `Edit`-tool patches — never re-run `chapter-writer` for this, it's
+    append-only and would corrupt the existing draft rather than fix it. `chapter-writer` is only
+    for findings dense enough to need a whole-scene reconstruction. Re-run chapter-reviewer
+    afterward to confirm. `manuscript-checker`'s chapter-anchored findings route the same way.
 10a. `/storyforge:author-check` — (Optional, after chapter-writer or chapter-reviewer) Positive style compliance gate: checks presence of style_principles Writing Discoveries and quantitative prose targets; counterpart to the constraint-only tools
 10b. `/storyforge:chapter-humanizer` — Targeted AI-construction scan; identifies Section 11 elegant-abstraction shapes and flagged vocabulary; proposes human alternatives interactively; runs AFTER chapter-reviewer craft fixes
 10c. `/storyforge:chapter-proofreader` — Language correctness per chapter: spelling, grammar, punctuation — runs AFTER humanizer pass; explanations in author's native_language
@@ -283,6 +289,7 @@ Skills MUST load relevant craft references before generating creative content. U
 - `book-conceptualizer` → fiction loads: theme-development, story-structure, plot-craft, conflict-types. Memoir loads (via `book_categories/memoir/craft/`): memoir-theme-development, memoir-structure-types, emotional-truth, scene-vs-summary, real-people-ethics, memoir-anti-ai-patterns. Memoir replaces Phase 3 (Conflict) with Phase 3 (Scope).
 - `chapter-writer` → both modes load: chapter-construction, dialog-craft, show-dont-tell, pacing-guide, anti-ai-patterns, prose-style, simile-discipline. Fiction adds: genre craft, `world/setting.md` (Travel Matrix), `canon_brief` from DB (Issue #297 — replaces direct `plot/canon-log.md` read). Memoir uses same DB-backed `canon_brief` (replaces direct `plot/people-log.md` read); adds: `book_categories/memoir/craft/scene-vs-summary.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`, `real-people-ethics.md`, `plot/structure.md` (structure_type). Both modes enforce consent gate via `consent_status_warnings` — refused-tier warnings halt drafting (#57).
 - `chapter-reviewer` → loads: dos-and-donts, anti-ai-patterns, chapter-construction, dialog-craft, show-dont-tell, simile-discipline (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`)
+- `chapter-fixer` → loads: `reference/craft/chapter-writing-shared.md` (`§ User Feedback Handling`, to verify a finding before patching it) and the author profile via `get_author()`. Consumes chapter-anchored findings from `chapter-reviewer`/`chapter-reviewer-memoir`/`manuscript-checker` rather than generating its own — no independent craft-reference load beyond the shared feedback-verification procedure. (`rules-audit` edits rule definitions, not chapter prose, so it never hands off a chapter+line finding directly.)
 - `plot-architect` (fiction-only since #126) → loads: story-structure, plot-craft, tension-and-suspense, conflict-types. Refuses memoir books and routes to `plot-architect-memoir`.
 - `plot-architect-memoir` (memoir-only, split out in #126) → 6-step narrative-arc workflow (#58) that loads `book_categories/memoir/craft/memoir-structure-types.md`, `scene-vs-summary.md`, `emotional-truth.md`, `memoir-anti-ai-patterns.md`; the user picks one of four structure types (chronological / thematic / braided / vignette), persisted via `set_memoir_structure_type` MCP tool to `plot/structure.md` frontmatter.
 - `character-creator` (fiction-only since #177) → loads: character-creation, character-arcs, dialog-craft + genre. Refuses memoir books and routes to `character-creator-memoir`.

@@ -8,8 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `chapter-fixer` skill: applies targeted, line-level `Edit`-tool patches to an already-drafted chapter from `chapter-reviewer`/`manuscript-checker` findings, instead of `chapter-writer`'s append-only flow corrupting the existing draft (#496)
 - MCP smoke/protocol test parity with the mm-dev-toolkit reference pattern: `tests/smoke/test_mcp_server.py` (module import + dynamic tool-registry/re-export check) and `tests/smoke/test_mcp_protocol.py` (in-process `mcp.client.Client` round-trip, schema validation, output-schema regression guard)
 - `pytest-asyncio` dev dependency + `asyncio_mode = "strict"` for the new protocol tests
+
+### Changed
+- `chapter-reviewer`/`chapter-reviewer-memoir` Suggested Next Step on FAIL/WARN now points to `chapter-fixer` for targeted patches, reserving `chapter-writer`/`chapter-writer-memoir` for findings dense enough to need a scene reconstruction (#496)
 
 ### Fixed
 - re-export `delete_author` from `server.py` — registered as an `@mcp.tool()` in `routers/authors.py` but missing from the hand-maintained re-export block, so direct-call testers/importers couldn't reach it (found by the new dynamic tool-registry check)
