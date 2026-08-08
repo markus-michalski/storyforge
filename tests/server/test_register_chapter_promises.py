@@ -168,6 +168,35 @@ class TestRegisterChapterPromises:
         assert second["added"] == 0
         assert second["unchanged"] == 1
 
+    def test_deduped_field_present_and_zero_on_normal_add(self, server_module, content_root: Path):
+        # Issue #498: the JSON envelope carries a `deduped` count
+        # alongside added/updated/unchanged.
+        _write_chapter(content_root, "book-g2", "01-start")
+        result = json.loads(
+            server_module.register_chapter_promises(
+                "book-g2", "01-start", [{"description": "Z", "target": "unfired", "status": "active"}]
+            )
+        )
+        assert result["deduped"] == 0
+
+    def test_deduped_field_reports_target_correction(self, server_module, content_root: Path):
+        # Issue #498: correcting a promise's target updates in place —
+        # reflected as updated=1, deduped=0, not a duplicate row.
+        ch_dir = _write_chapter(content_root, "book-h2", "01-start")
+        server_module.register_chapter_promises(
+            "book-h2", "01-start", [{"description": "Gun", "target": "unfired", "status": "active"}]
+        )
+        result = json.loads(
+            server_module.register_chapter_promises(
+                "book-h2", "01-start", [{"description": "Gun", "target": "09-payoff", "status": "active"}]
+            )
+        )
+        assert result["updated"] == 1
+        assert result["deduped"] == 0
+        readme_text = (ch_dir / "README.md").read_text(encoding="utf-8")
+        assert readme_text.count("| Gun |") == 1
+        assert "| Gun | 09-payoff | active |" in readme_text
+
 
 # ---------------------------------------------------------------------------
 # get_chapter_promises

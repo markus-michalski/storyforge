@@ -446,8 +446,14 @@ def register_chapter_promises(
     ``/storyforge:backfill-promises`` skill calls this for chapters
     drafted before the feature shipped.
 
-    Merge semantics: existing promises are kept; matching
-    description+target updates status; new entries are appended.
+    Merge semantics: existing promises are kept; matching description
+    (whitespace-stripped) updates target/status (Issue #498 —
+    correcting a promise's target, e.g. "unfired" -> a payoff chapter,
+    updates the existing row instead of appending a duplicate); new
+    descriptions are appended. Duplicate-description rows — whether
+    pre-existing (a README left over from the #498 bug) or submitted
+    twice within one ``promises`` call — are collapsed to their last
+    occurrence and reported in ``deduped``.
 
     Args:
         book_slug: Book project slug.
@@ -459,8 +465,8 @@ def register_chapter_promises(
             - ``status`` (str, default "active") — one of
               "active" | "satisfied" | "retired"
 
-    Returns JSON with merge counts (added/updated/unchanged) and the
-    path of the README that was written.
+    Returns JSON with merge counts (added/updated/unchanged/deduped)
+    and the path of the README that was written.
     """
     config = _app.load_config()
     ch_dir = resolve_chapter_path(config, book_slug, chapter_slug)
@@ -497,6 +503,7 @@ def register_chapter_promises(
             "added": counts["added"],
             "updated": counts["updated"],
             "unchanged": counts["unchanged"],
+            "deduped": counts["deduped"],
         }
     )
 

@@ -153,6 +153,8 @@ For each chapter, the setup-elements placed there with their target chapters.
 
 The `## Promises` section is populated either (a) automatically by `chapter-writer` at the Draft → Review transition (LLM extraction, persisted via `register_chapter_promises` MCP tool), or (b) by `/storyforge:backfill-promises` for books drafted before the feature shipped, or (c) hand-edited by the author. All three paths produce the same structure.
 
+The promise's `description` text is the merge key `register_chapter_promises` uses to match a row across calls (Issue #498) — keep each description unique per chapter. Two rows with the same description (even pointing at different targets) collapse to one on the next `register_chapter_promises` call for that chapter, keeping only the last value.
+
 ## Severity Mapping Summary
 
 | Category | Default severity | Rationale |
