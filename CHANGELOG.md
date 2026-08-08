@@ -8,16 +8,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `chapter-fixer` skill: applies targeted, line-level `Edit`-tool patches to an already-drafted chapter from `chapter-reviewer`/`manuscript-checker` findings, instead of `chapter-writer`'s append-only flow corrupting the existing draft (#496)
-- MCP smoke/protocol test parity with the mm-dev-toolkit reference pattern: `tests/smoke/test_mcp_server.py` (module import + dynamic tool-registry/re-export check) and `tests/smoke/test_mcp_protocol.py` (in-process `mcp.client.Client` round-trip, schema validation, output-schema regression guard)
-- `pytest-asyncio` dev dependency + `asyncio_mode = "strict"` for the new protocol tests
+- Nothing yet
 
 ### Changed
-- `chapter-reviewer`/`chapter-reviewer-memoir` Suggested Next Step on FAIL/WARN now points to `chapter-fixer` for targeted patches, reserving `chapter-writer`/`chapter-writer-memoir` for findings dense enough to need a scene reconstruction (#496)
+- Nothing yet
+
+### Deprecated
+- Nothing yet
+
+### Removed
+- Nothing yet
 
 ### Fixed
-- re-export `delete_author` from `server.py` — registered as an `@mcp.tool()` in `routers/authors.py` but missing from the hand-maintained re-export block, so direct-call testers/importers couldn't reach it (found by the new dynamic tool-registry check)
-- `register_chapter_promises` can now correct an existing promise's `target` — merge key changed from `description+target` to `description` alone, and pre-existing duplicate rows left by the old bug are self-healed on the next call (#498)
+- Nothing yet
+
+### Security
+- Nothing yet
+
+## [3.3.0] - 2026-08-08
+
+### Added
+- add chapter-fixer for targeted reviewer-finding fixes (#496) (#497)
+
+### Changed
+- bump the pip-all group across 1 directory with 3 updates (#495)
+
+### Fixed
+- correct target updates no longer duplicate promise rows (#498) (#499)
+- close MCP smoke/protocol test-coverage gap, re-export delete_author (#494)
+- re-anchor voice per-character in ensemble/first-speak scenes (#493)
+- widen §11.1 count-and-editorialise shape beyond "word" (#491)
 
 ## [3.2.2] - 2026-07-30
 
@@ -664,3 +684,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.2.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.2.0
 [3.2.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.2.1
 [3.2.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.2.2
+[3.3.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.3.0
