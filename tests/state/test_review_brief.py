@@ -275,6 +275,27 @@ def test_cap_canon_facts_changed_group_is_also_bounded():
     assert len(kept) < 500
 
 
+def test_cap_canon_facts_oldest_first_applies_to_changed_group_too():
+    """Issue #501 test-gap: oldest_first must invert ranking within the
+    CHANGED-facts priority tier, not just the ACTIVE rest tier — continuity_brief
+    relies on this (a whole-manuscript scan wants early revisions, which have
+    had more subsequent chapters to go stale in, protected the same way it
+    wants early ACTIVE facts protected). This was documented in
+    continuity_brief.py's code comment but had no direct test."""
+    changed = [_fact(i, status="CHANGED") for i in range(1, 11)]
+    one_entry_size = len(json.dumps(changed[0])) + 1
+
+    kept, truncated, total = _cap_canon_facts(
+        changed, char_budget=one_entry_size * 5, oldest_first=True,
+    )
+
+    kept_chapters = {_chapter_num_from_fact(f) for f in kept}
+    assert 1 in kept_chapters
+    assert 10 not in kept_chapters
+    assert truncated is True
+    assert total == 10
+
+
 def test_cap_canon_facts_ranks_current_book_above_prior_book():
     """Issue #500 review finding: canon_log_facts includes every prior book
     in a series (query_facts includes book_num < current unconditionally).
@@ -333,6 +354,26 @@ def test_cap_canon_facts_current_chapter_num_none_falls_back_to_newest_first():
     kept_chapters = {_chapter_num_from_fact(f) for f in kept}
     assert 10 in kept_chapters
     assert 1 not in kept_chapters
+
+
+def test_cap_canon_facts_oldest_first_keeps_earliest_chapters():
+    """Issue #501: a whole-manuscript caller (continuity_brief) has no single
+    chapter to anchor on, so the newest-first fallback would systematically
+    drop the earliest, most foundational facts — exactly what late chapters
+    are most likely to accidentally contradict. oldest_first=True inverts
+    the within-group ranking so early chapters survive truncation instead."""
+    facts = [_fact(i) for i in range(1, 11)]
+    one_entry_size = len(json.dumps(facts[0])) + 1
+
+    kept, truncated, total = _cap_canon_facts(
+        facts, current_chapter_num=None, char_budget=one_entry_size * 5, oldest_first=True,
+    )
+
+    kept_chapters = {_chapter_num_from_fact(f) for f in kept}
+    assert 1 in kept_chapters
+    assert 10 not in kept_chapters
+    assert truncated is True
+    assert total == 10
 
 
 def test_cap_canon_facts_keeps_chapter_unattributed_facts():

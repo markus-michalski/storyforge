@@ -388,6 +388,7 @@ def _cap_canon_facts(
     current_book_num: int | None = None,
     current_chapter_num: int | None = None,
     char_budget: int | None = None,
+    oldest_first: bool = False,
 ) -> tuple[list[dict[str, Any]], bool, int]:
     """Bound canon_log_facts to a char budget, dropping low-priority facts first.
 
@@ -431,6 +432,18 @@ def _cap_canon_facts(
     above later ones for the reasons above. Pass None to skip (falls back to
     pure newest-chapter-first, e.g. if the chapter slug couldn't be parsed).
 
+    oldest_first inverts the within-group chapter ranking to earliest-chapter-
+    first instead of newest-chapter-first. Callers with a single "current
+    chapter" to protect against (``review_brief``, ``current_chapter_num``
+    set) want newest-first — that chapter can only be contradicted by facts
+    established at or before it, and among those the closest ones are most
+    relevant. A whole-manuscript caller with no such anchor (``continuity_brief``,
+    ``current_chapter_num=None``) has the opposite problem: falling back to
+    newest-first there would systematically keep only late-book facts and
+    truncate away the early, foundational canon (traits, geography, world
+    rules) that late chapters are most likely to accidentally contradict.
+    Pass True for that case. Has no effect on ``current_book_num`` ranking.
+
     On a 34-chapter book (Firelight), the unbounded fact list was 932 entries
     / 285K chars and blew the MCP tool output limit outright (Issue #500).
     This bounds that to a fixed ceiling and reports what happened via the
@@ -449,7 +462,8 @@ def _cap_canon_facts(
         is_current_book = current_book_num is None or fact.get("book_num") == current_book_num
         chapter = _chapter_num(fact)
         at_or_before_current = current_chapter_num is None or chapter <= current_chapter_num
-        return (is_current_book, at_or_before_current, chapter)
+        chapter_rank = -chapter if oldest_first else chapter
+        return (is_current_book, at_or_before_current, chapter_rank)
 
     priority = [
         f for f in facts

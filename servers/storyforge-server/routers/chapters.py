@@ -319,12 +319,21 @@ def get_continuity_brief(book_slug: str) -> str:
         book_slug: Book identifier.
 
     Returns JSON with:
-        canonical_calendar  — parsed plot/timeline.md events
-        travel_matrix       — parsed world/setting.md Travel Matrix rows
-        canon_log_facts     — parsed plot/canon-log.md Established Facts
-        character_index     — all character files as flat list
-        chapter_timelines   — all chapter timeline grids (any status)
-        errors              — partial failures (brief ships with degraded data)
+        book_slug            — echoes the book_slug argument
+        canonical_calendar   — parsed plot/timeline.md events
+        travel_matrix        — parsed world/setting.md Travel Matrix rows
+        canon_log_facts      — established facts from the canon DB (add_canon_fact),
+                                size-bounded (Issue #501) — see canon_log_facts_truncated
+                                below. Ranked earliest-chapter-first when capped, unlike
+                                get_review_brief's newest-first — this brief covers the
+                                whole manuscript, not one chapter under review
+        canon_log_facts_truncated — true if canon_log_facts was capped for size
+        canon_log_facts_total_count — untruncated fact count
+        character_index      — all character files as flat list
+        chapter_timelines    — all chapter timeline grids (any status)
+        character_snapshots  — latest per-character state from the character_snapshots
+                                DB table (Issue #281)
+        errors               — partial failures (brief ships with degraded data)
     """
     book_root = resolve_project_path(_app.load_config(), book_slug)
     if not book_root.is_dir():

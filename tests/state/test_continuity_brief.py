@@ -177,6 +177,9 @@ def test_get_all_chapter_timelines_empty_book(tmp_path):
 
 
 def test_build_continuity_brief_returns_all_expected_keys(tmp_path):
+    """Exact match, not a subset check — every key here must also be
+    documented in the get_continuity_brief router docstring (chapters.py);
+    a subset check would let a field silently disappear undetected."""
     book, slug = _make_book(tmp_path)
 
     result = build_continuity_brief(book_root=book, book_slug=slug)
@@ -186,11 +189,14 @@ def test_build_continuity_brief_returns_all_expected_keys(tmp_path):
         "canonical_calendar",
         "travel_matrix",
         "canon_log_facts",
+        "canon_log_facts_truncated",
+        "canon_log_facts_total_count",
         "character_index",
         "chapter_timelines",
+        "character_snapshots",
         "errors",
     }
-    assert expected_keys <= set(result.keys())
+    assert expected_keys == set(result.keys())
 
 
 def test_build_continuity_brief_no_errors_empty_book(tmp_path):
@@ -271,3 +277,196 @@ def test_build_continuity_brief_missing_optional_files_graceful(tmp_path):
     assert result["travel_matrix"] == []
     assert result["canon_log_facts"] == []
     assert result["errors"] == []
+
+
+# ---------------------------------------------------------------------------
+# canon_log_facts size cap (Issue #501, follow-up to #500)
+# ---------------------------------------------------------------------------
+
+
+def test_build_continuity_brief_canon_log_facts_not_truncated_under_budget(tmp_path, monkeypatch):
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    insert_fact(conn, book_num=1, chapter_num=1, subject="Marcus",
+                fact="Marcus is a vampire", domain="Character Facts")
+    conn.close()
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["canon_log_facts_truncated"] is False
+    assert result["canon_log_facts_total_count"] == 1
+
+
+def test_build_continuity_brief_uses_half_of_review_brief_budget(tmp_path, monkeypatch):
+    """Issue #501 review finding: the halving relationship
+    (continuity_brief._CANON_FACTS_BUDGET_DIVISOR applied to
+    review_brief._CANON_FACTS_CHAR_BUDGET) had no test pinning it — every
+    prior truncation test used a budget small enough to truncate regardless
+    of whether continuity_brief used the full or the halved budget, so a
+    regression dropping the division back to the full budget would slip
+    through unnoticed. This test sizes N facts to fit under review_brief's
+    FULL budget but not under HALF of it, so it only passes if
+    build_continuity_brief actually applies the halved budget."""
+    import json
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+    import tools.state.review_brief as review_brief_module
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+
+    sample = {
+        "fact": "Fact established in chapter 1", "subject": "subject-1",
+        "established_in": "Ch 1", "status": "ACTIVE", "notes": "", "domain": "",
+        "book_num": 1,
+    }
+    entry_size = len(json.dumps(sample)) + 1
+    full_budget = review_brief_module._CANON_FACTS_CHAR_BUDGET
+    half_budget = full_budget // 2
+    # Enough facts to exceed HALF the budget, comfortably fewer than needed
+    # to exceed the FULL budget.
+    fact_count = (half_budget // entry_size) + 5
+    assert fact_count * entry_size <= full_budget, (
+        "test facts must still fit review_brief's FULL budget, or this test "
+        "can't distinguish 'used half' from 'used full'"
+    )
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    for i in range(1, fact_count + 1):
+        insert_fact(conn, book_num=1, chapter_num=i, subject=f"subject-{i}",
+                    fact=f"Fact established in chapter {i}", domain="")
+    conn.close()
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["canon_log_facts_truncated"] is True, (
+        "must truncate under HALF review_brief's budget even though all facts fit the FULL budget"
+    )
+
+
+def test_build_continuity_brief_ranks_current_book_above_prior_book_when_truncated(tmp_path, monkeypatch):
+    """Issue #501: build_continuity_brief must thread its own book_num into
+    _cap_canon_facts (via get_book_num(book_root)) — otherwise, under a tight
+    budget, an earlier book's facts in a series could starve out this book's
+    own canon. Regression guard for the get_book_num wiring specifically:
+    removing that wiring (passing current_book_num=None) leaves the rest of
+    the suite green, since none of the other tests use a multi-book series."""
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+    import tools.state.review_brief as review_brief_module
+
+    monkeypatch.setattr(review_brief_module, "_CANON_FACTS_CHAR_BUDGET", 400)
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+    (book / "README.md").write_text(
+        '---\ntitle: "Test Book"\nauthor: ""\nseries_number: 2\n---\n\n# Test Book\n',
+        encoding="utf-8",
+    )
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    for i in range(1, 11):
+        insert_fact(conn, book_num=1, chapter_num=i, subject=f"prior-book-{i}",
+                    fact=f"Prior book fact established in chapter {i}", domain="")
+    for i in range(1, 11):
+        insert_fact(conn, book_num=2, chapter_num=i, subject=f"this-book-{i}",
+                    fact=f"This book fact established in chapter {i}", domain="")
+    conn.close()
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    subjects = {f["subject"] for f in result["canon_log_facts"]}
+    assert any(s.startswith("this-book-") for s in subjects)
+    assert not any(s.startswith("prior-book-") for s in subjects), (
+        "current-book facts must be prioritized over an earlier book's facts under a tight budget"
+    )
+
+
+def test_build_continuity_brief_truncation_keeps_earliest_chapters_first(tmp_path, monkeypatch):
+    """Issue #501 review finding: a whole-manuscript caller has no single
+    'current chapter' to anchor on, so the newest-chapter-first fallback used
+    by review_brief would systematically drop the earliest, most foundational
+    facts under truncation — exactly what late chapters are most likely to
+    accidentally contradict. build_continuity_brief must pass oldest_first=True
+    so early chapters survive instead."""
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+    import tools.state.review_brief as review_brief_module
+
+    monkeypatch.setattr(review_brief_module, "_CANON_FACTS_CHAR_BUDGET", 400)
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    for i in range(1, 21):
+        insert_fact(conn, book_num=1, chapter_num=i, subject=f"subject-{i}",
+                    fact=f"Fact established in chapter {i}", domain="")
+    conn.close()
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["canon_log_facts_truncated"] is True
+    kept_chapters = {int(f["established_in"].split()[1]) for f in result["canon_log_facts"]}
+    assert 1 in kept_chapters
+    assert 20 not in kept_chapters
+
+
+def test_build_continuity_brief_truncates_when_over_budget(tmp_path, monkeypatch):
+    """Issue #501: continuity_brief must apply the same size-bounded
+    _cap_canon_facts truncation shipped for get_review_brief in #500 —
+    unbounded canon_log_facts (plus the all-chapter timelines this brief
+    also loads) is structurally guaranteed to blow the MCP tool output
+    limit on long books, same failure mode as #500's 330K-char Firelight
+    brief. No domain filtering (e.g. dropping domain="timeline") — that
+    domain is a documented first-class canon domain, not noise."""
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+    import tools.state.review_brief as review_brief_module
+
+    monkeypatch.setattr(review_brief_module, "_CANON_FACTS_CHAR_BUDGET", 200)
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    for i in range(20):
+        insert_fact(conn, book_num=1, chapter_num=i + 1, subject=f"subject-{i}",
+                    fact=f"Fact number {i} established in this chapter", domain="timeline")
+    conn.close()
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["canon_log_facts_truncated"] is True
+    assert result["canon_log_facts_total_count"] == 20
+    assert len(result["canon_log_facts"]) < 20
