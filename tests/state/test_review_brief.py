@@ -567,9 +567,9 @@ def test_build_review_brief_truncates_when_over_budget(tmp_path, monkeypatch):
     import tools.db.connection as _db_conn
     from tools.db.canon_facts import insert_fact
     from tools.db.connection import get_db_slug_for_book, open_canon_db
-    import tools.state.review_brief as review_brief_module
+    import tools.state.brief_common as brief_common_module
 
-    monkeypatch.setattr(review_brief_module, "_CANON_FACTS_CHAR_BUDGET", 200)
+    monkeypatch.setattr(brief_common_module, "CANON_FACTS_CHAR_BUDGET", 200)
 
     db_dir = tmp_path / "db"
     db_dir.mkdir()
@@ -600,9 +600,9 @@ def test_build_review_brief_prioritizes_facts_at_or_before_reviewed_chapter(tmp_
     import tools.db.connection as _db_conn
     from tools.db.canon_facts import insert_fact
     from tools.db.connection import get_db_slug_for_book, open_canon_db
-    import tools.state.review_brief as review_brief_module
+    import tools.state.brief_common as brief_common_module
 
-    monkeypatch.setattr(review_brief_module, "_CANON_FACTS_CHAR_BUDGET", 500)
+    monkeypatch.setattr(brief_common_module, "CANON_FACTS_CHAR_BUDGET", 500)
 
     db_dir = tmp_path / "db"
     db_dir.mkdir()

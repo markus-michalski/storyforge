@@ -187,12 +187,16 @@ def test_build_continuity_brief_returns_all_expected_keys(tmp_path):
     expected_keys = {
         "book_slug",
         "canonical_calendar",
+        "canonical_calendar_truncated",
+        "canonical_calendar_total_count",
         "travel_matrix",
         "canon_log_facts",
         "canon_log_facts_truncated",
         "canon_log_facts_total_count",
         "character_index",
         "chapter_timelines",
+        "chapter_timelines_truncated",
+        "chapter_timelines_total_count",
         "character_snapshots",
         "errors",
     }
@@ -307,21 +311,23 @@ def test_build_continuity_brief_canon_log_facts_not_truncated_under_budget(tmp_p
     assert result["canon_log_facts_total_count"] == 1
 
 
-def test_build_continuity_brief_uses_half_of_review_brief_budget(tmp_path, monkeypatch):
-    """Issue #501 review finding: the halving relationship
+def test_build_continuity_brief_uses_quarter_of_review_brief_budget(tmp_path, monkeypatch):
+    """Issue #501 review finding (originally 'half', tightened to a quarter
+    by #504 review finding F2 — see _CANON_FACTS_BUDGET_DIVISOR's comment in
+    continuity_brief.py): the division relationship
     (continuity_brief._CANON_FACTS_BUDGET_DIVISOR applied to
-    review_brief._CANON_FACTS_CHAR_BUDGET) had no test pinning it — every
-    prior truncation test used a budget small enough to truncate regardless
-    of whether continuity_brief used the full or the halved budget, so a
-    regression dropping the division back to the full budget would slip
-    through unnoticed. This test sizes N facts to fit under review_brief's
-    FULL budget but not under HALF of it, so it only passes if
-    build_continuity_brief actually applies the halved budget."""
+    brief_common.CANON_FACTS_CHAR_BUDGET) had no test pinning it — every
+    other truncation test used a budget small enough to truncate regardless
+    of whether continuity_brief used the full or the divided budget, so a
+    regression loosening the division back toward the full budget would
+    slip through unnoticed. This test sizes N facts to fit under
+    review_brief's FULL budget but not under a QUARTER of it, so it only
+    passes if build_continuity_brief actually applies the quartered budget."""
     import json
     import tools.db.connection as _db_conn
     from tools.db.canon_facts import insert_fact
     from tools.db.connection import get_db_slug_for_book, open_canon_db
-    import tools.state.review_brief as review_brief_module
+    import tools.state.brief_common as brief_common_module
 
     db_dir = tmp_path / "db"
     db_dir.mkdir()
@@ -335,14 +341,14 @@ def test_build_continuity_brief_uses_half_of_review_brief_budget(tmp_path, monke
         "book_num": 1,
     }
     entry_size = len(json.dumps(sample)) + 1
-    full_budget = review_brief_module._CANON_FACTS_CHAR_BUDGET
-    half_budget = full_budget // 2
-    # Enough facts to exceed HALF the budget, comfortably fewer than needed
-    # to exceed the FULL budget.
-    fact_count = (half_budget // entry_size) + 5
+    full_budget = brief_common_module.CANON_FACTS_CHAR_BUDGET
+    quarter_budget = full_budget // 4
+    # Enough facts to exceed a QUARTER of the budget, comfortably fewer than
+    # needed to exceed the FULL budget.
+    fact_count = (quarter_budget // entry_size) + 5
     assert fact_count * entry_size <= full_budget, (
         "test facts must still fit review_brief's FULL budget, or this test "
-        "can't distinguish 'used half' from 'used full'"
+        "can't distinguish 'used a quarter' from 'used full'"
     )
 
     db_slug = get_db_slug_for_book(book)
@@ -355,7 +361,7 @@ def test_build_continuity_brief_uses_half_of_review_brief_budget(tmp_path, monke
     result = build_continuity_brief(book_root=book, book_slug=slug)
 
     assert result["canon_log_facts_truncated"] is True, (
-        "must truncate under HALF review_brief's budget even though all facts fit the FULL budget"
+        "must truncate under a QUARTER of review_brief's budget even though all facts fit the FULL budget"
     )
 
 
@@ -369,9 +375,12 @@ def test_build_continuity_brief_ranks_current_book_above_prior_book_when_truncat
     import tools.db.connection as _db_conn
     from tools.db.canon_facts import insert_fact
     from tools.db.connection import get_db_slug_for_book, open_canon_db
-    import tools.state.review_brief as review_brief_module
+    import tools.state.brief_common as brief_common_module
 
-    monkeypatch.setattr(review_brief_module, "_CANON_FACTS_CHAR_BUDGET", 400)
+    # 800, not 400: continuity_brief's divisor is now 4 (Issue #504 review
+    # finding F2), not 2, so 800 // 4 = 200 per group — same effective
+    # per-group budget these tests originally relied on.
+    monkeypatch.setattr(brief_common_module, "CANON_FACTS_CHAR_BUDGET", 800)
 
     db_dir = tmp_path / "db"
     db_dir.mkdir()
@@ -412,9 +421,12 @@ def test_build_continuity_brief_truncation_keeps_earliest_chapters_first(tmp_pat
     import tools.db.connection as _db_conn
     from tools.db.canon_facts import insert_fact
     from tools.db.connection import get_db_slug_for_book, open_canon_db
-    import tools.state.review_brief as review_brief_module
+    import tools.state.brief_common as brief_common_module
 
-    monkeypatch.setattr(review_brief_module, "_CANON_FACTS_CHAR_BUDGET", 400)
+    # 800, not 400: continuity_brief's divisor is now 4 (Issue #504 review
+    # finding F2), not 2, so 800 // 4 = 200 per group — same effective
+    # per-group budget these tests originally relied on.
+    monkeypatch.setattr(brief_common_module, "CANON_FACTS_CHAR_BUDGET", 800)
 
     db_dir = tmp_path / "db"
     db_dir.mkdir()
@@ -448,9 +460,9 @@ def test_build_continuity_brief_truncates_when_over_budget(tmp_path, monkeypatch
     import tools.db.connection as _db_conn
     from tools.db.canon_facts import insert_fact
     from tools.db.connection import get_db_slug_for_book, open_canon_db
-    import tools.state.review_brief as review_brief_module
+    import tools.state.brief_common as brief_common_module
 
-    monkeypatch.setattr(review_brief_module, "_CANON_FACTS_CHAR_BUDGET", 200)
+    monkeypatch.setattr(brief_common_module, "CANON_FACTS_CHAR_BUDGET", 200)
 
     db_dir = tmp_path / "db"
     db_dir.mkdir()
@@ -470,3 +482,290 @@ def test_build_continuity_brief_truncates_when_over_budget(tmp_path, monkeypatch
     assert result["canon_log_facts_truncated"] is True
     assert result["canon_log_facts_total_count"] == 20
     assert len(result["canon_log_facts"]) < 20
+
+
+# ---------------------------------------------------------------------------
+# chapter_timelines size cap (Issue #504)
+# ---------------------------------------------------------------------------
+
+
+def test_build_continuity_brief_chapter_timelines_not_truncated_under_budget(tmp_path):
+    book, slug = _make_book(tmp_path)
+    _add_chapter(book, "01-opening", number=1)
+    _add_chapter(book, "02-conflict", number=2)
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["chapter_timelines_truncated"] is False
+    assert result["chapter_timelines_total_count"] == 2
+    assert len(result["chapter_timelines"]) == 2
+
+
+def test_build_continuity_brief_chapter_timelines_total_count_excludes_non_numbered_dirs(tmp_path):
+    """Issue #504 review finding (test-gap pass): chapter_timelines_total_count
+    is documented as 'chapters with a parseable timeline grid, NOT the total
+    chapter count' — a non-numbered chapters/ subdirectory (notes, appendix,
+    archived drafts, etc.) fails _CHAPTER_NUM_RE and is silently excluded
+    upstream by _get_all_chapter_timelines(), before total_count is even
+    computed. That claim had no test pinning it."""
+    book, slug = _make_book(tmp_path)
+    _add_chapter(book, "01-opening", number=1)
+    _add_chapter(book, "02-conflict", number=2)
+    (book / "chapters" / "notes").mkdir()
+    (book / "chapters" / "notes" / "README.md").write_text("# Notes\n", encoding="utf-8")
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["chapter_timelines_total_count"] == 2
+    assert len(result["chapter_timelines"]) == 2
+    assert result["chapter_timelines_truncated"] is False
+
+
+def test_build_continuity_brief_chapter_timelines_truncates_when_over_budget(tmp_path, monkeypatch):
+    """Issue #504: chapter_timelines was the field named as most likely to
+    grow with book length (one entry per chapter, unlike character_index/
+    character_snapshots which scale with the roughly-fixed cast size). This
+    reproduces that failure mode at test scale via a monkeypatched budget,
+    the same pattern #500/#501 used for canon_log_facts."""
+    import tools.state.continuity_brief as continuity_brief_module
+
+    monkeypatch.setattr(continuity_brief_module, "_CHAPTER_TIMELINES_CHAR_BUDGET", 300)
+
+    book, slug = _make_book(tmp_path)
+    for i in range(1, 21):
+        _add_chapter(book, f"{i:02d}-chapter", number=i)
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["chapter_timelines_truncated"] is True
+    assert result["chapter_timelines_total_count"] == 20
+    assert len(result["chapter_timelines"]) < 20
+
+
+def test_build_continuity_brief_chapter_timelines_truncation_keeps_earliest_chapters_first(
+    tmp_path, monkeypatch
+):
+    """Same 'protect foundational canon' rationale as canon_log_facts's
+    oldest_first=True: a whole-manuscript scan has no single 'current
+    chapter' to anchor a newest-first cap on, so truncation must keep the
+    earliest chapters, not the latest ones."""
+    import tools.state.continuity_brief as continuity_brief_module
+
+    monkeypatch.setattr(continuity_brief_module, "_CHAPTER_TIMELINES_CHAR_BUDGET", 300)
+
+    book, slug = _make_book(tmp_path)
+    for i in range(1, 21):
+        _add_chapter(book, f"{i:02d}-chapter", number=i)
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    kept_numbers = {c["number"] for c in result["chapter_timelines"]}
+    assert 1 in kept_numbers
+    assert 20 not in kept_numbers
+
+
+# ---------------------------------------------------------------------------
+# Total assembled-brief size ceiling (Issue #504)
+# ---------------------------------------------------------------------------
+
+
+def test_build_continuity_brief_total_wire_size_stays_under_ceiling(tmp_path, monkeypatch):
+    """Issue #504 (review finding F2 — budgets originally didn't sum to a safe
+    total, this fixture now stress-tests all three capped fields at once, not
+    just canon_log_facts + chapter_timelines): no single field's cap
+    guarantees the ASSEMBLED brief stays small — this pins the combined
+    total. Ceiling is set comfortably above the worst-case combined budgets
+    (2x canon_log_facts's quartered budget + chapter_timelines's budget +
+    canonical_calendar's budget + the small uncapped fields — see
+    _CANON_FACTS_BUDGET_DIVISOR's comment in continuity_brief.py for the
+    full math) but far below the 330K-char failure #500 hit on an unbounded
+    get_review_brief, so a regression that drops a cap (or loosens a budget
+    far past its current value) gets caught here even though no individual
+    field test would."""
+    import json
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+    for i in range(1, 51):
+        _add_chapter(book, f"{i:02d}-chapter", number=i)
+    for i in range(1, 11):
+        _add_character(book, f"character-{i}", name=f"Character {i}")
+    _write_timeline_md(book, 200)
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    for i in range(500):
+        insert_fact(
+            conn, book_num=1, chapter_num=(i % 50) + 1, subject=f"subject-{i}",
+            fact=f"Fact number {i} established in this chapter, with some extra "
+                 f"descriptive detail to approximate a real canon-log entry.",
+            domain="timeline",
+        )
+    conn.close()
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    # Ceiling is deliberately tight, not just "well below #500's 330K-char
+    # failure": with all three caps active (canon_log_facts, chapter_timelines,
+    # AND canonical_calendar all stress-tested by this fixture) this measures
+    # ~27K chars; with all three caps disabled it measures ~157K (verified by
+    # temporarily patching all three budgets to a no-op value during test
+    # development). A loose ceiling would stay green in that broken state and
+    # not actually catch the regression it claims to. 45K — matching this
+    # repo's own precedent for the sibling get_canon_brief tool
+    # (tests/state/test_canon_brief.py's <45_000 assertion, itself set against
+    # the real ~50K MCP output limit) — sits with ~1.65x headroom above the
+    # capped case (no flake risk) and far below the uncapped case.
+    total_size = len(json.dumps(result))
+    assert total_size < 45_000, (
+        f"assembled continuity brief is {total_size} chars — a cap likely "
+        "regressed (compare against #500's 330K-char unbounded failure)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# canonical_calendar size cap (Issue #504)
+# ---------------------------------------------------------------------------
+
+
+def _write_timeline_md(book: Path, num_events: int) -> None:
+    plot_dir = book / "plot"
+    plot_dir.mkdir(exist_ok=True)
+    rows = "\n".join(
+        f"| Day {i} | Dec {(i % 28) + 1}, 2025 | Thursday | {i:02d}-chapter | Home | "
+        f"Event {i} happens | Theo |"
+        for i in range(1, num_events + 1)
+    )
+    body = (
+        "# Story Timeline\n\n"
+        "## Anchor Point\n\n"
+        "| Story Start | Real Date | Day of Week | Notes |\n"
+        "|---|---|---|---|\n"
+        "| Day 1 | Dec 25, 2025 | Thursday | Story begins here |\n\n"
+        "## Event Calendar\n\n"
+        "| Story Day | Real Date | Day of Week | Chapter | Location | Key Events | Characters |\n"
+        "|---|---|---|---|---|---|---|\n"
+        f"{rows}\n"
+    )
+    (plot_dir / "timeline.md").write_text(body, encoding="utf-8")
+
+
+def test_build_continuity_brief_canonical_calendar_not_truncated_under_budget(tmp_path):
+    book, slug = _make_book(tmp_path)
+    _write_timeline_md(book, 2)
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["canonical_calendar_truncated"] is False
+    assert result["canonical_calendar_total_count"] == 2
+    assert len(result["canonical_calendar"]) == 2
+
+
+def test_build_continuity_brief_canonical_calendar_truncates_when_over_budget(tmp_path, monkeypatch):
+    """Issue #504: canonical_calendar was found during review to scale with
+    book length the same way chapter_timelines does (one entry per story-day
+    with free-text key_events) — this reproduces truncation at test scale."""
+    import tools.state.continuity_brief as continuity_brief_module
+
+    monkeypatch.setattr(continuity_brief_module, "_CANONICAL_CALENDAR_CHAR_BUDGET", 300)
+
+    book, slug = _make_book(tmp_path)
+    _write_timeline_md(book, 20)
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["canonical_calendar_truncated"] is True
+    assert result["canonical_calendar_total_count"] == 20
+    assert len(result["canonical_calendar"]) < 20
+
+
+def test_build_continuity_brief_canonical_calendar_truncation_keeps_earliest_days_first(
+    tmp_path, monkeypatch
+):
+    import tools.state.continuity_brief as continuity_brief_module
+
+    monkeypatch.setattr(continuity_brief_module, "_CANONICAL_CALENDAR_CHAR_BUDGET", 300)
+
+    book, slug = _make_book(tmp_path)
+    _write_timeline_md(book, 20)
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    kept_days = {e["story_day"] for e in result["canonical_calendar"]}
+    assert 1 in kept_days
+    assert 20 not in kept_days
+
+
+# ---------------------------------------------------------------------------
+# Size-cap error-fallback safety (Issue #504 review finding L-3)
+# ---------------------------------------------------------------------------
+
+
+def test_build_continuity_brief_chapter_timelines_cap_failure_falls_back_to_empty_truncated(
+    tmp_path, monkeypatch
+):
+    """The ([], True) fallback in the chapter_timelines_cap recorder.run() call
+    is the line that prevents a failure in the cap itself from reintroducing
+    an unbounded payload — same safety property canon_log_facts_cap already
+    has. Verify it actually engages on a real exception, not just in theory."""
+    import tools.state.continuity_brief as continuity_brief_module
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("simulated cap_group failure")
+
+    monkeypatch.setattr(continuity_brief_module, "_cap_group", _boom)
+
+    book, slug = _make_book(tmp_path)
+    _add_chapter(book, "01-opening", number=1)
+    _add_chapter(book, "02-conflict", number=2)
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["chapter_timelines"] == []
+    assert result["chapter_timelines_truncated"] is True
+    assert result["chapter_timelines_total_count"] == 2
+    assert any(e["component"] == "chapter_timelines_cap" for e in result["errors"])
+
+
+def test_build_continuity_brief_canon_log_facts_cap_failure_falls_back_to_empty_truncated(
+    tmp_path, monkeypatch
+):
+    """Symmetric to the chapter_timelines_cap test above — canon_log_facts_cap
+    uses the identical recorder.run(..., ([], True, len(raw))) fail-safe
+    pattern; verify it too actually engages on a real exception."""
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+    import tools.state.continuity_brief as continuity_brief_module
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("simulated cap_canon_facts failure")
+
+    monkeypatch.setattr(continuity_brief_module, "_cap_canon_facts", _boom)
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    insert_fact(conn, book_num=1, chapter_num=1, subject="Marcus",
+                fact="Marcus is a vampire", domain="Character Facts")
+    insert_fact(conn, book_num=1, chapter_num=2, subject="Lena",
+                fact="Lena is a witch", domain="Character Facts")
+    conn.close()
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["canon_log_facts"] == []
+    assert result["canon_log_facts_truncated"] is True
+    assert result["canon_log_facts_total_count"] == 2
+    assert any(e["component"] == "canon_log_facts_cap" for e in result["errors"])

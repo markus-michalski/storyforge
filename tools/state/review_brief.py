@@ -12,9 +12,7 @@ Design follows ``chapter_writing_brief.py`` (Issue #78):
 
 from __future__ import annotations
 
-import json
 import re
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +25,7 @@ from tools.db.brief_helpers import (
 )
 from tools.db.connection import get_book_num
 from tools.shared.paths import resolve_people_dir
+from tools.state.brief_common import Recorder as _Recorder, cap_canon_facts as _cap_canon_facts
 from tools.state.chapter_timeline_parser import parse_chapter_timeline_grid
 from tools.state.loaders.chapter_meta import load_book_category
 from tools.state.loaders.people import (
@@ -34,30 +33,6 @@ from tools.state.loaders.people import (
     person_payload,
     scan_for_named_characters,
 )
-
-
-# ---------------------------------------------------------------------------
-# Error recorder (mirrors chapter_writing_brief._Recorder)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class _Recorder:
-    """Collects sub-tool errors so the brief can ship with partial data."""
-
-    errors: list[dict[str, str]]
-
-    def run(self, component: str, fn, default):
-        try:
-            return fn()
-        except Exception as exc:  # pylint: disable=broad-except
-            self.errors.append(
-                {
-                    "component": component,
-                    "error": f"{type(exc).__name__}: {exc}",
-                }
-            )
-            return default
 
 
 # ---------------------------------------------------------------------------
@@ -349,140 +324,11 @@ def _find_previous_chapter_dir(book_root: Path, chapter_slug: str) -> Path | Non
 
 
 # ---------------------------------------------------------------------------
-# Canon-facts size cap (Issue #500)
+# Canon-facts size cap (Issue #500, #501) — moved to brief_common.py (#505).
+# Recorder/cap_canon_facts re-imported above under their old private aliases
+# for this module's own use; the rest of that module's API is not aliased
+# here — import from tools.state.brief_common directly if you need it.
 # ---------------------------------------------------------------------------
-
-_CANON_FACTS_CHAR_BUDGET = 40_000  # applied independently to two groups (priority + rest) — worst case ~2x
-_ESTABLISHED_IN_NUM_RE = re.compile(r"\d+")
-
-
-def _chapter_num(fact: dict[str, Any]) -> int:
-    m = _ESTABLISHED_IN_NUM_RE.search(fact.get("established_in", "") or "")
-    return int(m.group()) if m else 0
-
-
-def _cap_group(
-    items_sorted: list[dict[str, Any]],
-    char_budget: int,
-) -> tuple[list[dict[str, Any]], bool]:
-    """Keep items (already priority-sorted) up to char_budget wire-size chars.
-
-    Measures with default json.dumps (ensure_ascii=True) — the same encoding
-    the MCP router uses to serialize the response — so the budget reflects
-    actual wire size rather than undercounting non-ASCII text (Issue #500).
-    """
-    kept: list[dict[str, Any]] = []
-    used = 0
-    for item in items_sorted:
-        entry_size = len(json.dumps(item)) + 1
-        if used + entry_size > char_budget:
-            return kept, True
-        kept.append(item)
-        used += entry_size
-    return kept, False
-
-
-def _cap_canon_facts(
-    facts: list[dict[str, Any]],
-    *,
-    current_book_num: int | None = None,
-    current_chapter_num: int | None = None,
-    char_budget: int | None = None,
-    oldest_first: bool = False,
-) -> tuple[list[dict[str, Any]], bool, int]:
-    """Bound canon_log_facts to a char budget, dropping low-priority facts first.
-
-    char_budget defaults to the module-level ``_CANON_FACTS_CHAR_BUDGET``,
-    read at call time (not bound as a parameter default) so tests can
-    monkeypatch the module constant directly.
-
-    Unlike domain filtering, this never assumes an entire category of fact is
-    safe to drop — it prioritizes instead:
-
-    1. CHANGED-status facts and chapter-unattributed facts (``chapter_num=0``,
-       heuristically migrated — ``tools/state/loaders/canon_brief.py`` treats
-       these as "always in scope", mirrored here) get first claim on the
-       budget.
-    2. Everything else (ACTIVE facts with a known chapter) fills the
-       remaining budget.
-
-    Both groups are capped against their OWN char_budget independently — a
-    firm ceiling of roughly 2x char_budget total, rather than letting group 1
-    alone (e.g. a book with thousands of revisions) grow unbounded while
-    ``truncated`` misreports ``False`` because nothing in group 2 had to be
-    dropped.
-
-    Within each group, facts are ranked current-book-first, then facts
-    established at or before the chapter under review, then newest-chapter-
-    first. The middle tier matters: a reviewer checking chapter 5 can only be
-    contradicted by facts from chapters 1-5, not by facts established later
-    in the book — ranking purely by "newest chapter" would show chapter 5's
-    reviewer the least relevant facts (chapters near the end) first and
-    silently truncate away the ones it could actually conflict with.
-
-    current_book_num, when given, ranks facts from THIS book above facts
-    inherited from earlier books in a series — ``canon_log_facts`` includes
-    the whole series' history (query_facts includes all book_num < current),
-    and ranking by chapter_num alone is book-blind: chapter 34 of book 1
-    would outrank chapter 2 of the book actually being reviewed, starving it
-    of its own canon under a tight budget. Pass None to skip this ranking
-    (e.g. for a standalone book with no series context).
-
-    current_chapter_num, when given, ranks at-or-before-this-chapter facts
-    above later ones for the reasons above. Pass None to skip (falls back to
-    pure newest-chapter-first, e.g. if the chapter slug couldn't be parsed).
-
-    oldest_first inverts the within-group chapter ranking to earliest-chapter-
-    first instead of newest-chapter-first. Callers with a single "current
-    chapter" to protect against (``review_brief``, ``current_chapter_num``
-    set) want newest-first — that chapter can only be contradicted by facts
-    established at or before it, and among those the closest ones are most
-    relevant. A whole-manuscript caller with no such anchor (``continuity_brief``,
-    ``current_chapter_num=None``) has the opposite problem: falling back to
-    newest-first there would systematically keep only late-book facts and
-    truncate away the early, foundational canon (traits, geography, world
-    rules) that late chapters are most likely to accidentally contradict.
-    Pass True for that case. Has no effect on ``current_book_num`` ranking.
-
-    On a 34-chapter book (Firelight), the unbounded fact list was 932 entries
-    / 285K chars and blew the MCP tool output limit outright (Issue #500).
-    This bounds that to a fixed ceiling and reports what happened via the
-    returned ``truncated`` flag, instead of silently degrading.
-
-    Returns (capped_facts, truncated, total_count).
-    """
-    if char_budget is None:
-        char_budget = _CANON_FACTS_CHAR_BUDGET
-
-    total_count = len(facts)
-    if not facts:
-        return [], False, total_count
-
-    def _sort_key(fact: dict[str, Any]) -> tuple[bool, bool, int]:
-        is_current_book = current_book_num is None or fact.get("book_num") == current_book_num
-        chapter = _chapter_num(fact)
-        at_or_before_current = current_chapter_num is None or chapter <= current_chapter_num
-        chapter_rank = -chapter if oldest_first else chapter
-        return (is_current_book, at_or_before_current, chapter_rank)
-
-    priority = [
-        f for f in facts
-        if f.get("status") == "CHANGED" or _chapter_num(f) == 0
-    ]
-    rest = [
-        f for f in facts
-        if f.get("status") != "CHANGED" and _chapter_num(f) != 0
-    ]
-
-    priority_sorted = sorted(priority, key=_sort_key, reverse=True)
-    rest_sorted = sorted(rest, key=_sort_key, reverse=True)
-
-    kept_priority, priority_truncated = _cap_group(priority_sorted, char_budget)
-    kept_rest, rest_truncated = _cap_group(rest_sorted, char_budget)
-
-    kept = kept_priority + kept_rest
-    truncated = priority_truncated or rest_truncated or len(kept) < total_count
-    return kept, truncated, total_count
 
 
 # ---------------------------------------------------------------------------
@@ -518,7 +364,7 @@ def build_review_brief(
         canon_log_facts         — established facts from the canon DB (add_canon_fact);
                                    populated for both categories, not fiction-only —
                                    memoir chapters also record facts there. Bounded to
-                                   roughly 2x ``_CANON_FACTS_CHAR_BUDGET`` chars (Issue
+                                   roughly 2x ``brief_common.CANON_FACTS_CHAR_BUDGET`` chars (Issue
                                    #500): CHANGED and chapter-unattributed facts get
                                    priority, everything else fills the remaining budget,
                                    current-book facts ranked above facts inherited from
