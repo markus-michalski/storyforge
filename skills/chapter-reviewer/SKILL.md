@@ -32,7 +32,10 @@ This returns:
 - `previous_chapter_timeline` — same for the preceding chapter
 - `canonical_timeline_entries` — parsed `plot/timeline.md` events
 - `travel_matrix` — parsed `world/setting.md` Travel Matrix rows
-- `canon_log_facts` — canon facts from DB (Issue #297; `plot/canon-log.md` no longer read by `get_review_brief`)
+- `canon_log_facts` — canon facts from DB (Issue #297; `plot/canon-log.md` no longer read by `get_review_brief`), size-capped (Issue #500). CHANGED and chapter-unattributed facts get priority over other facts, but are still subject to the cap — not unconditionally guaranteed. Within each priority tier, facts from this book rank above facts inherited from an earlier book in the series, and facts established at or before the chapter under review rank above later ones. Never filtered by `domain` — `timeline` is a documented first-class fact domain, not noise.
+- `canon_log_facts_truncated` — `true` if `canon_log_facts` was capped for size (Issue #500).
+- `canon_log_facts_total_count` — the untruncated fact count; compare against `len(canon_log_facts)` to know how much was dropped.
+- `changed_facts` — revision entries from DB for THIS book, each with `old`, `new`, `chapter`, `revision_impact` (list of chapter slugs the change affects). Feeds check 19 below (Issue #500).
 - `tonal_rules` — non-negotiable rules, litmus test, banned patterns from `plot/tone.md`
 - `active_rules` — book_rules DB (rule_type: rule) with severity
 - `active_callbacks` — book_rules DB (rule_type: callback)
@@ -41,6 +44,8 @@ This returns:
 Honor every populated field. Empty lists / null means "file missing — degrade gracefully."
 
 When a field is empty **because of a missing file** (i.e. its source file is named in `errors`), the corresponding Continuity/Timeline report line must say so explicitly (e.g. `"not available — plot/timeline.md missing"`) rather than reporting a bare `0`. A bare `0` implies the check ran and found nothing wrong; for a missing file no check ran at all, and conflating the two misleads the author into trusting an unverified area of the chapter.
+
+When `canon_log_facts_truncated` is `true`, the Continuity Report's canon-conflicts line must say so explicitly (e.g. `"checked N of M established facts (oldest M-N chapters' worth truncated for size) — 0 conflicts found"`) rather than reporting a bare count that implies every fact was checked.
 
 ### Step 2 — Load author and craft context
 
@@ -128,7 +133,7 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 16. **Canon consistency** — Does the chapter contradict any fact in the Canon Log? Pay special attention to `CHANGED` facts.
 17. **Timeline accuracy** — Do day/date references match `plot/timeline.md`?
 18. **Travel consistency** — Do distances/travel times match the Travel Matrix?
-19. **Stale references** — Does this chapter's slug appear in the `revision_impact` list of any entry in `canon_brief.changed_facts` (from DB)? If so, verify the chapter uses the NEW version of every changed fact.
+19. **Stale references** — Does this chapter's slug appear in the `revision_impact` list of any entry in `changed_facts` (from the review brief, Step 1)? If so, verify the chapter uses the NEW version of every changed fact.
 20. **Character facts** — Do character descriptions/behaviors match established facts?
 20a. **POV knowledge boundary** — Does the narration attribute domain knowledge the POV character's profile says they don't have? Three remediation options: (a) move into dialog, (b) reframe as lay observation, (c) cut.
 

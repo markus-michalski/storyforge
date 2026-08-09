@@ -34,7 +34,10 @@ Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
 - `previous_chapter_timeline` — same for the preceding chapter
 - `canonical_timeline_entries` — parsed `plot/timeline.md` events (real chronology — errors here are factual errors, not just continuity problems)
 - `travel_matrix` — empty for memoir; do not use
-- `canon_log_facts` — empty for memoir; use `people-log` instead
+- `canon_log_facts` — same DB-backed source as fiction (Issue #297); populated whenever `add_canon_fact()` has been called for this book, including people facts recorded per `chapter-writer-memoir` Step 9. `plot/people-log.md` is a legacy archive, not the source of truth. Size-capped (Issue #500) — see `canon_log_facts_truncated`/`canon_log_facts_total_count` below.
+- `canon_log_facts_truncated` — `true` if `canon_log_facts` was capped for size (Issue #500).
+- `canon_log_facts_total_count` — the untruncated fact count.
+- `changed_facts` — revision entries from DB for THIS book only, each with `old`, `new`, `chapter`, `revision_impact` (list of chapter slugs the change affects). This is the source for check 19 below (Issue #500) — `get_canon_brief()`'s own `changed_facts` is NOT book-scoped and can false-match a same-named chapter slug in a different book of the series.
 - `consent_status_warnings` — people with non-approved consent status
 - `tonal_rules` — non-negotiable rules, litmus test, banned patterns from `plot/tone.md`
 - `active_rules` — book_rules DB (rule_type: rule) with severity
@@ -47,7 +50,7 @@ plot/timeline.md missing"`) rather than reporting a bare `0`. A bare `0` implies
 found nothing wrong; for a missing file no check ran at all, and conflating the two misleads the
 author into trusting an unverified area of the chapter.
 
-People facts are read from DB via `canon_brief` (Issue #297). `plot/people-log.md` is a legacy archive — use `get_canon_brief(book_slug, chapter_slug)` for the authoritative DB-backed fact list. Run `scripts/migrate_canon_log_to_db.py` on books whose people-log was not yet migrated.
+People facts are read from DB (Issue #297); `plot/people-log.md` is a legacy archive, not the source of truth. Checks 16 and 19 below use `canon_log_facts`/`changed_facts` from this brief (book-scoped, size-capped). Only call the standalone `get_canon_brief(book_slug, chapter_slug)` if you need `pov_relevant_facts` filtered to a specific POV character — that data isn't in this brief. Run `scripts/migrate_canon_log_to_db.py` on books whose people-log was not yet migrated.
 
 ### Step 1b — Consent Gate
 
@@ -140,10 +143,10 @@ If this is Chapter 1, run this checklist BEFORE the standard review. Rate each p
 
 ### Continuity (5 points + 1 sub-point) — memoir mode
 
-16. **People fact consistency** — Does the chapter contradict any established fact in `canon_brief.current_facts` (DB)? Pay special attention to descriptions, relationships, or events recorded in earlier chapters.
+16. **People fact consistency** — Does the chapter contradict any established fact in `canon_log_facts` (from the review brief, Step 1)? Pay special attention to descriptions, relationships, or events recorded in earlier chapters, and to `CHANGED`-status entries. If `canon_log_facts_truncated` is true, say so explicitly in the report rather than reporting a bare conflict count.
 17. **Timeline accuracy** — Do date/year references match `plot/timeline.md`? In memoir this is real chronology — an error is not just a continuity problem, it's a factual error.
 18. **Real-world plausibility** — Do stated distances or travel times match real-world geography? (No Travel Matrix — use common sense. Flag implausible claims as WARNING.)
-19. **Stale references** — Does this chapter's slug appear in the `revision_impact` list of any entry in `canon_brief.changed_facts` (DB)? Verify the chapter uses the updated version of every changed fact.
+19. **Stale references** — Does this chapter's slug appear in the `revision_impact` list of any entry in `changed_facts` (from the review brief, Step 1)? Verify the chapter uses the updated version of every changed fact.
 20. **Person facts** — Do descriptions and behaviors of named people match what was established in earlier chapters and the people-log?
 20a. **Dialog reconstruction honesty** — Is reconstructed dialog presented with appropriate epistemic humility? Does the chapter claim verbatim precision for conversations that happened years or decades ago? Flag any dialog rendered as if perfectly remembered without qualifying framing.
 

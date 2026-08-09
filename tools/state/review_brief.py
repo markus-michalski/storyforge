@@ -12,6 +12,7 @@ Design follows ``chapter_writing_brief.py`` (Issue #78):
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,8 +22,10 @@ from tools.analysis.timeline_validator import parse_plot_timeline
 from tools.db.brief_helpers import (
     load_callbacks_for_brief,
     load_canon_facts_for_brief,
+    load_changed_facts_for_brief,
     load_rules_for_brief,
 )
+from tools.db.connection import get_book_num
 from tools.shared.paths import resolve_people_dir
 from tools.state.chapter_timeline_parser import parse_chapter_timeline_grid
 from tools.state.loaders.chapter_meta import load_book_category
@@ -346,6 +349,129 @@ def _find_previous_chapter_dir(book_root: Path, chapter_slug: str) -> Path | Non
 
 
 # ---------------------------------------------------------------------------
+# Canon-facts size cap (Issue #500)
+# ---------------------------------------------------------------------------
+
+_CANON_FACTS_CHAR_BUDGET = 40_000  # applied independently to two groups (priority + rest) — worst case ~2x
+_ESTABLISHED_IN_NUM_RE = re.compile(r"\d+")
+
+
+def _chapter_num(fact: dict[str, Any]) -> int:
+    m = _ESTABLISHED_IN_NUM_RE.search(fact.get("established_in", "") or "")
+    return int(m.group()) if m else 0
+
+
+def _cap_group(
+    items_sorted: list[dict[str, Any]],
+    char_budget: int,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Keep items (already priority-sorted) up to char_budget wire-size chars.
+
+    Measures with default json.dumps (ensure_ascii=True) — the same encoding
+    the MCP router uses to serialize the response — so the budget reflects
+    actual wire size rather than undercounting non-ASCII text (Issue #500).
+    """
+    kept: list[dict[str, Any]] = []
+    used = 0
+    for item in items_sorted:
+        entry_size = len(json.dumps(item)) + 1
+        if used + entry_size > char_budget:
+            return kept, True
+        kept.append(item)
+        used += entry_size
+    return kept, False
+
+
+def _cap_canon_facts(
+    facts: list[dict[str, Any]],
+    *,
+    current_book_num: int | None = None,
+    current_chapter_num: int | None = None,
+    char_budget: int | None = None,
+) -> tuple[list[dict[str, Any]], bool, int]:
+    """Bound canon_log_facts to a char budget, dropping low-priority facts first.
+
+    char_budget defaults to the module-level ``_CANON_FACTS_CHAR_BUDGET``,
+    read at call time (not bound as a parameter default) so tests can
+    monkeypatch the module constant directly.
+
+    Unlike domain filtering, this never assumes an entire category of fact is
+    safe to drop — it prioritizes instead:
+
+    1. CHANGED-status facts and chapter-unattributed facts (``chapter_num=0``,
+       heuristically migrated — ``tools/state/loaders/canon_brief.py`` treats
+       these as "always in scope", mirrored here) get first claim on the
+       budget.
+    2. Everything else (ACTIVE facts with a known chapter) fills the
+       remaining budget.
+
+    Both groups are capped against their OWN char_budget independently — a
+    firm ceiling of roughly 2x char_budget total, rather than letting group 1
+    alone (e.g. a book with thousands of revisions) grow unbounded while
+    ``truncated`` misreports ``False`` because nothing in group 2 had to be
+    dropped.
+
+    Within each group, facts are ranked current-book-first, then facts
+    established at or before the chapter under review, then newest-chapter-
+    first. The middle tier matters: a reviewer checking chapter 5 can only be
+    contradicted by facts from chapters 1-5, not by facts established later
+    in the book — ranking purely by "newest chapter" would show chapter 5's
+    reviewer the least relevant facts (chapters near the end) first and
+    silently truncate away the ones it could actually conflict with.
+
+    current_book_num, when given, ranks facts from THIS book above facts
+    inherited from earlier books in a series — ``canon_log_facts`` includes
+    the whole series' history (query_facts includes all book_num < current),
+    and ranking by chapter_num alone is book-blind: chapter 34 of book 1
+    would outrank chapter 2 of the book actually being reviewed, starving it
+    of its own canon under a tight budget. Pass None to skip this ranking
+    (e.g. for a standalone book with no series context).
+
+    current_chapter_num, when given, ranks at-or-before-this-chapter facts
+    above later ones for the reasons above. Pass None to skip (falls back to
+    pure newest-chapter-first, e.g. if the chapter slug couldn't be parsed).
+
+    On a 34-chapter book (Firelight), the unbounded fact list was 932 entries
+    / 285K chars and blew the MCP tool output limit outright (Issue #500).
+    This bounds that to a fixed ceiling and reports what happened via the
+    returned ``truncated`` flag, instead of silently degrading.
+
+    Returns (capped_facts, truncated, total_count).
+    """
+    if char_budget is None:
+        char_budget = _CANON_FACTS_CHAR_BUDGET
+
+    total_count = len(facts)
+    if not facts:
+        return [], False, total_count
+
+    def _sort_key(fact: dict[str, Any]) -> tuple[bool, bool, int]:
+        is_current_book = current_book_num is None or fact.get("book_num") == current_book_num
+        chapter = _chapter_num(fact)
+        at_or_before_current = current_chapter_num is None or chapter <= current_chapter_num
+        return (is_current_book, at_or_before_current, chapter)
+
+    priority = [
+        f for f in facts
+        if f.get("status") == "CHANGED" or _chapter_num(f) == 0
+    ]
+    rest = [
+        f for f in facts
+        if f.get("status") != "CHANGED" and _chapter_num(f) != 0
+    ]
+
+    priority_sorted = sorted(priority, key=_sort_key, reverse=True)
+    rest_sorted = sorted(rest, key=_sort_key, reverse=True)
+
+    kept_priority, priority_truncated = _cap_group(priority_sorted, char_budget)
+    kept_rest, rest_truncated = _cap_group(rest_sorted, char_budget)
+
+    kept = kept_priority + kept_rest
+    truncated = priority_truncated or rest_truncated or len(kept) < total_count
+    return kept, truncated, total_count
+
+
+# ---------------------------------------------------------------------------
 # Public assembler
 # ---------------------------------------------------------------------------
 
@@ -377,7 +503,19 @@ def build_review_brief(
                                    memoir books — they have no world/ directory)
         canon_log_facts         — established facts from the canon DB (add_canon_fact);
                                    populated for both categories, not fiction-only —
-                                   memoir chapters also record facts there
+                                   memoir chapters also record facts there. Bounded to
+                                   roughly 2x ``_CANON_FACTS_CHAR_BUDGET`` chars (Issue
+                                   #500): CHANGED and chapter-unattributed facts get
+                                   priority, everything else fills the remaining budget,
+                                   current-book facts ranked above facts inherited from
+                                   earlier books in a series — see canon_log_facts_truncated
+                                   /_total_count below and _cap_canon_facts()'s docstring
+        canon_log_facts_truncated — True if canon_log_facts was capped for size
+        canon_log_facts_total_count — untruncated fact count (== len(canon_log_facts)
+                                   when not truncated)
+        changed_facts           — revision entries (add_canon_fact is_revision=True) for
+                                   THIS book only, each with revision_impact — the chapter
+                                   slugs a given change affects (Issue #500)
         consent_status_warnings — memoir only; consent-gate warnings for every real
                                    person named in this chapter's README or draft.md
         tonal_rules             — non-negotiable rules, litmus, banned patterns
@@ -452,10 +590,41 @@ def build_review_brief(
                 [],
             )
 
-    # ----- canon log facts — DB first, Markdown fallback (#280) ------------
-    canon_log_facts: list[dict] = recorder.run(
+    # ----- canon log facts, size-capped (#280, #500) ------------------------
+    # Unbounded on a 34-chapter book (Firelight) this was 932 facts / 285K
+    # chars and blew the MCP tool output limit outright. _cap_canon_facts()
+    # bounds it deterministically and reports what happened, rather than
+    # guessing which facts don't matter (see its docstring for why a domain-
+    # or recency-window filter was rejected).
+    canon_log_facts_raw: list[dict] = recorder.run(
         "canon_log_facts",
         lambda: load_canon_facts_for_brief(book_root),
+        [],
+    )
+    current_book_num = recorder.run(
+        "book_num",
+        lambda: get_book_num(book_root),
+        None,
+    )
+    chapter_num_match = _CHAPTER_NUM_RE.match(chapter_slug)
+    current_chapter_num = int(chapter_num_match.group(1)) if chapter_num_match else None
+    # Fallback on error is an empty list, not canon_log_facts_raw — falling
+    # back to the raw uncapped list would reintroduce the exact size failure
+    # this cap exists to prevent.
+    canon_log_facts, canon_log_facts_truncated, canon_log_facts_total_count = recorder.run(
+        "canon_log_facts_cap",
+        lambda: _cap_canon_facts(
+            canon_log_facts_raw,
+            current_book_num=current_book_num,
+            current_chapter_num=current_chapter_num,
+        ),
+        ([], True, len(canon_log_facts_raw)),
+    )
+
+    # ----- changed facts (revisions) — for stale-reference check (#500) -----
+    changed_facts: list[dict] = recorder.run(
+        "changed_facts",
+        lambda: load_changed_facts_for_brief(book_root),
         [],
     )
 
@@ -488,6 +657,9 @@ def build_review_brief(
         "canonical_timeline_entries": canonical_timeline_entries,
         "travel_matrix": travel_matrix,
         "canon_log_facts": canon_log_facts,
+        "canon_log_facts_truncated": canon_log_facts_truncated,
+        "canon_log_facts_total_count": canon_log_facts_total_count,
+        "changed_facts": changed_facts,
         "consent_status_warnings": consent_warnings,
         "tonal_rules": tonal_rules,
         "active_rules": active_rules,

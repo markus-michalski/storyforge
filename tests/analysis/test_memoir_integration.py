@@ -105,7 +105,7 @@ def _add_person(
 
 
 class TestContinuityBriefMemoirMode:
-    """Memoir books produce empty travel_matrix and canon_log_facts."""
+    """Memoir books produce empty travel_matrix; canon_log_facts is category-agnostic."""
 
     def test_memoir_no_travel_matrix(self, tmp_path: Path):
         """Memoir books have no world/setting.md — travel_matrix must be empty."""
@@ -116,8 +116,11 @@ class TestContinuityBriefMemoirMode:
 
         assert result["travel_matrix"] == []
 
-    def test_memoir_no_canon_log_facts(self, tmp_path: Path):
-        """Memoir books have no canon-log.md — canon_log_facts must be empty."""
+    def test_memoir_canon_log_facts_empty_when_none_recorded(self, tmp_path: Path):
+        """canon_log_facts has no book_category branching (Issue #500) — this
+        fixture is empty because no add_canon_fact() calls were made, not
+        because the book is a memoir. A fiction book with an empty DB
+        produces the same empty list."""
         book = _make_memoir_book(tmp_path)
 
         result = build_continuity_brief(book_root=book, book_slug="test-memoir")
@@ -162,7 +165,7 @@ class TestContinuityBriefMemoirMode:
 
 
 class TestReviewBriefMemoirMode:
-    """Review brief for memoir books: empty travel_matrix and canon_log_facts."""
+    """Review brief for memoir books: empty travel_matrix; canon_log_facts is category-agnostic."""
 
     def test_memoir_no_travel_matrix(self, tmp_path: Path):
         book = _make_memoir_book(tmp_path)
@@ -172,7 +175,10 @@ class TestReviewBriefMemoirMode:
 
         assert result["travel_matrix"] == []
 
-    def test_memoir_no_canon_log_facts(self, tmp_path: Path):
+    def test_memoir_canon_log_facts_empty_when_none_recorded(self, tmp_path: Path):
+        """canon_log_facts has no book_category branching (Issue #500) — this
+        fixture is empty because no add_canon_fact() calls were made, not
+        because the book is a memoir."""
         book = _make_memoir_book(tmp_path)
         _add_chapter(book, "01-start", number=1)
 
@@ -194,7 +200,10 @@ class TestReviewBriefMemoirMode:
 
         result = build_review_brief(book_root=book, book_slug="test-memoir", chapter_slug="01-start")
 
-        for key in ("travel_matrix", "canon_log_facts", "tonal_rules", "errors"):
+        for key in (
+            "travel_matrix", "canon_log_facts", "canon_log_facts_truncated",
+            "canon_log_facts_total_count", "changed_facts", "tonal_rules", "errors",
+        ):
             assert key in result
 
 

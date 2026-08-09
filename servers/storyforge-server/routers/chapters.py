@@ -278,7 +278,12 @@ def get_review_brief(book_slug: str, chapter_slug: str) -> str:
                                    memoir books — they have no world/ directory)
         canon_log_facts         — established facts from the canon DB (add_canon_fact);
                                    populated for both categories, not fiction-only —
-                                   memoir chapters also record facts there
+                                   memoir chapters also record facts there. Size-bounded
+                                   (Issue #500) — see canon_log_facts_truncated below
+        canon_log_facts_truncated — true if canon_log_facts was capped for size
+        canon_log_facts_total_count — untruncated fact count
+        changed_facts           — revision entries (add_canon_fact is_revision=True) for
+                                   THIS book only, each with old/new/chapter/revision_impact
         consent_status_warnings — memoir only; consent-gate warnings for every real
                                    person named in this chapter's README or draft.md
         tonal_rules             — non-negotiable rules, litmus, banned patterns

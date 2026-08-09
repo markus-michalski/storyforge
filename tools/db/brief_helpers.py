@@ -3,10 +3,12 @@
 Usage in brief assemblers (continuity_brief, review_brief, chapter_writing_brief):
     from tools.db.brief_helpers import (
         load_canon_facts_for_brief,
+        load_changed_facts_for_brief,
         load_rules_for_brief,
         load_callbacks_for_brief,
     )
     facts = load_canon_facts_for_brief(book_root)
+    changed = load_changed_facts_for_brief(book_root)
     rules = load_rules_for_brief(book_root)
     callbacks = load_callbacks_for_brief(book_root)
     # book_num is auto-derived from README series_number (C1/H1 fix)
@@ -17,6 +19,7 @@ If the DB is empty, callers receive an empty list.
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from pathlib import Path
@@ -54,6 +57,11 @@ def load_canon_facts_for_brief(
     so callers don't need to know it (C1/H1 fix — avoids the book_num=1 default
     bug that silently dropped all facts for series books #2+).
 
+    No domain filtering here — ``timeline`` is a documented first-class fact
+    domain (``reference/craft/chapter-writing-shared.md``), not noise. Callers
+    that need a size-bounded view (e.g. ``review_brief``) truncate afterward
+    with an explicit truncation flag rather than silently dropping a domain.
+
     Returns an empty list if the DB is empty or unreachable. Migrate
     canon-log.md content first (migrate_canon_log_to_db.py) if facts are
     missing. The MD fallback was removed in Issue #291 — dual storage is
@@ -80,7 +88,9 @@ def _db_row_to_legacy_fact(row: dict) -> dict:
 
     Keeps downstream consumers (review_brief, continuity_brief, skills) working
     without a schema change — they still receive the same keys as before
-    (fact, established_in, status, notes, domain).
+    (fact, established_in, status, notes, domain), plus ``book_num`` (Issue
+    #500) so series-aware callers (review_brief._cap_canon_facts) can tell
+    this book's own facts apart from a prior book's without re-querying.
     """
     return {
         "fact": row["fact"],
@@ -89,7 +99,58 @@ def _db_row_to_legacy_fact(row: dict) -> dict:
         "status": "CHANGED" if row["is_revision"] else "ACTIVE",
         "notes": row.get("old_value") or "",
         "domain": row.get("domain") or "",
+        "book_num": row.get("book_num", 0),
     }
+
+
+def load_changed_facts_for_brief(book_root: Path) -> list[dict]:
+    """Return revision (is_revision=True) canon-fact rows for the CURRENT book.
+
+    Scoped to this book's own book_num, not windowed by chapter — a
+    stale-reference check needs to see every revision ever recorded in this
+    book, since ``revision_impact`` names the exact chapters a given change
+    affects, regardless of how long ago it happened. Revisions are rare (9 of
+    932 facts on a 34-chapter book) so this doesn't carry the same size risk
+    as ``load_canon_facts_for_brief``.
+
+    Deliberately excludes prior books in a series: ``revision_impact`` holds
+    chapter *slugs*, which are only unique within a single book. Including an
+    earlier book's revisions would risk a false match against an unrelated
+    same-named chapter in this book (e.g. both books having a "05-aftermath").
+
+    Returns list of {"old": str, "new": str, "chapter": str,
+    "revision_impact": list[str]}. Empty list if DB is unreachable, empty,
+    or has no revision rows.
+    """
+    book_num = get_book_num(book_root)
+    db_slug = get_db_slug_for_book(book_root)
+    try:
+        conn = open_canon_db(db_slug)
+        try:
+            rows = query_facts(conn, book_num=book_num, up_to_chapter=_ALL_CHAPTERS)
+        finally:
+            conn.close()
+    except (sqlite3.Error, OSError):
+        return []
+
+    changed: list[dict] = []
+    for row in rows:
+        if not row.get("is_revision") or row.get("book_num") != book_num:
+            continue
+        raw = row.get("revision_impacts") or ""
+        try:
+            impacts = json.loads(raw) if raw else []
+        except (ValueError, TypeError):
+            impacts = []
+        if not isinstance(impacts, list):
+            impacts = []
+        changed.append({
+            "old": row.get("old_value") or "",
+            "new": row["fact"],
+            "chapter": str(row["chapter_num"]),
+            "revision_impact": impacts,
+        })
+    return changed
 
 
 def load_rules_for_brief(book_root: Path) -> list[dict]:

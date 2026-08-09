@@ -6,9 +6,11 @@ and that the individual parsers handle the template format correctly.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from tools.state.review_brief import (
+    _cap_canon_facts,
     _parse_canon_log_facts,
     _parse_tonal_rules,
     _parse_travel_matrix,
@@ -200,6 +202,156 @@ def test_parse_tonal_rules_empty_tone_file():
 
 
 # ---------------------------------------------------------------------------
+# Unit tests — _cap_canon_facts (Issue #500)
+# ---------------------------------------------------------------------------
+
+
+def _fact(chapter: int, status: str = "ACTIVE", fact: str = "", book_num: int = 1) -> dict:
+    return {
+        "fact": fact or f"Fact from chapter {chapter}",
+        "established_in": f"Ch {chapter}",
+        "status": status,
+        "notes": "",
+        "domain": "",
+        "book_num": book_num,
+    }
+
+
+def test_cap_canon_facts_no_truncation_under_budget():
+    facts = [_fact(i) for i in range(5)]
+    kept, truncated, total = _cap_canon_facts(facts, char_budget=100_000)
+    assert truncated is False
+    assert total == 5
+    assert len(kept) == 5
+
+
+def test_cap_canon_facts_empty_list():
+    kept, truncated, total = _cap_canon_facts([], char_budget=100_000)
+    assert kept == []
+    assert truncated is False
+    assert total == 0
+
+
+def test_cap_canon_facts_truncates_oldest_active_first():
+    facts = [_fact(i) for i in range(1, 11)]  # chapters 1..10
+    # Each entry is roughly the same size; pick a budget that fits ~5.
+    one_entry_size = len(json.dumps(facts[0])) + 1
+    kept, truncated, total = _cap_canon_facts(facts, char_budget=one_entry_size * 5)
+
+    assert truncated is True
+    assert total == 10
+    kept_chapters = {int(f["established_in"].split()[1]) for f in kept}
+    # newest-first: chapters 10, 9, 8... must survive before chapter 1.
+    assert 10 in kept_chapters
+    assert 1 not in kept_chapters
+
+
+def test_cap_canon_facts_changed_facts_get_priority_over_active():
+    changed = [_fact(i, status="CHANGED") for i in range(1, 4)]  # 3 small facts
+    active = [_fact(i) for i in range(4, 30)]  # 26 facts competing for what's left
+    facts = changed + active
+    one_entry_size = len(json.dumps(changed[0])) + 1
+    # Budget fits all 3 CHANGED facts plus a few ACTIVE ones, not all 26.
+    kept, truncated, total = _cap_canon_facts(facts, char_budget=one_entry_size * 8)
+
+    kept_changed = [f for f in kept if f["status"] == "CHANGED"]
+    assert len(kept_changed) == 3, "all CHANGED facts must survive before any ACTIVE fact"
+    assert truncated is True
+    assert total == 29
+    assert len(kept) < 29
+
+
+def test_cap_canon_facts_changed_group_is_also_bounded():
+    """Issue #500 review finding: CHANGED facts must not be literally
+    unbounded — a pathological book with thousands of revisions must still
+    hit a ceiling instead of the 'truncated' flag misreporting False while
+    the CHANGED group alone dwarfs the budget."""
+    changed = [_fact(i, status="CHANGED") for i in range(1, 501)]  # many facts
+    one_entry_size = len(json.dumps(changed[0])) + 1
+    kept, truncated, total = _cap_canon_facts(changed, char_budget=one_entry_size * 10)
+
+    assert truncated is True
+    assert total == 500
+    assert len(kept) < 500
+
+
+def test_cap_canon_facts_ranks_current_book_above_prior_book():
+    """Issue #500 review finding: canon_log_facts includes every prior book
+    in a series (query_facts includes book_num < current unconditionally).
+    Sorting by chapter_num alone is book-blind — chapter 34 of book 1 would
+    outrank chapter 2 of the book actually under review, starving it of its
+    own canon under a tight budget."""
+    book1_facts = [_fact(i, book_num=1) for i in range(1, 35)]  # late chapters, old book
+    book2_facts = [_fact(i, book_num=2) for i in range(1, 4)]  # early chapters, THIS book
+    facts = book1_facts + book2_facts
+    one_entry_size = len(json.dumps(book1_facts[0])) + 1
+
+    kept, truncated, total = _cap_canon_facts(
+        facts, current_book_num=2, char_budget=one_entry_size * 5,
+    )
+
+    kept_book2 = [f for f in kept if f["book_num"] == 2]
+    assert len(kept_book2) == 3, "all of the current book's own facts must survive first"
+    assert truncated is True
+    assert total == 37
+
+
+def test_cap_canon_facts_ranks_at_or_before_current_chapter_first():
+    """Issue #500 round-3 review finding: newest-chapter-first alone shows a
+    reviewer checking an EARLY chapter the LEAST relevant facts (from near
+    the end of the book) first, silently truncating away the ones from
+    chapters 1..N that the chapter under review could actually contradict."""
+    later_facts = [_fact(i) for i in range(20, 35)]  # chapters 20-34, can't be contradicted by ch. 5
+    earlier_facts = [_fact(i) for i in range(1, 6)]  # chapters 1-5, what ch. 5 could conflict with
+    facts = later_facts + earlier_facts
+    one_entry_size = len(json.dumps(facts[0])) + 1
+
+    kept, truncated, total = _cap_canon_facts(
+        facts, current_chapter_num=5, char_budget=one_entry_size * 5,
+    )
+
+    kept_chapters = {_chapter_num_from_fact(f) for f in kept}
+    assert kept_chapters == {1, 2, 3, 4, 5}, "chapters at/before the reviewed one must survive first"
+    assert truncated is True
+    assert total == 20
+
+
+def _chapter_num_from_fact(fact: dict) -> int:
+    return int(fact["established_in"].split()[1])
+
+
+def test_cap_canon_facts_current_chapter_num_none_falls_back_to_newest_first():
+    """No chapter context (e.g. an unparseable slug) must not crash — falls
+    back to the pre-M1 newest-chapter-first behavior."""
+    facts = [_fact(i) for i in range(1, 11)]
+    one_entry_size = len(json.dumps(facts[0])) + 1
+
+    kept, truncated, total = _cap_canon_facts(
+        facts, current_chapter_num=None, char_budget=one_entry_size * 5,
+    )
+
+    kept_chapters = {_chapter_num_from_fact(f) for f in kept}
+    assert 10 in kept_chapters
+    assert 1 not in kept_chapters
+
+
+def test_cap_canon_facts_keeps_chapter_unattributed_facts():
+    """Issue #500 review finding: chapter_num=0 (heuristically migrated,
+    no chapter attribution) must not be treated as 'oldest, drop first' —
+    tools/state/loaders/canon_brief.py already treats these as always in
+    scope; _cap_canon_facts must not contradict that."""
+    unattributed = [_fact(0, fact="Migrated global fact")]
+    active = [_fact(i) for i in range(1, 30)]  # many newer-looking facts
+    facts = unattributed + active
+    one_entry_size = len(json.dumps(active[0])) + 1
+
+    kept, truncated, total = _cap_canon_facts(facts, char_budget=one_entry_size * 5)
+
+    assert unattributed[0] in kept
+    assert truncated is True
+
+
+# ---------------------------------------------------------------------------
 # Integration tests — build_review_brief
 # ---------------------------------------------------------------------------
 
@@ -259,6 +411,9 @@ def test_build_review_brief_returns_all_expected_keys(tmp_path):
         "canonical_timeline_entries",
         "travel_matrix",
         "canon_log_facts",
+        "canon_log_facts_truncated",
+        "canon_log_facts_total_count",
+        "changed_facts",
         "tonal_rules",
         "active_rules",
         "active_callbacks",
@@ -329,6 +484,137 @@ def test_build_review_brief_canon_log_facts_populated(tmp_path, monkeypatch):
     assert len(result["canon_log_facts"]) == 3
     changed = [f for f in result["canon_log_facts"] if f["status"] == "CHANGED"]
     assert len(changed) == 1
+
+
+def test_build_review_brief_keeps_timeline_domain_facts(tmp_path, monkeypatch):
+    """Issue #500: domain="timeline" is a documented first-class canon domain
+    (reference/craft/chapter-writing-shared.md) — the review brief must not
+    drop it. The 330K-char blowup on Firelight is handled by size-bounded
+    truncation (see test_build_review_brief_truncates_when_over_budget
+    below), not by assuming an entire domain is safe to discard."""
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+    _make_chapter(book, "01-opening", number=1)
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    insert_fact(conn, book_num=1, chapter_num=1, subject="Theo",
+                fact="Theo is 26", domain="")
+    insert_fact(conn, book_num=1, chapter_num=1, subject="general",
+                fact="Storm hits midday Saturday", domain="timeline")
+    conn.close()
+
+    result = build_review_brief(book_root=book, book_slug=slug, chapter_slug="01-opening")
+
+    facts = result["canon_log_facts"]
+    assert len(facts) == 2
+    assert result["canon_log_facts_truncated"] is False
+    assert result["canon_log_facts_total_count"] == 2
+
+
+def test_build_review_brief_truncates_when_over_budget(tmp_path, monkeypatch):
+    """Reproduces the Firelight failure mode at test scale: many canon facts
+    must trigger truncation with the two report fields set, rather than
+    silently ballooning the brief past the MCP tool output limit."""
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+    import tools.state.review_brief as review_brief_module
+
+    monkeypatch.setattr(review_brief_module, "_CANON_FACTS_CHAR_BUDGET", 200)
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+    _make_chapter(book, "01-opening", number=1)
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    for i in range(20):
+        insert_fact(conn, book_num=1, chapter_num=i + 1, subject=f"subject-{i}",
+                    fact=f"Fact number {i} established in this chapter", domain="timeline")
+    conn.close()
+
+    result = build_review_brief(book_root=book, book_slug=slug, chapter_slug="01-opening")
+
+    assert result["canon_log_facts_truncated"] is True
+    assert result["canon_log_facts_total_count"] == 20
+    assert len(result["canon_log_facts"]) < 20
+
+
+def test_build_review_brief_prioritizes_facts_at_or_before_reviewed_chapter(tmp_path, monkeypatch):
+    """Issue #500 round-3 review finding: build_review_brief must parse the
+    chapter number out of chapter_slug and thread it into _cap_canon_facts —
+    otherwise reviewing an early chapter shows facts from the end of the
+    book first, which that early chapter cannot possibly contradict."""
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+    import tools.state.review_brief as review_brief_module
+
+    monkeypatch.setattr(review_brief_module, "_CANON_FACTS_CHAR_BUDGET", 500)
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+    _make_chapter(book, "03-third", number=3)
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    for i in range(1, 21):
+        insert_fact(conn, book_num=1, chapter_num=i, subject=f"subject-{i}",
+                    fact=f"Fact established in chapter {i}", domain="")
+    conn.close()
+
+    result = build_review_brief(book_root=book, book_slug=slug, chapter_slug="03-third")
+
+    assert result["canon_log_facts_truncated"] is True
+    kept_chapters = {f["established_in"] for f in result["canon_log_facts"]}
+    assert "Ch 1" in kept_chapters
+    assert "Ch 20" not in kept_chapters
+
+
+def test_build_review_brief_changed_facts_populated(tmp_path, monkeypatch):
+    """Issue #500: changed_facts feeds chapter-reviewer checklist point 19
+    (stale-reference check), which needs revision_impact — canon_log_facts
+    alone doesn't carry that field."""
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+    _make_chapter(book, "01-opening", number=1)
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    insert_fact(conn, book_num=1, chapter_num=4, subject="Lena",
+                fact="Lena eats normal food", domain="Character Facts",
+                is_revision=True, old_value="Lena doesn't eat",
+                revision_impacts='["05-aftermath"]')
+    conn.close()
+
+    result = build_review_brief(book_root=book, book_slug=slug, chapter_slug="01-opening")
+
+    assert len(result["changed_facts"]) == 1
+    entry = result["changed_facts"][0]
+    assert entry["old"] == "Lena doesn't eat"
+    assert entry["new"] == "Lena eats normal food"
+    assert entry["revision_impact"] == ["05-aftermath"]
 
 
 def test_build_review_brief_tonal_rules_populated(tmp_path):
@@ -416,6 +702,9 @@ def test_build_review_brief_missing_optional_files_graceful(tmp_path):
 
     assert result["travel_matrix"] == []
     assert result["canon_log_facts"] == []
+    assert result["canon_log_facts_truncated"] is False
+    assert result["canon_log_facts_total_count"] == 0
+    assert result["changed_facts"] == []
     assert result["tonal_rules"] == {}
     assert result["errors"] == []
 

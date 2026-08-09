@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Nothing yet
+- `get_review_brief`'s `canon_log_facts` is now size-capped instead of unbounded: CHANGED and chapter-unattributed facts get priority, everything else fills the remaining budget, current-book facts always rank above facts inherited from earlier books in a series — on a 34-chapter book this cut the brief from 330,797 to 62,228 chars, fixing hard failures against the MCP tool output limit. Truncation is reported via new `canon_log_facts_truncated`/`canon_log_facts_total_count` fields rather than silently dropping data (#500). `get_continuity_brief` has the same unbounded load and is not yet fixed — tracked in #501.
+- `chapter-reviewer`/`chapter-reviewer-memoir` checklist point 19 (stale-reference check) is now satisfiable: `get_review_brief` gained a `changed_facts` field with `revision_impact`, which both skills referenced but was never actually loaded (fiction) or came from an unscoped cross-book source (memoir, via `get_canon_brief()`). Scoped to the current book only — `revision_impact` chapter slugs aren't unique across a series (#500)
 
 ### Security
 - Nothing yet
