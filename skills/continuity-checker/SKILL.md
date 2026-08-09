@@ -29,19 +29,23 @@ Branch Prerequisites and Workflow Steps 3, 5, 6 on `book_category`.
 
 Call MCP `get_continuity_brief(book_slug)`. This returns:
 
-- `canonical_calendar` — parsed `plot/timeline.md` events (story_day/real_date/chapter_slug/key_events)
+- `canonical_calendar` — parsed `plot/timeline.md` events (story_day/real_date/chapter_slug/key_events), earliest-story-day-first. **Size-capped (Issue #504)** — check `canonical_calendar_truncated` before treating the list as covering every recorded event.
+- `canonical_calendar_truncated` — `true` if `canonical_calendar` was capped for size (Issue #504).
+- `canonical_calendar_total_count` — the untruncated event count; compare against `len(canonical_calendar)` to know how many events were dropped.
 - `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (**fiction only** — empty for memoir, since memoir books have no `world/setting.md`)
 - `canon_log_facts` — canon facts from the shared `canon_facts` DB table for this book (Issue #297/#280). **Not category-filtered by the brief itself** — for a memoir book this list may already be non-empty if facts were previously recorded (e.g. by this skill's own Step 6, or by `chapter-writer-memoir`). An empty list *usually* means no facts have been recorded yet for this book — but always check `canon_log_facts_truncated` first: on a size-cap failure it can also be empty despite the book having recorded facts (rare, but see Step 6 below for why this matters before treating "empty" as "reconstruct from scratch"). Not that the book is memoir either — use the Memoir supplement below (`get_canon_brief`) for the authoritative category-scoped view. **Size-capped (Issue #501)** — unlike `get_review_brief`, this brief has no single "current chapter" to anchor on (it scans the whole manuscript), so when the cap has to drop facts it keeps the EARLIEST chapters first, not the most recent — the reverse of `get_review_brief`'s ranking. See `canon_log_facts_truncated`/`_total_count` below.
 - `canon_log_facts_truncated` — `true` if `canon_log_facts` was capped for size (Issue #501).
 - `canon_log_facts_total_count` — the untruncated fact count; compare against `len(canon_log_facts)` to know how much was dropped.
 - `character_index` — all character/people files as flat list (slug/name/role/description)
-- `chapter_timelines` — intra-day timeline grids for ALL chapters
+- `chapter_timelines` — intra-day timeline grids for chapters, earliest-chapter-first. **Size-capped (Issue #504)** — on a very long book this can be truncated the same way `canon_log_facts` is; check `chapter_timelines_truncated` before treating the list as covering every chapter.
+- `chapter_timelines_truncated` — `true` if `chapter_timelines` was capped for size (Issue #504).
+- `chapter_timelines_total_count` — count of chapters with a parseable timeline grid before capping (NOT the total chapter count — chapters without a parseable grid are excluded upstream, before this count is taken); compare against `len(chapter_timelines)` to know how many were dropped by the cap specifically.
 - `character_snapshots` — latest per-character state (injuries/clothing/inventory/altered_states) from the `character_snapshots` DB table (Issue #281), one entry per character that has ever had a snapshot recorded. May be empty if no skill has called `update_character_snapshot` for this book yet — treat as supplementary signal for Step 6, not a required source.
 - `errors` — graceful degrade: non-empty means some files were missing or unreadable
 
 Honor every populated field. Empty lists mean "file missing — degrade gracefully, do not invent." Each field degrades **independently** — an error or missing file recorded against one field (e.g. `world/setting.md` missing, surfaced in `errors`) does not block processing of any other, unrelated field (e.g. `canon_log_facts` or `chapter_timelines` are still used for their own checks even when a different section failed to load).
 
-When `canon_log_facts_truncated` is `true`, the Continuity Report's Summary and fact-conflict sections must say so explicitly (e.g. `"checked N of M established facts — M-N dropped for size, earliest chapters prioritized"`) rather than reporting a bare count that implies every fact was checked.
+When `canon_log_facts_truncated` is `true`, the Continuity Report's Summary and fact-conflict sections must say so explicitly (e.g. `"checked N of M established facts — M-N dropped for size, earliest chapters prioritized"`) rather than reporting a bare count that implies every fact was checked. Do the same when `chapter_timelines_truncated` or `canonical_calendar_truncated` is `true`.
 
 **Memoir supplement:** If `book_category == "memoir"`, call `get_canon_brief(book_slug, chapter_slug)` to get people facts from DB (Issue #297). If `extraction_method == "none"`, the DB has no facts yet — note this and advise running `scripts/migrate_canon_log_to_db.py` to import from `plot/people-log.md`.
 
@@ -128,7 +132,7 @@ Flag as **WARNING** if:
 
 ### Step 4: Rebuild Timeline (if missing or incomplete)
 
-If `plot/timeline.md` is empty or incomplete:
+If `canonical_calendar` is empty **AND `canonical_calendar_truncated` is `false`** (no events recorded yet in `plot/timeline.md` — the truncated case means events exist but the cap dropped all of them, or the cap itself failed; do NOT reconstruct in that case, since it would insert duplicate `[RECONSTRUCTED]` entries into a file that already has the originals — report the truncation instead and stop). If `canonical_calendar` is short but not empty because of truncation, do NOT treat that as "incomplete" either — the brief's `canonical_calendar_total_count` tells you the real count; compare against `len(canonical_calendar)` before deciding the timeline needs rebuilding at all:
 1. Build a proposed timeline from chapter evidence
 2. Identify the most internally consistent interpretation
 3. Write the proposed timeline to `plot/timeline.md`

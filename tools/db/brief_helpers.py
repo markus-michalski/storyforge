@@ -89,7 +89,7 @@ def _db_row_to_legacy_fact(row: dict) -> dict:
     Keeps downstream consumers (review_brief, continuity_brief, skills) working
     without a schema change — they still receive the same keys as before
     (fact, established_in, status, notes, domain), plus ``book_num`` (Issue
-    #500) so series-aware callers (review_brief._cap_canon_facts) can tell
+    #500) so series-aware callers (brief_common.cap_canon_facts) can tell
     this book's own facts apart from a prior book's without re-querying.
     """
     return {

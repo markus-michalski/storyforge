@@ -92,7 +92,7 @@ class TestLoadCanonFactsForBrief:
         """Issue #500: domain="timeline" is a documented first-class canon
         domain (reference/craft/chapter-writing-shared.md), not noise —
         load_canon_facts_for_brief must never filter by domain. Size bounding
-        for the review brief happens downstream in review_brief._cap_canon_facts,
+        for the review brief happens downstream in brief_common.cap_canon_facts,
         which truncates transparently instead of assuming a domain is safe to drop."""
         book_dir = _make_book(tmp_path, "standalone")
 

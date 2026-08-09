@@ -310,7 +310,7 @@ def get_continuity_brief(book_slug: str) -> str:
 
     Replaces direct file reads in ``continuity-checker`` with a single
     structured JSON payload. Bundles canonical calendar, travel matrix,
-    canon log facts, character index, and all chapter timeline grids.
+    canon log facts, character index, and chapter timeline grids.
 
     Chapter draft texts are intentionally NOT included — they are the data
     being checked, not project-state metadata (ADR-0001).
@@ -320,7 +320,11 @@ def get_continuity_brief(book_slug: str) -> str:
 
     Returns JSON with:
         book_slug            — echoes the book_slug argument
-        canonical_calendar   — parsed plot/timeline.md events
+        canonical_calendar   — parsed plot/timeline.md events, size-bounded
+                                earliest-story-day-first (Issue #504) — see
+                                canonical_calendar_truncated below
+        canonical_calendar_truncated — true if canonical_calendar was capped for size
+        canonical_calendar_total_count — untruncated event count
         travel_matrix        — parsed world/setting.md Travel Matrix rows
         canon_log_facts      — established facts from the canon DB (add_canon_fact),
                                 size-bounded (Issue #501) — see canon_log_facts_truncated
@@ -330,7 +334,12 @@ def get_continuity_brief(book_slug: str) -> str:
         canon_log_facts_truncated — true if canon_log_facts was capped for size
         canon_log_facts_total_count — untruncated fact count
         character_index      — all character files as flat list
-        chapter_timelines    — all chapter timeline grids (any status)
+        chapter_timelines    — chapter timeline grids for chapters with a parseable
+                                grid, size-bounded earliest-chapter-first (Issue #504)
+                                — see chapter_timelines_truncated below
+        chapter_timelines_truncated — true if chapter_timelines was capped for size
+        chapter_timelines_total_count — count of chapters with a parseable timeline
+                                grid before capping, NOT the total chapter count
         character_snapshots  — latest per-character state from the character_snapshots
                                 DB table (Issue #281)
         errors               — partial failures (brief ships with degraded data)
