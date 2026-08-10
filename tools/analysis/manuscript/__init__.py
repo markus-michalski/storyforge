@@ -36,6 +36,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Iterable
 
+from tools.analysis.manuscript.body_tells import _MIN_OCCURRENCES as _BODY_TELLS_MIN_OCCURRENCES
+from tools.analysis.manuscript.body_tells import _canonical_body_part, _scan_body_state_tells
 from tools.analysis.manuscript.memoir_patterns import (
     _scan_anonymization_leak,
     _scan_real_people_consistency,
@@ -184,6 +186,36 @@ def scan_repetitions(
         )
         seen_long.append((phrase, len(occs)))
 
+    # Issue #511: the n-gram pass above only catches character_tell when a
+    # body-language tic repeats with identical wording. Paraphrased
+    # repetition of the same tic ("shoulders came down" / "shoulders had
+    # dropped") is additive — a separate, lemma-level detector. Excluded at
+    # (chapter, line, body_part) granularity — NOT just (chapter, line): a
+    # manuscript line is a whole paragraph, so an n-gram hit sharing the
+    # paragraph with a genuine paraphrase but naming a different body part
+    # (or no body part at all, e.g. a bare blocking_tic) must not suppress
+    # that paraphrase's own occurrence. Covers blocking_tic too — its
+    # vocabulary overlaps BODY_STATE_VERBS (clenched/tightened/twitched), so
+    # the same physical beat could otherwise be reported under both
+    # categories.
+    ngram_tell_sites = frozenset(
+        (occ.chapter, occ.line, _canonical_body_part(tok))
+        for f in findings
+        if f.category in ("character_tell", "blocking_tic")
+        for tok in f.phrase.split()
+        if tok in BODY_PARTS
+        for occ in f.occurrences
+    )
+    findings.extend(
+        _scan_body_state_tells(
+            book_path,
+            # Never let the caller's min_occurrences lower this detector
+            # below its calibrated default — only raise it.
+            min_occurrences=max(min_occurrences, _BODY_TELLS_MIN_OCCURRENCES),
+            exclude_sites=ngram_tell_sites,
+        )
+    )
+
     # Merge in per-book CLAUDE.md rule violations. These are high-severity
     # by definition and ignore the n-gram frequency thresholds above.
     findings.extend(_scan_book_rules(book_path))
@@ -328,6 +360,7 @@ __all__ = [
     "_scan_anonymization_leak",
     "_scan_author_rules",
     "_scan_author_vocab",
+    "_scan_body_state_tells",
     "_scan_book_rules",
     "_scan_writing_discoveries",
     "_scan_callbacks",

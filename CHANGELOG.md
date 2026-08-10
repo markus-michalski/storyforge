@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Changed
-- Nothing yet
+- `BODY_PARTS` vocabulary gained `chins`/`elbows`/`wrists`/`thumbs` — n-grams containing
+  these may now classify as `character_tell` where they previously landed in another
+  repetition category (#511).
 
 ### Deprecated
 - Nothing yet
@@ -20,7 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Nothing yet
+- `manuscript-checker` now detects paraphrased body-language tells. The n-gram repetition
+  pass only fires on verbatim repetition, so a tic the author rephrases each time (e.g.
+  "shoulders came down" / "shoulders had dropped") was invisible to it. A new slot-based
+  detector matches `[body part] + [state signal]` regardless of exact wording, additive to
+  the existing pass (#511).
 
 ### Security
 - Nothing yet

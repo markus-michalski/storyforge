@@ -400,6 +400,152 @@ class TestScanRepetitionsIntegration:
         result = scan_repetitions(book)
         assert "book_rule_violation" in result["summary"]
 
+    def test_paraphrased_character_tell_surfaces(self, tmp_path: Path) -> None:
+        # Issue #511 repro: a body-language tic repeated with varied
+        # phrasing shares no 4-7 word n-gram, so the exact-match pass alone
+        # finds nothing. scan_repetitions must still surface it via the
+        # additive slot-based detector.
+        paraphrased_lines = [
+            "His shoulders came down instead, degree by degree.",
+            "His shoulders squared, just slightly.",
+            "But the tension in his shoulders eased, just slightly.",
+            "The shoulder relaxed.",
+            "Kevin's shoulders squared.",
+            "His shoulders were set higher than usual, tension not posture.",
+            "His shoulders had dropped from their earlier position.",
+            "The shoulder drops whenever he lies.",
+            "His shoulders dropped a fraction.",
+            "The set of his shoulders went rigid again.",
+        ]
+        chapters = {"01-open": "# Chapter 1\n\n" + "\n".join(paraphrased_lines) + "\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+
+        result = scan_repetitions(book)
+
+        shoulder_findings = [f for f in result["findings"] if "shoulder" in f["phrase"]]
+        assert shoulder_findings, "expected a character_tell finding for the paraphrased shoulder tic"
+        assert shoulder_findings[0]["category"] == "character_tell"
+
+    def test_body_tell_dedup_against_ngram_pass(self, tmp_path: Path) -> None:
+        # A tic repeated with IDENTICAL wording is caught by the n-gram pass
+        # already. The slot-based detector must not also report it, or the
+        # same underlying tic double-counts as two separate character_tell
+        # findings.
+        lines = ["His shoulders relaxed a fraction." for _ in range(6)]
+        chapters = {"01-open": "# Chapter 1\n\n" + "\n".join(lines) + "\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+
+        result = scan_repetitions(book)
+
+        shoulder_findings = [
+            f
+            for f in result["findings"]
+            if f["category"] == "character_tell" and "shoulder" in f["phrase"]
+        ]
+        assert len(shoulder_findings) == 1
+
+    def test_incidental_ngram_hit_does_not_wipe_out_the_paraphrase_aggregate(self, tmp_path: Path) -> None:
+        # Regression (code review H1): an unrelated n-gram character_tell
+        # finding that merely mentions the same body part, in a different
+        # chapter, must not suppress the whole paraphrase aggregate — only
+        # the specific (chapter, line) it actually came from is excluded.
+        paraphrased_lines = [
+            "His shoulders came down instead, degree by degree.",
+            "His shoulders squared, just slightly.",
+            "But the tension in his shoulders eased, just slightly.",
+            "The shoulder relaxed.",
+            "Kevin's shoulders squared.",
+            "His shoulders were set higher than usual, tension not posture.",
+            "His shoulders had dropped from their earlier position.",
+            "The shoulder drops whenever he lies.",
+            "His shoulders dropped a fraction.",
+            "The set of his shoulders went rigid again.",
+        ]
+        chapters = {
+            "01-open": "# Chapter 1\n\n" + "\n".join(paraphrased_lines) + "\n",
+            # Unrelated repeated phrase that happens to mention "shoulders"
+            # — not a tension tell, but repeats enough to pass the n-gram
+            # detector's own 2-occurrence threshold at 6-7 word length.
+            "02-incidental": (
+                "He watched the line of her shoulders in the doorway.\n"
+                "He watched the line of her shoulders in the doorway.\n"
+            ),
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+
+        result = scan_repetitions(book)
+
+        aggregate = [
+            f
+            for f in result["findings"]
+            if f["category"] == "character_tell" and f["phrase"] == "shoulder (varied phrasing)"
+        ]
+        assert len(aggregate) == 1
+        assert aggregate[0]["count"] == 10
+        assert aggregate[0]["severity"] == "high"
+
+    def test_blocking_tic_dedup_does_not_wipe_out_the_body_tell_aggregate(self, tmp_path: Path) -> None:
+        # Regression (code review H1, coverage gap): blocking_tic n-gram
+        # findings share vocabulary with BODY_STATE_VERBS ("clenched",
+        # "tightened", ...) and can overlap the slot detector's own
+        # occurrences on the same line. Excluding those specific overlapping
+        # sites must reduce the aggregate by exactly that many, not wipe it
+        # out (character_tell-only exclusion was already covered by
+        # test_body_tell_dedup_against_ngram_pass; this covers the
+        # blocking_tic half of the same exclusion set).
+        overlapping_line = "He shut his fists tight, breathing hard."
+        chapters = {
+            "01-overlap": "\n".join([overlapping_line] * 3) + "\n",
+            "02-distinct": (
+                "His fist relaxed at last.\n"
+                "Her fists loosened slowly.\n"
+                "His fist squared for the blow.\n"
+                "Her fists eased at the sound.\n"
+                "His fist dropped to his side.\n"
+            ),
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+
+        result = scan_repetitions(book)
+
+        categories = {f["category"] for f in result["findings"] if "fist" in f["phrase"]}
+        assert "blocking_tic" in categories, "expected the repeated 'shut ... fists' phrase to n-gram as blocking_tic"
+
+        aggregate = [
+            f
+            for f in result["findings"]
+            if f["category"] == "character_tell" and f["phrase"] == "fist (varied phrasing)"
+        ]
+        assert len(aggregate) == 1
+        # 3 overlapping occurrences excluded (already counted via
+        # blocking_tic), 5 distinct paraphrase occurrences remain.
+        assert aggregate[0]["count"] == 5
+        assert aggregate[0]["severity"] == "medium"
+
+    def test_min_occurrences_raises_the_body_tell_threshold(self, tmp_path: Path) -> None:
+        # scan_repetitions(min_occurrences=...) must be able to raise the
+        # paraphrase detector's threshold above its calibrated default of 5
+        # — the "raise-only" clamp (max(min_occurrences, default)) must not
+        # silently pin it at 5 regardless of what the caller passes.
+        paraphrased_lines = [
+            "His shoulders came down instead, degree by degree.",
+            "His shoulders squared, just slightly.",
+            "But the tension in his shoulders eased, just slightly.",
+            "The shoulder relaxed.",
+            "Kevin's shoulders squared.",
+            "His shoulders were set higher than usual, tension not posture.",
+        ]
+        chapters = {"01-open": "# Chapter 1\n\n" + "\n".join(paraphrased_lines) + "\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+
+        default_result = scan_repetitions(book)
+        raised_result = scan_repetitions(book, min_occurrences=8)
+
+        default_shoulder = [f for f in default_result["findings"] if f["phrase"] == "shoulder (varied phrasing)"]
+        raised_shoulder = [f for f in raised_result["findings"] if f["phrase"] == "shoulder (varied phrasing)"]
+        assert len(default_shoulder) == 1, "6 occurrences clears the default threshold of 5"
+        assert raised_shoulder == [], "6 occurrences must not clear a caller-raised threshold of 8"
+
 
 # ---------------------------------------------------------------------------
 # Helpers: a body of prose long enough for density checks (>=200 words)

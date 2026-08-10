@@ -72,6 +72,7 @@ books additionally get five memoir-specific passes.
 | `callback_dropped` | Callback past deadline or must-not-forget + >10 ch silence | always high |
 | `callback_deferred` | Callback not seen in >10 drafted chapters | always medium |
 | `simile` / `character_tell` / `blocking_tic` / `sensory` / `structural` / `signature_phrase` | Cross-chapter n-gram repetition | high if ≥4 hits |
+| `character_tell` (paraphrased) | Same body-part tell reworded each time, e.g. "shoulders came down" vs. "shoulders had dropped" — a second, additive `character_tell` source alongside the n-gram one above. `phrase` reads `"<body part> (varied phrasing)"`, a synthetic label, not manuscript text | medium ≥5 hits, high ≥10 hits |
 
 ### Memoir-specific checks (`book_category: memoir` only)
 
@@ -315,6 +316,14 @@ If edits were applied, call `add_canon_fact(book_slug, chapter_num=<highest chap
   and `blocking_tic`: default to "pick one to keep". For `structural` and
   `signature_phrase`: be more cautious — these may be intentional voice
   markers.
+- **`character_tell` findings whose `phrase` ends in `(varied phrasing)`** are the
+  paraphrased-tic detector, not the n-gram one — the phrase is a synthetic label
+  ("shoulder (varied phrasing)"), not text that appears anywhere in the manuscript. "Pick
+  one to keep" doesn't apply: there's no single literal phrase to keep or cut. Instead, walk
+  the listed occurrences with the user and vary the physical signal across them — a
+  different body part, a different kind of beat, or fewer repeats of the same character's
+  tell. A book's `## Allowed Repetitions` in CLAUDE.md (matched on the body-part word) is the
+  right escape hatch for a deliberate motif.
 - For `simile` findings specifically: apply the two-question test from
   `reference/craft/simile-discipline.md` to each occurrence. If a repeated
   simile also fails the discipline check (illogical, decorative, dead, or

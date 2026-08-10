@@ -120,6 +120,7 @@ BODY_PARTS = frozenset(
         "cheek",
         "cheeks",
         "chin",
+        "chins",
         "ear",
         "ears",
         "nose",
@@ -136,12 +137,15 @@ BODY_PARTS = frozenset(
         "arm",
         "arms",
         "elbow",
+        "elbows",
         "wrist",
+        "wrists",
         "hand",
         "hands",
         "finger",
         "fingers",
         "thumb",
+        "thumbs",
         "knuckle",
         "knuckles",
         "fist",
@@ -171,6 +175,124 @@ BODY_PARTS = frozenset(
         "face",
     }
 )
+
+# Body-state verbs (Issue #511): lemma-level vocabulary for the slot-based
+# character-tell detector in body_tells.py, which matches [body part] +
+# [state verb] on the same line regardless of exact wording. Kept separate
+# from BLOCKING_VERBS above (small in-scene actions between dialog beats)
+# — these describe a body part's *state* changing (tension rising/easing),
+# the specific tell the n-gram-only detector misses when authors paraphrase.
+BODY_STATE_VERBS = frozenset(
+    {
+        "drop",
+        "drops",
+        "dropped",
+        "dropping",
+        "square",
+        "squares",
+        "squared",
+        "squaring",
+        "set",
+        "sets",
+        "setting",
+        "tighten",
+        "tightens",
+        "tightened",
+        "tightening",
+        "loosen",
+        "loosens",
+        "loosened",
+        "loosening",
+        "relax",
+        "relaxes",
+        "relaxed",
+        "relaxing",
+        "ease",
+        "eases",
+        "eased",
+        "easing",
+        "sag",
+        "sags",
+        "sagged",
+        "sagging",
+        "stiffen",
+        "stiffens",
+        "stiffened",
+        "stiffening",
+        "unwind",
+        "unwinds",
+        "unwound",
+        "unwinding",
+        "lift",
+        "lifts",
+        "lifted",
+        "lifting",
+        "pull",
+        "pulls",
+        "pulled",
+        "pulling",
+        "twitch",
+        "twitches",
+        "twitched",
+        "twitching",
+        "clench",
+        "clenches",
+        "clenched",
+        "clenching",
+        "unclench",
+        "unclenches",
+        "unclenched",
+        "unclenching",
+        "hunch",
+        "hunches",
+        "hunched",
+        "hunching",
+        "slump",
+        "slumps",
+        "slumped",
+        "slumping",
+        "curl",
+        "curls",
+        "curled",
+        "curling",
+        "knot",
+        "knots",
+        "knotted",
+        "knotting",
+        "straighten",
+        "straightens",
+        "straightened",
+        "straightening",
+        "roll",
+        "rolls",
+        "rolled",
+        "rolling",
+    }
+)
+
+# Adjective/participle state-words: the tell is often phrased as a resulting
+# state ("shoulders loose", "mouth easy", "jaw rigid") rather than an
+# inflected verb. Same [body part] + [signal] slot as BODY_STATE_VERBS, just
+# a different part of speech.
+BODY_STATE_ADJECTIVES = frozenset(
+    {
+        "loose",
+        "tight",
+        "rigid",
+        "tense",
+        "stiff",
+        "slack",
+        "easy",
+    }
+)
+
+# "come/came down" is a legitimate body-state tell, but bare "came"/"come"
+# is too common in ordinary English to match as a standalone token — the
+# detector only counts it when "down" is the immediately following token,
+# instead of adding it to BODY_STATE_VERBS directly. "coming down" (the
+# progressive form) is deliberately excluded: it skews toward weather/object
+# imagery ("the rain was coming down") far more than body-state tells.
+BODY_STATE_COME_DOWN = frozenset({"came", "come"})
 
 # Verbs that frequently appear in blocking tics (small physical movements
 # repeated as a beat between dialog).
@@ -498,6 +620,9 @@ __all__ = [
     "ADVERB_MEDIUM_PER_1K",
     "BLOCKING_VERBS",
     "BODY_PARTS",
+    "BODY_STATE_ADJECTIVES",
+    "BODY_STATE_COME_DOWN",
+    "BODY_STATE_VERBS",
     "CALLBACK_DEFERRED_SILENCE",
     "CLICHE_PHRASES",
     "DEFAULT_MIN_OCCURRENCES",
