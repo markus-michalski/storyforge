@@ -120,6 +120,325 @@ class TestParsePlotTimeline:
         assert calendar.anchor_date == date(2025, 12, 25)
         assert calendar.events[0].real_date == date(2025, 12, 25)
 
+    def test_parse_plot_timeline_unparseable_file_still_returns_none(self, tmp_path: Path):
+        # Pure prose, no anchor of any kind — genuinely nothing to parse.
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, "# Story Timeline\n\nNothing structured here yet.\n")
+        assert parse_plot_timeline(book) is None
+
+
+# ---------------------------------------------------------------------------
+# parse_plot_timeline — Issue #508: Firelight-shaped non-canonical layout
+# ---------------------------------------------------------------------------
+
+# Firelight's real plot/timeline.md organises events under narrative
+# act/week headings (### nested under ##) instead of a flat "## Event
+# Calendar" heading, and expresses the anchor as a bullet, not a table
+# row. Both previously caused parse_plot_timeline() to silently return
+# None (Issue #508).
+FIRELIGHT_SHAPED_TIMELINE_MD = (
+    "# Story Timeline\n\n"
+    "## Anchor Point\n\n"
+    "- **Story Day 1 = Friday, October 18** (late October, as established)\n\n"
+    "## Act 1: The Nerd and the Stranger\n\n"
+    "### Week 0 (lead-up)\n\n"
+    "| Story Day | Real Date | Chapter | Location | Cabin Day |\n"
+    "|---|---|---|---|---|\n"
+    "| Day 1 | Oct 18, 2025 | 01-arrival | Home | - |\n\n"
+    "### Week 1 (the story week)\n\n"
+    "| Story Day | Real Date | Chapter | Location | Cabin Day |\n"
+    "|---|---|---|---|---|\n"
+    "| Day 5 | Oct 22, 2025 | 05-cabin | Cabin | Day 1 |\n"
+    "| Day 6 | Oct 23, 2025 | 06-fire | Cabin | Day 2 |\n"
+)
+
+
+class TestParsePlotTimelineFirelightShape:
+    def test_act_week_headings_and_bullet_anchor_parsed(self, tmp_path: Path):
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, FIRELIGHT_SHAPED_TIMELINE_MD)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 10, 18)
+        assert calendar.anchor_story_day == 1
+        assert len(calendar.events) == 3
+        assert calendar.events[0].chapter_slug == "01-arrival"
+        assert calendar.events[0].real_date == date(2025, 10, 18)
+        assert calendar.events[1].chapter_slug == "05-cabin"
+        assert calendar.events[1].real_date == date(2025, 10, 22)
+        assert calendar.events[2].chapter_slug == "06-fire"
+        assert calendar.events[2].real_date == date(2025, 10, 23)
+
+    def test_sub_heading_does_not_reset_top_level_section(self, tmp_path: Path):
+        # A ### sub-heading must not drop back to "no section" and
+        # discard the table that follows it — regression for the
+        # `stripped.startswith("##")` bug matching *both* "##" and "###".
+        body = (
+            "## Event Calendar\n\n"
+            "### Week 1\n\n"
+            "| Story Day | Real Date | Day of Week | Chapter | Location | "
+            "Key Events | Characters |\n"
+            "|---|---|---|---|---|---|---|\n"
+            "| Day 1 | Dec 25, 2025 | Thursday | 01-x | Home | Arrives | Theo |\n\n"
+            "## Anchor Point\n\n"
+            "| Story Start | Real Date | Day of Week | Notes |\n"
+            "|---|---|---|---|\n"
+            "| Day 1 | Dec 25, 2025 | Thursday | Begin |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert len(calendar.events) == 1
+        assert calendar.events[0].chapter_slug == "01-x"
+
+    def test_bullet_anchor_year_inferred_from_matching_story_day_event(self, tmp_path: Path):
+        # Anchor bullet has no year — must be inferred from the event
+        # sharing the same story day, not left as an unresolved None.
+        body = (
+            "## Anchor Point\n\n"
+            "- Story Day 1 = Friday, October 18\n\n"
+            "## Act 1\n\n"
+            "| Story Day | Real Date | Chapter |\n"
+            "|---|---|---|\n"
+            "| Day 1 | Oct 18, 2025 | 01-x |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 10, 18)
+
+    def test_bullet_anchor_with_explicit_year_used_directly(self, tmp_path: Path):
+        body = "## Anchor Point\n\n- Story Day 1 = Friday, October 18, 2025\n"
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 10, 18)
+        assert calendar.anchor_story_day == 1
+
+    def test_table_anchor_row_still_wins_over_bullet_anchor(self, tmp_path: Path):
+        # If a table anchor row is present, it takes precedence over any
+        # bullet text — bullets are a fallback, not an override.
+        body = (
+            "## Anchor Point\n\n"
+            "| Story Start | Real Date | Day of Week | Notes |\n"
+            "|---|---|---|---|\n"
+            "| Day 1 | Dec 1, 2025 | Monday | Begin |\n\n"
+            "- Story Day 1 = Friday, October 18, 2099\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 12, 1)
+
+    def test_bullet_anchor_without_weekday_still_parsed(self, tmp_path: Path):
+        # Weekday is a common but not mandatory part of the phrasing —
+        # dropping it must not silently fail like the bug this fixes.
+        body = "## Anchor Point\n\n- Story Day 1 = October 18, 2025\n"
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 10, 18)
+
+    def test_story_day_column_not_shadowed_by_unrelated_day_column(self, tmp_path: Path):
+        # A "Cabin Day" column appearing before "Story Day" in the header
+        # must not be mistaken for the story-day column.
+        body = (
+            "## Anchor Point\n\n"
+            "- Story Day 1 = Friday, October 18, 2025\n\n"
+            "## Act 1\n\n"
+            "| Real Date | Cabin Day | Story Day | Chapter |\n"
+            "|---|---|---|---|\n"
+            "| Oct 18, 2025 | - | Day 1 | 01-x |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.events[0].story_day == 1
+
+    def test_bullet_anchor_year_inferred_from_earliest_event_not_file_order(self, tmp_path: Path):
+        # No event shares the anchor's story day, so the year must come
+        # from the chronologically earliest event, not whichever event
+        # happens to appear first in the file.
+        body = (
+            "## Anchor Point\n\n"
+            "- Story Day 1 = Friday, October 18\n\n"
+            "## Act 1\n\n"
+            "| Story Day | Real Date | Chapter |\n"
+            "|---|---|---|\n"
+            "| Day 9 | Jan 5, 2026 | 09-flashforward |\n"
+            "| Day 2 | Oct 19, 2025 | 02-x |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 10, 18)
+
+    def test_anchor_table_column_order_not_hardcoded(self, tmp_path: Path):
+        # Real Date before Story Start — must still resolve via header
+        # names rather than the canonical column positions.
+        body = (
+            "## Anchor Point\n\n"
+            "| Real Date | Story Start | Notes |\n"
+            "|---|---|---|\n"
+            "| Dec 1, 2025 | Day 1 | Begin |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 12, 1)
+        assert calendar.anchor_story_day == 1
+
+    def test_prose_mentioning_a_rejected_anchor_does_not_shadow_the_real_bullet(
+        self, tmp_path: Path
+    ):
+        # Only actual list items are scanned for the anchor bullet — a
+        # prose sentence discussing a rejected date must not win.
+        body = (
+            "## Anchor Point\n\n"
+            "Originally we considered Story Day 1 = Monday, September 1, "
+            "but rejected it.\n"
+            "- Story Day 1 = Friday, October 18, 2025\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 10, 18)
+
+    def test_bullet_anchor_with_year_preferred_over_earlier_yearless_bullet(
+        self, tmp_path: Path
+    ):
+        # A later, more precise bullet (with an explicit year) wins over
+        # an earlier vaguer one — not simple first-match-in-file-order.
+        body = (
+            "## Anchor Point\n\n"
+            "- Story Day 1 = Friday, October 18\n"
+            "- Precisely: Story Day 1 = October 18, 2025\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 10, 18)
+
+    def test_anchor_table_with_chapter_column_still_classified_as_anchor(
+        self, tmp_path: Path
+    ):
+        # A "story start" column must win over an incidental "chapter"
+        # column in the same table — the more specific signal decides.
+        body = (
+            "## Anchor Point\n\n"
+            "| Story Start | Real Date | Day of Week | First Chapter |\n"
+            "|---|---|---|---|\n"
+            "| Day 1 | Dec 1, 2025 | Monday | 01-x |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 12, 1)
+
+    def test_bold_anchor_table_header_still_classified(self, tmp_path: Path):
+        body = (
+            "## Anchor Point\n\n"
+            "| **Story Start** | **Real Date** | **Day of Week** | **Notes** |\n"
+            "|---|---|---|---|\n"
+            "| Day 1 | Dec 1, 2025 | Monday | Begin |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 12, 1)
+
+    def test_foreign_date_chapter_table_not_ingested_as_events(self, tmp_path: Path):
+        # A revision log has a date + chapter column but no story-day
+        # column — it must not be mistaken for the Event Calendar.
+        body = (
+            "## Anchor Point\n\n"
+            "- Story Day 1 = Friday, October 18, 2025\n\n"
+            "## Revision Log\n\n"
+            "| Date | Chapter | Change |\n"
+            "|---|---|---|\n"
+            "| 2026-03-04 | 01-x | Rewrote scene 2 |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.events == []
+
+    def test_fenced_example_table_not_ingested_as_events(self, tmp_path: Path):
+        # A documentation example embedded in a fenced code block must
+        # not be read as live timeline data.
+        body = (
+            "## Anchor Point\n\n"
+            "- Story Day 1 = Friday, October 18, 2025\n\n"
+            "## Example\n\n"
+            "```markdown\n"
+            "| Story Day | Real Date | Chapter |\n"
+            "|---|---|---|\n"
+            "| Day 1 | Jan 1, 1999 | 00-example |\n"
+            "```\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.events == []
+
+    def test_bullet_anchor_daynum_does_not_swallow_year_digits(self, tmp_path: Path):
+        # "October 2025" has no day-of-month — must not misread "20" as
+        # the day and "25" as a truncated year.
+        body = "## Anchor Point\n\n- Story Day 1 = October 2025\n"
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        assert parse_plot_timeline(book) is None
+
+    def test_anchor_year_inference_uses_earliest_matching_event_not_file_order(
+        self, tmp_path: Path
+    ):
+        # Two events share the anchor's story day; the earlier real date
+        # must win, not whichever row appears first in the file.
+        body = (
+            "## Anchor Point\n\n"
+            "- Story Day 1 = Friday, October 18\n\n"
+            "## Act 1\n\n"
+            "| Story Day | Real Date | Chapter |\n"
+            "|---|---|---|\n"
+            "| Day 1 | Oct 18, 2099 | 01-flashforward |\n"
+            "| Day 1 | Oct 18, 2025 | 01-x |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 10, 18)
+
+    def test_table_anchor_wins_over_bullet_anchor_regardless_of_order(self, tmp_path: Path):
+        # Bullet appears BEFORE the table this time — the table row must
+        # still win, not just "whichever comes first in the file".
+        body = (
+            "## Anchor Point\n\n"
+            "- Story Day 1 = Friday, October 18, 2099\n\n"
+            "| Story Start | Real Date | Day of Week | Notes |\n"
+            "|---|---|---|---|\n"
+            "| Day 1 | Dec 1, 2025 | Monday | Begin |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date == date(2025, 12, 1)
+
 
 # ---------------------------------------------------------------------------
 # _find_phrase_matches — regex with longest-first + word boundary
