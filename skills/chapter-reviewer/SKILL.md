@@ -30,7 +30,7 @@ This returns:
 - `book_category` — must be `fiction`; if `memoir` → see Step 0
 - `chapter_timeline` — intra-day time grid for this chapter
 - `previous_chapter_timeline` — same for the preceding chapter
-- `canonical_timeline_entries` — parsed `plot/timeline.md` events
+- `canonical_timeline_entries` — parsed `plot/timeline.md` events. Books whose timeline never states a real-world year (Issue #509 — a deliberately year-agnostic setting) get an internal, non-canonical `real_date` plus a `real_date_display` field (`"Oct 18"`) — prefer `real_date_display` when reporting a date, don't treat the synthetic year as canon
 - `travel_matrix` — parsed `world/setting.md` Travel Matrix rows
 - `canon_log_facts` — canon facts from DB (Issue #297; `plot/canon-log.md` no longer read by `get_review_brief`), size-capped (Issue #500). CHANGED and chapter-unattributed facts get priority over other facts, but are still subject to the cap — not unconditionally guaranteed. Within each priority tier, facts from this book rank above facts inherited from an earlier book in the series, and facts established at or before the chapter under review rank above later ones. Never filtered by `domain` — `timeline` is a documented first-class fact domain, not noise.
 - `canon_log_facts_truncated` — `true` if `canon_log_facts` was capped for size (Issue #500).
