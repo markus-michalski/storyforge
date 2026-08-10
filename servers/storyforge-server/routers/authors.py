@@ -827,6 +827,8 @@ def extract_text_from_file(file_path: str) -> str:
         paragraph_count, character_count, estimated_pages, and sampled flag.
         ``{error}`` on file-not-found, unsupported format, or size limit breach.
     """
+    if "\x00" in file_path:
+        return json.dumps({"error": "Invalid file_path: embedded null byte"})
     config = _app.load_config()
     allowed_roots = [
         Path(config["paths"]["content_root"]).resolve(),
