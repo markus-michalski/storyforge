@@ -122,8 +122,7 @@ def classify_rule(rule: ParsedRule, *, world_terms: set[str]) -> tuple[str, str 
         return "style_principle", "style_principles"
 
     short_phrase_only = all(
-        not _TEMPLATE_SLOT_RE.search(label) and len(label.split()) <= _PHRASE_TOKEN_LIMIT
-        for label in literal_labels
+        not _TEMPLATE_SLOT_RE.search(label) and len(label.split()) <= _PHRASE_TOKEN_LIMIT for label in literal_labels
     )
     if short_phrase_only:
         return "banned_phrase", "donts"
@@ -247,6 +246,17 @@ def collect_manuscript_candidates(
         chapter_count = len({occ.chapter for occ in finding.occurrences})
         if chapter_count < threshold_chapters:
             continue
+        # A promoted phrase is stored as a literal scannable pattern
+        # (banlist_loader._build_discovery_pattern). A synthetic-label
+        # finding (Issue #511's slot-based character_tell, e.g. "shoulder
+        # (varied phrasing)") would promote into a rule that can never
+        # match anything. Checking Finding.promotable explicitly, rather
+        # than inferring "synthetic" from whether phrase is a snippet
+        # substring, avoids false-dropping ordinary n-gram findings whose
+        # phrase (normalized, punctuation-stripped) legitimately doesn't
+        # appear verbatim in the raw snippet.
+        if not finding.promotable:
+            continue
         kind, target = classify_finding(finding)
         candidates.append(
             Candidate(
@@ -254,18 +264,14 @@ def collect_manuscript_candidates(
                 type=kind,
                 value=finding.phrase,
                 context=f"Manuscript-checker finding ({finding.category})",
-                evidence=(
-                    f"Flagged {finding.count}x across {chapter_count} chapters "
-                    f"(severity={finding.severity})"
-                ),
+                evidence=(f"Flagged {finding.count}x across {chapter_count} chapters (severity={finding.severity})"),
                 recommendation="promote",
                 rationale="Cross-chapter spread suggests an author tic, not a one-chapter blip.",
                 source="manuscript_finding",
                 target_section=target,
                 source_rule_index=None,
                 occurrences=[
-                    {"chapter": occ.chapter, "line": occ.line, "snippet": occ.snippet}
-                    for occ in finding.occurrences
+                    {"chapter": occ.chapter, "line": occ.line, "snippet": occ.snippet} for occ in finding.occurrences
                 ],
             )
         )
@@ -310,8 +316,25 @@ def deduplicate_against_author(
 
 
 _STOP_WORDS_FOR_DEDUP = {
-    "a", "an", "and", "as", "at", "be", "by", "for", "from", "in", "is", "it", "of", "on",
-    "or", "the", "to", "with", "—",
+    "a",
+    "an",
+    "and",
+    "as",
+    "at",
+    "be",
+    "by",
+    "for",
+    "from",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "the",
+    "to",
+    "with",
+    "—",
 }
 
 

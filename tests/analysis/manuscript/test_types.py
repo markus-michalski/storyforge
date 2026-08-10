@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from tools.analysis.manuscript.types import (
     Occurrence,
     _classify,
@@ -35,6 +37,15 @@ class TestClassify:
             "ran a hand through her hair",
             [_occ("Lena ran a hand through her hair.")],
         )
+        assert cat == "character_tell"
+
+    @pytest.mark.parametrize("phrase", ["her chins", "his elbows shook", "the wrists went", "both thumbs up"])
+    def test_character_tell_with_newly_added_body_parts(self, phrase: str) -> None:
+        # BODY_PARTS gained chins/elbows/wrists/thumbs (Issue #511 review
+        # follow-up, closing a plural-coverage gap). These feed the
+        # pre-existing n-gram classifier directly — pin that they actually
+        # participate in character_tell classification.
+        cat = _classify(phrase, [_occ(phrase)])
         assert cat == "character_tell"
 
     def test_sensory_with_smell(self) -> None:

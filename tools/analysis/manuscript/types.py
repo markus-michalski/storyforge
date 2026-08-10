@@ -39,6 +39,11 @@ class Finding:
     # from the book's CLAUDE.md that triggered the finding, so the user sees
     # *why* a phrase was flagged.
     source_rule: str | None = None
+    # False for findings whose ``phrase`` is a synthetic label rather than
+    # manuscript text (e.g. body_tells.py's "shoulder (varied phrasing)") —
+    # tells tools.author.rule_harvester not to promote it into an
+    # author-level scan pattern that could never match anything (#511).
+    promotable: bool = True
 
 
 # ---------------------------------------------------------------------------

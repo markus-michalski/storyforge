@@ -226,6 +226,50 @@ class TestCollectManuscriptCandidates:
         candidates = collect_manuscript_candidates([finding], threshold_chapters=2)
         assert len(candidates) == 1
 
+    def test_non_promotable_finding_is_excluded(self):
+        # Issue #511: the slot-based character_tell detector emits a
+        # synthetic label ("shoulder (varied phrasing)") that never
+        # literally occurs in the manuscript. Promoting it as a Recurring
+        # Tic would store a scan pattern that can never match anything, so
+        # it's marked promotable=False and must be excluded here.
+        finding = Finding(
+            phrase="shoulder (varied phrasing)",
+            category="character_tell",
+            severity="high",
+            count=10,
+            occurrences=[
+                Occurrence(chapter=f"ch-{i:02d}", line=1, snippet="His shoulders dropped a fraction.")
+                for i in range(10)
+            ],
+            promotable=False,
+        )
+        candidates = collect_manuscript_candidates([finding])
+        assert candidates == []
+
+    def test_ordinary_ngram_finding_with_punctuation_in_snippet_is_still_promoted(self):
+        # Regression: a naive "phrase must be a substring of the raw
+        # snippet" guard would false-drop this, since `phrase` is a
+        # normalized (punctuation-stripped) token join while `snippet` is
+        # raw text with the comma intact. promotable defaults to True, so
+        # a normal n-gram finding must still be promoted regardless of
+        # whether its phrase is a literal substring of the raw snippet.
+        finding = Finding(
+            phrase="he swallowed and then he nodded once",
+            category="signature_phrase",
+            severity="high",
+            count=6,
+            occurrences=[
+                Occurrence(
+                    chapter=f"ch-{i:02d}",
+                    line=1,
+                    snippet="He swallowed, and then he nodded once, slowly.",
+                )
+                for i in range(6)
+            ],
+        )
+        candidates = collect_manuscript_candidates([finding])
+        assert len(candidates) == 1
+
 
 # ---------------------------------------------------------------------------
 # deduplicate_against_author
@@ -331,9 +375,7 @@ class TestHarvest:
 
     def test_dedups_candidates_already_in_author(self):
         rules = [_rule(0, "Avoid `math` — Theo's tic.")]
-        author_profile = {
-            "writing_discoveries": {"recurring_tics": [], "style_principles": [], "donts": []}
-        }
+        author_profile = {"writing_discoveries": {"recurring_tics": [], "style_principles": [], "donts": []}}
         vocabulary_text = "### Absolutely Forbidden\n\n- math\n"
         result = harvest(
             book_slug="firelight",

@@ -61,6 +61,9 @@ def scan_manuscript(
     - Per-chapter `-ly` adverb density
     - Cross-chapter repeated phrases: similes, character tells, blocking tics,
       structural patterns, signature phrases
+    - Paraphrased body-language tells — the same tic reworded each time
+      ("shoulders came down" vs. "shoulders had dropped"), invisible to the
+      exact-repetition check above (#511)
 
     Memoir-only (book_category: memoir, Phase 3 #61):
     - Anonymization leaks — real name appearing despite people/ profile marking
