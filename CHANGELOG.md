@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "shoulders came down" / "shoulders had dropped") was invisible to it. A new slot-based
   detector matches `[body part] + [state signal]` regardless of exact wording, additive to
   the existing pass (#511).
+- `extract_text_from_file` rejected a null-byte path via `Path.resolve()`'s platform-dependent
+  behavior (raises on POSIX, doesn't on Windows), producing a different error message — and on
+  Windows, for a path resolving inside an allowed root, no rejection message at all, only a
+  generic file-not-found. An explicit pre-check now rejects the path uniformly before
+  `resolve()` is called (#512).
 
 ### Security
 - Nothing yet

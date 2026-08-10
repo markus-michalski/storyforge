@@ -173,7 +173,30 @@ class TestExtractTextFromFilePathContainment:
             result = json.loads(extract_text_from_file("/tmp/\x00evil.txt"))
 
         assert "error" in result
-        assert "Invalid file_path" in result["error"]
+        assert "Invalid file_path: embedded null byte" in result["error"]
+
+    def test_rejects_null_byte_in_path_inside_allowed_root(self, tmp_path: Path) -> None:
+        """A null byte must be rejected uniformly regardless of whether the path
+        would otherwise resolve inside an allowed root. Without the explicit
+        pre-check, `Path.resolve()` behaves differently per platform here (raises
+        on POSIX, doesn't on Windows — CPython gh-106242, ntpath.realpath's
+        non-strict null-byte tolerance since 3.11.5/3.12), and on Windows the
+        path would fall through the containment check only to fail later as a
+        generic FileNotFoundError from the filesystem layer instead of being
+        rejected as an invalid path.
+        """
+        content_root = tmp_path / "books"
+        authors_root = tmp_path / "authors"
+        content_root.mkdir()
+        authors_root.mkdir()
+
+        evil_path = str(content_root / "\x00evil.txt")
+
+        with patch("routers.authors._app.load_config", return_value=self._make_config(content_root, authors_root)):
+            result = json.loads(extract_text_from_file(evil_path))
+
+        assert "error" in result
+        assert "Invalid file_path: embedded null byte" in result["error"]
 
     def test_rejects_traversal_via_symlink_resolution(self, tmp_path: Path) -> None:
         content_root = tmp_path / "books"
