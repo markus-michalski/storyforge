@@ -19,6 +19,7 @@ from tools.analysis.timeline_validator import (
     PhraseMatch,
     TimelineCalendar,
     _detect_drift,
+    _extract_month_day,
     _find_phrase_matches,
     _find_scene_at_line,
     _resolve_phrase_dates,
@@ -438,6 +439,279 @@ class TestParsePlotTimelineFirelightShape:
         calendar = parse_plot_timeline(book)
         assert calendar is not None
         assert calendar.anchor_date == date(2025, 12, 1)
+
+
+# ---------------------------------------------------------------------------
+# parse_plot_timeline — Issue #509: year-less, weekday-tagged timelines
+# ---------------------------------------------------------------------------
+
+# Mirrors the real series/blood-and-binary/firelight/plot/timeline.md shape:
+# no year anywhere (not even in the anchor bullet), "Day | Date | Chapter |
+# Events" headers instead of "Story Day"/"Real Date", a Cabin Day table with
+# bold, merged weekday+date cells, and later tables where the Date column is
+# empty and the weekday+date is merged into the Day cell instead. Also
+# exercises the Dec -> Jan year wrap.
+YEARLESS_TIMELINE_MD = (
+    "# Story Timeline\n\n"
+    "## Anchor Point\n"
+    "- **Story Day 1 = Friday, October 18** (late October, as established)\n\n"
+    "## Act 1: The Nerd and the Stranger\n\n"
+    "### Week 0 (lead-up)\n"
+    "| Day | Date | Chapter | Events |\n"
+    "|-----|------|---------|--------|\n"
+    "| Mon | Oct 14 | 01-lead-up | Theo at work. |\n\n"
+    "### Week 1 (the story week)\n\n"
+    "| Day | Date | Cabin Day | Chapter | Events |\n"
+    "|-----|------|-----------|---------|--------|\n"
+    "| **Fri** | **Oct 18** | — | 02-arrival | Theo drives to the campsite. |\n"
+    "| **Sat** | **Oct 19** | **Day 1** | 03-storm | Storm hits, Theo falls. |\n\n"
+    "### Weeks 3-6\n\n"
+    "| Day | Date | Chapter | Events |\n"
+    "|-----|------|---------|--------|\n"
+    "| Sat Nov 16 | | 10-confrontation | Kevin confrontation. |\n\n"
+    "## Act 3: Fire and Ash\n\n"
+    "| Day | Date | Chapter | Events |\n"
+    "|-----|------|---------|--------|\n"
+    "| ~Jan 3 | | 32-funeral | Sera's funeral. |\n"
+)
+
+
+class TestParsePlotTimelineYearless509:
+    def test_real_firelight_shape_builds_a_calendar(self, tmp_path: Path):
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, YEARLESS_TIMELINE_MD)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+
+    def test_anchor_resolved_without_any_year_in_the_document(self, tmp_path: Path):
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, YEARLESS_TIMELINE_MD)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_date.month == 10
+        assert calendar.anchor_date.day == 18
+        assert calendar.anchor_story_day == 1
+
+    def test_events_extracted_from_both_date_and_merged_day_cells(self, tmp_path: Path):
+        # "Oct 14" comes from a plain Date cell; "Oct 19"/"Nov 16"/"Jan 3"
+        # come from a Date cell using bold markers or a merged weekday+date
+        # Day cell (Date cell empty) — Issue #509.
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, YEARLESS_TIMELINE_MD)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        by_chapter = {e.chapter_slug: e for e in calendar.events}
+        assert set(by_chapter) == {
+            "01-lead-up",
+            "02-arrival",
+            "03-storm",
+            "10-confrontation",
+            "32-funeral",
+        }
+        assert (by_chapter["01-lead-up"].real_date.month, by_chapter["01-lead-up"].real_date.day) == (10, 14)
+        assert (by_chapter["02-arrival"].real_date.month, by_chapter["02-arrival"].real_date.day) == (10, 18)
+        assert (by_chapter["03-storm"].real_date.month, by_chapter["03-storm"].real_date.day) == (10, 19)
+        assert (by_chapter["10-confrontation"].real_date.month, by_chapter["10-confrontation"].real_date.day) == (
+            11,
+            16,
+        )
+        assert (by_chapter["32-funeral"].real_date.month, by_chapter["32-funeral"].real_date.day) == (1, 3)
+
+    def test_year_wraps_forward_across_a_december_to_january_transition(self, tmp_path: Path):
+        # No event has an explicit year, but the Jan event must still
+        # resolve to a *later* year than the Oct/Nov events — otherwise
+        # every downstream day-diff (drift detection) would be wrong.
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, YEARLESS_TIMELINE_MD)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        by_chapter = {e.chapter_slug: e for e in calendar.events}
+        assert by_chapter["32-funeral"].real_date.year > by_chapter["10-confrontation"].real_date.year
+        assert by_chapter["32-funeral"].real_date > by_chapter["10-confrontation"].real_date
+
+    def test_story_day_backfilled_from_date_offset_when_column_absent(self, tmp_path: Path):
+        # None of these tables have a Story Day column at all — story_day
+        # must be derived from the date's offset to the anchor, not left
+        # at a bogus 0.
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, YEARLESS_TIMELINE_MD)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        by_chapter = {e.chapter_slug: e for e in calendar.events}
+        # Anchor = Oct 18 = story day 1 -> Oct 19 = story day 2.
+        assert by_chapter["03-storm"].story_day == 2
+
+    def test_story_day_zero_bullet_normalized_consistently_for_backfill_and_anchor(
+        self, tmp_path: Path
+    ):
+        # A "Story Day 0" bullet is falsy — the backfill offset for
+        # events with no Story Day column of their own must use the
+        # same normalized value (0 -> 1) as the returned calendar's
+        # anchor_story_day, not the raw pre-normalization 0.
+        body = (
+            "## Anchor Point\n"
+            "- Story Day 0 = Friday, October 18\n\n"
+            "## Act 1\n\n"
+            "| Day | Date | Chapter | Events |\n"
+            "|-----|------|---------|--------|\n"
+            "| Sat | Oct 19 | 01-x | Next day. |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.anchor_story_day == 1
+        assert calendar.events[0].story_day == 2
+
+    def test_day_cell_range_used_when_date_cell_holds_a_duration_not_a_date(
+        self, tmp_path: Path
+    ):
+        # A real recurring shape in firelight/plot/timeline.md: the Date
+        # cell holds a plain-English duration ("~2 weeks") instead of a
+        # date, with the actual date living in the Day cell as a range
+        # ("Nov 1-14") — the fallback must still extract Nov 1 from the
+        # Day cell rather than give up because the Date cell isn't a date.
+        body = (
+            "## Anchor Point\n"
+            "- Story Day 1 = Friday, October 18\n\n"
+            "## Act 1\n\n"
+            "| Day | Date | Chapter | Events |\n"
+            "|-----|------|---------|--------|\n"
+            "| Nov 1-14 | ~2 weeks | 09-orbit | Kael and Theo orbit each other. |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert len(calendar.events) == 1
+        assert calendar.events[0].real_date.month == 11
+        assert calendar.events[0].real_date.day == 1
+
+    def test_small_out_of_order_table_does_not_trigger_a_spurious_year_bump(
+        self, tmp_path: Path
+    ):
+        # A lead-up table listed textually *after* the anchor bullet but
+        # chronologically *before* it, one month earlier — must not be
+        # mistaken for a Dec -> Jan wrap (the month only drops by 1, far
+        # short of a real wrap) and bumped into a later synthetic year.
+        body = (
+            "## Anchor Point\n"
+            "- Story Day 1 = Friday, November 18\n\n"
+            "## Act 1\n\n"
+            "| Day | Date | Chapter | Events |\n"
+            "|-----|------|---------|--------|\n"
+            "| Mon | Oct 14 | 00-lead-up | Gear shopping. |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        event = calendar.events[0]
+        assert event.real_date.year == calendar.anchor_date.year
+        # The backward step happened but wasn't a real wrap — recorded
+        # for callers to gauge confidence, not silently absorbed.
+        assert calendar.out_of_order_steps == 1
+        assert event.real_date.month == 10
+
+    def test_revision_log_style_table_still_not_ingested_as_events(self, tmp_path: Path):
+        # A Date+Chapter table without any Day column (e.g. a revision
+        # log) must still be excluded even under the year-less fallback.
+        body = (
+            "## Anchor Point\n"
+            "- Story Day 1 = October 18\n\n"
+            "## Revision Log\n\n"
+            "| Date | Chapter | Change |\n"
+            "|---|---|---|\n"
+            "| Mar 4 | 01-x | Rewrote scene 2 |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.events == []
+
+    def test_real_date_display_never_asserts_a_fabricated_year(self, tmp_path: Path):
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, YEARLESS_TIMELINE_MD)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        event = next(e for e in calendar.events if e.chapter_slug == "02-arrival")
+        d = event.to_dict()
+        assert d["real_date_display"] == "Oct 18"
+        assert "real_date" in d  # ISO date still present for internal use
+
+    def test_synthetic_year_flag_set_when_a_year_had_to_be_synthesized(self, tmp_path: Path):
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, YEARLESS_TIMELINE_MD)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        assert calendar.synthetic_year is True
+
+    def test_event_row_with_its_own_explicit_year_is_not_overwritten(self, tmp_path: Path):
+        # Only the anchor bullet is year-less — the event rows state
+        # their own years, which must be honored as-is rather than
+        # discarded in favor of the synthetic counter (a book need not
+        # be year-less everywhere just because the anchor bullet is).
+        body = (
+            "## Anchor Point\n"
+            "- Story Day 1 = Friday, October 18\n\n"
+            "## Act 1\n\n"
+            "| Day | Date | Chapter | Events |\n"
+            "|-----|------|---------|--------|\n"
+            "| Fri | Oct 18, 2025 | 02-arrival | Arrival. |\n"
+            "| Sat | Jan 3, 2026 | 32-funeral | Funeral. |\n"
+        )
+        book = make_book(tmp_path, [])
+        write_timeline_md(book, body)
+        calendar = parse_plot_timeline(book)
+        assert calendar is not None
+        by_chapter = {e.chapter_slug: e for e in calendar.events}
+        assert by_chapter["02-arrival"].real_date == date(2025, 10, 18)
+        assert by_chapter["32-funeral"].real_date == date(2026, 1, 3)
+
+    def test_drift_detection_reprojects_a_synthetic_event_year(self, tmp_path: Path):
+        # Issue #509 H1: a synthetic event year (e.g. year 1) must not
+        # be diffed directly against a chapter README's real-year
+        # anchor — that would report a ~700000-day drift for what's
+        # actually a same-day match. Mirrors the shape of the earlier
+        # fixtures in this file (dir-slug chapter names), which is
+        # exactly what triggered the false positive before the fix.
+        book = make_book(
+            tmp_path,
+            [
+                {
+                    "slug": "02-arrival",
+                    "readme": (
+                        "# Chapter 2\n\n## Chapter Timeline\n"
+                        "**Start:** Fri Oct 18 ~09:00\n**End:** Fri Oct 18 ~22:00\n"
+                    ),
+                    "draft": "Theo remembered yesterday, when everything was still normal.\n",
+                },
+            ],
+        )
+        write_timeline_md(book, YEARLESS_TIMELINE_MD)
+        result = validate_timeline(book)
+        assert result["calendar_built"] is True
+        for finding in result["findings"]:
+            assert finding["drift_days"] < 30
+
+    def test_extract_month_day_rejects_month_and_year_without_a_day(self):
+        # M1 hardening: "Oct 2025" (year, no day-of-month) must not be
+        # misread as day 20 of an unstated year — same guard as
+        # _ANCHOR_BULLET_RE's (?!\d) lookahead (Issue #508).
+        assert _extract_month_day("Oct 2025") is None
+        assert _extract_month_day("October 2025") is None
+
+    def test_extract_month_day_does_not_match_inside_unrelated_words(self):
+        # "Marathon 5" / "Decided 3 times" must not be misread as
+        # March 5 / December 3 via a bare \w* month tail.
+        assert _extract_month_day("Marathon 5") is None
+        assert _extract_month_day("Decided 3 times") is None
+        assert _extract_month_day("Mayor 12") is None
+
+    def test_extract_month_day_captures_an_explicit_year(self):
+        assert _extract_month_day("Oct 18, 2025") == (10, 18, 2025)
+        assert _extract_month_day("Oct 18") == (10, 18, None)
 
 
 # ---------------------------------------------------------------------------

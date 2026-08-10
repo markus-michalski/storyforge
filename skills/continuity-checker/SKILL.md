@@ -29,7 +29,7 @@ Branch Prerequisites and Workflow Steps 3, 5, 6 on `book_category`.
 
 Call MCP `get_continuity_brief(book_slug)`. This returns:
 
-- `canonical_calendar` — parsed `plot/timeline.md` events (story_day/real_date/chapter_slug/key_events), earliest-story-day-first. **Size-capped (Issue #504)** — check `canonical_calendar_truncated` before treating the list as covering every recorded event.
+- `canonical_calendar` — parsed `plot/timeline.md` events (story_day/real_date/chapter_slug/key_events), earliest-story-day-first. **Size-capped (Issue #504)** — check `canonical_calendar_truncated` before treating the list as covering every recorded event. Books whose timeline never states a real-world year (Issue #509 — a deliberately year-agnostic setting) get an internal, non-canonical `real_date` (e.g. `"0001-10-18"`) plus a `real_date_display` field (`"Oct 18"`) — prefer `real_date_display` when reporting a date to the user for such books, and don't treat the synthetic year as established canon.
 - `canonical_calendar_truncated` — `true` if `canonical_calendar` was capped for size (Issue #504).
 - `canonical_calendar_total_count` — the untruncated event count; compare against `len(canonical_calendar)` to know how many events were dropped.
 - `travel_matrix` — parsed `world/setting.md` Travel Matrix rows (**fiction only** — empty for memoir, since memoir books have no `world/setting.md`)

@@ -32,7 +32,7 @@ Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
 - `book_category` — must be `memoir`; if `fiction` → see Step 0
 - `chapter_timeline` — intra-day time grid for this chapter
 - `previous_chapter_timeline` — same for the preceding chapter
-- `canonical_timeline_entries` — parsed `plot/timeline.md` events (real chronology — errors here are factual errors, not just continuity problems)
+- `canonical_timeline_entries` — parsed `plot/timeline.md` events (real chronology — errors here are factual errors, not just continuity problems). If the timeline never states a real-world year (Issue #509), entries carry an internal, non-canonical `real_date` plus a `real_date_display` field (`"Oct 18"`) — prefer `real_date_display` when reporting a date, don't treat the synthetic year as a factual claim
 - `travel_matrix` — empty for memoir; do not use
 - `canon_log_facts` — same DB-backed source as fiction (Issue #297); populated whenever `add_canon_fact()` has been called for this book, including people facts recorded per `chapter-writer-memoir` Step 9. `plot/people-log.md` is a legacy archive, not the source of truth. Size-capped (Issue #500) — see `canon_log_facts_truncated`/`canon_log_facts_total_count` below.
 - `canon_log_facts_truncated` — `true` if `canon_log_facts` was capped for size (Issue #500).

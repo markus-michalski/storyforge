@@ -26,7 +26,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from tools.timeline_anchor import (
     ChapterAnchor,
@@ -46,29 +46,59 @@ from tools.timeline_anchor import (
 
 @dataclass
 class CalendarEvent:
-    """One row of the ``plot/timeline.md`` Event Calendar."""
+    """One row of the ``plot/timeline.md`` Event Calendar.
+
+    ``year_is_synthetic`` is ``True`` only for events whose year had to
+    be invented by ``_parse_yearless_timeline`` (Issue #509) because the
+    row itself gave no year — never set by the primary parse path, and
+    not set for a year-less-fallback event whose row *did* state its
+    own explicit year. ``to_dict()`` only emits ``real_date_display``
+    for such events, so a normal book's payload is unchanged.
+    """
 
     story_day: int
     real_date: date
     chapter_slug: str
     key_events: str
+    year_is_synthetic: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "story_day": self.story_day,
             "real_date": self.real_date.isoformat(),
-            "chapter_slug": self.chapter_slug,
-            "key_events": self.key_events,
         }
+        if self.year_is_synthetic:
+            d["real_date_display"] = f"{_MONTH_ABBR[self.real_date.month]} {self.real_date.day}"
+        d["chapter_slug"] = self.chapter_slug
+        d["key_events"] = self.key_events
+        return d
 
 
 @dataclass
 class TimelineCalendar:
-    """Parsed ``plot/timeline.md`` — anchor + ordered event list."""
+    """Parsed ``plot/timeline.md`` — anchor + ordered event list.
+
+    ``synthetic_year`` is ``True`` when at least one date in the file had
+    no stated year and was resolved via ``_parse_yearless_timeline``'s
+    internal, non-canonical year counter (Issue #509) — never set by the
+    primary parse path. Drift detection re-projects against it (see
+    ``_detect_drift``) so a synthetic year doesn't get diffed against a
+    real one as if they were the same calendar.
+
+    ``out_of_order_steps`` counts document-order backward month steps
+    that were *not* large enough to be treated as a real year wrap (see
+    ``_YEAR_WRAP_MONTH_DROP``) — always 0 outside the year-less fallback.
+    A nonzero count means the file's row order doesn't strictly track
+    chronological order, which the fallback's date arithmetic assumes;
+    consumers can use it to gauge confidence in the resolved dates
+    without it blocking parsing (Issue #509 follow-up from code review).
+    """
 
     anchor_date: date
     anchor_story_day: int
     events: list[CalendarEvent] = field(default_factory=list)
+    synthetic_year: bool = False
+    out_of_order_steps: int = 0
 
 
 @dataclass
@@ -123,6 +153,42 @@ _HUMAN_DATE_RE = re.compile(
 # Matches "2025-12-25" — ISO 8601, also accepted.
 _ISO_DATE_RE = re.compile(r"^(?P<year>\d{4})-(?P<mon>\d{2})-(?P<day>\d{2})$")
 _STORY_DAY_RE = re.compile(r"Day\s+(?P<n>\d+)", re.IGNORECASE)
+
+_MONTH_ABBR = {
+    1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+    7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec",
+}
+_MONTH_NUMBERS = {abbr.lower(): num for num, abbr in _MONTH_ABBR.items()}
+
+# Finds the first bare "Mon DD" (optionally ", YYYY") occurrence
+# anywhere in free-form cell text — Issue #509's year-less timelines.
+# Tolerates a leading weekday ("Sat Nov 16"), markdown bold emphasis
+# ("**Oct 18**"), and a trailing day range ("Oct 15-17" — only the
+# range's first day is taken). Month names are enumerated (not a bare
+# \w* tail) and the day group carries the same (?!\d) lookahead as
+# _ANCHOR_BULLET_RE, so a month-and-year-only cell like "Oct 2025"
+# isn't misread as day 20 of an unspecified year.
+_CELL_MONTH_DAY_RE = re.compile(
+    r"(?P<mon>Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|"
+    r"Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+"
+    r"(?P<day>\d{1,2})(?!\d)"
+    r"(?:,?\s*(?P<year>\d{4}))?",
+    re.IGNORECASE,
+)
+
+# Internal-only synthetic starting year for year-less timelines — never
+# exposed to consumers as story canon (see CalendarEvent.to_dict()'s
+# real_date_display), only used so datetime.date arithmetic (drift
+# detection) works across a book that never states an absolute year.
+_SENTINEL_BASE_YEAR = 1
+
+# Minimum month-number drop (relative to the previous item) treated as
+# a real Dec -> Jan-style year wrap rather than a table simply listed
+# slightly out of strict chronological order (e.g. a lead-up week
+# appearing textually after the anchor bullet, one month earlier/later
+# than a neighboring table). 6 comfortably separates a Dec(12)->Jan(1)
+# wrap (drop of 11) from any plausible single-table misordering.
+_YEAR_WRAP_MONTH_DROP = 6
 
 # Matches a markdown heading line, capturing hash-run length so ###+
 # sub-headings can be told apart from top-level ## headings.
@@ -297,6 +363,111 @@ def _cell_at(cells: list[str], idx: int | None) -> str:
     return cells[idx]
 
 
+def _iter_timeline_lines(
+    text: str,
+    classify_header: Callable[[list[str]], tuple[str | None, dict[str, int | None] | None]],
+):
+    """Shared fence/heading/table state-machine walk over a timeline document.
+
+    Both ``parse_plot_timeline`` (Issue #79/#508) and its year-less
+    fallback ``_parse_yearless_timeline`` (Issue #509) need to walk the
+    same document shape — skip fenced code blocks, track whether we're
+    under an ``## Anchor Point``-titled section (a ``###+`` sub-heading
+    doesn't reset it, only another top-level ``##`` does), collect
+    anchor bullets, and classify+read markdown tables — differing only
+    in *how* a table header is classified and *what* to do with a
+    classified row. This generator owns the shared walk; callers own
+    the per-mode interpretation.
+
+    Yields ``("anchor_bullet", match)`` for each ``_ANCHOR_BULLET_RE``
+    match found on a list-item line under the anchor heading, or
+    ``("row", table_kind, column_map, cells)`` for each data row of a
+    table whose header ``classify_header`` recognized (returned
+    ``table_kind`` is an opaque label — ``"anchor"``/``"events"`` in
+    current callers — interpreted by the caller, not this function).
+    Rows of an unrecognized table (``classify_header`` returned
+    ``(None, ...)``) are silently skipped, matching how both callers
+    already treated them before this was extracted.
+    """
+    under_anchor_heading = False
+    in_fence = False
+    header_seen = False
+    pending_header_cells: list[str] | None = None
+    table_kind: str | None = None
+    column_map: dict[str, int | None] | None = None
+
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+
+        if _FENCE_RE.match(stripped):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+
+        heading_match = _HEADING_RE.match(stripped)
+        if heading_match:
+            hashes, heading_text = heading_match.groups()
+            title = heading_text.strip().strip("*_`").strip().lower()
+            if title.startswith("anchor"):
+                under_anchor_heading = True
+            elif len(hashes) == 2:
+                # Only a top-level ## heading switches section away from
+                # anchor — a ###+ sub-heading (e.g. "### Week 0") nests
+                # inside whatever ## section it appears under and must
+                # not reset it.
+                under_anchor_heading = False
+            header_seen = False
+            pending_header_cells = None
+            table_kind = None
+            column_map = None
+            continue
+
+        if not stripped.startswith("|"):
+            header_seen = False
+            pending_header_cells = None
+            table_kind = None
+            column_map = None
+            if under_anchor_heading and _LIST_ITEM_RE.match(stripped):
+                m = _ANCHOR_BULLET_RE.search(stripped)
+                if m:
+                    yield "anchor_bullet", m
+            continue
+
+        # Inside a markdown table.
+        if _is_separator_row(stripped):
+            if pending_header_cells is not None:
+                header_seen = True
+                table_kind, column_map = classify_header(pending_header_cells)
+            continue
+
+        cells = _split_table_row(stripped)
+        if not header_seen:
+            # First row is the header — capture it and wait for the separator.
+            pending_header_cells = cells
+            continue
+        if table_kind is None or not cells:
+            continue
+
+        yield "row", table_kind, column_map, cells
+
+
+def _classify_header_primary(cells: list[str]) -> tuple[str | None, dict[str, int | None] | None]:
+    """``classify_header`` for the primary parse path (Issue #79/#508)."""
+    kind = _classify_table_header(cells)
+    if kind == "events":
+        return kind, _map_event_columns(cells)
+    if kind == "anchor":
+        return kind, _map_anchor_columns(cells)
+    return kind, None
+
+
+def _classify_header_yearless(cells: list[str]) -> tuple[str | None, dict[str, int | None] | None]:
+    """``classify_header`` for the year-less fallback (Issue #509)."""
+    column_map = _classify_events_header_yearless(cells)
+    return ("events" if column_map is not None else None), column_map
+
+
 def _resolve_bullet_anchor(
     candidates: list[tuple[bool, int, str, int, str | None]],
     events: list[CalendarEvent],
@@ -363,82 +534,21 @@ def parse_plot_timeline(book_path: Path) -> TimelineCalendar | None:
     events: list[CalendarEvent] = []
     bullet_candidates: list[tuple[bool, int, str, int, str | None]] = []
 
-    under_anchor_heading = False
-    in_fence = False
-    in_table = False
-    header_seen = False
-    pending_header_cells: list[str] | None = None
-    table_kind: str | None = None
-    column_map: dict[str, int | None] | None = None
-
-    for raw_line in text.splitlines():
-        stripped = raw_line.strip()
-
-        if _FENCE_RE.match(stripped):
-            in_fence = not in_fence
-            continue
-        if in_fence:
+    for item in _iter_timeline_lines(text, _classify_header_primary):
+        if item[0] == "anchor_bullet":
+            m = item[1]
+            bullet_candidates.append(
+                (
+                    bool(m.group("year")),
+                    int(m.group("day")),
+                    m.group("mon"),
+                    int(m.group("daynum")),
+                    m.group("year"),
+                )
+            )
             continue
 
-        heading_match = _HEADING_RE.match(stripped)
-        if heading_match:
-            hashes, heading_text = heading_match.groups()
-            title = heading_text.strip().strip("*_`").strip().lower()
-            if title.startswith("anchor"):
-                under_anchor_heading = True
-            elif len(hashes) == 2:
-                # Only a top-level ## heading switches section away from
-                # anchor — a ###+ sub-heading (e.g. "### Week 0") nests
-                # inside whatever ## section it appears under and must
-                # not reset it.
-                under_anchor_heading = False
-            in_table = False
-            header_seen = False
-            pending_header_cells = None
-            table_kind = None
-            column_map = None
-            continue
-
-        if not stripped.startswith("|"):
-            in_table = False
-            header_seen = False
-            pending_header_cells = None
-            table_kind = None
-            column_map = None
-            if under_anchor_heading and _LIST_ITEM_RE.match(stripped):
-                m = _ANCHOR_BULLET_RE.search(stripped)
-                if m:
-                    bullet_candidates.append(
-                        (
-                            bool(m.group("year")),
-                            int(m.group("day")),
-                            m.group("mon"),
-                            int(m.group("daynum")),
-                            m.group("year"),
-                        )
-                    )
-            continue
-
-        # Inside a markdown table.
-        if _is_separator_row(stripped):
-            if pending_header_cells is not None:
-                in_table = True
-                header_seen = True
-                table_kind = _classify_table_header(pending_header_cells)
-                if table_kind == "events":
-                    column_map = _map_event_columns(pending_header_cells)
-                elif table_kind == "anchor":
-                    column_map = _map_anchor_columns(pending_header_cells)
-            continue
-
-        cells = _split_table_row(stripped)
-        if not header_seen:
-            # First row is the header — capture it and wait for the separator.
-            pending_header_cells = cells
-            continue
-        if not in_table or not cells:
-            continue
-
+        _, table_kind, column_map, cells = item
         if table_kind == "anchor" and anchor_date is None and column_map is not None:
             # Anchor row layout: | Story Start | Real Date | DoW | Notes |
             # — column order isn't assumed, resolved via _map_anchor_columns.
@@ -471,12 +581,202 @@ def parse_plot_timeline(book_path: Path) -> TimelineCalendar | None:
             anchor_date, anchor_story_day = resolved
 
     if anchor_date is None:
-        # No usable anchor — caller treats this as "calendar not built".
-        return None
+        # No usable anchor via the strict/borrowed-year paths above — try
+        # the year-less fallback (Issue #509) before giving up.
+        return _parse_yearless_timeline(text)
     return TimelineCalendar(
         anchor_date=anchor_date,
         anchor_story_day=anchor_story_day or 1,
         events=events,
+    )
+
+
+def _extract_month_day(text: str) -> tuple[int, int, int | None] | None:
+    """Find the first bare "Mon DD" occurrence in free-form cell text.
+
+    Returns ``(month, day, year_or_None)`` — a row may state its own
+    year even when the anchor doesn't (Issue #509's fallback must not
+    discard a year the file actually gives it).
+    """
+    m = _CELL_MONTH_DAY_RE.search(text)
+    if not m:
+        return None
+    year = int(m.group("year")) if m.group("year") else None
+    return _MONTH_NUMBERS[m.group("mon")[:3].lower()], int(m.group("day")), year
+
+
+def _classify_events_header_yearless(cells: list[str]) -> dict[str, int | None] | None:
+    """Map an events-table header for year-less timelines (Issue #509).
+
+    Firelight's real tables use a plain ``Day`` (weekday, sometimes
+    merged with the date — ``Sat Nov 16``) + ``Date`` column pair
+    instead of the template's ``Story Day``/``Real Date`` naming, so
+    ``_classify_table_header`` never recognizes them. Requires a
+    chapter column *and* both a ``Date`` and a ``Day`` column — a
+    foreign date+chapter table (a revision log, with no ``Day`` column)
+    isn't ingested as event data. Column lookup is substring-based (via
+    ``_find_column``, matching ``_classify_table_header``'s own
+    convention) rather than an exact-name match, so this is a heuristic
+    rather than a guarantee against every foreign table shape.
+    """
+    lowered = _normalize_header_cells(cells)
+    chapter_idx = _find_column(lowered, "chapter")
+    date_idx = _find_column(lowered, "real date", "date")
+    day_idx = _find_column(lowered, "day")
+    if chapter_idx is None or date_idx is None or day_idx is None:
+        return None
+    return {
+        "chapter": chapter_idx,
+        "date": date_idx,
+        "day": day_idx,
+        "story_day": _find_column(lowered, "story day"),
+        "key_events": _find_column(lowered, "key events", "events", "summary"),
+    }
+
+
+def _parse_yearless_timeline(text: str) -> TimelineCalendar | None:
+    """Last-resort parse for year-less, weekday-tagged timelines (Issue #509).
+
+    Invoked only when the primary parse above finds no usable anchor at
+    all — i.e. the anchor bullet has no year and there's no dated event
+    to borrow one from via ``_resolve_bullet_anchor`` (a book that is
+    deliberately real-world-year-agnostic, not a data-entry oversight).
+    Individual rows may still state their own explicit year even when
+    the anchor doesn't; those years are honored as-is. Every date that
+    has no year of its own — the anchor's included, when it lacks one —
+    is resolved to a synthetic, strictly-internal year via document
+    order plus a running counter that increments on a Dec -> Jan-style
+    wrap. Whenever any part of the calendar had to be synthesized this
+    way, ``TimelineCalendar.synthetic_year`` is set — that flag governs
+    drift-detection date arithmetic in ``_detect_drift`` and is why the
+    synthetic year is never meant to reach consumers as established
+    canon on its own (see ``CalendarEvent.to_dict()``'s
+    ``real_date_display``, e.g. ``"Oct 18"``).
+
+    Only a bullet anchor is supported (Firelight's actual layout); a
+    year-less anchor *table* row would need its own extension.
+    """
+    anchor_candidates: list[tuple[bool, int, int, int, int | None]] = []
+    raw_events: list[dict[str, Any]] = []
+
+    for item in _iter_timeline_lines(text, _classify_header_yearless):
+        if item[0] == "anchor_bullet":
+            m = item[1]
+            anchor_candidates.append(
+                (
+                    bool(m.group("year")),
+                    int(m.group("day")),
+                    _MONTH_NUMBERS[m.group("mon")[:3].lower()],
+                    int(m.group("daynum")),
+                    int(m.group("year")) if m.group("year") else None,
+                )
+            )
+            continue
+
+        _, table_kind, column_map, cells = item
+        if table_kind != "events" or column_map is None:
+            continue
+
+        date_idx = column_map["date"]
+        extracted = _extract_month_day(_cell_at(cells, date_idx)) if date_idx is not None else None
+        if extracted is None and column_map["day"] is not None:
+            extracted = _extract_month_day(_cell_at(cells, column_map["day"]))
+        if extracted is None:
+            continue
+        month, day, year = extracted
+        story_day_idx = column_map["story_day"]
+        story_day = _parse_story_day(_cell_at(cells, story_day_idx)) if story_day_idx is not None else None
+        raw_events.append(
+            {
+                "month": month,
+                "day": day,
+                "year": year,
+                "story_day": story_day,
+                "chapter_slug": _cell_at(cells, column_map["chapter"]),
+                "key_events": _cell_at(cells, column_map["key_events"]),
+            }
+        )
+
+    if not anchor_candidates:
+        return None
+
+    with_year = [c for c in anchor_candidates if c[0]]
+    _, anchor_story_day, anchor_month, anchor_day, anchor_year = (
+        with_year[0] if with_year else anchor_candidates[0]
+    )
+    # Normalize once, up front — the same value must feed both the
+    # story_day backfill below and the returned calendar, or a "Story
+    # Day 0" bullet would backfill events relative to 0 while the
+    # calendar itself claimed anchor_story_day == 1.
+    anchor_story_day = anchor_story_day or 1
+
+    # Document-order sequence — anchor first, then every event row — feeds
+    # the year-resolution walk below. A row's own explicit year (Issue
+    # #509 H2: a book may be year-less only in the anchor bullet, with
+    # individual rows still stating a year) always overrides the running
+    # counter; only rows with no year of their own inherit/synthesize one.
+    sequence: list[tuple[int | None, int]] = [(anchor_year, anchor_month)]
+    sequence.extend((e["year"], e["month"]) for e in raw_events)
+    synthetic_year = anchor_year is None or any(e["year"] is None for e in raw_events)
+
+    current_year = _SENTINEL_BASE_YEAR
+    last_month: int | None = None
+    resolved_years: list[int] = []
+    out_of_order_steps = 0
+    for year, month in sequence:
+        if year is not None:
+            current_year = year
+        elif last_month is not None and month < last_month:
+            if last_month - month >= _YEAR_WRAP_MONTH_DROP:
+                # A genuine Dec -> Jan-style wrap, not just a table
+                # listed slightly out of chronological order (e.g. a
+                # lead-up week appearing after the anchor bullet but
+                # within the same month, or a table off by one month
+                # either way).
+                current_year += 1
+            else:
+                # A smaller backward step that wasn't treated as a wrap
+                # — the document's row order doesn't strictly track
+                # chronological order here. Not fatal (the resolved
+                # year is still whatever the counter already was), but
+                # recorded so callers can gauge how much to trust the
+                # resolved dates (Issue #509 code-review follow-up).
+                out_of_order_steps += 1
+        resolved_years.append(current_year)
+        last_month = month
+
+    try:
+        anchor_date = date(resolved_years[0], anchor_month, anchor_day)
+    except ValueError:
+        # Sentinel year 1 isn't a leap year — an anchor of Feb 29 (or
+        # any other invalid combination) has no usable calendar to
+        # build, same as a missing anchor.
+        return None
+    events: list[CalendarEvent] = []
+    for year, raw_event in zip(resolved_years[1:], raw_events):
+        try:
+            real_date = date(year, raw_event["month"], raw_event["day"])
+        except ValueError:
+            continue
+        story_day = raw_event["story_day"]
+        if story_day is None:
+            story_day = anchor_story_day + (real_date - anchor_date).days
+        events.append(
+            CalendarEvent(
+                story_day=story_day,
+                real_date=real_date,
+                chapter_slug=raw_event["chapter_slug"],
+                key_events=raw_event["key_events"],
+                year_is_synthetic=raw_event["year"] is None,
+            )
+        )
+
+    return TimelineCalendar(
+        anchor_date=anchor_date,
+        anchor_story_day=anchor_story_day,
+        events=events,
+        synthetic_year=synthetic_year,
+        out_of_order_steps=out_of_order_steps,
     )
 
 
@@ -601,6 +901,29 @@ def _find_phrase_matches(
 # ---------------------------------------------------------------------------
 
 
+def _reprojected_day_diff(event_date: date, implied_date: date) -> int:
+    """Day distance tolerant of a synthetic (non-canonical) event year.
+
+    ``implied_date`` comes from a chapter-README anchor and always
+    carries a real calendar year; a year-less timeline's ``event_date``
+    (Issue #509) carries an internal synthetic one instead, so diffing
+    them directly can yield a distance of hundreds of thousands of days
+    for what's actually a same-week event. Re-projecting the implied
+    date onto the event's year (and its immediate neighbors, to survive
+    a Dec/Jan boundary) recovers the intended day-of-year distance.
+    """
+    best: int | None = None
+    for offset in (-1, 0, 1):
+        try:
+            candidate = implied_date.replace(year=event_date.year + offset)
+        except ValueError:
+            continue
+        diff = abs((event_date - candidate).days)
+        if best is None or diff < best:
+            best = diff
+    return best if best is not None else abs((event_date - implied_date).days)
+
+
 def _detect_drift(
     matches: list[PhraseMatch],
     calendar: TimelineCalendar,
@@ -614,13 +937,16 @@ def _detect_drift(
     # If multiple events for the same chapter exist, prefer the one whose
     # date is closest to the implied date — that's the most charitable
     # mapping when chapters span days.
+    day_diff = _reprojected_day_diff if calendar.synthetic_year else (
+        lambda event_date, implied_date: abs((event_date - implied_date).days)
+    )
     findings: list[TimelineFinding] = []
     for match in matches:
         event = min(
             chapter_events,
-            key=lambda e: abs((e.real_date - match.implied_date).days),
+            key=lambda e: day_diff(e.real_date, match.implied_date),
         )
-        diff = abs((event.real_date - match.implied_date).days)
+        diff = day_diff(event.real_date, match.implied_date)
         if diff > threshold_days:
             findings.append(
                 TimelineFinding(
