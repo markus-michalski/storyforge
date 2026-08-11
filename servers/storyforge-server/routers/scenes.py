@@ -10,7 +10,7 @@ from mcp.types import ToolAnnotations
 
 import json
 
-from tools.shared.paths import resolve_project_path
+from tools.shared.paths import catch_slug_value_error, resolve_project_path
 from tools.state.parsers import parse_frontmatter
 
 from . import _app
@@ -18,6 +18,7 @@ from ._app import _cache, mcp
 
 
 @mcp.tool()
+@catch_slug_value_error
 def create_scene_list(
     book_slug: str,
     scenes: list[dict],
@@ -92,6 +93,7 @@ def create_scene_list(
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
 def update_scene(
     book_slug: str,
     scene_number: int,

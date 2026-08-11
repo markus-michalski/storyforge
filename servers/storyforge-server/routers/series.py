@@ -179,6 +179,7 @@ def create_series(title: str, genres: str = "", planned_books: int = 3, author: 
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
 def add_book_to_series(series_slug: str, book_slug: str, number: int, status: str = "drafting") -> str:
     """Link a book to a series.
 
@@ -379,6 +380,7 @@ def read_character_for_harvest(
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def list_series_trackers_for_book(
     series_slug: str,
     band: str,
@@ -432,6 +434,7 @@ def list_series_trackers_for_book(
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
 def write_series_evolution_section(
     series_slug: str,
     tracker_slug: str,
@@ -500,6 +503,7 @@ def write_series_evolution_section(
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
 def copy_recurring_chars_to_new_book(
     series_slug: str,
     prev_book_slug: str,
@@ -625,6 +629,7 @@ def copy_recurring_chars_to_new_book(
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def read_tracker_for_bootstrap(
     series_slug: str,
     tracker_slug: str,
@@ -793,6 +798,7 @@ def _apply_bootstrap_frontmatter(char_path: Path, snapshot: dict[str, Any], prev
 
 
 @mcp.tool()
+@catch_slug_value_error
 def bootstrap_character_for_new_book(
     series_slug: str,
     tracker_slug: str,
@@ -1006,6 +1012,7 @@ def _build_tracker_content(
 
 
 @mcp.tool()
+@catch_slug_value_error
 def create_character_tracker(
     series_slug: str,
     name: str,

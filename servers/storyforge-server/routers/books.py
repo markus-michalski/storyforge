@@ -18,7 +18,7 @@ import sqlite3
 
 import tools.db.connection as _db_conn
 from tools.db.canon_facts import count_facts_per_chapter
-from tools.shared.paths import resolve_chapter_path, resolve_project_path
+from tools.shared.paths import catch_slug_value_error, resolve_chapter_path, resolve_project_path
 from tools.state.loaders.canon_brief import build_canon_brief
 from tools.state.parsers import count_words_in_file, is_chapter_drafted
 
@@ -135,6 +135,7 @@ def get_book_full(slug: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def get_book_progress(slug: str) -> str:
     """Get book progress: chapter statuses, word counts, completion percentage."""
     state = _cache.get()
@@ -213,6 +214,7 @@ def list_chapters(book_slug: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def count_words(book_slug: str, chapter_slug: str = "") -> str:
     """Count words in a chapter draft or entire book."""
     config = _app.load_config()
@@ -243,6 +245,7 @@ def count_words(book_slug: str, chapter_slug: str = "") -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def get_canon_brief(
     book_slug: str,
     chapter_slug: str,

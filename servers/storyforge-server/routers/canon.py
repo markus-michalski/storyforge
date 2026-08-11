@@ -11,13 +11,14 @@ import json
 
 import tools.db.connection as _db_conn
 from tools.db.canon_facts import insert_fact
-from tools.shared.paths import resolve_project_path
+from tools.shared.paths import catch_slug_value_error, resolve_project_path
 
 from . import _app
 from ._app import mcp
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
 def add_canon_fact(
     book_slug: str,
     chapter_num: int,

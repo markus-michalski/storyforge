@@ -70,6 +70,15 @@ class TestAddCanonFact:
         )
         assert "error" in result
 
+    def test_null_byte_book_slug_returns_clean_error(self, mock_env, content_root: Path):
+        """Issue #523: resolve_project_path() raises ValueError via
+        _validate_slug() on a null-byte book_slug; before the fix this
+        propagated as a raw, unhandled exception instead of the standard
+        {"error": ...} JSON contract every other validation failure here
+        returns. @catch_slug_value_error closes the gap."""
+        result = json.loads(add_canon_fact(book_slug="bad\x00slug", chapter_num=1, subject="X", fact="Y"))
+        assert "error" in result
+
     def test_returns_fact_metadata(self, mock_env, content_root: Path):
         _make_book(content_root, "firelight")
         result = json.loads(

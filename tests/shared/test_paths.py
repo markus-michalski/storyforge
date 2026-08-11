@@ -328,11 +328,11 @@ class TestCatchSlugValueError:
     exception instead of this codebase's standard {"error": ...} JSON
     contract (the same gap #521 covers for resolve_path()'s book_slug
     specifically). catch_slug_value_error() is the shared fix: a decorator
-    applied to each affected MCP tool function that converts an escaping
+    applied to every affected MCP tool function that converts an escaping
     error into that JSON contract, once, instead of an individual
-    try/except per call site. This PR applies it to the two functions with
-    a confirmed path-traversal vulnerability; the remaining call sites are
-    rolled out separately."""
+    try/except per call site. See
+    tests/server/test_catch_slug_value_error_coverage.py for the sweep that
+    keeps that set complete."""
 
     def test_passes_through_normal_return_value(self):
         @catch_slug_value_error

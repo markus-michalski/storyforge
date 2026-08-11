@@ -11,6 +11,7 @@ from mcp.types import ToolAnnotations
 import json
 
 from tools.shared.paths import (
+    catch_slug_value_error,
     resolve_person_path,
     resolve_project_path,
     slugify,
@@ -32,6 +33,7 @@ from ._app import _cache, mcp
 
 
 @mcp.tool()
+@catch_slug_value_error
 def create_person(
     book_slug: str,
     name: str,
@@ -167,6 +169,7 @@ description: {json.dumps(description)}
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
 def set_memoir_structure_type(book_slug: str, structure_type: str) -> str:
     """Persist the memoir's chosen structure type (Path E #58).
 

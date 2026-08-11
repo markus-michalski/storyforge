@@ -56,13 +56,14 @@ def catch_slug_value_error(func: _F) -> _F:
 
     MCP tool functions call the ``resolve_*_path()`` helpers in this module,
     which raise ``SlugValidationError`` via :func:`_validate_slug` on a null
-    byte, ``..``, a path separator, or a leading dot. Across this server's
-    router modules, most of those call sites don't catch it, so a bad slug
-    propagates as a raw, unhandled server exception instead of the JSON
-    error contract every other validation failure in this codebase already
-    returns. Applied here to the two functions with a confirmed traversal
-    (``read_character_for_harvest``, ``update_character_snapshot`` — see
-    those modules); the remaining call sites are rolled out separately.
+    byte, ``..``, a path separator, or a leading dot. Without this decorator
+    that propagates as a raw, unhandled server exception instead of the
+    JSON error contract every other validation failure in this codebase
+    already returns (Issue #523). Applied to every MCP tool function that
+    reaches a ``resolve_*_path()`` helper (or an equivalent local slug
+    guard, e.g. ``routers/ideas.py``'s ``_idea_path()``);
+    ``tests/server/test_catch_slug_value_error_coverage.py`` enforces that
+    the set stays complete as the router modules evolve.
 
     Catches ``SlugValidationError`` specifically, not bare ``ValueError`` —
     see the class docstring for why that distinction matters.
