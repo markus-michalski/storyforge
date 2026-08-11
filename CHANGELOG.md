@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Windows, for a path resolving inside an allowed root, no rejection message at all, only a
   generic file-not-found. An explicit pre-check now rejects the path uniformly before
   `resolve()` is called (#512).
+- `update_field` did not catch `ValueError` when resolving `file_path`, so a null-byte path
+  raised an unhandled exception on POSIX instead of a clean JSON error response; on Windows it
+  fell through to a generic file-not-found instead of a rejection. Same fix as #512: an explicit
+  null-byte pre-check ahead of `Path.resolve()`, plus `ValueError` added to the except clause
+  (#516).
 
 ### Security
 - Nothing yet
