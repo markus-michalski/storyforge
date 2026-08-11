@@ -330,6 +330,36 @@ class TestBootstrapValidation:
         )
         assert "band" in result["error"].lower()
 
+    def test_rejects_traversal_tracker_slug(self, mock_config, content_root: Path):
+        """Issue #524: tracker_path = series_dir / "characters" / f"{tracker_slug}.md"
+        builds the path directly from the raw MCP parameter with zero
+        validation — the 4th instance of this bug shape in series.py, not
+        originally listed in issue #524's audit (found during this fix).
+        Confirmed exploitable end-to-end: with all preconditions met (a
+        source character file to copy), a traversal tracker_slug let the
+        call complete successfully and append an Updates Log entry to a
+        file outside the series characters/ dir, before this fix."""
+        (content_root / "series" / "my-series" / "characters").mkdir(parents=True)
+        # characters/../../SECRET.md -> my-series/.. -> series/SECRET.md
+        secret = content_root / "series" / "SECRET.md"
+        secret.write_text(
+            "---\nname: leaked\n---\n\n## Evolution per Band\n\n## Updates Log\n\n(none)\n",
+            encoding="utf-8",
+        )
+        _make_book_char(content_root, "book1", "SECRET")
+        _make_book_dir(content_root, "book2")
+
+        result = json.loads(
+            bootstrap_character_for_new_book(
+                "my-series", "../../SECRET", "book1", "book2", "B1", _new_snapshot_json()
+            )
+        )
+        assert result.get("success") is not True
+        assert "tracker_slug" in result.get("error", "")
+        after = secret.read_text(encoding="utf-8")
+        assert "leaked" in after  # unchanged
+        assert "Bootstrapped" not in after
+
     def test_invalid_snapshot_json(self, mock_config, content_root: Path):
         _make_tracker(content_root, "my-series", "kael")
         _make_book_dir(content_root, "book1")

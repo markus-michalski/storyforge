@@ -214,6 +214,34 @@ class TestWriteSeriesEvolutionSection:
         )
         assert "not found" in result["error"].lower()
 
+    def test_rejects_traversal_tracker_slug(self, mock_config, content_root: Path):
+        """Issue #524: tracker_path = series_dir / "characters" / f"{tracker_slug}.md"
+        builds the path directly from the raw MCP parameter with zero
+        validation — unlike series_slug (validated via resolve_series_path).
+        Confirmed exploitable: a file outside the series characters/ dir was
+        both read (existence check) and overwritten (Updates Log entry
+        appended) via a traversal tracker_slug before this fix."""
+        (content_root / "series" / "my-series" / "characters").mkdir(parents=True)
+        # characters/../../SECRET.md -> my-series/.. -> series/SECRET.md
+        secret = content_root / "series" / "SECRET.md"
+        secret.write_text(
+            "---\nname: leaked\n---\n\n## Evolution per Band\n\n## Updates Log\n\n(none)\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            write_series_evolution_section(
+                "my-series",
+                "../../SECRET",
+                "B1",
+                "ende",
+                "CORRUPTED",
+                "Harvested",
+            )
+        )
+        assert "tracker_slug" in result["error"]
+        assert "CORRUPTED" not in secret.read_text(encoding="utf-8")
+
 
 class TestListSeriesTrackersForBook:
     def test_returns_only_trackers_recurring_in_band(self, mock_config, content_root: Path):

@@ -79,10 +79,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and — via `update_idea`/`promote_idea` — overwrite a file outside `ideas_dir`. Confirmed
   exploitable the same way. `_idea_path()`, the single choke point all three route through,
   now validates (#523).
-- **Not yet closed for this bug class**: `write_series_evolution_section`,
-  `read_tracker_for_bootstrap`, and `create_character_tracker` (`series.py`) build a
-  tracker file path from an unvalidated `tracker_slug`/`slug` the same way — tracked
-  separately as #524, not part of this fix.
+- `write_series_evolution_section`, `read_tracker_for_bootstrap`, `create_character_tracker`,
+  and `bootstrap_character_for_new_book` (`series.py`) built a series-tracker file path
+  as `series_dir / "characters" / f"{tracker_slug}.md"` (or `chars_dir / f"{slug}.md"`)
+  with no slug validation at all — unlike `series_slug` on the same calls, which is
+  validated via `resolve_series_path()`. `bootstrap_character_for_new_book` wasn't part
+  of the original audit for this issue; found during the fix itself. Confirmed
+  exploitable end-to-end: a traversal `tracker_slug` let `write_series_evolution_section`
+  and `bootstrap_character_for_new_book` both read and overwrite (Updates Log entry
+  appended) a file outside the series `characters/` directory, `read_tracker_for_bootstrap`
+  leak one via read, and `create_character_tracker` create one at an arbitrary path. All
+  four now call `_validate_slug()` explicitly before building the path; the existing
+  `catch_slug_value_error` decorator on each (#523) converts the resulting validation
+  error into the standard `{"error": ...}` JSON response. Code review on this fix found
+  a second-order instance in the same call: `create_character_tracker`'s `book_slug` is
+  persisted verbatim into the tracker's frontmatter and read back by
+  `bootstrap_character_for_new_book`/`copy_recurring_chars_to_new_book` to build a write
+  target — a 2-step MCP exploit chain, confirmed exploitable end-to-end, now closed the
+  same way. Also found and fixed: `_validate_slug()` itself didn't reject `:`, so on
+  Windows a same-drive slug like `"C:evil"` silently desynced the stored slug from the
+  actual filename, and a slug prefixed with a different drive letter or a UNC share could
+  escape `content_root` entirely once joined with `pathlib`, which discards everything
+  before a `<drive>:` segment on join. `:` is now rejected alongside the existing unsafe
+  characters — this closes the gap for every `_validate_slug()` caller, not just series.py
+  (#524).
+- **Not yet closed for this bug class**: `validate_chapter` (`gates.py`) and three
+  `chapters.py`-routed tools (`get_chapter_writing_brief`, `get_review_brief`,
+  `get_current_story_anchor`) build a chapter file path from an unvalidated
+  `chapter_slug` the same way — found during #524's review, tracked separately as #538,
+  not part of this fix.
 
 ## [3.3.1] - 2026-08-09
 

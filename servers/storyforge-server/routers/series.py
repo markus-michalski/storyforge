@@ -22,6 +22,7 @@ import yaml
 from tools.db.character_snapshots import get_latest_snapshot_for_book
 from tools.db.connection import get_book_num, get_canon_db_path, get_db_slug_for_book, open_canon_db
 from tools.shared.paths import (
+    _validate_slug,
     catch_slug_value_error,
     resolve_people_dir,
     resolve_person_path,
@@ -479,6 +480,11 @@ def write_series_evolution_section(
     if not series_dir.exists():
         return json.dumps({"error": f"Series '{series_slug}' not found"})
 
+    # Unlike series_slug (validated via resolve_series_path), tracker_slug
+    # reaches Path construction directly with no validation of its own —
+    # issue #524. Validate explicitly so a traversal can't escape the
+    # series characters/ directory.
+    _validate_slug(tracker_slug, "tracker_slug")
     tracker_path = series_dir / "characters" / f"{tracker_slug}.md"
     if not tracker_path.exists():
         return json.dumps({"error": (f"Tracker '{tracker_slug}' not found in series '{series_slug}'")})
@@ -680,6 +686,11 @@ def read_tracker_for_bootstrap(
     if not series_dir.exists():
         return json.dumps({"error": f"Series '{series_slug}' not found"})
 
+    # Unlike series_slug (validated via resolve_series_path), tracker_slug
+    # reaches Path construction directly with no validation of its own —
+    # issue #524. Validate explicitly so a traversal can't escape the
+    # series characters/ directory.
+    _validate_slug(tracker_slug, "tracker_slug")
     tracker_path = series_dir / "characters" / f"{tracker_slug}.md"
     if not tracker_path.exists():
         return json.dumps({"error": (f"Tracker '{tracker_slug}' not found in series '{series_slug}'")})
@@ -870,6 +881,11 @@ def bootstrap_character_for_new_book(
     if not series_dir.exists():
         return json.dumps({"error": f"Series '{series_slug}' not found"})
 
+    # Unlike series_slug (validated via resolve_series_path), tracker_slug
+    # reaches Path construction directly with no validation of its own —
+    # issue #524. Validate explicitly so a traversal can't escape the
+    # series characters/ directory.
+    _validate_slug(tracker_slug, "tracker_slug")
     tracker_path = series_dir / "characters" / f"{tracker_slug}.md"
     if not tracker_path.exists():
         return json.dumps({"error": (f"Tracker '{tracker_slug}' not found in series '{series_slug}'")})
@@ -1076,6 +1092,16 @@ def create_character_tracker(
         return json.dumps(
             {"error": f"tracker_type must be one of {sorted(_VALID_TRACKER_TYPES)} — got {tracker_type!r}"}
         )
+
+    # slug and book_slug both reach Path construction directly with no
+    # validation of their own — issue #524 (book_slug found during code
+    # review: it's persisted to the tracker's frontmatter and read back
+    # by bootstrap_character_for_new_book / copy_recurring_chars_to_new_book
+    # to build a WRITE target, a second-order escape from this same call).
+    # Validate before any side effect (including the mkdir below) so a
+    # rejected call is a true no-op.
+    _validate_slug(slug, "slug")
+    _validate_slug(book_slug, "book_slug")
 
     config = _app.load_config()
     series_dir = resolve_series_path(config, series_slug)

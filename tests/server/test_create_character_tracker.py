@@ -368,6 +368,52 @@ class TestCreateCharacterTrackerValidation:
         assert "error" in result
         assert "already exists" in result["error"].lower()
 
+    def test_rejects_traversal_slug(self, mock_config, content_root: Path):
+        """Issue #524: tracker_path = chars_dir / f"{slug}.md" builds the
+        NEW tracker's path directly from the raw MCP parameter with zero
+        validation — a write-only traversal (create/overwrite an arbitrary
+        file outside characters/), confirmed exploitable before this fix."""
+        _make_series(content_root, "my-series")
+        # characters/../../SECRET.md -> my-series/.. -> series/SECRET.md
+        target = content_root / "series" / "SECRET.md"
+
+        result = json.loads(
+            create_character_tracker(
+                series_slug="my-series",
+                name="Kael",
+                slug="../../SECRET",
+                role="protagonist",
+                recurs_in=["B1"],
+            )
+        )
+        assert "slug" in result["error"]
+        assert not target.exists()
+
+    def test_rejects_traversal_book_slug(self, mock_config, content_root: Path):
+        """Issue #524 code review, finding H-1: book_slug is persisted
+        verbatim into the tracker's frontmatter (unlike slug, which by this
+        point is validated) and read back by resolve_book_slug_for_series_
+        tracker() to build a WRITE target in bootstrap_character_for_new_book
+        / copy_recurring_chars_to_new_book — a second-order escape from this
+        same call. Confirmed exploitable end-to-end (2-step MCP chain):
+        create a tracker with a traversal book_slug, then bootstrap against
+        it, and an arbitrary file outside every book directory gets
+        overwritten. Reject the poisoned book_slug at its only entry point."""
+        _make_series(content_root, "my-series")
+
+        result = json.loads(
+            create_character_tracker(
+                series_slug="my-series",
+                name="Kael",
+                slug="kael",
+                role="protagonist",
+                recurs_in=["B1"],
+                book_slug="../../../VICTIM",
+            )
+        )
+        assert "book_slug" in result["error"]
+        assert not (content_root / "series" / "my-series" / "characters" / "kael.md").exists()
+
     def test_error_on_invalid_band_in_recurs_in(self, mock_config, content_root: Path):
         _make_series(content_root, "my-series")
         result = json.loads(
