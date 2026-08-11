@@ -65,6 +65,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pandoc.py`'s `_FONT_PATTERN` had the same `$`-vs-`\Z` anchoring gap as #518, so
   `font="Arial\n"` passed the allowlist despite the pattern's own comment claiming
   trailing/embedded structure characters are rejected. Anchored with `\Z` instead (#520).
+- `_RE_BAND_ID` (`routers/series.py`) and `_RE_VALID_BAND` (`tools/state/loaders/series.py`)
+  had the same `$`-vs-`\Z` anchoring gap, so `band="B1\n"` passed both guards. For
+  `write_series_evolution_section`, this meant an existing `### B1` tracker section was
+  never found (the regex-captured band can't contain `\n`, so it never matched the raw
+  input), so the write inserted a *duplicate* `### B1` block instead of updating the
+  existing one, silently corrupting the tracker file. The same gap let
+  `bootstrap_character_for_new_book` write a newline-bearing
+  `series_evolution_imported_from` value into a book character file's frontmatter.
+  Anchored both patterns with `\Z` instead (#525).
 
 ### Security
 - `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a

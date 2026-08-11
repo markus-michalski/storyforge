@@ -69,7 +69,10 @@ _RE_NEXT_H2 = re.compile(r"^##\s+\S", re.MULTILINE)
 
 # Band id pattern (B1, B2, ...) for input validation in evolution-write
 # tools. Liberal upper-bound — authors may want B12 for long sagas.
-_RE_BAND_ID = re.compile(r"^B\d+$")
+# NB: anchored with \Z, not $ — `$` also matches before a trailing newline,
+# which let band="B1\n" through despite looking like a valid B<N> id (#525,
+# same anchoring gap #518 fixed for _FIELD_NAME_RE).
+_RE_BAND_ID = re.compile(r"^B\d+\Z")
 
 
 # Allowed evolution-section kinds, mapped to the canonical lowercase form

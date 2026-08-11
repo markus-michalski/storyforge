@@ -186,6 +186,51 @@ class TestWriteSeriesEvolutionSection:
         )
         assert "error" in result
 
+    def test_rejects_band_with_trailing_newline(self, mock_config, content_root: Path):
+        """Issue #525: `$` in _RE_BAND_ID matches before a trailing newline, so
+        band="B1\\n" passed the guard. Downstream, _find_band_bounds() compares
+        the regex-captured band ("B1", never containing \\n) against the raw
+        "B1\\n", which never matches — so an existing B1 section is never found
+        and write_evolution_section() inserts a *duplicate* ### B1 block instead
+        of updating the existing one, silently corrupting the tracker file.
+        Anchoring with \\Z closes the gap and the write must not happen at all."""
+        tracker = _make_tracker(
+            content_root,
+            "blood-and-binary",
+            "kael",
+            recurs_in=["B1"],
+            body=(
+                "## Evolution per Band\n\n"
+                "### B1 Firelight\n"
+                "- **Start:** Cabin-Einsiedler.\n"
+                "- **Ende:** old end.\n\n"
+                "## Updates Log\n\n"
+                "(noch keine Eintraege)\n"
+            ),
+        )
+        before = tracker.read_text(encoding="utf-8")
+
+        result = json.loads(
+            write_series_evolution_section(
+                "blood-and-binary",
+                "kael",
+                "B1\n",
+                "ende",
+                "CORRUPTED",
+                "Harvested",
+            )
+        )
+
+        # Assert the file state first: this is what actually fails red-vs-green
+        # (a KeyError on result["error"] would mask the corruption otherwise).
+        after = tracker.read_text(encoding="utf-8")
+        assert after == before
+        assert after.count("### B1") == 1
+        assert "CORRUPTED" not in after
+
+        assert result.get("success") is not True
+        assert "band" in result.get("error", "").lower()
+
     def test_series_not_found(self, mock_config, content_root: Path):
         result = json.loads(
             write_series_evolution_section(
@@ -321,6 +366,12 @@ class TestListSeriesTrackersForBook:
 
     def test_rejects_invalid_band(self, mock_config, content_root: Path):
         result = json.loads(list_series_trackers_for_book("my-series", "Book1"))
+        assert "band" in result["error"].lower()
+
+    def test_rejects_band_with_trailing_newline(self, mock_config, content_root: Path):
+        """Issue #525: same _RE_BAND_ID anchoring gap as
+        TestWriteSeriesEvolutionSection.test_rejects_band_with_trailing_newline."""
+        result = json.loads(list_series_trackers_for_book("my-series", "B1\n"))
         assert "band" in result["error"].lower()
 
     def test_series_not_found(self, mock_config, content_root: Path):

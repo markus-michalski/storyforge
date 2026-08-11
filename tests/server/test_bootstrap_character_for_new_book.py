@@ -360,6 +360,40 @@ class TestBootstrapValidation:
         assert "leaked" in after  # unchanged
         assert "Bootstrapped" not in after
 
+    def test_rejects_band_with_trailing_newline(self, mock_config, content_root: Path):
+        """Issue #525: `$` in _RE_BAND_ID matches before a trailing newline, so
+        prev_band="B1\\n" passed this function's guard too — the same shared
+        module-level pattern object used everywhere else in this file. Past
+        the guard, _apply_bootstrap_frontmatter() writes prev_band verbatim
+        into the new book character's series_evolution_imported_from field,
+        poisoning its frontmatter. Anchoring with \\Z closes the gap here as
+        well and the destination file must never be created/mutated."""
+        _make_tracker(
+            content_root,
+            "my-series",
+            "kael",
+            recurs_in=["B1", "B2"],
+            body="## Evolution per Band\n\n### B1\n- **Ende:** End.\n",
+        )
+        _make_book_char(content_root, "firelight", "kael")
+        _make_book_dir(content_root, "moonrise")
+        dest = content_root / "projects" / "moonrise" / "characters" / "kael.md"
+
+        result = json.loads(
+            bootstrap_character_for_new_book(
+                "my-series",
+                "kael",
+                "firelight",
+                "moonrise",
+                "B1\n",
+                _new_snapshot_json(),
+            )
+        )
+
+        assert not dest.exists()
+        assert result.get("success") is not True
+        assert "band" in result.get("error", "").lower()
+
     def test_invalid_snapshot_json(self, mock_config, content_root: Path):
         _make_tracker(content_root, "my-series", "kael")
         _make_book_dir(content_root, "book1")
