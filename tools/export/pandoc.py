@@ -35,10 +35,13 @@ _ALLOWED_PDF_ENGINES = frozenset(
 _FONT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 \-_.]{0,63}\Z")
 
 # font_size: 1–2 digits + pt or em, e.g. "11pt", "12pt", "1em"
-_FONT_SIZE_PATTERN = re.compile(r"^\d{1,2}(pt|em)$")
+# NB: anchored with \Z, not $ — same anchoring gap #518/#520 fixed for
+# _FIELD_NAME_RE/_FONT_PATTERN; `$` also matches before a trailing newline (#526).
+_FONT_SIZE_PATTERN = re.compile(r"^\d{1,2}(pt|em)\Z")
 
 # margin: integer or decimal + cm/mm/in/em/pt, e.g. "1in", "2.5cm", "20mm"
-_MARGIN_PATTERN = re.compile(r"^\d{1,2}(\.\d+)?(cm|mm|in|em|pt)$")
+# NB: anchored with \Z, not $ — see _FONT_SIZE_PATTERN comment above (#526).
+_MARGIN_PATTERN = re.compile(r"^\d{1,2}(\.\d+)?(cm|mm|in|em|pt)\Z")
 
 
 def _write_metadata_file(metadata: dict) -> Path:

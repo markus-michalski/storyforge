@@ -361,7 +361,7 @@ class TestBootstrapValidation:
         assert "Bootstrapped" not in after
 
     def test_rejects_band_with_trailing_newline(self, mock_config, content_root: Path):
-        """Issue #525: `$` in _RE_BAND_ID matches before a trailing newline, so
+        """Issue #525: `$` in RE_BAND_ID matches before a trailing newline, so
         prev_band="B1\\n" passed this function's guard too — the same shared
         module-level pattern object used everywhere else in this file. Past
         the guard, _apply_bootstrap_frontmatter() writes prev_band verbatim

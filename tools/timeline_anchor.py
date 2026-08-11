@@ -22,6 +22,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from tools.shared.paths import _validate_slug
+
 # ---------------------------------------------------------------------------
 # Calendar primitives
 # ---------------------------------------------------------------------------
@@ -378,6 +380,8 @@ def get_story_anchor(book_root: Path, current_chapter_slug: str) -> StoryAnchor:
     Chapter Timeline section — the relative-phrase mapping is then
     derived from whichever anchor is available (current, then previous).
     """
+    _validate_slug(current_chapter_slug, "current_chapter_slug")
+
     chapters_dir = book_root / "chapters"
     current_dir = chapters_dir / current_chapter_slug
     current = get_chapter_anchor(current_dir) if current_dir.is_dir() else None

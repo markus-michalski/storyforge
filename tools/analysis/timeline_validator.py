@@ -151,7 +151,9 @@ _HUMAN_DATE_RE = re.compile(
     r"(?P<year>\d{4})$"
 )
 # Matches "2025-12-25" — ISO 8601, also accepted.
-_ISO_DATE_RE = re.compile(r"^(?P<year>\d{4})-(?P<mon>\d{2})-(?P<day>\d{2})$")
+# NB: anchored with \Z, not $ — same anchoring gap #518/#520/#526 fixed
+# elsewhere; `$` also matches before a trailing newline (#527).
+_ISO_DATE_RE = re.compile(r"^(?P<year>\d{4})-(?P<mon>\d{2})-(?P<day>\d{2})\Z")
 _STORY_DAY_RE = re.compile(r"Day\s+(?P<n>\d+)", re.IGNORECASE)
 
 _MONTH_ABBR = {

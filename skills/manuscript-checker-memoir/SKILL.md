@@ -1,84 +1,101 @@
 ---
-name: manuscript-checker
+name: manuscript-checker-memoir
 description: |
-  Scan a complete FICTION book manuscript for prose-quality issues that only
+  Scan a complete MEMOIR book manuscript for prose-quality issues that only
   surface when the whole thing is read in one pass: book-rule violations
-  from the book's CLAUDE.md, plot holes, cliché hits, dialogue punctuation
-  anomalies (Q-word + period), POV filter-word overuse, per-chapter adverb
-  density, and cross-chapter repetition (similes, character tells, blocking
-  tics, structural patterns, signature phrases).
-  Use when: (1) `book_category == "fiction"` (or missing) AND user says
-  "manuscript check", "prose check", "repetition check", "Wiederholungen
-  prüfen", "prose tics", "Buch prüfen", (2) All chapters have cleared
-  chapter-reviewer → chapter-humanizer → chapter-proofreader (the last step
-  of the revision phase, not the Drafting→Revision transition), (3)
+  from the book's CLAUDE.md, cliché hits, dialogue punctuation anomalies
+  (Q-word + period), POV filter-word overuse, per-chapter adverb density,
+  cross-chapter repetition (similes, character tells, blocking tics,
+  structural patterns, signature phrases), plus five memoir-specific passes:
+  anonymization leaks, tidy-lesson endings, reflective platitudes, timeline
+  ambiguity, and real-people name-form consistency.
+  Use when: (1) `book_category == "memoir"` AND user says "manuscript check
+  (memoir)", "prose check", "repetition check", "Wiederholungen prüfen",
+  "prose tics", "Buch prüfen", (2) All chapters have cleared
+  chapter-reviewer-memoir → chapter-humanizer → chapter-proofreader (the last
+  step of the revision phase, not the Drafting→Revision transition), (3)
   Full-manuscript revision pass, (4) User wants a craft-level health check
   before export.
-  Memoir books → use `/storyforge:manuscript-checker-memoir` instead.
+  Fiction books → use `/storyforge:manuscript-checker` instead.
 model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> [--interactive]"
 ---
 
-# Manuscript Checker (Fiction)
+# Manuscript Checker (Memoir)
 
-This skill is the fiction variant of manuscript-checker, split out per Issue
-#138 so fiction-only sessions never load the memoir-specific detection
-categories and presentation rules, and memoir-only sessions never load
-content that only applies to fiction. See `/storyforge:manuscript-checker-memoir`
-for the memoir variant.
+This skill is the memoir variant of manuscript-checker, split out per Issue
+#138 so memoir-only sessions never load content that only applies to
+fiction, and fiction-only sessions never load the memoir-specific detection
+categories and presentation rules. See `/storyforge:manuscript-checker` for
+the fiction variant.
 
 Full-manuscript prose-quality gate. Catches the class of issues that creep in
 when chapters are written in isolation and only become visible when the book
 is read end to end: repeated phrasing, worn-out clichés, POV filter words,
-adverb pile-ups, dialogue punctuation drift, plot holes, and — most
-importantly — violations of rules the author wrote into the book's CLAUDE.md.
+adverb pile-ups, dialogue punctuation drift, and — most importantly —
+violations of rules the author wrote into the book's CLAUDE.md. For memoir,
+it additionally catches privacy and craft issues specific to writing about
+real people and lived events: anonymization leaks, tidy-lesson endings,
+reflective platitudes, timeline ambiguity, and inconsistent name forms.
 
-## Step 0 — Verify fiction mode
+## Step 0 — Verify memoir mode
 
 Before any other prerequisite load:
 
 1. **Load book data** via MCP `get_book_full(slug)`.
-2. Read `book_category`. Treat missing as `fiction`. If it is `memoir`, stop
-   and tell the user:
-   > *This book's `book_category` is `memoir`. Use
-   > `/storyforge:manuscript-checker-memoir` for memoir manuscript checks —
-   > it adds the anonymization/tidy-lesson/reflective-platitude/timeline
-   > passes this variant doesn't run.*
-3. Otherwise proceed with the workflow below.
+2. Read `book_category`. If it is `fiction` (or missing), stop and tell the
+   user:
+   > *This book's `book_category` is `fiction`. Use
+   > `/storyforge:manuscript-checker` for fiction manuscript checks — the
+   > anonymization/tidy-lesson/reflective-platitude/timeline passes this
+   > variant runs do not apply to invented material.*
+3. Otherwise load `book_categories/memoir/README.md` and
+   `book_categories/memoir/craft/memoir-anti-ai-patterns.md` before presenting
+   findings — memoir-specific recommendations need that context.
+
+**Why:** Memoir-specific recommendations (anonymization blockers, tidy-lesson patterns, reflective-platitude classification) require this context — without it findings will be misclassified and privacy blockers may be downgraded to craft suggestions.
 
 ## When to run
 
 - After **all** chapter drafts exist (or at least most of them).
 - At the **end** of the revision phase — after every chapter has cleared
-  `chapter-reviewer` → `chapter-humanizer` → `chapter-proofreader` (same
-  ordering `chapter-humanizer` and `chapter-proofreader` document, and the
-  same row `next-step`'s routing table uses: "Revision (all chapters
+  `chapter-reviewer-memoir` → `chapter-humanizer` → `chapter-proofreader`
+  (same ordering `chapter-humanizer` and `chapter-proofreader` document, and
+  the same row `next-step`'s routing table uses: "Revision (all chapters
   proofread)" → manuscript-checker). It does not run *before*
-  chapter-reviewer — this checker catches cross-chapter drift in prose that
-  has already been through per-chapter craft review, humanizing, and
-  proofreading, not a substitute pre-check for any of those passes.
-- Does not replace `chapter-reviewer` (single-chapter craft check) or
-  `voice-checker` (AI-tell gate) or `continuity-checker` (timeline/location).
+  chapter-reviewer-memoir — this checker catches cross-chapter drift in
+  prose that has already been through per-chapter craft review, humanizing,
+  and proofreading, not a substitute pre-check for any of those passes.
+- Does not replace `chapter-reviewer-memoir` (single-chapter craft check) or
+  `voice-checker` (AI-tell gate) or `continuity-checker` (timeline/location)
+  or `memoir-ethics-checker` (consent/defamation/anonymization scan — a
+  different, dedicated gate; this checker's `anonymization_leak` category
+  catches a narrower, prose-level symptom of the same underlying risk).
   This one catches a different problem: prose drift across chapters.
 
 **Note on simile coverage.** The `simile` category in this checker is
 *cross-chapter n-gram repetition* — the same simile phrase appearing in
 multiple chapters. Per-simile *quality* (is this comparison illogical?
 decorative?) is covered by `reference/craft/simile-discipline.md` and
-enforced at write-time by `chapter-writer` (Step 6c) and at review-time by
-`chapter-reviewer`. When walking the `simile` findings in interactive fix
-mode (section 5), apply the two-question test from `simile-discipline.md`
-to each hit before deciding whether to keep or rewrite — a repeated simile
-that also fails the discipline check is a clear cut; a repeated simile that
-does real work in each location may be an intentional motif.
+enforced at write-time by `chapter-writer-memoir` (Step 6c) and at
+review-time by `chapter-reviewer-memoir`. When walking the `simile` findings
+in interactive fix mode (section 5), apply the two-question test from
+`simile-discipline.md` to each hit before deciding whether to keep or
+rewrite — a repeated simile that also fails the discipline check is a clear
+cut; a repeated simile that does real work in each location may be an
+intentional motif.
 
 ## Detection categories
+
+All memoir books get the base checks below plus five memoir-specific passes.
+
+### Base checks
 
 | Category | What it catches | Severity logic |
 |---|---|---|
 | `book_rule_violation` | Patterns from book_rules DB (rendered in `<book>/CLAUDE.md ## Rules (from DB)`) | always high |
-| `plot_hole` | Causality inversions + dropped/unfired Chekhov's-gun promises (Issue #150). Sub-category in phrase prefix (`[causality_inversion]` / `[chekhov_gun]`). | high — story-logic breaks reader trust |
+| `plot_hole` | Causality inversions (Issue #150). Sub-category in phrase prefix (`[causality_inversion]`) — the `chekhov_gun` sub-category (unfired promises) is fiction-only and does not fire for memoir. | high — narrative-logic breaks reader trust |
 | `cliche` | Curated banlist of worn-out phrasings | always high |
 | `question_as_statement` | Dialogue starting with a Q-word but ending with `.` | high if ≥5 hits |
 | `filter_word` | POV-distancing verbs per chapter (>3/1k words) | high if >6/1k |
@@ -90,7 +107,17 @@ does real work in each location may be an intentional motif.
 | `simile` / `character_tell` / `blocking_tic` / `sensory` / `structural` / `signature_phrase` | Cross-chapter n-gram repetition | high if ≥4 hits |
 | `character_tell` (paraphrased) | Same body-part tell reworded each time, e.g. "shoulders came down" vs. "shoulders had dropped" — a second, additive `character_tell` source alongside the n-gram one above. `phrase` reads `"<body part> (varied phrasing)"`, a synthetic label, not manuscript text | medium ≥5 hits, high ≥10 hits |
 
-Sort priority: `book_rule_violation` → `plot_hole` (story logic) → `cliche` → all others by severity.
+### Memoir-specific checks
+
+| Category | What it catches | Severity logic |
+|---|---|---|
+| `anonymization_leak` | Real name appearing in manuscript despite people/ profile marking the person as anonymized | always high — pre-publication blocker |
+| `tidy_lesson_ending` | Chapter's final paragraph closes on a moral/lesson summary instead of a moment | high if ≥3 cues, medium if 2 |
+| `reflective_platitude` | Density of retrospective commentary per chapter ("looking back", "in hindsight", "what I learned") | high if ≥3 hits, medium if 2 |
+| `timeline_ambiguity` | Density of temporal hand-waving per chapter ("at some point", "eventually", "years later") | high if >6/1k words, medium if >3/1k |
+| `real_people_consistency` | Same person's display name appearing in inconsistent capitalization or forms across chapters | always medium |
+
+Sort priority: `book_rule_violation` → `anonymization_leak` (privacy-critical) → `plot_hole` (narrative logic) → `cliche` → all others by severity.
 
 ## Workflow
 
@@ -112,6 +139,18 @@ before proposing rewrites (see Rules below). Not to be confused with the
 n-gram repetition. If `author` is empty or `get_author` returns an `error`
 key (legacy books with no `author` field), skip this and proceed without
 profile context — don't block the scan on it.
+
+**Presentation differences for memoir findings:**
+- Surface `anonymization_leak` findings first and mark them as
+  **pre-publication blockers** — these are not craft suggestions, they are
+  privacy issues that must be resolved before the manuscript leaves the author.
+- For `tidy_lesson_ending` findings: quote the last paragraph and ask the
+  author whether the lesson language is load-bearing or can be cut.
+- For `reflective_platitude` findings: distinguish between narrating-self
+  commentary (legitimate in memoir) and filler platitudes (cut).
+- For `timeline_ambiguity` findings: suggest the smallest possible anchor
+  ("late summer 1987" beats "a few years later") rather than pushing for
+  exact dates everywhere.
 
 ### 2. Run the scan
 
@@ -139,6 +178,7 @@ The tool returns:
   "findings_count": 120,
   "summary": {
     "book_rule_violation": {"high": 3, "medium": 0},
+    "anonymization_leak": {"high": 1, "medium": 0},
     "cliche": {"high": 5, "medium": 0},
     "question_as_statement": {"high": 1, "medium": 0},
     "filter_word": {"high": 4, "medium": 6},
@@ -162,13 +202,17 @@ The `gate` envelope is the canonical verdict (see `reference/gate-contract.md`):
 
 - **FAIL** when any `book_rule_violation` finding exists — the user's own rules
   outrank everything else.
-- **WARN** when other findings exist but no rule violations.
+- **WARN** when other findings exist but no rule violations. **Caveat:**
+  `anonymization_leak` also maps to WARN, not FAIL — a memoir manuscript
+  whose only issues are `anonymization_leak` findings will show `Gate:
+  WARN`. Do not let that read as "nothing urgent"; annotate the headline
+  itself (see Step 4).
 - **PASS** when zero findings.
 
 Surface `gate.status` to the user as the headline before walking through the
 top offenders. When chaining into other quality steps (export-engineer,
-chapter-reviewer), the downstream skill can read `gate.status` directly
-instead of re-counting findings.
+chapter-reviewer-memoir), the downstream skill can read `gate.status`
+directly instead of re-counting findings.
 
 ### 3. Read the generated report
 
@@ -183,25 +227,31 @@ finding.
 **Chat summary target: max ~300 Wörter.** The full report is on disk — chat is the headline, not the whole story.
 
 1. Lead with `gate.status` (PASS / WARN / FAIL) as the literal headline —
-   before the chapter/finding counts, not implied by them.
+   before the chapter/finding counts, not implied by them. Per Step 2's
+   caveat, a memoir manuscript with only `anonymization_leak` findings shows
+   `Gate: WARN` — annotate the headline itself, e.g. `Gate: WARN — 3
+   pre-publication privacy blockers`.
 2. State chapters scanned + total findings + high-severity count by category.
 3. Show the top 5 highest-severity findings across *all* categories, in the
    **sort priority order defined above**: `book_rule_violation` →
-   `plot_hole` → `cliche` → all others by severity.
+   `anonymization_leak` → `plot_hole` → `cliche` → all others by severity. Label
+   `anonymization_leak` entries explicitly as **pre-publication blockers**,
+   same framing as Step 1b's presentation differences — not a generic craft
+   suggestion.
 4. Tell the user the report path so they can open it.
 5. Offer the next step (see section 5).
 
 Example:
 
 ```
-Gate: FAIL
+Gate: WARN — 3 pre-publication privacy blockers
 
 Manuscript scan complete: 34 chapters, 120 findings.
-High-severity: 3 book-rule violations, 5 clichés, 1 question-as-statement
+High-severity: 3 anonymization leaks, 5 clichés, 1 question-as-statement
 cluster, 4 heavy-filter-word chapters, 2 heavy-adverb chapters, 6 repetitions.
 
 Top offenders:
-1. RULE: "Avoid vague-noun thing" — 7× (ch 03, 11, 14, 19, 22)
+1. ANONYMIZATION LEAK: "Sarah" named directly in ch 03, 11, 14 despite anonymized profile
 2. CLICHÉ: "blood ran cold" — 3× (ch 02, 17, 29)
 3. DIALOGUE PUNCTUATION: 18 Q-word lines ending with "." (most in ch 05-09)
 4. FILTER WORDS ch 08: felt×12, noticed×7, seemed×4 (23.0/1k words)
@@ -224,10 +274,24 @@ If the user says yes (or passes `--interactive`):
 Process findings in **category priority order**:
 
 1. `book_rule_violation` (user explicitly wants these fixed)
-2. `cliche` (always worth fixing)
-3. `question_as_statement` (distinct fix pattern — see below)
-4. `filter_word`, `adverb_density` (per-chapter craft fixes)
-5. Repetition categories (`simile`, `character_tell`, etc.)
+2. `anonymization_leak` (privacy blocker — fix before any other category)
+3. `cliche` (always worth fixing)
+4. `question_as_statement` (distinct fix pattern — see below)
+5. `filter_word`, `adverb_density` (per-chapter craft fixes)
+6. `tidy_lesson_ending`, `reflective_platitude`, `timeline_ambiguity`
+7. Repetition categories (`simile`, `character_tell`, etc.)
+8. `real_people_consistency` (last — name-form cleanup, no prose rewrite needed)
+
+**`anonymization_leak`, `tidy_lesson_ending`, `reflective_platitude`, and `timeline_ambiguity`
+do NOT use the generic snippet+recommendation format below on their own — apply Step 1b's
+"Presentation differences for memoir findings" treatment for each one specifically**
+(pre-publication-blocker framing for `anonymization_leak`; quote the final paragraph and ask
+load-bearing-or-cut for `tidy_lesson_ending`; distinguish narrating-self commentary from filler for
+`reflective_platitude`; propose the smallest anchor rather than an exact date for
+`timeline_ambiguity`) before falling back to the generic steps below for anything the
+category-specific treatment doesn't cover (e.g. still asking keep/accept/skip/quit).
+`real_people_consistency` has no dedicated presentation treatment — use the generic
+snippet+recommendation format for it, same as any base-check category.
 
 For each high-severity finding:
 

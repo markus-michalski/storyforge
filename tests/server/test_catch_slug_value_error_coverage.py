@@ -36,7 +36,18 @@ they validate via `_idea_path()`, a local helper, not one of the
 `resolve_*_path()` names in RESOLVER_NAMES. Layer 1 still catches a
 regression that removes their decorator; a brand-new undecorated call site
 built the same way (a raw f-string Path join validated by something other
-than a listed resolver) is the general blind spot tracked as issue #531.
+than a listed resolver) is covered by layer 3, below (issue #531).
+
+Layer 3 (`test_no_unvalidated_slug_path_join_in_tool_body`, issue #531) is
+a different AST sweep entirely — it doesn't care about RESOLVER_NAMES or
+the decorator at all. It flags a raw `some_dir / slug` or `some_dir /
+f"{slug}..."` Path-join expression built directly inside an @mcp.tool
+function's own body, with no `_validate_slug()` call on that parameter
+anywhere in the function. This is the bug shape #524 was (three
+routers/series.py functions, since fixed — this sweep now stays green
+there) and issue #538 partially is (routers/gates.py's validate_chapter;
+see that test's own docstring for why it only catches one of #538's four
+sites).
 
 DECORATED_FUNCTIONS covers three merged commits: the memoir/idea
 path-traversal security fix (read_character_for_harvest,
@@ -388,4 +399,119 @@ def test_known_exempt_entries_are_still_needed() -> None:
     assert not stale, (
         f"KNOWN_EXEMPT entries no longer needed (function is now decorated): {stale}. "
         "Remove the entry."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Source-derived sweep — layer 3 (issue #531): raw Path-join bug SHAPE
+# ---------------------------------------------------------------------------
+#
+# Layer 2 above only catches functions that call one of RESOLVER_NAMES —
+# it's blind to a DIFFERENT bug shape: an @mcp.tool function that builds a
+# Path directly, e.g. ``some_dir / f"{slug}.md"`` or ``some_dir / slug``,
+# with no resolver call and no _validate_slug() call anywhere in sight.
+# This was exactly issue #524 (three routers/series.py functions, since
+# fixed) and issue #538 (routers/gates.py's validate_chapter, below).
+#
+# Scoped to functions whose raw join happens directly in their OWN body —
+# it does not follow calls into helper functions in other modules (e.g.
+# tools/state/*.py), which is a known, separate blind spot: see issue
+# #538's own text on why those instances were "invisible to a search
+# confined to routers/". Each of #538's four sites was fixed individually,
+# with its own targeted test; this sweep only guards the one instance that
+# lived directly in a router function body (validate_chapter).
+
+# (module_stem, function_name) -> reason a real slug-param name reaching a
+# Path join in this function is safe without _validate_slug(). Same
+# discipline as KNOWN_EXEMPT above — a concrete, checked reason only.
+SLUG_JOIN_KNOWN_EXEMPT: dict[tuple[str, str], str] = {}
+
+
+def _is_slug_param_name(name: str) -> bool:
+    return name == "slug" or name.endswith("_slug")
+
+
+def _flatten_div_chain(node: ast.expr, out: list[ast.expr]) -> None:
+    """A chained ``a / b / c`` parses as nested BinOp(Div) nodes. Flatten
+    to the list of leaf operands so each can be checked independently."""
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        _flatten_div_chain(node.left, out)
+        _flatten_div_chain(node.right, out)
+    else:
+        out.append(node)
+
+
+def _single_name_in_join(node: ast.expr) -> str | None:
+    """Return the parameter name referenced by a Path-join operand, if any.
+
+    Matches two shapes: a bare ``Name`` (``chars_dir / slug``) and an
+    f-string containing exactly one interpolated ``Name`` plus literal text
+    (``chars_dir / f"{slug}.md"``). Anything else (a string literal, a
+    method call, a multi-placeholder f-string) returns ``None``.
+    """
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.JoinedStr):
+        names = [
+            v.value.id for v in node.values if isinstance(v, ast.FormattedValue) and isinstance(v.value, ast.Name)
+        ]
+        if len(names) == 1:
+            return names[0]
+    return None
+
+
+def _validated_param_names(fn_node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Names passed as the first positional arg to a _validate_slug() call
+    anywhere in the function body."""
+    validated: set[str] = set()
+    for sub in ast.walk(fn_node):
+        if not isinstance(sub, ast.Call):
+            continue
+        fn = sub.func
+        fn_name = fn.id if isinstance(fn, ast.Name) else (fn.attr if isinstance(fn, ast.Attribute) else None)
+        if fn_name == "_validate_slug" and sub.args and isinstance(sub.args[0], ast.Name):
+            validated.add(sub.args[0].id)
+    return validated
+
+
+def _unvalidated_slug_join_params(fn_node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Slug-named parameters of ``fn_node`` that reach a Path-join operand
+    (bare Name or single-placeholder f-string) with no matching
+    _validate_slug() call anywhere in the function body."""
+    params = {a.arg for a in fn_node.args.args} | {a.arg for a in fn_node.args.kwonlyargs}
+    slug_params = {p for p in params if _is_slug_param_name(p)}
+    if not slug_params:
+        return set()
+
+    validated = _validated_param_names(fn_node)
+    hits: set[str] = set()
+    for sub in ast.walk(fn_node):
+        if not (isinstance(sub, ast.BinOp) and isinstance(sub.op, ast.Div)):
+            continue
+        operands: list[ast.expr] = []
+        _flatten_div_chain(sub, operands)
+        for operand in operands:
+            name = _single_name_in_join(operand)
+            if name and name in slug_params and name not in validated:
+                hits.add(name)
+    return hits
+
+
+def test_no_unvalidated_slug_path_join_in_tool_body() -> None:
+    violations: list[str] = []
+    for module_path in _router_modules():
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        tool_fns, _calls, _decorated, _order_correct = _mcp_tool_functions_and_calls(tree)
+        for name, node in tool_fns.items():
+            if (module_path.stem, name) in SLUG_JOIN_KNOWN_EXEMPT:
+                continue
+            for param in _unvalidated_slug_join_params(node):
+                violations.append(f"{module_path.stem}.{name} (param: {param})")
+
+    assert not violations, (
+        "MCP tool functions build a Path directly from a slug-named parameter "
+        "(no resolver, no _validate_slug()) with no validation: "
+        f"{violations}. Either call _validate_slug(param, ...) before the join, "
+        "route through a resolve_*_path() helper, or add a SLUG_JOIN_KNOWN_EXEMPT "
+        "entry with a concrete, checked reason."
     )

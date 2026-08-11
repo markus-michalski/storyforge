@@ -31,6 +31,7 @@ from tools.shared.paths import (
     slugify,
 )
 from tools.state.loaders.series import (
+    RE_BAND_ID,
     append_updates_log_entry,
     find_series_trackers,
     parse_evolution_sections,
@@ -65,14 +66,6 @@ _RE_RELATIONSHIPS_HEADING = re.compile(
     re.MULTILINE,
 )
 _RE_NEXT_H2 = re.compile(r"^##\s+\S", re.MULTILINE)
-
-
-# Band id pattern (B1, B2, ...) for input validation in evolution-write
-# tools. Liberal upper-bound — authors may want B12 for long sagas.
-# NB: anchored with \Z, not $ — `$` also matches before a trailing newline,
-# which let band="B1\n" through despite looking like a valid B<N> id (#525,
-# same anchoring gap #518 fixed for _FIELD_NAME_RE).
-_RE_BAND_ID = re.compile(r"^B\d+\Z")
 
 
 # Allowed evolution-section kinds, mapped to the canonical lowercase form
@@ -406,7 +399,7 @@ def list_series_trackers_for_book(
         has_existing_ende, existing_ende, path}, ...]}`` JSON or
         ``{error}`` on validation / not-found failure.
     """
-    if not _RE_BAND_ID.match(band):
+    if not RE_BAND_ID.match(band):
         return json.dumps({"error": f"band must match B<N> (e.g. 'B1') — got {band!r}"})
 
     config = _app.load_config()
@@ -472,7 +465,7 @@ def write_series_evolution_section(
         ``{success, tracker_slug, band, kind, path}`` on success or
         ``{error}`` on validation / not-found failure.
     """
-    if not _RE_BAND_ID.match(band):
+    if not RE_BAND_ID.match(band):
         return json.dumps({"error": f"band must match B<N> (e.g. 'B1') — got {band!r}"})
     canonical_kind = _VALID_KINDS.get(kind.lower())
     if canonical_kind is None:
@@ -557,7 +550,7 @@ def copy_recurring_chars_to_new_book(
 
         ``{error}`` on validation / not-found failure.
     """
-    if not _RE_BAND_ID.match(new_band):
+    if not RE_BAND_ID.match(new_band):
         return json.dumps({"error": f"new_band must match B<N> (e.g. 'B2') — got {new_band!r}"})
 
     config = _app.load_config()
@@ -679,9 +672,9 @@ def read_tracker_for_bootstrap(
         ``{tracker_slug, book_slug, name, role, prev_band, new_band,
         prev_book_snapshot}`` JSON, or ``{error}``.
     """
-    if not _RE_BAND_ID.match(prev_band):
+    if not RE_BAND_ID.match(prev_band):
         return json.dumps({"error": f"prev_band must match B<N> — got {prev_band!r}"})
-    if not _RE_BAND_ID.match(new_band):
+    if not RE_BAND_ID.match(new_band):
         return json.dumps({"error": f"new_band must match B<N> — got {new_band!r}"})
 
     config = _app.load_config()
@@ -864,7 +857,7 @@ def bootstrap_character_for_new_book(
         ``{success, copied_from_prev, snapshot_applied, log_added,
         new_char_path}`` or ``{error}``.
     """
-    if not _RE_BAND_ID.match(prev_band):
+    if not RE_BAND_ID.match(prev_band):
         return json.dumps({"error": f"prev_band must match B<N> — got {prev_band!r}"})
 
     try:
@@ -1085,7 +1078,7 @@ def create_character_tracker(
         dupes = [b for b in recurs_in if recurs_in.count(b) > 1]
         return json.dumps({"error": f"recurs_in contains duplicate band ids: {sorted(set(dupes))}"})
 
-    invalid_bands = [b for b in recurs_in if not _RE_BAND_ID.match(str(b))]
+    invalid_bands = [b for b in recurs_in if not RE_BAND_ID.match(str(b))]
     if invalid_bands:
         return json.dumps(
             {"error": f"recurs_in contains invalid band ids: {invalid_bands} — each must match B<N> (e.g. 'B1')"}
@@ -1095,6 +1088,13 @@ def create_character_tracker(
         return json.dumps(
             {"error": f"tracker_type must be one of {sorted(_VALID_TRACKER_TYPES)} — got {tracker_type!r}"}
         )
+
+    # slug names the file being created — unlike most slug params, an
+    # empty value has no legitimate meaning here. _validate_slug() alone
+    # passes "" through by design (issue #539), which would silently
+    # create a hidden characters/.md dotfile.
+    if not slug or not slug.strip():
+        return json.dumps({"error": "slug is required"})
 
     # slug and book_slug both reach Path construction directly with no
     # validation of their own — issue #524 (book_slug found during code

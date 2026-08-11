@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -65,15 +66,28 @@ def test_run_server_cmd_wrapper_targets_windows_venv():
     assert "Scripts\\python.exe" in content
 
 
+def _build_fake_windows_venv(home: Path) -> None:
+    """Build a runnable fake venv Scripts/ dir for the run-server.cmd wrapper tests.
+
+    Issue #541: copying only python.exe's bytes into an isolated temp
+    directory drops the files a full Windows Python install's python.exe
+    depends on (python3xx.dll and friends), which live alongside it in the
+    real install directory — the copy can't start at all
+    (STATUS_DLL_NOT_FOUND). Copy the whole directory containing
+    sys.executable instead, so any same-directory dependency travels
+    with it.
+    """
+    venv_scripts = home / ".storyforge" / "venv" / "Scripts"
+    shutil.copytree(Path(sys.executable).parent, venv_scripts)
+
+
 def test_run_server_wrapper_actually_launches_python():
     """Real subprocess spawn through the OS-appropriate wrapper — proves shebang
     execution / %USERPROFILE%-%*-quoting actually work, not just that the files exist."""
     with tempfile.TemporaryDirectory() as tmp:
         home = Path(tmp)
         if sys.platform == "win32":
-            venv_scripts = home / ".storyforge" / "venv" / "Scripts"
-            venv_scripts.mkdir(parents=True)
-            (venv_scripts / "python.exe").write_bytes(Path(sys.executable).read_bytes())
+            _build_fake_windows_venv(home)
             env = {**os.environ, "USERPROFILE": str(home)}
             cmd = [str(RUN_SERVER_CMD), "-c", "print('OK')"]
         else:
@@ -97,9 +111,7 @@ def test_run_server_wrapper_launches_a_real_hook_script():
     with tempfile.TemporaryDirectory() as tmp:
         home = Path(tmp)
         if sys.platform == "win32":
-            venv_scripts = home / ".storyforge" / "venv" / "Scripts"
-            venv_scripts.mkdir(parents=True)
-            (venv_scripts / "python.exe").write_bytes(Path(sys.executable).read_bytes())
+            _build_fake_windows_venv(home)
             env = {**os.environ, "USERPROFILE": str(home)}
             cmd = [str(RUN_SERVER_CMD), str(VALIDATE_CHAPTER_HOOK)]
         else:

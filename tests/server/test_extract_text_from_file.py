@@ -8,10 +8,36 @@ Also verifies path containment guard (Issue #320 — arbitrary file read fix).
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from routers.authors import extract_text_from_file
+
+
+def _symlinks_supported() -> bool:
+    """Probe whether the current process can create symlinks.
+
+    On Windows, os.symlink()/Path.symlink_to() require either an elevated
+    (admin) process or Developer Mode enabled — a stock, non-elevated dev
+    machine without Developer Mode raises OSError (WinError 1314,
+    ERROR_PRIVILEGE_NOT_HELD) for every call, independent of anything the
+    test under it actually exercises (issue #541). Probe once at collection
+    time with a throwaway symlink rather than assuming POSIX-only behavior.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "target"
+        target.write_text("x", encoding="utf-8")
+        try:
+            (Path(tmp) / "link").symlink_to(target)
+        except OSError:
+            return False
+    return True
+
+
+_SYMLINKS_SUPPORTED = _symlinks_supported()
 
 
 def _make_config(content_root: Path, authors_root: Path | None = None) -> dict:
@@ -198,6 +224,10 @@ class TestExtractTextFromFilePathContainment:
         assert "error" in result
         assert "Invalid file_path: embedded null byte" in result["error"]
 
+    @pytest.mark.skipif(
+        not _SYMLINKS_SUPPORTED,
+        reason="symlink creation needs elevated privileges or Developer Mode on Windows (issue #541)",
+    )
     def test_rejects_traversal_via_symlink_resolution(self, tmp_path: Path) -> None:
         content_root = tmp_path / "books"
         authors_root = tmp_path / "authors"

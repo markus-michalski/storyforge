@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tools.timeline_anchor import (
     ChapterAnchor,
     TimePoint,
@@ -263,3 +265,20 @@ class TestGetStoryAnchor:
         assert story.current is None
         assert story.previous is None
         assert story.relative_phrase_mapping == {}
+
+    def test_rejects_traversal_current_chapter_slug(self, tmp_path):
+        """Issue #538: current_chapter_slug reaches
+        `chapters_dir / current_chapter_slug` with zero validation — same
+        bug shape as #524. Has a second-order variant: the MCP caller
+        (routers/chapters.py::get_current_story_anchor) refills an empty
+        chapter_slug from the session DB's last_chapter field, which is
+        attacker-influenceable via update_session — validating here closes
+        that path too, at the one place both routes converge. Raises
+        rather than degrading gracefully, matching resolve_*_path()'s own
+        convention; the MCP caller is already
+        @catch_slug_value_error-decorated."""
+        from tools.shared.paths import SlugValidationError
+
+        book = _make_book_with_chapters(tmp_path)
+        with pytest.raises(SlugValidationError):
+            get_story_anchor(book, "../../../etc")

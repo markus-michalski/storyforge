@@ -22,6 +22,7 @@ from tools.analysis.timeline_validator import (
     _extract_month_day,
     _find_phrase_matches,
     _find_scene_at_line,
+    _ISO_DATE_RE,
     _resolve_phrase_dates,
     parse_plot_timeline,
     validate_timeline,
@@ -923,3 +924,19 @@ class TestValidateTimeline:
         assert findings[0]["drift_days"] > 0
         assert findings[0]["chapter"] == "22-test"
         assert findings[0]["phrase"] == "yesterday"
+
+
+class TestIsoDateRegexAnchoring:
+    """Issue #527: same $-vs-\\Z anchoring gap as #518/#520/#526. Currently
+    unreachable via _parse_real_date() — its sole caller .strip()s the value
+    first, which removes any trailing newline before the regex ever sees it,
+    and both of _parse_real_date()'s own callers pass a single table-cell
+    string that can't contain an embedded newline. Filed and fixed for
+    defense-in-depth consistency, not as a live exploit path — this test
+    exercises the pattern object directly since no reachable caller exists."""
+
+    def test_rejects_trailing_newline(self):
+        assert _ISO_DATE_RE.match("2026-08-11\n") is None
+
+    def test_still_matches_plain_iso_date(self):
+        assert _ISO_DATE_RE.match("2026-08-11") is not None
