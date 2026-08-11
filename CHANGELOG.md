@@ -55,6 +55,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   standard `{"error": ...}` JSON response. Rolled out `catch_slug_value_error`
   (introduced alongside the memoir/idea path-traversal fixes) to the remaining call
   sites — one shared decorator instead of 41 individual `try/except` blocks (#523).
+- `resolve_path` called `resolve_project_path(config, book_slug)` before the try/except
+  that wraps `base.resolve()` a few lines down, so an invalid `book_slug` raised an
+  unhandled `SlugValidationError` instead of the standard `{"error": ...}` JSON response —
+  the same gap #517 closed for `component`/`sub_path`. The existing test for this only
+  asserted that the validator itself raises, not that `resolve_path()` returns a clean
+  error. Applied `catch_slug_value_error` (#523) to close the gap and rewrote the test to
+  exercise `resolve_path()` directly (#521).
 
 ### Security
 - `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a

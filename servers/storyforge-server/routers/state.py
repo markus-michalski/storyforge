@@ -13,7 +13,7 @@ from pathlib import Path
 
 from tools.db.connection import open_session_db
 from tools.db.sessions import get_session_from_db, update_session_in_db
-from tools.shared.paths import resolve_project_path, resolve_world_dir
+from tools.shared.paths import catch_slug_value_error, resolve_project_path, resolve_world_dir
 from tools.state.indexer import rebuild
 from tools.state.parsers import parse_frontmatter
 
@@ -279,6 +279,7 @@ def update_field(file_path: str, field: str, value: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str:
     """Resolve filesystem path for a book component.
 

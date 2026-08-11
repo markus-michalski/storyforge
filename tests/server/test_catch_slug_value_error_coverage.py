@@ -21,9 +21,7 @@ wiring. This module is the safety net, in two layers:
    decorator — neither of which layer 1 can detect, since it only knows
    about functions someone remembered to add to its list.
 
-Not covered here: `resolve_path` (routers/state.py, issue #521) — still
-open at the time this test was written; add it to DECORATED_FUNCTIONS once
-fixed. Also not covered: three routers/series.py functions
+Not covered here: three routers/series.py functions
 (`write_series_evolution_section`, `read_tracker_for_bootstrap`,
 `create_character_tracker` — all three ARE in DECORATED_FUNCTIONS and
 decorated for their `series_slug` param) whose separate `tracker_slug`/
@@ -40,11 +38,13 @@ regression that removes their decorator; a brand-new undecorated call site
 built the same way (a raw f-string Path join validated by something other
 than a listed resolver) is the general blind spot tracked as issue #531.
 
-DECORATED_FUNCTIONS has 46 entries but this PR's diff only adds 41
-decorators: read_character_for_harvest, update_character_snapshot,
-get_idea, update_idea, and promote_idea were decorated in the prior,
-already-merged #523 commit (the memoir/idea path-traversal security fix).
-This module covers the full set from both commits.
+DECORATED_FUNCTIONS covers three merged commits: the memoir/idea
+path-traversal security fix (read_character_for_harvest,
+update_character_snapshot, get_idea, update_idea, promote_idea), the
+41-site MCP rollout, and resolve_path (routers/state.py, issue #521 —
+book_slug reached resolve_project_path() before this function's own
+try/except, so an invalid book_slug raised unhandled instead of
+returning a clean error).
 """
 
 from __future__ import annotations
@@ -100,6 +100,7 @@ from routers.series import (
     read_tracker_for_bootstrap,
     write_series_evolution_section,
 )
+from routers.state import resolve_path
 
 DECORATED_FUNCTIONS = [
     count_words,
@@ -148,6 +149,7 @@ DECORATED_FUNCTIONS = [
     get_idea,
     update_idea,
     promote_idea,
+    resolve_path,
 ]
 
 
@@ -203,10 +205,6 @@ KNOWN_EXEMPT = {
     # Already has its own manual try/except ValueError around the
     # resolve_series_path call (predates #523; confirmed in code review).
     ("creation", "create_book_structure"): "has its own try/except ValueError already",
-    # Issue #521 — resolve_path() has a bespoke inline try/except for
-    # component/sub_path already (issue #517); book_slug is issue #521's
-    # exact scope, still open at the time this was written.
-    ("state", "resolve_path"): "issue #521, tracked separately",
     # These six already wrap resolve_author_path() in their own local
     # try/except (KeyError, ValueError), individually verified in code —
     # the AST scan can't see that (it only checks "does this function call
