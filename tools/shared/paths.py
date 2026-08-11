@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import functools
+import inspect
+import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
+
+_F = TypeVar("_F", bound=Callable[..., str])
 
 # Audit H2 (#116): characters and patterns that must never appear in a slug
 # accepted by an MCP tool. Path separators escape into sibling directories;
@@ -13,21 +18,81 @@ from typing import Any
 _UNSAFE_SLUG_CHARS = ("/", "\\", "\x00")
 
 
+class SlugValidationError(ValueError):
+    """Raised by :func:`_validate_slug` when a slug fails a safety check.
+
+    Subclasses ``ValueError`` so every existing ``except ValueError`` handler
+    in this codebase keeps working unchanged. New code — in particular
+    :func:`catch_slug_value_error` — catches this specifically instead of
+    bare ``ValueError``, so it can't accidentally swallow an unrelated
+    ``ValueError`` raised for a different reason deeper in a tool function's
+    call graph (e.g. an internal invariant check, a bad enum value) and
+    report it as if it were a slug-validation failure (Issue #523 code
+    review, finding M-1).
+    """
+
+
 def _validate_slug(slug: str, name: str = "slug") -> str:
     """Reject slugs that could escape their containing directory.
 
     Empty slugs pass through — callers use them as a "no chapter / no
     component" marker. Any non-empty slug is checked for separators,
     traversal sequences, null bytes, and leading dots. Raises
-    ``ValueError`` with an actionable message on rejection.
+    ``SlugValidationError`` (a ``ValueError`` subclass) with an actionable
+    message on rejection.
     """
     if not slug:
         return slug
     if any(ch in slug for ch in _UNSAFE_SLUG_CHARS) or ".." in slug or slug.startswith("."):
-        raise ValueError(
+        raise SlugValidationError(
             f"Invalid {name} '{slug}': must not contain path separators, '..', null bytes, or start with '.'"
         )
     return slug
+
+
+def catch_slug_value_error(func: _F) -> _F:
+    """Convert an escaping :class:`SlugValidationError` into this codebase's
+    standard ``{"error": ...}`` JSON response (Issue #523).
+
+    MCP tool functions call the ``resolve_*_path()`` helpers in this module,
+    which raise ``SlugValidationError`` via :func:`_validate_slug` on a null
+    byte, ``..``, a path separator, or a leading dot. Across this server's
+    router modules, most of those call sites don't catch it, so a bad slug
+    propagates as a raw, unhandled server exception instead of the JSON
+    error contract every other validation failure in this codebase already
+    returns. Applied here to the two functions with a confirmed traversal
+    (``read_character_for_harvest``, ``update_character_snapshot`` — see
+    those modules); the remaining call sites are rolled out separately.
+
+    Catches ``SlugValidationError`` specifically, not bare ``ValueError`` —
+    see the class docstring for why that distinction matters.
+
+    Apply as the innermost decorator, directly above the function
+    definition and below ``@mcp.tool(...)``, so it only ever sees an
+    exception that the function itself didn't already handle — any
+    existing, more specific ``except`` clause still takes precedence.
+    """
+    if inspect.iscoroutinefunction(func):
+        # The sync wrapper below would return the coroutine object without
+        # awaiting it, so try/except never observes the exception — a
+        # silent no-op decorator is worse than no decorator (issue #523
+        # code review, finding L-5). No StoryForge MCP tool is async today;
+        # if one becomes async, it needs an async wrapper variant, not this
+        # one applied unchanged.
+        raise TypeError(f"catch_slug_value_error does not support async functions (got {func.__qualname__})")
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> str:
+        try:
+            return func(*args, **kwargs)
+        except SlugValidationError as exc:
+            return json.dumps({"error": str(exc)})
+
+    # Marker for introspection (e.g. a coverage test asserting every
+    # intended MCP tool is actually decorated) — functools.wraps doesn't
+    # give an unambiguous way to detect this specific decorator.
+    wrapper._catches_slug_value_error = True  # type: ignore[attr-defined]
+    return wrapper  # type: ignore[return-value]
 
 
 def slugify(text: str) -> str:

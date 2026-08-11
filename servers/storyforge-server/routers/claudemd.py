@@ -38,8 +38,8 @@ from tools.claudemd.rules_lint import (
 from tools.db.character_snapshots import upsert_snapshot
 from tools.db.connection import get_db_slug_for_book, get_book_num, open_canon_db
 from tools.shared.paths import (
-    resolve_character_path,
-    resolve_people_dir,
+    catch_slug_value_error,
+    resolve_person_path,
     resolve_project_path,
 )
 
@@ -121,6 +121,7 @@ _SNAPSHOT_FIELDS: frozenset[str] = frozenset(
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
 def update_character_snapshot(
     book_slug: str,
     character_slug: str,
@@ -186,10 +187,12 @@ def update_character_snapshot(
     if not project_dir.exists():
         return json.dumps({"error": f"Book '{book_slug}' not found"})
 
-    if book_category == "memoir":
-        char_file = resolve_people_dir(project_dir, "memoir") / f"{character_slug}.md"
-    else:
-        char_file = resolve_character_path(config, book_slug, character_slug)
+    # resolve_person_path() validates character_slug and covers both the
+    # fiction (characters/) and memoir (people/) layouts uniformly — a
+    # hand-rolled memoir branch here previously skipped validation
+    # entirely, since resolve_people_dir() takes a Path, not a slug
+    # (issue #523 code review, finding M-5 / follow-up #532).
+    char_file = resolve_person_path(config, book_slug, character_slug, book_category)
 
     # Validity gate: confirm the character slug refers to a real file even though
     # we no longer write to it. Prevents snapshotting stale/deleted characters.

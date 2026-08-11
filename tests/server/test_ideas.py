@@ -306,6 +306,17 @@ class TestGetIdea:
         result = json.loads(server_module.get_idea("does-not-exist"))
         assert "error" in result
 
+    def test_rejects_traversal_slug(self, server_module, content_root: Path):
+        """Issue #523 code review (PR1 follow-up): same _idea_path() gap as
+        TestUpdateIdea.test_rejects_traversal_slug — get_idea is the read-only
+        side, an information-disclosure variant of the same bug."""
+        secret = content_root / "SECRET.md"
+        secret.write_text("---\nname: leaked-idea\nstatus: draft\n---\n\nsecret body\n", encoding="utf-8")
+
+        result = json.loads(server_module.get_idea("../SECRET"))
+        assert "error" in result
+        assert "leaked-idea" not in json.dumps(result)
+
     def test_projects_book_category(self, server_module, content_root: Path):
         result = json.loads(
             server_module.create_idea(title="Memoir Seed", book_category="memoir")
@@ -358,6 +369,22 @@ class TestUpdateIdea:
         result = json.loads(server_module.update_idea("nope", "status", "raw"))
         assert "error" in result
 
+    def test_rejects_traversal_slug(self, server_module, content_root: Path):
+        """Issue #523 code review (PR1 follow-up): _idea_path() built the file
+        path as ideas_dir / f"{slug}.md" with zero slug validation. update_idea
+        reads via _read_idea (same unvalidated path) then writes back to it —
+        a traversal slug reaches an out-of-tree file with both a read and a
+        write. Confirmed exploitable: a file outside ideas_dir was read AND
+        overwritten before this fix. _idea_path() now validates."""
+        secret = content_root / "SECRET.md"
+        secret.write_text("---\nname: leaked-idea\nstatus: draft\n---\n\nsecret body\n", encoding="utf-8")
+
+        result = json.loads(server_module.update_idea("../SECRET", "status", "PWNED"))
+        assert "error" in result
+        assert secret.read_text(encoding="utf-8") == (
+            "---\nname: leaked-idea\nstatus: draft\n---\n\nsecret body\n"
+        )
+
 
 # ---------------------------------------------------------------------------
 # promote_idea
@@ -379,6 +406,18 @@ class TestPromoteIdea:
     def test_unknown_slug(self, server_module):
         result = json.loads(server_module.promote_idea("nope", "book"))
         assert "error" in result
+
+    def test_rejects_traversal_slug(self, server_module, content_root: Path):
+        """Issue #523 code review (PR1 follow-up): same _idea_path() gap as
+        TestUpdateIdea.test_rejects_traversal_slug, exercised via promote_idea."""
+        secret = content_root / "SECRET.md"
+        secret.write_text("---\nname: leaked-idea\nstatus: draft\n---\n\nsecret body\n", encoding="utf-8")
+
+        result = json.loads(server_module.promote_idea("../SECRET", "my-book"))
+        assert "error" in result
+        assert secret.read_text(encoding="utf-8") == (
+            "---\nname: leaked-idea\nstatus: draft\n---\n\nsecret body\n"
+        )
 
 
 # ---------------------------------------------------------------------------

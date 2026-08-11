@@ -15,6 +15,7 @@ from typing import Any
 
 import yaml
 
+from tools.shared.paths import _validate_slug, catch_slug_value_error
 from tools.state.parsers import parse_frontmatter
 
 from . import _app
@@ -32,7 +33,16 @@ def _get_ideas_dir(config: dict) -> Path:
 
 
 def _idea_path(ideas_dir: Path, slug: str) -> Path:
-    """Return the file path for a given idea slug."""
+    """Return the file path for a given idea slug.
+
+    Validates the slug (issue #523 code review, PR1 follow-up): this is the
+    single choke point every caller in this module routes through
+    (create_idea's slug is already slugify()-derived and safe regardless;
+    _read_idea/update_idea/promote_idea take a raw MCP parameter that
+    reached this join with zero validation, letting a traversal slug read
+    and overwrite a file outside ideas_dir).
+    """
+    _validate_slug(slug, "slug")
     return ideas_dir / f"{slug}.md"
 
 
@@ -158,6 +168,7 @@ def list_ideas(status: str = "", genre: str = "") -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def get_idea(slug: str) -> str:
     """Return the full content of a single idea file.
 
@@ -189,6 +200,7 @@ def get_idea(slug: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
 def update_idea(slug: str, field: str, value: str) -> str:
     """Update a single frontmatter field of an existing idea.
 
@@ -214,6 +226,7 @@ def update_idea(slug: str, field: str, value: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
 def promote_idea(slug: str, book_slug: str) -> str:
     """Mark an idea as promoted and link it to a book project.
 

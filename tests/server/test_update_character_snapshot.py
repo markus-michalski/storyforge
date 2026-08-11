@@ -341,6 +341,47 @@ class TestUpdateCharacterSnapshotSecurity:
         with _pytest.raises(ValueError):
             resolve_project_path({"paths": {"content_root": str(content_root)}}, "../escape")
 
+    def test_bad_book_slug_returns_json_error_not_raises(self, mock_config, content_root: Path):
+        """Issue #523 code review, finding L-4: what @catch_slug_value_error
+        itself contributes at this call site — a bad book_slug now returns
+        cleanly instead of raising, on both the fiction and memoir branches.
+        A future regression removing the decorator fails here even for
+        inputs unrelated to the memoir-specific traversal tests above."""
+        result = json.loads(
+            update_character_snapshot("../escape", "kael", json.dumps({"current_inventory": ["x"]}))
+        )
+        assert "error" in result
+
+    def test_memoir_rejects_traversal_character_slug(self, mock_config, content_root: Path):
+        """Issue #523 code review (M-5, same class as H-1 in
+        read_character_for_harvest): the memoir branch built char_file via
+        resolve_people_dir(project_dir, "memoir") / f"{character_slug}.md",
+        which performs no slug validation (resolve_people_dir takes a Path,
+        not a slug). Unlike test_rejects_traversal_via_character_slug above
+        (which only exercises the unrelated book_slug guard), this actually
+        drives the vulnerable memoir character_slug path end-to-end."""
+        (content_root / "projects" / "my-memoir" / "people").mkdir(parents=True)
+        # people/../../../SECRET.md -> my-memoir/../.. -> content_root/SECRET.md
+        secret = content_root / "SECRET.md"
+        secret.write_text("---\nname: leaked\n---\n\nshould never be read\n", encoding="utf-8")
+
+        result = json.loads(
+            update_character_snapshot(
+                "my-memoir",
+                "../../../SECRET",
+                json.dumps({"current_inventory": ["x"]}),
+                book_category="memoir",
+            )
+        )
+        assert result.get("success") is not True
+        assert "error" in result
+        # The confirmed impact was a DB *write* under the poisoned key — a
+        # test that only checks for "error" would go vacuously green if the
+        # existence gate alone happened to reject it for an unrelated reason
+        # (issue #523 code review, finding M-2). Assert the write never
+        # landed.
+        assert _get_snapshot(content_root, "my-memoir", "../../../SECRET") is None
+
     def test_result_contains_sorted_updated_fields(self, mock_config, content_root: Path):
         _make_char(content_root, "my-book", "theo")
         snapshot = {

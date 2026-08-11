@@ -1,10 +1,12 @@
 """Tests for StoryForge path utilities."""
 
+import json
 from pathlib import Path
 
 import pytest
 
 from tools.shared.paths import (
+    catch_slug_value_error,
     slugify,
     resolve_project_path,
     resolve_chapter_path,
@@ -316,3 +318,83 @@ class TestFindSeriesYaml:
 
         result = find_series(config)
         assert result == []
+
+
+class TestCatchSlugValueError:
+    """Issue #523: MCP tool functions call resolve_*_path() helpers, which
+    raise SlugValidationError via _validate_slug() on a null byte, '..', a
+    path separator, or a leading dot. Most call sites across this server
+    don't catch it, so a bad slug propagates as a raw, unhandled server
+    exception instead of this codebase's standard {"error": ...} JSON
+    contract (the same gap #521 covers for resolve_path()'s book_slug
+    specifically). catch_slug_value_error() is the shared fix: a decorator
+    applied to each affected MCP tool function that converts an escaping
+    error into that JSON contract, once, instead of an individual
+    try/except per call site. This PR applies it to the two functions with
+    a confirmed path-traversal vulnerability; the remaining call sites are
+    rolled out separately."""
+
+    def test_passes_through_normal_return_value(self):
+        @catch_slug_value_error
+        def tool(x: str) -> str:
+            return json.dumps({"ok": x})
+
+        assert json.loads(tool("fine")) == {"ok": "fine"}
+
+    def test_converts_value_error_to_json_error(self):
+        @catch_slug_value_error
+        def tool(slug: str) -> str:
+            resolve_project_path({"paths": {"content_root": "/tmp/does-not-matter"}}, slug)
+            return json.dumps({"success": True})
+
+        result = json.loads(tool("bad\x00slug"))
+        assert "error" in result
+        assert "bad" in result["error"]
+
+    def test_does_not_swallow_other_exceptions(self):
+        @catch_slug_value_error
+        def tool() -> str:
+            raise RuntimeError("unrelated failure")
+
+        with pytest.raises(RuntimeError):
+            tool()
+
+    def test_does_not_swallow_unrelated_value_error(self):
+        """Code review finding M-1: the decorator must catch only
+        SlugValidationError, not bare ValueError — otherwise an internal
+        invariant check (e.g. "mode must be auto/bullet/h3") or an unrelated
+        parsing failure inside the wrapped function gets silently reported
+        as if it were a slug-validation error, discarding the real cause."""
+
+        @catch_slug_value_error
+        def tool() -> str:
+            raise ValueError("mode must be auto/bullet/h3 — got 'x'")
+
+        with pytest.raises(ValueError, match="mode must be"):
+            tool()
+
+    def test_preserves_function_metadata(self):
+        @catch_slug_value_error
+        def tool(book_slug: str, chapter_slug: str = "") -> str:
+            """Docstring."""
+            return json.dumps({})
+
+        assert tool.__name__ == "tool"
+        assert tool.__doc__ == "Docstring."
+
+    def test_sets_introspection_marker(self):
+        @catch_slug_value_error
+        def tool() -> str:
+            return json.dumps({})
+
+        assert tool._catches_slug_value_error is True
+
+    def test_rejects_async_function_at_decoration_time(self):
+        """Code review finding L-5: the sync wrapper would return an
+        unawaited coroutine object, silently no-oping on async functions —
+        worse than no decorator, since it looks applied but never runs."""
+        with pytest.raises(TypeError, match="async"):
+
+            @catch_slug_value_error
+            async def tool() -> str:
+                return json.dumps({})
