@@ -333,3 +333,51 @@ class TestReadCharacterForHarvestErrors:
         (content_root / "projects" / "my-book" / "characters").mkdir(parents=True)
         result = json.loads(read_character_for_harvest("my-book", "ghost"))
         assert "not found" in result["error"].lower()
+
+    def test_bad_book_slug_returns_json_error_not_raises(self, mock_config, content_root: Path):
+        """Issue #523 code review, finding L-4: resolve_project_path() raises
+        for an invalid book_slug on BOTH the fiction and memoir branches —
+        this is what @catch_slug_value_error itself contributes at this call
+        site (previously uncaught). Assert the call returns cleanly rather
+        than raising, so a future regression removing the decorator fails
+        here, not just via the memoir-specific traversal tests above."""
+        result = json.loads(read_character_for_harvest("../escape", "kael"))
+        assert "error" in result
+
+
+class TestReadCharacterForHarvestSecurity:
+    """Issue #523 code review (H-1): the memoir branch built char_file via
+    resolve_people_dir(project_dir, "memoir") / f"{character_slug}.md" —
+    resolve_people_dir() takes a Path, not a slug, so it performs no slug
+    validation. Unlike the fiction branch (resolve_character_path, which
+    validates internally), a traversal character_slug reached Path
+    construction unvalidated and could read a file outside project_dir.
+    Confirmed exploitable before the fix: a person file placed outside the
+    project directory was read and its frontmatter returned."""
+
+    def test_memoir_rejects_traversal_character_slug(self, mock_config, content_root: Path):
+        (content_root / "projects" / "my-memoir" / "people").mkdir(parents=True)
+        # content_root/projects/my-memoir/people/../../../SECRET.md normalizes
+        # to content_root/SECRET.md — three ".." segments to climb back out
+        # of people/ -> my-memoir/ -> projects/ to content_root itself.
+        secret = content_root / "SECRET.md"
+        secret.write_text("---\nname: leaked\n---\n\nshould never be read\n", encoding="utf-8")
+
+        result = json.loads(
+            read_character_for_harvest("my-memoir", "../../../SECRET", book_category="memoir")
+        )
+        assert "error" in result
+        assert "leaked" not in json.dumps(result)
+
+    def test_memoir_rejects_null_byte_character_slug(self, mock_config, content_root: Path):
+        """Documents the contract (a null byte is rejected) rather than
+        guarding this specific fix: Path.exists() on a null-byte path
+        already raises/returns falsy at the OS-binding layer regardless of
+        _validate_slug(), so unlike the traversal test above, this one
+        passes even without the fix (issue #523 code review, finding N-6).
+        Kept for contract documentation, not as a regression guard."""
+        (content_root / "projects" / "my-memoir" / "people").mkdir(parents=True)
+        result = json.loads(
+            read_character_for_harvest("my-memoir", "bad\x00slug", book_category="memoir")
+        )
+        assert "error" in result

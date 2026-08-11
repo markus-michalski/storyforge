@@ -49,7 +49,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   while still returning `success: true`. Anchored with `\Z` instead (#518).
 
 ### Security
-- Nothing yet
+- `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a
+  character file path via `resolve_people_dir()` — which takes a `Path`, not a slug, and
+  performs no validation at all — so a traversal `character_slug` (e.g.
+  `"../../../SECRET"`) reached `Path` construction completely unvalidated. Confirmed
+  exploitable: a file placed outside the book's project directory could be read (via
+  `read_character_for_harvest`) or a DB snapshot row written under an arbitrary traversal
+  key (via `update_character_snapshot`). Both now resolve through `resolve_person_path()`,
+  which validates the slug for both the fiction and memoir layouts uniformly, via a new
+  shared decorator `catch_slug_value_error` that converts the resulting validation error
+  into this codebase's standard `{"error": ...}` JSON response (#523).
+- `get_idea`, `update_idea`, and `promote_idea` built the idea file path as
+  `ideas_dir / f"{slug}.md"` with zero slug validation, letting a traversal `slug` read
+  and — via `update_idea`/`promote_idea` — overwrite a file outside `ideas_dir`. Confirmed
+  exploitable the same way. `_idea_path()`, the single choke point all three route through,
+  now validates (#523).
+- **Not yet closed for this bug class**: `write_series_evolution_section`,
+  `read_tracker_for_bootstrap`, and `create_character_tracker` (`series.py`) build a
+  tracker file path from an unvalidated `tracker_slug`/`slug` the same way — tracked
+  separately as #524, not part of this fix.
 
 ## [3.3.1] - 2026-08-09
 

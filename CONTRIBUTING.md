@@ -96,8 +96,14 @@ Format: `<type>(<scope>): <subject>`
 |------|--------------|
 | `feat:` | MINOR |
 | `fix:` | PATCH |
+| `security:` | PATCH |
 | `feat!:` or `BREAKING CHANGE:` | MAJOR |
 | `docs:`, `chore:`, `refactor:`, `test:` | None |
+
+`security:` is for vulnerability fixes (path traversal, injection, auth bypass, etc.) —
+use it instead of `fix:` when the change closes an exploitable gap, so `git log
+--grep="^security:"` surfaces the security-relevant history. Pair it with a `### Security`
+CHANGELOG entry rather than `### Fixed`.
 
 Examples:
 

@@ -22,8 +22,9 @@ import yaml
 from tools.db.character_snapshots import get_latest_snapshot_for_book
 from tools.db.connection import get_book_num, get_canon_db_path, get_db_slug_for_book, open_canon_db
 from tools.shared.paths import (
-    resolve_character_path,
+    catch_slug_value_error,
     resolve_people_dir,
+    resolve_person_path,
     resolve_project_path,
     resolve_series_path,
     slugify,
@@ -227,6 +228,7 @@ def add_book_to_series(series_slug: str, book_slug: str, number: int, status: st
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def read_character_for_harvest(
     book_slug: str,
     character_slug: str,
@@ -286,10 +288,12 @@ def read_character_for_harvest(
     if not project_dir.exists():
         return json.dumps({"error": f"Book '{book_slug}' not found"})
 
-    if book_category == "memoir":
-        char_file = resolve_people_dir(project_dir, "memoir") / f"{character_slug}.md"
-    else:
-        char_file = resolve_character_path(config, book_slug, character_slug)
+    # resolve_person_path() validates character_slug and covers both the
+    # fiction (characters/) and memoir (people/) layouts uniformly — a
+    # hand-rolled memoir branch here previously skipped validation
+    # entirely, since resolve_people_dir() takes a Path, not a slug
+    # (issue #523 code review, finding H-1 / follow-up #532).
+    char_file = resolve_person_path(config, book_slug, character_slug, book_category)
 
     if not char_file.exists():
         return json.dumps(

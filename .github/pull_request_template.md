@@ -6,6 +6,7 @@
 
 - [ ] feat: New feature (minor version bump)
 - [ ] fix: Bug fix (patch version bump)
+- [ ] security: Vulnerability fix (patch version bump)
 - [ ] docs: Documentation only
 - [ ] chore: Maintenance (no version bump)
 - [ ] refactor: Code refactoring without behavior change
