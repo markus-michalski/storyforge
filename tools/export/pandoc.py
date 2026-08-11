@@ -29,7 +29,10 @@ _ALLOWED_PDF_ENGINES = frozenset(
 # Fonts: alphanumerics, spaces, hyphens, dots, underscores. Excludes the
 # shell metacharacters and LaTeX command introducers (``\``, ``{``, ``}``,
 # ``$``, ``;``, ``|``, newlines).
-_FONT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 \-_.]{0,63}$")
+# NB: anchored with \Z, not $ — `$` also matches before a trailing newline,
+# which let font="Arial\n" through despite the exclusion above (#520, same
+# anchoring gap #518 fixed for _FIELD_NAME_RE).
+_FONT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 \-_.]{0,63}\Z")
 
 # font_size: 1–2 digits + pt or em, e.g. "11pt", "12pt", "1em"
 _FONT_SIZE_PATTERN = re.compile(r"^\d{1,2}(pt|em)$")

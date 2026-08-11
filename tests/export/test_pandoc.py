@@ -128,6 +128,17 @@ class TestFontValidation:
         assert "error" in result
         mock_run.assert_not_called()
 
+    def test_rejects_font_with_trailing_newline(self, mock_subprocess, tmp_path: Path):
+        """Issue #520: `$` in _FONT_PATTERN matches before a trailing newline
+        (same anchoring gap #518 fixed for _FIELD_NAME_RE), so 'Arial\\n' passed
+        the guard despite the pattern's own comment claiming embedded/trailing
+        structure characters are rejected. Anchoring with \\Z closes the gap."""
+        mock_run, output = mock_subprocess
+        result = pandoc.generate_pdf(tmp_path / "in.md", output, "T", "A", font="Arial\n")
+        assert result["success"] is False
+        assert "Invalid font" in result["error"]
+        mock_run.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # font_size and margin format
