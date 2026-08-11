@@ -12,6 +12,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+from tools.shared.paths import SlugValidationError
 from tools.state.loaders.series import (
     find_series_trackers,
     parse_series_tracker,
@@ -49,6 +52,37 @@ class TestResolveBookSlug:
     def test_returns_empty_string_when_both_missing(self) -> None:
         # Defensive: malformed tracker without slug should not blow up.
         assert resolve_book_slug_for_series_tracker({}) == ""
+
+    def test_rejects_path_traversal_in_book_slug(self) -> None:
+        # Issue #542 PoC: a hand-edited or pre-#524 tracker with a
+        # traversal book_slug reaches a file WRITE target in the two
+        # MCP callers (copy_recurring_chars_to_new_book,
+        # bootstrap_character_for_new_book) unless the resolver itself
+        # validates the value it hands back.
+        tracker = {"slug": "evil", "book_slug": "../../../../tmp/pwned"}
+        with pytest.raises(SlugValidationError):
+            resolve_book_slug_for_series_tracker(tracker)
+
+    def test_rejects_path_traversal_in_fallback_tracker_slug(self) -> None:
+        # The book_slug field can be absent while the tracker's own
+        # slug (also read verbatim from frontmatter) is malicious.
+        tracker = {"slug": "../../../../tmp/pwned"}
+        with pytest.raises(SlugValidationError):
+            resolve_book_slug_for_series_tracker(tracker)
+
+    def test_falls_back_when_book_slug_is_whitespace_only(self) -> None:
+        # A whitespace-only book_slug is truthy in Python but carries no
+        # real value — should fall back to the tracker slug rather than
+        # being treated as an explicit (and validation-passing) slug.
+        tracker = {"slug": "kael", "book_slug": "   "}
+        assert resolve_book_slug_for_series_tracker(tracker) == "kael"
+
+    def test_trims_surrounding_whitespace_in_book_slug(self) -> None:
+        # " kael " is truthy and non-blank — used as-is, but untrimmed it
+        # would join into "kael .md" and drift from the real filename on
+        # filesystems that strip trailing spaces (e.g. Windows).
+        tracker = {"slug": "irrelevant", "book_slug": " kael "}
+        assert resolve_book_slug_for_series_tracker(tracker) == "kael"
 
 
 class TestParseSeriesTracker:

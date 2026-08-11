@@ -424,6 +424,13 @@ def test_known_exempt_entries_are_still_needed() -> None:
 # (module_stem, function_name) -> reason a real slug-param name reaching a
 # Path join in this function is safe without _validate_slug(). Same
 # discipline as KNOWN_EXEMPT above — a concrete, checked reason only.
+#
+# copy_recurring_chars_to_new_book's book_slug local var (the shape #544
+# extended this scan to catch) previously needed an entry here — it now
+# carries its own explicit _validate_slug(book_slug, "book_slug") call
+# (redundant with the validation inside resolve_book_slug_for_series_tracker
+# since #542, but keeps this scan self-contained instead of relying on the
+# detector's inability to see across a call into tools/state/loaders/series.py).
 SLUG_JOIN_KNOWN_EXEMPT: dict[tuple[str, str], str] = {}
 
 
@@ -460,6 +467,69 @@ def _single_name_in_join(node: ast.expr) -> str | None:
     return None
 
 
+def _is_os_path_join_call(node: ast.AST) -> bool:
+    """True for ``os.path.join(...)`` — a non-``/`` join shape (issue #544)."""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "join"
+        and isinstance(node.func.value, ast.Attribute)
+        and node.func.value.attr == "path"
+    )
+
+
+def _is_joinpath_call(node: ast.AST) -> bool:
+    """True for ``x.joinpath(...)`` — a non-``/`` join shape (issue #544)."""
+    return isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "joinpath"
+
+
+def _is_dict_read_call(node: ast.expr) -> bool:
+    """True for ``x.get(...)`` — the dict-like read shape from issue #544's
+    local-variable-taint gap (``tracker.get("book_slug")``)."""
+    return isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get"
+
+
+def _contains_dict_read(node: ast.expr) -> bool:
+    """True if ``node`` is a dict-like read (``x["key"]``, ``x.get(...)``),
+    or unwraps to one through a ``str(...)`` call and/or an ``... or ...``
+    fallback chain — the exact shape this codebase's own frontmatter
+    readers use, e.g. ``str(meta.get("series", "") or "")`` (issue #543's
+    own pre-fix code, code review on #544's own extension). A bare
+    Subscript/``.get()`` check misses this wrapping entirely.
+    """
+    if isinstance(node, ast.Subscript) or _is_dict_read_call(node):
+        return True
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "str" and node.args:
+        return _contains_dict_read(node.args[0])
+    if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
+        return any(_contains_dict_read(v) for v in node.values)
+    return False
+
+
+def _local_slug_assign_names(fn_node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Local variable names assigned from a dict-like read (``tracker["book_slug"]``,
+    ``tracker.get("book_slug")``, or either wrapped in ``str(...)``/``or``
+    fallbacks) whose target name matches the slug-name heuristic.
+
+    Issue #544: the parameter-only scan below is blind to second-order
+    taint — a value read from a dict (e.g. parsed YAML frontmatter) into a
+    local variable, then joined into a Path — exactly the shape issue #542
+    reported (``book_slug = tracker["book_slug"]``).
+    """
+    names: set[str] = set()
+    for node in ast.walk(fn_node):
+        if not isinstance(node, ast.Assign):
+            continue
+        if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+            continue
+        target = node.targets[0].id
+        if not _is_slug_param_name(target):
+            continue
+        if _contains_dict_read(node.value):
+            names.add(target)
+    return names
+
+
 def _validated_param_names(fn_node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     """Names passed as the first positional arg to a _validate_slug() call
     anywhere in the function body."""
@@ -475,26 +545,112 @@ def _validated_param_names(fn_node: ast.FunctionDef | ast.AsyncFunctionDef) -> s
 
 
 def _unvalidated_slug_join_params(fn_node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
-    """Slug-named parameters of ``fn_node`` that reach a Path-join operand
-    (bare Name or single-placeholder f-string) with no matching
-    _validate_slug() call anywhere in the function body."""
+    """Slug-named names reaching a Path-join operand (bare Name or
+    single-placeholder f-string) with no matching _validate_slug() call
+    anywhere in the function body.
+
+    Candidates are slug-named parameters (the original #531 scope) plus
+    slug-named local variables assigned from a dict-like read (issue #544).
+    Join shapes covered: chained ``/`` (``BinOp(Div)``), ``os.path.join()``,
+    and ``.joinpath()``.
+    """
     params = {a.arg for a in fn_node.args.args} | {a.arg for a in fn_node.args.kwonlyargs}
     slug_params = {p for p in params if _is_slug_param_name(p)}
+    slug_params |= _local_slug_assign_names(fn_node)
     if not slug_params:
         return set()
 
     validated = _validated_param_names(fn_node)
     hits: set[str] = set()
     for sub in ast.walk(fn_node):
-        if not (isinstance(sub, ast.BinOp) and isinstance(sub.op, ast.Div)):
-            continue
         operands: list[ast.expr] = []
-        _flatten_div_chain(sub, operands)
+        if isinstance(sub, ast.BinOp) and isinstance(sub.op, ast.Div):
+            _flatten_div_chain(sub, operands)
+        elif isinstance(sub, ast.Call) and (_is_os_path_join_call(sub) or _is_joinpath_call(sub)):
+            operands = list(sub.args)
+        else:
+            continue
         for operand in operands:
             name = _single_name_in_join(operand)
             if name and name in slug_params and name not in validated:
                 hits.add(name)
     return hits
+
+
+def _parse_fn(source: str) -> ast.FunctionDef:
+    """Parse a single top-level function definition from a source snippet,
+    for testing _unvalidated_slug_join_params() against synthetic shapes
+    that don't currently occur anywhere in the live codebase."""
+    tree = ast.parse(source)
+    (fn,) = (n for n in tree.body if isinstance(n, ast.FunctionDef))
+    return fn
+
+
+class TestUnvalidatedSlugJoinDetectorShapes:
+    """Fixture-based unit tests for _unvalidated_slug_join_params() and its
+    helpers, isolated from the live repo scan (test_no_unvalidated_slug_path_join_in_tool_body
+    / _in_tools_layer only prove the codebase is currently clean — they can't
+    tell a working detector from a broken one that finds nothing because it's
+    broken, not because there's nothing to find). Covers each shape added by
+    issue #544 that has no positive-detection test elsewhere: local-variable
+    taint (plain, str()-wrapped, or-fallback-wrapped), os.path.join(), and
+    .joinpath().
+    """
+
+    def test_flags_local_subscript_taint(self) -> None:
+        fn = _parse_fn(
+            "def f(tracker):\n"
+            "    book_slug = tracker['book_slug']\n"
+            "    return root / f'{book_slug}.md'\n"
+        )
+        assert _unvalidated_slug_join_params(fn) == {"book_slug"}
+
+    def test_flags_local_get_call_taint(self) -> None:
+        fn = _parse_fn(
+            "def f(tracker):\n"
+            "    book_slug = tracker.get('book_slug')\n"
+            "    return root / f'{book_slug}.md'\n"
+        )
+        assert _unvalidated_slug_join_params(fn) == {"book_slug"}
+
+    def test_flags_str_wrapped_or_fallback_taint(self) -> None:
+        # The exact pre-fix shape of issue #543:
+        # series_slug = str(book_meta.get("series", "") or "")
+        fn = _parse_fn(
+            "def f(book_meta):\n"
+            "    series_slug = str(book_meta.get('series', '') or '')\n"
+            "    return root / series_slug\n"
+        )
+        assert _unvalidated_slug_join_params(fn) == {"series_slug"}
+
+    def test_does_not_flag_validated_local_taint(self) -> None:
+        fn = _parse_fn(
+            "def f(tracker):\n"
+            "    book_slug = tracker['book_slug']\n"
+            "    _validate_slug(book_slug, 'book_slug')\n"
+            "    return root / f'{book_slug}.md'\n"
+        )
+        assert _unvalidated_slug_join_params(fn) == set()
+
+    def test_flags_os_path_join_call(self) -> None:
+        fn = _parse_fn("def f(book_slug):\n    return os.path.join(root, book_slug)\n")
+        assert _unvalidated_slug_join_params(fn) == {"book_slug"}
+
+    def test_flags_joinpath_call(self) -> None:
+        fn = _parse_fn("def f(book_slug):\n    return root.joinpath(book_slug)\n")
+        assert _unvalidated_slug_join_params(fn) == {"book_slug"}
+
+    def test_does_not_flag_validated_os_path_join(self) -> None:
+        fn = _parse_fn(
+            "def f(book_slug):\n    _validate_slug(book_slug, 'book_slug')\n    return os.path.join(root, book_slug)\n"
+        )
+        assert _unvalidated_slug_join_params(fn) == set()
+
+    def test_does_not_flag_unrelated_get_call(self) -> None:
+        # A non-slug-named local assigned via .get() must not be treated as
+        # a candidate at all — _is_slug_param_name() gates on the name.
+        fn = _parse_fn("def f(config):\n    timeout = config.get('timeout')\n    return root / str(timeout)\n")
+        assert _unvalidated_slug_join_params(fn) == set()
 
 
 def test_no_unvalidated_slug_path_join_in_tool_body() -> None:
@@ -514,4 +670,163 @@ def test_no_unvalidated_slug_path_join_in_tool_body() -> None:
         f"{violations}. Either call _validate_slug(param, ...) before the join, "
         "route through a resolve_*_path() helper, or add a SLUG_JOIN_KNOWN_EXEMPT "
         "entry with a concrete, checked reason."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Source-derived sweep — layer 4 (issue #544): widen layer 3 to tools/
+# ---------------------------------------------------------------------------
+#
+# Layer 3 above only scans @mcp.tool functions inside servers/storyforge-server/
+# routers/*.py — issue #538's own text documents that three of its four real
+# instances lived in tools/state/*.py / tools/timeline_anchor.py instead, "one
+# module away" from the router. This sweep scans every function (not just
+# @mcp.tool-decorated ones — tools/ helpers aren't decorated at all) defined
+# anywhere under tools/, reusing the same join/local-taint detection as layer 3.
+# tools/shared/paths.py itself is excluded: it's where _validate_slug() and the
+# resolve_*_path() helpers are defined, and its joins are the validated
+# reference implementation this whole module exists to enforce elsewhere.
+
+TOOLS_DIR = Path(__file__).resolve().parent.parent.parent / "tools"
+_TOOLS_PATHS_MODULE = TOOLS_DIR / "shared" / "paths.py"
+
+# (path-relative-to-tools/, function_name) -> reason a real slug-name reaching
+# a Path join in this function is safe without _validate_slug(). Same
+# discipline as SLUG_JOIN_KNOWN_EXEMPT above.
+TOOLS_SLUG_JOIN_KNOWN_EXEMPT: dict[tuple[str, str], str] = {
+    # author_slug reaches every load_author_vocab() call site exclusively via
+    # author_slug_from_book(), which slugify()s a name parsed from CLAUDE.md —
+    # same structural argument as the ("authors", "create_author")
+    # KNOWN_EXEMPT entry above: the regex strips every character
+    # _validate_slug() rejects, so this call can never raise. Verified
+    # against all 4 real call sites (chapter_validator.py,
+    # loaders/banlist.py, analysis/manuscript/rules.py x2).
+    ("banlist_loader.py", "_author_vocab_path"): "author_slug is always author_slug_from_book()-derived (slugify)",
+    # tools/rule_writer.py as a whole has no importer anywhere in
+    # servers/ or tools/ (confirmed via repo-wide grep) besides its own
+    # module and tests — unreachable from any MCP tool or skill. This
+    # specific function isn't named in skills/promote-rule/SKILL.md, but
+    # that file names a sibling function in the same module
+    # (write_global_rule()) as "dead code — not wired to any MCP tool"
+    # with the same reachability argument, and instructs against calling
+    # it directly.
+    (
+        "rule_writer.py",
+        "_author_vocab_path",
+    ): "unreachable from any MCP tool or skill (tools/rule_writer.py has no importer; see promote-rule SKILL.md)",
+    # series_slug's only caller is build_chapter_writing_brief, which gets it
+    # from load_series_link() — validated at that function's own choke point
+    # since issue #543. An invalid value never reaches this function: either
+    # load_series_link() raises (caught by _Recorder.run, defaulting to "")
+    # or the value is already clean.
+    ("state/chapter_writing_brief.py", "_enrich_with_series_evolution"): (
+        "series_slug validated upstream by load_series_link() (#543) before this function is ever called"
+    ),
+    # pov_slug in both pov_inventory.py and pov_state.py is always
+    # slugify()-derived (`pov_slug = slugify(pov_character) if pov_character
+    # else ""`) — same structural safety as the author_slug entries above.
+    ("state/loaders/pov_inventory.py", "_from_frontmatter"): "pov_slug is always slugify()-derived",
+    ("state/loaders/pov_state.py", "_from_frontmatter"): "pov_slug is always slugify()-derived",
+    # chapter_slug in both modules' scan helpers has a single call site
+    # (extract_pov_inventory / extract_pov_state, both called only from
+    # build_chapter_writing_brief), which validates its own chapter_slug
+    # parameter via _validate_slug() before either loader runs.
+    ("state/loaders/pov_inventory.py", "_chapters_for_inventory_scan"): (
+        "chapter_slug validated by build_chapter_writing_brief's own _validate_slug() call before this runs"
+    ),
+    ("state/loaders/pov_state.py", "_chapters_for_scan"): (
+        "chapter_slug validated by build_chapter_writing_brief's own _validate_slug() call before this runs"
+    ),
+}
+
+
+def _tools_modules() -> list[Path]:
+    return sorted(p for p in TOOLS_DIR.rglob("*.py") if p != _TOOLS_PATHS_MODULE and p.name != "__init__.py")
+
+
+def _all_function_defs(tree: ast.Module) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+    """Every function definition in the module, at any nesting depth —
+    unlike _mcp_tool_functions_and_calls, tools/ helpers carry no decorator
+    to filter on."""
+    return {n.name: n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+
+def test_no_unvalidated_slug_path_join_in_tools_layer() -> None:
+    violations: list[str] = []
+    for module_path in _tools_modules():
+        # .as_posix(), not str(): str() on Windows yields backslash-separated
+        # paths, which would never match the forward-slash-keyed
+        # TOOLS_SLUG_JOIN_KNOWN_EXEMPT entries below — silently defeating
+        # every exemption on the windows-latest CI job (code review finding).
+        rel = module_path.relative_to(TOOLS_DIR).as_posix()
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        for name, node in _all_function_defs(tree).items():
+            if (rel, name) in TOOLS_SLUG_JOIN_KNOWN_EXEMPT:
+                continue
+            for param in _unvalidated_slug_join_params(node):
+                violations.append(f"{rel}::{name} (param: {param})")
+
+    assert not violations, (
+        "tools/ functions build a Path directly from a slug-named parameter or "
+        "local variable (no _validate_slug()) with no validation: "
+        f"{violations}. Either call _validate_slug(name, ...) before the join, "
+        "route through a resolve_*_path() helper, or add a "
+        "TOOLS_SLUG_JOIN_KNOWN_EXEMPT entry with a concrete, checked reason."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Staleness guards for the two layer-3/4 exemption dicts (code review finding
+# M-1 on issue #544): SLUG_JOIN_KNOWN_EXEMPT / TOOLS_SLUG_JOIN_KNOWN_EXEMPT
+# have no equivalent of KNOWN_EXEMPT's test_known_exempt_functions_still_exist
+# / test_known_exempt_entries_are_still_needed pair above — a renamed or
+# no-longer-flagged entry would sit there silently, and (worse) a NEW,
+# unrelated function later reappearing at the same (module, name) key would
+# be silently exempted too.
+# ---------------------------------------------------------------------------
+
+
+def test_slug_join_known_exempt_functions_still_exist() -> None:
+    for module_stem, fn_name in SLUG_JOIN_KNOWN_EXEMPT:
+        module_path = ROUTERS_DIR / f"{module_stem}.py"
+        assert module_path.exists(), f"SLUG_JOIN_KNOWN_EXEMPT references missing module: {module_stem}"
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        names = {n.name for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+        assert fn_name in names, f"SLUG_JOIN_KNOWN_EXEMPT references missing function: {module_stem}.{fn_name}"
+
+
+def test_slug_join_known_exempt_entries_are_still_needed() -> None:
+    stale: list[str] = []
+    for module_stem, fn_name in SLUG_JOIN_KNOWN_EXEMPT:
+        module_path = ROUTERS_DIR / f"{module_stem}.py"
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        tool_fns, _calls, _decorated, _order_correct = _mcp_tool_functions_and_calls(tree)
+        node = tool_fns.get(fn_name)
+        if node is None or not _unvalidated_slug_join_params(node):
+            stale.append(f"{module_stem}.{fn_name}")
+
+    assert not stale, f"SLUG_JOIN_KNOWN_EXEMPT entries no longer needed (no longer flagged): {stale}. Remove the entry."
+
+
+def test_tools_slug_join_known_exempt_functions_still_exist() -> None:
+    for rel, fn_name in TOOLS_SLUG_JOIN_KNOWN_EXEMPT:
+        module_path = TOOLS_DIR / rel
+        assert module_path.exists(), f"TOOLS_SLUG_JOIN_KNOWN_EXEMPT references missing module: {rel}"
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        assert fn_name in _all_function_defs(tree), (
+            f"TOOLS_SLUG_JOIN_KNOWN_EXEMPT references missing function: {rel}::{fn_name}"
+        )
+
+
+def test_tools_slug_join_known_exempt_entries_are_still_needed() -> None:
+    stale: list[str] = []
+    for rel, fn_name in TOOLS_SLUG_JOIN_KNOWN_EXEMPT:
+        module_path = TOOLS_DIR / rel
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        node = _all_function_defs(tree).get(fn_name)
+        if node is None or not _unvalidated_slug_join_params(node):
+            stale.append(f"{rel}::{fn_name}")
+
+    assert not stale, (
+        f"TOOLS_SLUG_JOIN_KNOWN_EXEMPT entries no longer needed (no longer flagged): {stale}. Remove the entry."
     )

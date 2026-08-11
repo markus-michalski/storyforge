@@ -578,6 +578,14 @@ def copy_recurring_chars_to_new_book(
     for tracker in recurring_chars_for_book(series_dir, new_band):
         tracker_slug = tracker["tracker_slug"]
         book_slug = tracker["book_slug"]
+        # recurring_chars_for_book() already validates book_slug via
+        # resolve_book_slug_for_series_tracker() (issue #542) — this call
+        # is redundant defense-in-depth, not the primary guard. It exists
+        # so a future refactor of that upstream choke point can't silently
+        # reopen the path-traversal this tool is a WRITE-target for, and
+        # so the #544 AST sweep sees this local var as validated without
+        # needing a SLUG_JOIN_KNOWN_EXEMPT entry.
+        _validate_slug(book_slug, "book_slug")
 
         # New char in this band — no source to copy from.
         if not tracker["prior_bands"]:
@@ -892,6 +900,10 @@ def bootstrap_character_for_new_book(
 
     tracker = parse_series_tracker(tracker_path)
     book_slug = resolve_book_slug_for_series_tracker(tracker)
+    # Already validated inside resolve_book_slug_for_series_tracker()
+    # (issue #542) — redundant defense-in-depth, see the matching comment
+    # in copy_recurring_chars_to_new_book above.
+    _validate_slug(book_slug, "book_slug")
 
     layout = "people" if book_category == "memoir" else "characters"
     dst_layout = resolve_people_dir(new_dir, "memoir") if book_category == "memoir" else new_dir / "characters"

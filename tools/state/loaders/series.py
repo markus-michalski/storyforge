@@ -34,6 +34,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from tools.shared.paths import _validate_slug
 from tools.state.parsers import parse_frontmatter
 
 
@@ -119,14 +120,25 @@ def parse_series_tracker(path: Path) -> dict[str, Any]:
 def resolve_book_slug_for_series_tracker(tracker: dict[str, Any]) -> str:
     """Return the book-level slug for a series tracker.
 
-    Priority: explicit ``book_slug`` field (when truthy) > tracker
-    ``slug`` as-is. Returns an empty string when neither is set so
-    callers can branch without exception handling.
+    Priority: explicit ``book_slug`` field (when truthy and non-blank,
+    trimmed) > tracker ``slug`` as-is (trimmed). Returns ``""`` when
+    neither field is set — that case alone never raises, since
+    :func:`_validate_slug` passes an empty value through by design.
+
+    Any other resolved value is validated with :func:`_validate_slug`
+    before being returned, raising ``SlugValidationError`` if unsafe. Both
+    source fields are read verbatim from a tracker's on-disk YAML
+    frontmatter — untrusted the moment a user hand-edits a tracker or one
+    predates the #524 write-time validation — and both MCP callers
+    (``copy_recurring_chars_to_new_book``, ``bootstrap_character_for_new_book``)
+    use the result to build a file WRITE target, making this the
+    read-side choke point (issue #542).
     """
     book_slug = tracker.get("book_slug")
-    if book_slug:
-        return str(book_slug)
-    return str(tracker.get("slug") or "")
+    resolved = (
+        str(book_slug).strip() if book_slug and str(book_slug).strip() else str(tracker.get("slug") or "").strip()
+    )
+    return _validate_slug(resolved, "book_slug")
 
 
 def find_series_trackers(series_dir: Path) -> list[Path]:

@@ -360,6 +360,61 @@ class TestBootstrapValidation:
         assert "leaked" in after  # unchanged
         assert "Bootstrapped" not in after
 
+    def test_rejects_path_traversal_in_book_slug(self, mock_config, content_root: Path):
+        """Issue #542: unlike tracker_slug (an MCP parameter, validated
+        directly above), book_slug is read verbatim from the tracker's own
+        frontmatter via resolve_book_slug_for_series_tracker() and used to
+        build `dest`, which _apply_bootstrap_frontmatter() overwrites
+        unconditionally when it already exists — an arbitrary EXISTING file
+        overwrite, sharper than the read/create primitive of the sibling
+        copy_recurring_chars_to_new_book tool."""
+        secret = content_root / "tmp_pwned.md"
+        secret.write_text("---\nname: leaked\n---\n\noriginal content\n", encoding="utf-8")
+
+        _make_tracker(
+            content_root,
+            "my-series",
+            "evil",
+            book_slug="../../../tmp_pwned",
+            recurs_in=["B1", "B2"],
+            body="## Evolution per Band\n\n### B1\n- **Ende:** End.\n",
+        )
+        _make_book_char(content_root, "book1", "evil")
+        _make_book_dir(content_root, "book2")
+
+        result = json.loads(
+            bootstrap_character_for_new_book("my-series", "evil", "book1", "book2", "B1", _new_snapshot_json())
+        )
+        assert result.get("success") is not True
+        assert "book_slug" in result.get("error", "")
+        assert "original content" in secret.read_text(encoding="utf-8")
+
+    def test_router_own_validate_slug_call_is_load_bearing(
+        self, mock_config, content_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The `_validate_slug(book_slug, "book_slug")` call right after
+        `resolve_book_slug_for_series_tracker(tracker)` in this router
+        function is documented as redundant defense-in-depth — the resolver
+        already validates internally since #542. That makes it untestable
+        via a live tracker file (the resolver always raises first, so no
+        traversal payload can ever reach the router's own call). Isolate it
+        directly: monkeypatch the resolver itself to simulate a future
+        regression where it stops validating, and confirm this router-level
+        call still catches the bad value on its own."""
+        import routers.series as series_router
+
+        monkeypatch.setattr(series_router, "resolve_book_slug_for_series_tracker", lambda tracker: "../../../evil")
+
+        _make_tracker(content_root, "my-series", "kael", recurs_in=["B1", "B2"])
+        _make_book_char(content_root, "book1", "kael")
+        _make_book_dir(content_root, "book2")
+
+        result = json.loads(
+            bootstrap_character_for_new_book("my-series", "kael", "book1", "book2", "B1", _new_snapshot_json())
+        )
+        assert result.get("success") is not True
+        assert "book_slug" in result.get("error", "")
+
     def test_rejects_band_with_trailing_newline(self, mock_config, content_root: Path):
         """Issue #525: `$` in RE_BAND_ID matches before a trailing newline, so
         prev_band="B1\\n" passed this function's guard too — the same shared

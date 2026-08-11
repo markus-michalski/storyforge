@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from tools.shared.paths import _validate_slug
 from tools.state.parsers import parse_chapter_readme, parse_frontmatter
 
 # Fallback parser for Blood & Binary-style Overview tables. Older
@@ -131,6 +132,14 @@ def load_series_link(book_root: Path) -> tuple[str, int]:
     README is missing, or when the field values are unparseable. Used
     by the chapter-writing brief enricher (Issue #205, D-3 of #195) to
     resolve the band ids needed for the ``series_evolution`` payload.
+
+    Validates ``series_slug`` with :func:`_validate_slug` before
+    returning it — the value is read verbatim from the book's own
+    README frontmatter (no MCP parameter validation applies) and the
+    caller joins it straight into a Path (issue #543). Raises
+    ``SlugValidationError`` on a traversal/unsafe value; callers going
+    through ``_Recorder.run`` (the only current caller) degrade to the
+    ``("", 0)`` default instead of propagating.
     """
     book_readme = book_root / "README.md"
     if not book_readme.is_file():
@@ -142,7 +151,7 @@ def load_series_link(book_root: Path) -> tuple[str, int]:
     if not text:
         return "", 0
     book_meta, _ = parse_frontmatter(text)
-    series_slug = str(book_meta.get("series", "") or "")
+    series_slug = _validate_slug(str(book_meta.get("series", "") or "").strip(), "series_slug")
     raw_number = book_meta.get("series_number", 0) or 0
     try:
         series_number = int(raw_number)
