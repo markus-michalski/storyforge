@@ -30,7 +30,7 @@ from tools.analysis.tactical_checker import (
     load_tactical_profiles,
     analyze_tactical_setup,
 )
-from tools.shared.paths import resolve_people_dir, slugify
+from tools.shared.paths import _validate_slug, resolve_people_dir, slugify
 from tools.state.chapter_timeline_parser import get_recent_chapter_timelines
 from tools.state.loaders.banlist import collect_banned_phrases
 from tools.state.loaders.chapter_meta import (
@@ -369,6 +369,8 @@ def build_chapter_writing_brief(
     The brief is a single dict that ``chapter-writer`` can consume in
     one tool call instead of running 16 separate prereq-loads.
     """
+    _validate_slug(chapter_slug, "chapter_slug")
+
     recorder = _Recorder(errors=[])
     chapter_dir = book_root / "chapters" / chapter_slug
     chapter_readme = chapter_dir / "README.md"

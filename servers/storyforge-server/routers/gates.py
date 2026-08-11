@@ -33,6 +33,7 @@ from tools.shared.gate_derivation import (
 )
 from tools.shared.gate_result import GateResult, aggregate_gates, wrap_legacy
 from tools.shared.paths import (
+    _validate_slug,
     catch_slug_value_error,
     find_chapters,
     resolve_project_path,
@@ -309,6 +310,8 @@ def validate_chapter(book_slug: str, chapter_slug: str) -> str:
         chapter_slug: The chapter slug (directory name under
             ``chapters/``, e.g. ``01-opening``).
     """
+    _validate_slug(chapter_slug, "chapter_slug")
+
     config = _app.load_config()
     book_path = resolve_project_path(config, book_slug)
     if not book_path.exists():

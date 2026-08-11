@@ -396,6 +396,27 @@ class TestBriefGracefulDegrade:
         assert isinstance(brief, dict)
         assert any(e["component"] == "chapter" for e in brief["errors"])
 
+    def test_rejects_traversal_chapter_slug(self, tmp_path):
+        """Issue #538: chapter_slug reaches
+        `book_root / "chapters" / chapter_slug` with zero validation — same
+        bug shape as #524. Unlike a merely-missing chapter (handled above
+        via the graceful-degrade recorder), a malicious slug must be
+        rejected outright, matching the resolve_*_path() helpers' own
+        raise-don't-degrade convention — the caller
+        (routers/chapters.py::get_chapter_writing_brief) is already
+        @catch_slug_value_error-decorated and converts this into the
+        standard JSON error contract."""
+        from tools.shared.paths import SlugValidationError
+
+        book, plugin_root = _setup_book(tmp_path)
+        with pytest.raises(SlugValidationError):
+            build_chapter_writing_brief(
+                book_root=book,
+                book_slug="test-book",
+                chapter_slug="../../../etc",
+                plugin_root=plugin_root,
+            )
+
 
 # ---------------------------------------------------------------------------
 # Determinism + serialization

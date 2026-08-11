@@ -90,3 +90,14 @@ class TestValidateChapterMcp:
         result = json.loads(validate_chapter("demo-book", "99-missing"))
         assert "error" in result
         assert result["book_slug"] == "demo-book"
+
+    def test_rejects_traversal_chapter_slug(self, config: dict) -> None:
+        """Issue #538: chapter_slug reaches
+        `book_path / "chapters" / chapter_slug / "draft.md"` with zero
+        validation — same bug shape as #524, and the returned error message
+        currently echoes the fully resolved path back to the caller even
+        when the file doesn't exist, a path-disclosure primitive on top of
+        the traversal itself."""
+        result = json.loads(validate_chapter("demo-book", "../../../etc"))
+        assert "error" in result
+        assert "chapter_slug" in result["error"]

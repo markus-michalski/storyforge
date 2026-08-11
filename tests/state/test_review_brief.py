@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from tools.state.review_brief import (
     _cap_canon_facts,
     _parse_canon_log_facts,
@@ -461,6 +463,22 @@ def test_build_review_brief_returns_all_expected_keys(tmp_path):
         "errors",
     }
     assert expected_keys <= set(result.keys())
+
+
+def test_build_review_brief_rejects_traversal_chapter_slug(tmp_path):
+    """Issue #538: chapter_slug reaches `chapters_dir / chapter_slug` with
+    zero validation — same bug shape as #524. Raises rather than degrading
+    gracefully, matching resolve_*_path()'s own convention; the caller
+    (routers/chapters.py::get_review_brief) is already
+    @catch_slug_value_error-decorated and converts this into the standard
+    JSON error contract."""
+    from tools.shared.paths import SlugValidationError
+
+    book, slug = _make_book(tmp_path)
+    _make_chapter(book, "01-opening", number=1)
+
+    with pytest.raises(SlugValidationError):
+        build_review_brief(book_root=book, book_slug=slug, chapter_slug="../../../etc")
 
 
 def test_build_review_brief_no_errors_for_minimal_book(tmp_path):

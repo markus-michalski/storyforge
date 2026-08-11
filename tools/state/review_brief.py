@@ -24,7 +24,7 @@ from tools.db.brief_helpers import (
     load_rules_for_brief,
 )
 from tools.db.connection import get_book_num
-from tools.shared.paths import resolve_people_dir
+from tools.shared.paths import _validate_slug, resolve_people_dir
 from tools.state.brief_common import Recorder as _Recorder, cap_canon_facts as _cap_canon_facts
 from tools.state.chapter_timeline_parser import parse_chapter_timeline_grid
 from tools.state.loaders.chapter_meta import load_book_category
@@ -383,6 +383,8 @@ def build_review_brief(
         active_callbacks        — book CLAUDE.md ## Callback Register items
         errors                  — component → error map for graceful degrade
     """
+    _validate_slug(chapter_slug, "chapter_slug")
+
     recorder = _Recorder(errors=[])
     chapters_dir = book_root / "chapters"
     chapter_dir = chapters_dir / chapter_slug
