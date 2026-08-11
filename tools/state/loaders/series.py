@@ -142,11 +142,13 @@ def find_series_trackers(series_dir: Path) -> list[Path]:
     return sorted(p for p in chars_dir.glob("*.md") if p.name != "INDEX.md")
 
 
-# Band id pattern (B1, B2, ...) — kept here so callers don't need to
-# import from the routing layer.
+# Band id pattern (B1, B2, ...) — public: this is the single source of
+# truth, imported by routers/series.py rather than copy-pasted there
+# (issue #529 — the duplicate previously needed the same anchoring fix
+# applied twice, in two files, for the exact same bug, #525).
 # NB: anchored with \Z, not $ — `$` also matches before a trailing newline
 # (#525, same anchoring gap #518 fixed for _FIELD_NAME_RE).
-_RE_VALID_BAND = re.compile(r"^B\d+\Z")
+RE_BAND_ID = re.compile(r"^B\d+\Z")
 
 
 def recurring_chars_for_book(series_dir: Path, band: str) -> list[dict[str, Any]]:
@@ -167,7 +169,7 @@ def recurring_chars_for_book(series_dir: Path, band: str) -> list[dict[str, Any]
     the characters directory is missing, or when no trackers match.
     Results are sorted by ``tracker_slug`` for deterministic output.
     """
-    if not _RE_VALID_BAND.match(band):
+    if not RE_BAND_ID.match(band):
         return []
 
     target_n = int(band[1:])
@@ -181,7 +183,7 @@ def recurring_chars_for_book(series_dir: Path, band: str) -> list[dict[str, Any]
         # Sort prior bands numerically so B10 comes after B2 (string sort
         # would put B10 between B1 and B2).
         prior_bands = sorted(
-            (b for b in recurs if _RE_VALID_BAND.match(b) and int(b[1:]) < target_n),
+            (b for b in recurs if RE_BAND_ID.match(b) and int(b[1:]) < target_n),
             key=lambda b: int(b[1:]),
         )
         out.append(

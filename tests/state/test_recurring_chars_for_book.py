@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools.state.loaders.series import _RE_VALID_BAND, recurring_chars_for_book
+from tools.state.loaders.series import RE_BAND_ID, recurring_chars_for_book
 
 
 def _write_tracker(
@@ -90,14 +90,14 @@ class TestRecurringCharsForBook:
         assert recurring_chars_for_book(tmp_path, "B1") == []
 
     def test_rejects_band_with_trailing_newline(self) -> None:
-        """Issue #525: `$` in _RE_VALID_BAND matches before a trailing newline,
+        """Issue #525: `$` in RE_BAND_ID matches before a trailing newline,
         so "B1\\n" passed the top-level guard in recurring_chars_for_book()
         despite never appearing verbatim in any tracker's clean recurs_in
         list — a silent-data-loss failure mode distinct from (but adjacent
         to) the write_evolution_section() corruption path this issue also
         covers. Anchoring with \\Z closes the gap at the source."""
-        assert _RE_VALID_BAND.match("B1\n") is None
-        assert _RE_VALID_BAND.match("B1") is not None
+        assert RE_BAND_ID.match("B1\n") is None
+        assert RE_BAND_ID.match("B1") is not None
 
     def test_excludes_index_md(self, tmp_path: Path) -> None:
         chars = tmp_path / "characters"
@@ -145,3 +145,22 @@ class TestRecurringCharsForBook:
         result = recurring_chars_for_book(tmp_path, "B2")
         slugs = [t["tracker_slug"] for t in result]
         assert slugs == sorted(slugs)
+
+
+class TestBandRegexConsolidation:
+    """Issue #529: routers/series.py's _RE_BAND_ID and this module's
+    RE_BAND_ID used to be byte-identical, copy-pasted compiled patterns —
+    the same anchoring bug (#525) had to be fixed twice, in two files, for
+    that reason. RE_BAND_ID here is now the single source of truth; the
+    router imports it instead of keeping its own copy."""
+
+    def test_router_band_regex_is_the_same_object(self) -> None:
+        import sys
+        from pathlib import Path
+
+        server_dir = Path(__file__).resolve().parents[2] / "servers" / "storyforge-server"
+        if str(server_dir) not in sys.path:
+            sys.path.insert(0, str(server_dir))
+        from routers.series import RE_BAND_ID as router_re_band_id
+
+        assert router_re_band_id is RE_BAND_ID
