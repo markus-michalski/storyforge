@@ -318,6 +318,20 @@ class TestReadTrackerForBootstrap:
         result = json.loads(read_tracker_for_bootstrap("my-series", "ghost-char", "B1", "B2"))
         assert "not found" in result["error"].lower()
 
+    def test_rejects_traversal_tracker_slug(self, mock_config, content_root: Path):
+        """Issue #524: tracker_path = series_dir / "characters" / f"{tracker_slug}.md"
+        builds the path directly from the raw MCP parameter with zero
+        validation. Confirmed exploitable: a file outside the series
+        characters/ dir was read (frontmatter leaked) via a traversal
+        tracker_slug before this fix."""
+        (content_root / "series" / "my-series" / "characters").mkdir(parents=True)
+        secret = content_root / "series" / "SECRET.md"
+        secret.write_text("---\nname: leaked\nrole: supporting\n---\n\nsecret body\n", encoding="utf-8")
+
+        result = json.loads(read_tracker_for_bootstrap("my-series", "../../SECRET", "B1", "B2"))
+        assert "tracker_slug" in result["error"]
+        assert "leaked" not in json.dumps(result)
+
     def test_handles_missing_evolution_section_gracefully(self, mock_config, content_root: Path):
         # Tracker without Evolution per Band yet — empty bands, no error.
         _make_tracker(

@@ -135,6 +135,7 @@ class TestSlugValidation:
             ".",
             "with\x00null",
             "/absolute",
+            "C:evil",
         ],
     )
     def test_resolve_project_rejects_unsafe_slug(self, evil_slug):

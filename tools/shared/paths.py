@@ -15,7 +15,14 @@ _F = TypeVar("_F", bound=Callable[..., str])
 # accepted by an MCP tool. Path separators escape into sibling directories;
 # `..` walks up the tree; null bytes can fool C-level path handling; a
 # leading dot lets an attacker target dotfiles inside the project root.
-_UNSAFE_SLUG_CHARS = ("/", "\\", "\x00")
+# `:` is a Windows drive-letter/NTFS-alternate-data-stream marker — on
+# Windows, pathlib silently discards everything before a `<drive>:` segment
+# when composing paths with `/`, so e.g. `Path("D:/root") / "C:evil.md"`
+# resolves to `C:evil.md` in the process's current directory, entirely
+# outside `root` (issue #524 code review, finding M-3). Same-drive slugs
+# like `"C:evil"` don't escape but silently desync the stored value from
+# the actual filename, which pathlib strips the prefix from on join.
+_UNSAFE_SLUG_CHARS = ("/", "\\", "\x00", ":")
 
 
 class SlugValidationError(ValueError):
@@ -45,7 +52,8 @@ def _validate_slug(slug: str, name: str = "slug") -> str:
         return slug
     if any(ch in slug for ch in _UNSAFE_SLUG_CHARS) or ".." in slug or slug.startswith("."):
         raise SlugValidationError(
-            f"Invalid {name} '{slug}': must not contain path separators, '..', null bytes, or start with '.'"
+            f"Invalid {name} '{slug}': must not contain path separators, ':', '..', "
+            "null bytes, or start with '.'"
         )
     return slug
 
