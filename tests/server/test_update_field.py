@@ -501,3 +501,21 @@ class TestResolvePathContainment:
         assert "error" not in result
         parts = Path(result["path"]).parts
         assert parts[-3:] == ("my-book", "chapters", "01-intro")
+
+    def test_rejects_null_byte_in_sub_path(self, server_module, content_root: Path):
+        """Issue #517: a null byte in sub_path must return a clean JSON error,
+        not propagate an unhandled ValueError from Path.resolve() (POSIX) —
+        same gap #512/#516 closed for extract_text_from_file() and
+        update_field(). Asserts the specific pre-check message so this test
+        actually pins the explicit null-byte guard, not just the ValueError
+        added to the except tuple as a second layer of defense."""
+        result = json.loads(server_module.resolve_path("my-book", "chapters", "\x00evil"))
+        assert "error" in result
+        assert "embedded null byte" in result["error"]
+
+    def test_rejects_null_byte_in_component(self, server_module, content_root: Path):
+        """Issue #517: same null-byte gap, via ``component`` instead of
+        ``sub_path`` — both flow into the join before resolve() unsanitized."""
+        result = json.loads(server_module.resolve_path("my-book", "\x00evil", ""))
+        assert "error" in result
+        assert "embedded null byte" in result["error"]
