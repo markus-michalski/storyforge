@@ -76,9 +76,103 @@ def _build_fake_windows_venv(home: Path) -> None:
     (STATUS_DLL_NOT_FOUND). Copy the whole directory containing
     sys.executable instead, so any same-directory dependency travels
     with it.
+
+    Issue #545: an unrestricted copytree() is fine for a small venv
+    Scripts/ dir, but if sys.executable is a system/standalone install
+    (e.g. ``C:\\Program Files\\Python313\\``, exactly what Windows CI runs
+    via actions/setup-python with no venv) this copies the ENTIRE install —
+    Lib/, DLLs, tcl/, Doc/, include/, hundreds of MB and thousands of
+    files, twice per test run.
+
+    Excluding those directories with ``shutil.ignore_patterns()`` (an
+    earlier version of this fix) is NOT a safe middle ground: CPython
+    locates its standard library at startup by looking for a ``Lib``
+    landmark next to the interpreter (or a ``pyvenv.cfg``) — drop ``Lib``
+    from the copy with no ``pyvenv.cfg`` to compensate and the copied
+    interpreter fails to initialize on exactly the full-install
+    configuration this fix targets.
+
+    Copy only the files that sit directly next to python.exe (its DLL
+    dependencies — #541's concern) and write a ``pyvenv.cfg`` whose
+    ``home`` points back at the real install directory — the same
+    redirection mechanism ``python -m venv`` itself relies on, so the
+    stdlib is found without copying it. No directory ever gets copied, by
+    construction (only ``is_file()`` entries), so this needs no exclusion
+    list to keep pace with what a Python install happens to ship.
     """
+    venv_dir = home / ".storyforge" / "venv"
+    venv_scripts = venv_dir / "Scripts"
+    src_exe = Path(sys.executable)
+    src_dir = src_exe.parent
+    venv_scripts.mkdir(parents=True)
+    # Always name the copy python.exe — run-server.cmd invokes exactly that
+    # filename, but sys.executable's own basename isn't guaranteed to match
+    # (e.g. a venv interpreter on POSIX is typically "python3").
+    shutil.copy2(src_exe, venv_scripts / "python.exe")
+    for item in src_dir.iterdir():
+        if item.is_file() and item != src_exe:
+            shutil.copy2(item, venv_scripts / item.name)
+    (venv_dir / "pyvenv.cfg").write_text(f"home = {src_dir}\n", encoding="utf-8")
+
+
+def test_build_fake_windows_venv_skips_large_install_dirs(monkeypatch, tmp_path):
+    """Issue #545: copying the whole directory containing sys.executable
+    with no exclusion copies an ENTIRE system Python install (Lib/, DLLs,
+    tcl/, Doc/, include/, hundreds of MB) when sys.executable isn't a
+    small venv interpreter — slow and flaky on the Windows CI job this
+    helper exists for. Only files colocated with python.exe (its DLL
+    dependencies) should copy; every subdirectory must be skipped, by
+    construction rather than by naming each one that happens to exist."""
+    fake_install = tmp_path / "fake_python_install"
+    (fake_install / "Lib" / "site-packages").mkdir(parents=True)
+    (fake_install / "Lib" / "site-packages" / "big.txt").write_text("x" * 1000, encoding="utf-8")
+    (fake_install / "tcl" / "tcl8.6").mkdir(parents=True)
+    (fake_install / "tcl" / "tcl8.6" / "init.tcl").write_text("", encoding="utf-8")
+    (fake_install / "Doc").mkdir()
+    (fake_install / "Doc" / "python.chm").write_text("", encoding="utf-8")
+    (fake_install / "include").mkdir()
+    (fake_install / "include" / "Python.h").write_text("", encoding="utf-8")
+    (fake_install / "Scripts").mkdir()
+    (fake_install / "Scripts" / "pip.exe").write_text("", encoding="utf-8")
+    (fake_install / "python.exe").write_text("", encoding="utf-8")
+    (fake_install / "python313.dll").write_text("", encoding="utf-8")
+    (fake_install / "vcruntime140.dll").write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(sys, "executable", str(fake_install / "python.exe"))
+    home = tmp_path / "home"
+    _build_fake_windows_venv(home)
+
     venv_scripts = home / ".storyforge" / "venv" / "Scripts"
-    shutil.copytree(Path(sys.executable).parent, venv_scripts)
+    assert (venv_scripts / "python.exe").exists()
+    assert (venv_scripts / "python313.dll").exists()
+    assert (venv_scripts / "vcruntime140.dll").exists()
+    assert not (venv_scripts / "Lib").exists()
+    assert not (venv_scripts / "tcl").exists()
+    assert not (venv_scripts / "Doc").exists()
+    assert not (venv_scripts / "include").exists()
+    assert not (venv_scripts / "Scripts").exists()
+
+    pyvenv_cfg = home / ".storyforge" / "venv" / "pyvenv.cfg"
+    assert pyvenv_cfg.exists()
+    assert f"home = {fake_install}" in pyvenv_cfg.read_text(encoding="utf-8")
+
+
+def test_build_fake_windows_venv_produces_a_runnable_interpreter(tmp_path):
+    """Issue #545 code review: excluding Lib/ from the copy is only safe if
+    the pyvenv.cfg redirection actually works — otherwise the fix trades a
+    slow-but-working helper for a fast-but-broken one on precisely the
+    full-install configuration it targets (Windows CI via
+    actions/setup-python, no venv). Verifiable on any platform: the copied
+    "python.exe" is a real, executable copy of the current interpreter
+    regardless of its Windows-flavored name, so this spawns it for real
+    rather than just asserting the directory shape."""
+    home = tmp_path / "home"
+    _build_fake_windows_venv(home)
+    python_copy = home / ".storyforge" / "venv" / "Scripts" / "python.exe"
+
+    result = subprocess.run([str(python_copy), "-c", "print('OK')"], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, f"copied interpreter failed to start: {result.stderr}"
+    assert "OK" in result.stdout
 
 
 def test_run_server_wrapper_actually_launches_python():

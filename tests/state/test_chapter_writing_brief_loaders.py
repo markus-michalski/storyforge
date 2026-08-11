@@ -12,9 +12,11 @@ from pathlib import Path
 
 import pytest
 
+from tools.shared.paths import SlugValidationError
 from tools.state.loaders.chapter_meta import (
     load_book_category,
     load_chapter_meta,
+    load_series_link,
     parse_overview_table,
     serialize_chapter_meta,
 )
@@ -111,6 +113,44 @@ class TestLoadBookCategory:
 
     def test_missing_readme_defaults_to_fiction(self, tmp_path: Path) -> None:
         assert load_book_category(tmp_path) == "fiction"
+
+
+class TestLoadSeriesLink:
+    def test_reads_series_and_number(self, tmp_path: Path) -> None:
+        (tmp_path / "README.md").write_text(
+            "---\nseries: blood-and-binary\nseries_number: 2\n---\n\n# Book\n",
+            encoding="utf-8",
+        )
+        assert load_series_link(tmp_path) == ("blood-and-binary", 2)
+
+    def test_missing_readme_returns_default(self, tmp_path: Path) -> None:
+        assert load_series_link(tmp_path) == ("", 0)
+
+    def test_no_series_field_returns_default(self, tmp_path: Path) -> None:
+        (tmp_path / "README.md").write_text("# No frontmatter\n", encoding="utf-8")
+        assert load_series_link(tmp_path) == ("", 0)
+
+    def test_rejects_path_traversal_in_series_slug(self, tmp_path: Path) -> None:
+        # Issue #543: series_slug is read verbatim from the book's own
+        # README frontmatter and reaches an unvalidated Path join in
+        # the chapter-writing-brief enricher (_enrich_with_series_evolution).
+        (tmp_path / "README.md").write_text(
+            "---\nseries: ../../../../tmp/evil\nseries_number: 1\n---\n\n# Book\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(SlugValidationError):
+            load_series_link(tmp_path)
+
+    def test_trims_surrounding_whitespace_in_series_slug(self, tmp_path: Path) -> None:
+        # Consistency with resolve_book_slug_for_series_tracker's #542 fix:
+        # a quoted value (unquoted plain scalars are already trimmed by the
+        # YAML parser) with surrounding whitespace must not join into
+        # "blood-and-binary .md"-shaped paths downstream.
+        (tmp_path / "README.md").write_text(
+            '---\nseries: " blood-and-binary "\nseries_number: 1\n---\n\n# Book\n',
+            encoding="utf-8",
+        )
+        assert load_series_link(tmp_path) == ("blood-and-binary", 1)
 
 
 # ---------------------------------------------------------------------------

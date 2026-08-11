@@ -227,3 +227,91 @@ class TestCopyRecurringCharsValidation:
         assert result["copied"] == []
         assert result["skipped"] == []
         assert result["new_chars"] == []
+
+    def test_rejects_path_traversal_in_book_slug(self, mock_config, content_root: Path):
+        # Issue #542 PoC: a hand-edited or pre-#524 tracker with a
+        # traversal book_slug must not reach shutil.copy2's WRITE target.
+        # dst_layout is content_root/projects/moonrise/characters — 3
+        # levels below content_root, so "../../../../tmp/pwned" escapes
+        # content_root entirely, landing at content_root.parent/tmp/pwned.md
+        # (content_root itself is tmp_path/"content", so this is
+        # tmp_path/"tmp"/"pwned.md" — a sibling of the whole content tree,
+        # not merely a different book).
+        _make_tracker(
+            content_root,
+            "blood-and-binary",
+            "evil",
+            book_slug="../../../../tmp/pwned",
+            recurs_in=["B1", "B2"],
+        )
+        _make_book_char(content_root, "firelight", "evil", body="irrelevant")
+        _make_book_dir(content_root, "moonrise")
+
+        result = json.loads(copy_recurring_chars_to_new_book("blood-and-binary", "firelight", "moonrise", "B2"))
+        assert "error" in result
+        assert "book_slug" in result["error"]
+        assert not (content_root.parent / "tmp" / "pwned.md").exists()
+
+    def test_all_or_nothing_when_one_tracker_is_malicious(self, mock_config, content_root: Path):
+        # Code review finding on #542: recurring_chars_for_book() calls
+        # resolve_book_slug_for_series_tracker() for every tracker while
+        # building its (eagerly-evaluated, non-generator) return list —
+        # BEFORE this tool's own for-loop starts iterating. So a malicious
+        # tracker sorting AFTER a legitimate one (by tracker_slug) must
+        # still block the legitimate one's copy, not let it land first and
+        # then abort partway through, which would leave a stale state
+        # cache (skipped _cache.invalidate()) and a discarded `copied` list.
+        _make_tracker(content_root, "blood-and-binary", "a-good", recurs_in=["B1", "B2"])
+        _make_tracker(
+            content_root,
+            "blood-and-binary",
+            "z-evil",
+            book_slug="../../../../tmp/pwned2",
+            recurs_in=["B1", "B2"],
+        )
+        _make_book_char(content_root, "firelight", "a-good", body="irrelevant")
+        _make_book_char(content_root, "firelight", "z-evil", body="irrelevant")
+        _make_book_dir(content_root, "moonrise")
+
+        result = json.loads(copy_recurring_chars_to_new_book("blood-and-binary", "firelight", "moonrise", "B2"))
+        assert "error" in result
+        assert not (content_root / "projects" / "moonrise" / "characters" / "a-good.md").exists()
+
+    def test_router_own_validate_slug_call_is_load_bearing(
+        self, mock_config, content_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The `_validate_slug(book_slug, "book_slug")` call right after
+        `book_slug = tracker["book_slug"]` in this router function is
+        documented as redundant defense-in-depth — recurring_chars_for_book()
+        already validates internally via resolve_book_slug_for_series_tracker()
+        (#542). That makes it untestable via a live tracker file (the
+        resolver always raises first, so no traversal payload can ever reach
+        this router's own call). Isolate it directly: monkeypatch
+        recurring_chars_for_book() to simulate a future regression where it
+        stops validating, and confirm this router-level call still catches
+        the bad value on its own."""
+        import routers.series as series_router
+
+        monkeypatch.setattr(
+            series_router,
+            "recurring_chars_for_book",
+            lambda series_dir, band: [
+                {
+                    "tracker_slug": "evil",
+                    "book_slug": "../../../evil",
+                    "recurs_in": ["B1", "B2"],
+                    "prior_bands": ["B1"],
+                }
+            ],
+        )
+        # Series/book dirs must exist to pass the tool's own not-found
+        # checks before it ever reaches the (monkeypatched) tracker loop —
+        # no real tracker file needed since recurring_chars_for_book is
+        # stubbed above.
+        (content_root / "series" / "blood-and-binary" / "characters").mkdir(parents=True)
+        _make_book_char(content_root, "firelight", "evil", body="irrelevant")
+        _make_book_dir(content_root, "moonrise")
+
+        result = json.loads(copy_recurring_chars_to_new_book("blood-and-binary", "firelight", "moonrise", "B2"))
+        assert "error" in result
+        assert "book_slug" in result["error"]

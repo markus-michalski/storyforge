@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BODY_PARTS` vocabulary gained `chins`/`elbows`/`wrists`/`thumbs` — n-grams containing
   these may now classify as `character_tell` where they previously landed in another
   repetition category (#511).
+- The #531 AST safety-net test (`test_no_unvalidated_slug_path_join_in_tool_body`) only
+  scanned `@mcp.tool` function parameters inside `servers/storyforge-server/routers/`,
+  missing exactly the bug shape #542 was: a slug-named local variable assigned from a
+  dict-like read (`tracker["book_slug"]`, `tracker.get(...)`), and any occurrence in
+  `tools/` rather than the router layer. Extended the sweep to catch slug-named local
+  variables (not just parameters), `os.path.join()`/`.joinpath()` call shapes alongside
+  the existing `/`-chain walk, and widened the scan root to also cover `tools/`. Running
+  the widened scan surfaced 7 pre-existing, real matches; each was manually traced and
+  confirmed safe (slugify()-derived values, upstream validation, or genuinely
+  unreachable code) and documented with a concrete, checked reason (#544).
 
 ### Deprecated
 - Nothing yet
@@ -74,6 +84,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `bootstrap_character_for_new_book` write a newline-bearing
   `series_evolution_imported_from` value into a book character file's frontmatter.
   Anchored both patterns with `\Z` instead (#525).
+- The Windows cross-platform smoke test's fake-venv builder
+  (`_build_fake_windows_venv`, `tests/smoke/test_cross_platform.py`) copied the entire
+  directory containing `sys.executable` to fix #541's `STATUS_DLL_NOT_FOUND` failure.
+  Correct when `sys.executable` is a small venv interpreter, but on a full/system
+  install (e.g. Windows CI via `actions/setup-python`, no venv) this copied `Lib/`,
+  `DLLs/`, `tcl/`, `Doc/`, `include/` — hundreds of MB and thousands of files, twice per
+  test run. Now copies only the files sitting directly next to `python.exe` (its DLL
+  dependencies — #541's actual concern) and writes a `pyvenv.cfg` whose `home` points
+  back at the real install, the same stdlib-redirection mechanism `python -m venv`
+  itself uses, so no directory ever needs copying. A new test spawns the copied
+  interpreter for real to verify it actually starts (#545).
 
 ### Security
 - `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a
@@ -120,6 +141,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `get_current_story_anchor`) build a chapter file path from an unvalidated
   `chapter_slug` the same way — found during #524's review, tracked separately as #538,
   not part of this fix.
+- `resolve_book_slug_for_series_tracker()` (`tools/state/loaders/series.py`) returned a
+  series tracker's `book_slug` frontmatter field verbatim, with zero validation — the
+  read-side counterpart to #524's write-side fix, which only covers trackers created
+  through `create_character_tracker` from that point forward. A hand-edited or pre-#524
+  tracker's traversal `book_slug` reached a file WRITE target in two MCP tools:
+  `copy_recurring_chars_to_new_book` (arbitrary read + create) and
+  `bootstrap_character_for_new_book`, which unconditionally overwrites its destination's
+  frontmatter when it already exists (arbitrary EXISTING file overwrite). Confirmed
+  exploitable end-to-end against both. The resolver now validates the value it returns —
+  the single choke point both callers go through — with an added empty/whitespace-only
+  guard so a blank `book_slug` falls back to the tracker slug instead of resolving to a
+  hidden dotfile-adjacent name. Both MCP call sites also gained an explicit, redundant
+  `_validate_slug()` call so the fix doesn't rely solely on that one upstream function
+  (#542).
+- `load_series_link()` (`tools/state/loaders/chapter_meta.py`) read a book's `series:`
+  README-frontmatter field verbatim and passed it into the chapter-writing-brief
+  enricher, which joins it directly into a Path
+  (`_enrich_with_series_evolution`, `tools/state/chapter_writing_brief.py`). A
+  traversal `series` value let `get_chapter_writing_brief` read tracker files from an
+  arbitrary directory outside the series tree and surface their content
+  (`series_evolution` field) back through its JSON response — information disclosure,
+  read-only, no write primitive. Same bug class and same second-order shape as #542
+  (a value from on-disk frontmatter, not an MCP parameter, reaching an unvalidated Path
+  join): `load_series_link()` now validates before returning (#543).
 
 ## [3.3.1] - 2026-08-09
 
