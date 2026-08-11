@@ -187,7 +187,7 @@ class TestWriteSeriesEvolutionSection:
         assert "error" in result
 
     def test_rejects_band_with_trailing_newline(self, mock_config, content_root: Path):
-        """Issue #525: `$` in _RE_BAND_ID matches before a trailing newline, so
+        """Issue #525: `$` in RE_BAND_ID matches before a trailing newline, so
         band="B1\\n" passed the guard. Downstream, _find_band_bounds() compares
         the regex-captured band ("B1", never containing \\n) against the raw
         "B1\\n", which never matches — so an existing B1 section is never found
@@ -369,7 +369,7 @@ class TestListSeriesTrackersForBook:
         assert "band" in result["error"].lower()
 
     def test_rejects_band_with_trailing_newline(self, mock_config, content_root: Path):
-        """Issue #525: same _RE_BAND_ID anchoring gap as
+        """Issue #525: same RE_BAND_ID anchoring gap as
         TestWriteSeriesEvolutionSection.test_rejects_band_with_trailing_newline."""
         result = json.loads(list_series_trackers_for_book("my-series", "B1\n"))
         assert "band" in result["error"].lower()

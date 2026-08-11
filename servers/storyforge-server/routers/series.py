@@ -1093,7 +1093,7 @@ def create_character_tracker(
     # empty value has no legitimate meaning here. _validate_slug() alone
     # passes "" through by design (issue #539), which would silently
     # create a hidden characters/.md dotfile.
-    if not slug:
+    if not slug or not slug.strip():
         return json.dumps({"error": "slug is required"})
 
     # slug and book_slug both reach Path construction directly with no

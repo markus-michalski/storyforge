@@ -411,6 +411,29 @@ class TestCreateCharacterTrackerValidation:
         assert "slug" in result["error"]
         assert not (content_root / "series" / "my-series" / "characters" / ".md").exists()
 
+    def test_rejects_whitespace_only_slug(self, mock_config, content_root: Path):
+        """Code review finding on #539: the empty-slug guard was `if not
+        slug`, which a whitespace-only slug (" ") slips past — it's
+        falsy-empty in neither Python's nor _validate_slug()'s eyes, but
+        still produces a degenerate filename. On Windows, trailing spaces
+        in filenames are silently stripped, desyncing the on-disk filename
+        from the slug stored in the tracker's own frontmatter. Matches
+        authors.py::delete_author's actual guard: `if not slug or not
+        slug.strip()`."""
+        _make_series(content_root, "my-series")
+
+        result = json.loads(
+            create_character_tracker(
+                series_slug="my-series",
+                name="Kael",
+                slug="   ",
+                role="protagonist",
+                recurs_in=["B1"],
+            )
+        )
+        assert "slug" in result["error"]
+        assert not (content_root / "series" / "my-series" / "characters" / "   .md").exists()
+
     def test_rejects_traversal_book_slug(self, mock_config, content_root: Path):
         """Issue #524 code review, finding H-1: book_slug is persisted
         verbatim into the tracker's frontmatter (unlike slug, which by this

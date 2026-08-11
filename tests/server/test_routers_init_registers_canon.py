@@ -32,9 +32,9 @@ def test_importing_routers_package_alone_registers_canon_tool():
         [sys.executable, "-c", _PROBE],
         capture_output=True,
         text=True,
+        timeout=30,
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "True", (
-        f"add_canon_fact not registered by importing routers alone "
-        f"(stdout={result.stdout!r}, stderr={result.stderr!r})"
+        f"add_canon_fact not registered by importing routers alone (stdout={result.stdout!r}, stderr={result.stderr!r})"
     )

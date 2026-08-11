@@ -95,6 +95,7 @@ All memoir books get the base checks below plus five memoir-specific passes.
 | Category | What it catches | Severity logic |
 |---|---|---|
 | `book_rule_violation` | Patterns from book_rules DB (rendered in `<book>/CLAUDE.md ## Rules (from DB)`) | always high |
+| `plot_hole` | Causality inversions (Issue #150). Sub-category in phrase prefix (`[causality_inversion]`) — the `chekhov_gun` sub-category (unfired promises) is fiction-only and does not fire for memoir. | high — narrative-logic breaks reader trust |
 | `cliche` | Curated banlist of worn-out phrasings | always high |
 | `question_as_statement` | Dialogue starting with a Q-word but ending with `.` | high if ≥5 hits |
 | `filter_word` | POV-distancing verbs per chapter (>3/1k words) | high if >6/1k |
@@ -116,7 +117,7 @@ All memoir books get the base checks below plus five memoir-specific passes.
 | `timeline_ambiguity` | Density of temporal hand-waving per chapter ("at some point", "eventually", "years later") | high if >6/1k words, medium if >3/1k |
 | `real_people_consistency` | Same person's display name appearing in inconsistent capitalization or forms across chapters | always medium |
 
-Sort priority: `book_rule_violation` → `anonymization_leak` (privacy-critical) → `cliche` → all others by severity.
+Sort priority: `book_rule_violation` → `anonymization_leak` (privacy-critical) → `plot_hole` (narrative logic) → `cliche` → all others by severity.
 
 ## Workflow
 
@@ -233,7 +234,7 @@ finding.
 2. State chapters scanned + total findings + high-severity count by category.
 3. Show the top 5 highest-severity findings across *all* categories, in the
    **sort priority order defined above**: `book_rule_violation` →
-   `anonymization_leak` → `cliche` → all others by severity. Label
+   `anonymization_leak` → `plot_hole` → `cliche` → all others by severity. Label
    `anonymization_leak` entries explicitly as **pre-publication blockers**,
    same framing as Step 1b's presentation differences — not a generic craft
    suggestion.

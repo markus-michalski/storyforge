@@ -35,7 +35,13 @@ MEMOIR_ONLY_CATEGORIES = (
     "real_people_consistency",
 )
 
-FICTION_ONLY_CATEGORIES = ("plot_hole",)
+# plot_hole is NOT fiction-only: tools/analysis/plot_logic.py's
+# detect_causality_inversion() runs unconditionally for both categories —
+# only its chekhov_gun sibling is fiction-gated. Both split files must
+# therefore document plot_hole (verified against tools/analysis/manuscript/
+# __init__.py, which calls _scan_plot_holes() unconditionally, before the
+# book_category branch).
+FICTION_ONLY_CATEGORIES: tuple[str, ...] = ()
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
@@ -108,7 +114,21 @@ class TestCrossRouting:
 
 
 # ---------------------------------------------------------------------------
-# Catalog isolation — no memoir categories in fiction, no plot_hole in memoir
+# Shared categories — plot_hole applies to both (causality_inversion is not
+# memoir-gated; only its chekhov_gun sibling is)
+# ---------------------------------------------------------------------------
+
+
+class TestSharedCategories:
+    def test_fiction_skill_documents_plot_hole(self) -> None:
+        assert "plot_hole" in _read_body(SKILL_FICTION)
+
+    def test_memoir_skill_documents_plot_hole(self) -> None:
+        assert "plot_hole" in _read_body(SKILL_MEMOIR)
+
+
+# ---------------------------------------------------------------------------
+# Catalog isolation — no memoir categories in fiction
 # ---------------------------------------------------------------------------
 
 
@@ -117,8 +137,7 @@ class TestCatalogIsolation:
     def test_fiction_skill_does_not_carry_memoir_categories(self, category: str) -> None:
         body = _read_body(SKILL_FICTION)
         assert category not in body, (
-            f"Fiction skill mentions memoir-only category {category!r} — "
-            f"memoir workflow content is leaking."
+            f"Fiction skill mentions memoir-only category {category!r} — memoir workflow content is leaking."
         )
 
     @pytest.mark.parametrize("category", FICTION_ONLY_CATEGORIES)

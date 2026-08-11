@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from tools.shared.paths import (
+    SlugValidationError,
     catch_slug_value_error,
     slugify,
     resolve_project_path,
@@ -419,3 +420,56 @@ class TestCatchSlugValueError:
         warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
         assert warnings, "expected a WARNING-level log record for the rejected slug"
         assert any("../escape" in record.getMessage() for record in warnings)
+
+    def test_logs_without_the_decorator_present(self, caplog):
+        """Code review finding on #533 (M-3): logging used to live in the
+        catch_slug_value_error decorator, so a SlugValidationError raised by
+        a plain helper with no decorator in between (e.g.
+        tools.timeline_anchor.get_story_anchor, which calls
+        _validate_slug() directly and is only wrapped by the decorator two
+        call-frames up, at its MCP caller) never got logged if that helper
+        were ever called directly (as it is throughout the test suite, and
+        as any future non-MCP caller would). Logging now happens inside
+        _validate_slug() itself, so it fires regardless of what — if
+        anything — wraps the caller."""
+        with caplog.at_level(logging.WARNING, logger="tools.shared.paths"):
+            with pytest.raises(SlugValidationError):
+                resolve_project_path({"paths": {"content_root": "/tmp/does-not-matter"}}, "../escape")
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert warnings, "expected a WARNING-level log record even with no decorator involved"
+
+    def test_does_not_double_log_through_the_decorator(self, caplog):
+        """The decorator no longer logs independently — logging happens once,
+        at the _validate_slug() raise site, not a second time when the
+        decorator catches the propagated exception."""
+
+        @catch_slug_value_error
+        def tool(slug: str) -> str:
+            resolve_project_path({"paths": {"content_root": "/tmp/does-not-matter"}}, slug)
+            return json.dumps({"success": True})
+
+        with caplog.at_level(logging.WARNING, logger="tools.shared.paths"):
+            tool("../escape")
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warnings) == 1, f"expected exactly one log record, got {len(warnings)}"
+
+    def test_logged_slug_is_escaped_against_log_injection(self, caplog):
+        """Code review finding on #533 (M-4): the rejected slug reaches the
+        log line verbatim. _validate_slug() only blocks '/', '\\\\', '\\x00',
+        ':', '..', and a leading '.' — not embedded newlines. A slug like
+        '../\\nWARNING:tools.shared.paths:rejected slug: harmless' would, if
+        logged with %s, forge a second, fake log line. Logging with %r
+        (repr) escapes the newline instead of emitting it literally — the
+        whole rejected value stays on one physical log line."""
+        evil = "../\nFORGED LOG LINE"
+        with caplog.at_level(logging.WARNING, logger="tools.shared.paths"):
+            with pytest.raises(SlugValidationError):
+                resolve_project_path({"paths": {"content_root": "/tmp/does-not-matter"}}, evil)
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warnings) == 1
+        message = warnings[0].getMessage()
+        assert "\n" not in message, f"rejected slug's embedded newline was not escaped: {message!r}"
+        assert "FORGED LOG LINE" in message

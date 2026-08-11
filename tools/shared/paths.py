@@ -54,6 +54,10 @@ def _validate_slug(slug: str, name: str = "slug") -> str:
     if not slug:
         return slug
     if any(ch in slug for ch in _UNSAFE_SLUG_CHARS) or ".." in slug or slug.startswith("."):
+        # %r (not %s): the rejected slug is untrusted and may itself contain
+        # newlines — logged verbatim via %s it could forge extra log lines
+        # (issue #533 code review, finding M-4). %r escapes control chars.
+        logger.warning("rejected %s: %r", name, slug)
         raise SlugValidationError(
             f"Invalid {name} '{slug}': must not contain path separators, ':', '..', "
             "null bytes, or start with '.'"
@@ -98,7 +102,12 @@ def catch_slug_value_error(func: _F) -> _F:
         try:
             return func(*args, **kwargs)
         except SlugValidationError as exc:
-            logger.warning("rejected slug: %s", exc)
+            # Logging happens in _validate_slug() itself, not here (issue
+            # #533 code review, finding M-3) — this decorator only wraps
+            # MCP tool entry points, but _validate_slug() is also called
+            # from plain helper functions with no decorator in between
+            # (e.g. get_story_anchor, build_chapter_writing_brief). Logging
+            # at the raise site catches every caller, not just these.
             return json.dumps({"error": str(exc)})
 
     # Marker for introspection (e.g. a coverage test asserting every
