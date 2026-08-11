@@ -73,7 +73,8 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Continuity prüfen" / "Check continuity" / "Zeitlinie prüfen" / "Timeline prüfen" | `/storyforge:continuity-checker` |
 | "Voice check" / "Klingt das nach AI?" | `/storyforge:voice-checker` |
 | "Author check" / "Style check" / "Positive check" / "Banter fehlt" / "Sarcasm fehlt" / "Stil prüfen" / "Positive Marker" | `/storyforge:author-check` |
-| "Manuscript check" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" | `/storyforge:manuscript-checker` |
+| "Manuscript check" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" (fiction) | `/storyforge:manuscript-checker` |
+| "Manuscript check (memoir)" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" (memoir) | `/storyforge:manuscript-checker-memoir` |
 | "Beta feedback" / "ARC feedback" / "Reader feedback" / "Beta-Feedback verarbeiten" | `/storyforge:beta-feedback` |
 | "problem:" / "recurring issue:" / "report issue" / "regel melden" / "Regel eintragen" | `/storyforge:report-issue` |
 | "promote rule" / "rule global machen" / "Regel hochstufen" / "promote to author" / "promote to global" | `/storyforge:promote-rule` |
@@ -170,7 +171,7 @@ All memoir skill phases are now wired (Phases 1–4). Memoir books flow through 
 
 **Phase 3 skills (memoir-specific):**
 
-- `/storyforge:manuscript-checker` (memoir mode) — memoir-specific pattern passes (Issue #61)
+- `/storyforge:manuscript-checker-memoir` — memoir-specific pattern passes (Issue #61, split out from manuscript-checker in #138)
 - `/storyforge:voice-checker` (memoir mode) — Dimension 8 memoir AI-tells (Issue #62)
 - `/storyforge:memoir-ethics-checker` — consent/defamation/anonymization scan; export-engineer Step 0 (Issue #65)
 - `/storyforge:emotional-truth-prompt` — 7-dimension felt-sense analysis; memoir-only (Issue #66)
@@ -298,7 +299,8 @@ Skills MUST load relevant craft references before generating creative content. U
 - `world-builder` → loads: world-building (memoir typically skips this skill — real settings are documented in `world/setting.md` via research, not invention)
 - `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`; runs Dimension 8 memoir-specific AI-tells: reflective platitude, "looking back" hinges, tidy lesson endings, hedging-as-humility, therapeutic reframe, explanation-after-image — Issue #62)
 - `author-check` → loads: author profile (style_principles Writing Discoveries + quantitative targets) via `get_author()`; reads chapter draft directly; optionally reads existing `review.md` for constraint violation count (balance warning). No craft references needed — checks positive presence, not craft quality.
-- `manuscript-checker` → memoir mode adds memoir-specific patterns (Phase 3 #61)
+- `manuscript-checker` (fiction-only since #138) → base checks only (book-rule violations, plot holes, clichés, filter words, adverb density, cross-chapter repetition). Refuses memoir books and routes to `manuscript-checker-memoir`.
+- `manuscript-checker-memoir` (memoir-only, split out in #138) → base checks plus five memoir-specific passes: anonymization leaks, tidy-lesson endings, reflective platitudes, timeline ambiguity, real-people name-form consistency (Phase 3 #61)
 - `promo-writer` → loads: genre README(s) for blurb tone guidance, `reference/promo/platforms.md` for platform characteristics
 
 ## Important Rules
