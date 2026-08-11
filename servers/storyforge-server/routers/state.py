@@ -289,6 +289,12 @@ def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str
     ``worldbuilding/``, or ``world-building/`` (Issue #17). When no world dir
     exists, the canonical ``world/`` path is returned with ``exists: false``.
     """
+    # Issue #517: reject embedded null bytes before Path.resolve(), whose
+    # behavior here is platform-dependent (raises on POSIX, silently tolerates
+    # on Windows — CPython gh-106242). Same pre-check as #512/#516.
+    if "\x00" in component or "\x00" in sub_path:
+        return json.dumps({"error": "Invalid path components: embedded null byte"})
+
     config = _app.load_config()
     project = resolve_project_path(config, book_slug)
 
@@ -309,7 +315,7 @@ def resolve_path(book_slug: str, component: str = "", sub_path: str = "") -> str
     content_root = Path(config["paths"]["content_root"]).resolve()
     try:
         resolved = base.resolve()
-    except (OSError, RuntimeError) as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         return json.dumps({"error": f"Invalid path components: {exc}"})
 
     if not resolved.is_relative_to(content_root):
