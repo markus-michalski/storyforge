@@ -161,6 +161,7 @@ class TestFontSizeValidation:
             "11px",  # wrong unit
             "-11pt",
             "$(echo 11)pt",
+            "11pt\n",  # issue #526: `$` matches before a trailing newline
         ],
     )
     def test_rejects_unsafe_size(self, evil_size, mock_subprocess, tmp_path: Path):
@@ -186,6 +187,7 @@ class TestMarginValidation:
             "1foo",  # wrong unit
             "$(rm)in",
             "../1in",
+            "1in\n",  # issue #526: `$` matches before a trailing newline
         ],
     )
     def test_rejects_unsafe_margin(self, evil_margin, mock_subprocess, tmp_path: Path):
