@@ -144,7 +144,9 @@ def find_series_trackers(series_dir: Path) -> list[Path]:
 
 # Band id pattern (B1, B2, ...) — kept here so callers don't need to
 # import from the routing layer.
-_RE_VALID_BAND = re.compile(r"^B\d+$")
+# NB: anchored with \Z, not $ — `$` also matches before a trailing newline
+# (#525, same anchoring gap #518 fixed for _FIELD_NAME_RE).
+_RE_VALID_BAND = re.compile(r"^B\d+\Z")
 
 
 def recurring_chars_for_book(series_dir: Path, band: str) -> list[dict[str, Any]]:

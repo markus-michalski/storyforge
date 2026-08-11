@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools.state.loaders.series import recurring_chars_for_book
+from tools.state.loaders.series import _RE_VALID_BAND, recurring_chars_for_book
 
 
 def _write_tracker(
@@ -88,6 +88,16 @@ class TestRecurringCharsForBook:
     def test_returns_empty_when_dir_empty(self, tmp_path: Path) -> None:
         (tmp_path / "characters").mkdir()
         assert recurring_chars_for_book(tmp_path, "B1") == []
+
+    def test_rejects_band_with_trailing_newline(self) -> None:
+        """Issue #525: `$` in _RE_VALID_BAND matches before a trailing newline,
+        so "B1\\n" passed the top-level guard in recurring_chars_for_book()
+        despite never appearing verbatim in any tracker's clean recurs_in
+        list — a silent-data-loss failure mode distinct from (but adjacent
+        to) the write_evolution_section() corruption path this issue also
+        covers. Anchoring with \\Z closes the gap at the source."""
+        assert _RE_VALID_BAND.match("B1\n") is None
+        assert _RE_VALID_BAND.match("B1") is not None
 
     def test_excludes_index_md(self, tmp_path: Path) -> None:
         chars = tmp_path / "characters"
