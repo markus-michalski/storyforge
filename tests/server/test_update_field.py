@@ -483,17 +483,19 @@ class TestResolvePathContainment:
         assert "error" in result
 
     def test_rejects_unsafe_book_slug(self, server_module, content_root: Path):
-        """Slug validation in resolve_project_path raises — caller must
-        return a structured error, not let the exception escape."""
-        # The slug validator raises ValueError; resolve_path bubbles it up
-        # via the mcp framework. We verify the validator catches it.
-        from tools.shared.paths import resolve_project_path
+        """Issue #521: book_slug validation happened before resolve_path()'s
+        own try/except, so it wasn't caught. Message asserted so this test
+        actually pins the guard, not just any error."""
+        result = json.loads(server_module.resolve_path("../escape", "chapters", "01-intro"))
+        assert "Invalid book_slug" in result["error"]
 
-        config = {"paths": {"content_root": str(content_root)}}
-        import pytest
-
-        with pytest.raises(ValueError):
-            resolve_project_path(config, "../escape")
+    def test_rejects_null_byte_in_book_slug(self, server_module, content_root: Path):
+        """Issue #521: same gap as test_rejects_unsafe_book_slug, via a null
+        byte instead of '..' — book_slug has no dedicated pre-check the way
+        component/sub_path do, so this rests entirely on _validate_slug plus
+        the decorator."""
+        result = json.loads(server_module.resolve_path("bad\x00slug", "chapters", "01-intro"))
+        assert "Invalid book_slug" in result["error"]
 
     def test_allows_legitimate_path(self, server_module, content_root: Path):
         """Control: legitimate slug + component + sub_path resolves cleanly."""
