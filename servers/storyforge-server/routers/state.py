@@ -212,6 +212,12 @@ def update_field(file_path: str, field: str, value: str) -> str:
     as pure YAML — no frontmatter delimiters are written. For all other files
     the standard ``---`` frontmatter format is used.
     """
+    # Issue #516: reject embedded null bytes before Path.resolve(), whose
+    # behavior here is platform-dependent (raises on POSIX, silently tolerates
+    # on Windows — CPython gh-106242). Same pre-check as #512 in authors.py.
+    if "\x00" in file_path:
+        return json.dumps({"error": "Invalid file_path: embedded null byte"})
+
     # Audit H1 (#115): file_path must resolve under content_root or
     # authors_root. Without containment a poisoned prompt could rewrite any
     # existing user file (~/.bashrc, ~/.ssh/authorized_keys, dotfiles in
@@ -223,7 +229,7 @@ def update_field(file_path: str, field: str, value: str) -> str:
     ]
     try:
         resolved = Path(file_path).resolve()
-    except (OSError, RuntimeError) as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         return json.dumps({"error": f"Invalid file_path: {exc}"})
 
     if not any(resolved.is_relative_to(root) for root in allowed_roots):

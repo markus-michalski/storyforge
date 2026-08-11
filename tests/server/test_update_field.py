@@ -426,6 +426,39 @@ class TestUpdateFieldPathContainment:
         assert result.get("success") is True
         assert "Updated Name" in target.read_text(encoding="utf-8")
 
+    def test_rejects_null_byte_in_path(self, server_module, tmp_path: Path):
+        """Issue #516: a null byte in file_path must return a clean JSON error,
+        not propagate an unhandled ValueError from Path.resolve() (POSIX). Path
+        is outside both allowed roots, pinning that the null-byte guard runs
+        before the containment check — not just before the filesystem layer."""
+        outside_dir = tmp_path / "outside"
+        outside_dir.mkdir()
+        evil_path = str(outside_dir / "\x00evil.md")
+
+        result = json.loads(server_module.update_field(evil_path, "status", "PWNED"))
+
+        assert "error" in result
+        assert "Invalid file_path: embedded null byte" in result["error"]
+        assert list(outside_dir.iterdir()) == []
+
+    def test_rejects_null_byte_in_path_inside_allowed_root(self, server_module, content_root: Path):
+        """A null byte must be rejected uniformly regardless of whether the path
+        would otherwise resolve inside an allowed root. Without the explicit
+        pre-check, ``Path.resolve()`` behaves differently per platform (raises
+        on POSIX, doesn't on Windows — CPython gh-106242), and on Windows the
+        path would fall through the containment check only to fail later as a
+        generic file-not-found instead of being rejected as an invalid path.
+        Same pattern as #512 / PR #515 for extract_text_from_file()."""
+        target_dir = content_root / "projects" / "my-book"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        evil_path = str(target_dir / "\x00evil.md")
+
+        result = json.loads(server_module.update_field(evil_path, "status", "PWNED"))
+
+        assert "error" in result
+        assert "Invalid file_path: embedded null byte" in result["error"]
+        assert list(target_dir.iterdir()) == []
+
 
 # ---------------------------------------------------------------------------
 # Audit H2 — resolve_path containment
