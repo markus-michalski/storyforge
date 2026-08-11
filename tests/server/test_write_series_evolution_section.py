@@ -169,6 +169,23 @@ class TestWriteSeriesEvolutionSection:
         )
         assert "band" in result["error"].lower()
 
+    def test_null_byte_series_slug_returns_clean_error(self, mock_config, content_root: Path):
+        """Issue #523: resolve_series_path() raises ValueError via
+        _validate_slug() on a null-byte series_slug; before the fix this
+        propagated as a raw, unhandled exception instead of the standard
+        {"error": ...} JSON contract. @catch_slug_value_error closes the gap."""
+        result = json.loads(
+            write_series_evolution_section(
+                "bad\x00series",
+                "kael",
+                "B1",
+                "ende",
+                "...",
+                "Harvested",
+            )
+        )
+        assert "error" in result
+
     def test_series_not_found(self, mock_config, content_root: Path):
         result = json.loads(
             write_series_evolution_section(

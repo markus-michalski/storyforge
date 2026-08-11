@@ -42,6 +42,7 @@ from tools.db.author_discoveries import (
 )
 from tools.db.connection import open_authors_db
 from tools.shared.paths import (
+    catch_slug_value_error,
     find_projects,
     resolve_author_path,
     resolve_project_path,
@@ -356,6 +357,7 @@ def delete_author(slug: str, force: bool = False) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def harvest_book_rules(book_slug: str, author_slug: str = "") -> str:
     """Collect promotion candidates from a book's findings (Issue #151).
 
@@ -783,6 +785,7 @@ def delete_discovery(author_slug: str, discovery_type: str, text: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
 def update_author(slug: str, field: str, value: str) -> str:
     """Update a field in an author's profile frontmatter."""
     config = _app.load_config()

@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 
 from tools.shared.paths import (
+    catch_slug_value_error,
     resolve_book_in_series_path,
     resolve_chapter_path,
     resolve_project_path,
@@ -287,6 +288,7 @@ updated: "{today}"
 
 
 @mcp.tool()
+@catch_slug_value_error
 def create_chapter(book_slug: str, title: str, number: int, pov_character: str = "", summary: str = "") -> str:
     """Create a new chapter directory with README and empty draft."""
     config = _app.load_config()
@@ -352,6 +354,7 @@ word_count_target: 3000
 
 
 @mcp.tool()
+@catch_slug_value_error
 def create_character(book_slug: str, name: str, role: str = "supporting", description: str = "") -> str:
     """Create a new character file in a book project (fiction mode).
 

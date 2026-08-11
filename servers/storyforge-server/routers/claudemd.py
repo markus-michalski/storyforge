@@ -60,6 +60,7 @@ def _plugin_root() -> Path:
 
 
 @mcp.tool()
+@catch_slug_value_error
 def init_book_claudemd(
     book_slug: str,
     book_title: str = "",
@@ -96,6 +97,7 @@ def init_book_claudemd(
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def get_book_claudemd(book_slug: str) -> str:
     """Read the current CLAUDE.md for a book."""
     config = _app.load_config()
@@ -278,6 +280,7 @@ def append_book_rule(book_slug: str, text: str, validate: bool = True) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def list_book_rules(book_slug: str) -> str:
     """List all rules stored in the book_rules DB for this book.
 
@@ -369,6 +372,7 @@ def update_book_rule(
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def lint_book_rules(book_slug: str) -> str:
     """Audit every rule in the book's RULES block against the
     manuscript-checker pattern contract.

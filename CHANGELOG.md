@@ -47,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anchored with `$`, which also matches before a trailing newline, so `field="status\n"`
   passed the allowlist and silently wrote a junk YAML key instead of updating `status` —
   while still returning `success: true`. Anchored with `\Z` instead (#518).
+- 41 more MCP tool functions across `books.py`, `chapters.py`, `gates.py`, `canon.py`,
+  `scenes.py`, `claudemd.py`, `series.py`, `creation.py`, `authors.py`, and `memoir.py`
+  called `resolve_*_path()` helpers without catching the `SlugValidationError` those
+  helpers raise on an invalid slug (null byte, `..`, path separator, leading dot). The
+  exception propagated as a raw, unhandled server error instead of this codebase's
+  standard `{"error": ...}` JSON response. Rolled out `catch_slug_value_error`
+  (introduced alongside the memoir/idea path-traversal fixes) to the remaining call
+  sites — one shared decorator instead of 41 individual `try/except` blocks (#523).
 
 ### Security
 - `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a

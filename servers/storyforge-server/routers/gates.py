@@ -33,6 +33,7 @@ from tools.shared.gate_derivation import (
 )
 from tools.shared.gate_result import GateResult, aggregate_gates, wrap_legacy
 from tools.shared.paths import (
+    catch_slug_value_error,
     find_chapters,
     resolve_project_path,
     resolve_world_dir,
@@ -44,6 +45,7 @@ from ._app import mcp
 
 
 @mcp.tool()
+@catch_slug_value_error
 def scan_manuscript(
     book_slug: str,
     min_occurrences: int = 2,
@@ -115,6 +117,7 @@ def scan_manuscript(
 
 
 @mcp.tool()
+@catch_slug_value_error
 def validate_timeline_consistency(book_slug: str) -> str:
     """Cross-validate chapter anchors and draft prose against plot/timeline.md.
 
@@ -147,6 +150,7 @@ def validate_timeline_consistency(book_slug: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def verify_callbacks(book_slug: str) -> str:
     """Check the book's Callback Register against all drafted chapters.
 
@@ -179,6 +183,7 @@ def verify_callbacks(book_slug: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def check_memoir_consent(book_slug: str) -> str:
     """Check consent status and ethics risk for all people in a memoir book.
 
@@ -219,6 +224,7 @@ def check_memoir_consent(book_slug: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def analyze_plot_logic(
     book_slug: str,
     scope: str = "manuscript",
@@ -279,6 +285,7 @@ def analyze_plot_logic(
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def validate_chapter(book_slug: str, chapter_slug: str) -> str:
     """Validate a chapter's draft.md against the same rules the PostToolUse
     linter hook applies (#119).
@@ -325,6 +332,7 @@ def validate_chapter(book_slug: str, chapter_slug: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def validate_book_structure(book_slug: str) -> str:
     """Validate book project structure completeness."""
     config = _app.load_config()
@@ -386,6 +394,7 @@ def validate_book_structure(book_slug: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def run_pre_export_gates(book_slug: str) -> str:
     """Run quality gates before export."""
     state = _app._cache.get()
@@ -474,6 +483,7 @@ def run_pre_export_gates(book_slug: str) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
 def run_quality_gates(book_slug: str) -> str:
     """Run every available quality checker for a book and aggregate the results.
 
