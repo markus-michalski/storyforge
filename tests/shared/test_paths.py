@@ -1,6 +1,7 @@
 """Tests for StoryForge path utilities."""
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -399,3 +400,22 @@ class TestCatchSlugValueError:
             @catch_slug_value_error
             async def tool() -> str:
                 return json.dumps({})
+
+    def test_logs_rejected_slug_server_side(self, caplog):
+        """Issue #533: a rejected traversal attempt is a security-relevant
+        event. The decorator already returns a clean {"error": ...} JSON
+        response to the caller — but nothing recorded the attempt server-side,
+        so an operator scanning logs for traversal attempts would find
+        nothing."""
+
+        @catch_slug_value_error
+        def tool(slug: str) -> str:
+            resolve_project_path({"paths": {"content_root": "/tmp/does-not-matter"}}, slug)
+            return json.dumps({"success": True})
+
+        with caplog.at_level(logging.WARNING, logger="tools.shared.paths"):
+            tool("../escape")
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert warnings, "expected a WARNING-level log record for the rejected slug"
+        assert any("../escape" in record.getMessage() for record in warnings)

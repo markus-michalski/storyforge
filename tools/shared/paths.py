@@ -5,9 +5,12 @@ from __future__ import annotations
 import functools
 import inspect
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any, Callable, TypeVar
+
+logger = logging.getLogger(__name__)
 
 _F = TypeVar("_F", bound=Callable[..., str])
 
@@ -95,6 +98,7 @@ def catch_slug_value_error(func: _F) -> _F:
         try:
             return func(*args, **kwargs)
         except SlugValidationError as exc:
+            logger.warning("rejected slug: %s", exc)
             return json.dumps({"error": str(exc)})
 
     # Marker for introspection (e.g. a coverage test asserting every
