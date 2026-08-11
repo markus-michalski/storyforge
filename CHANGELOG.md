@@ -62,6 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   asserted that the validator itself raises, not that `resolve_path()` returns a clean
   error. Applied `catch_slug_value_error` (#523) to close the gap and rewrote the test to
   exercise `resolve_path()` directly (#521).
+- `pandoc.py`'s `_FONT_PATTERN` had the same `$`-vs-`\Z` anchoring gap as #518, so
+  `font="Arial\n"` passed the allowlist despite the pattern's own comment claiming
+  trailing/embedded structure characters are rejected. Anchored with `\Z` instead (#520).
 
 ### Security
 - `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a
