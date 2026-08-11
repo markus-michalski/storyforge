@@ -32,7 +32,9 @@ _ALLOWED_BOOK_CATEGORIES = ("fiction", "memoir")
 # underscores, hyphens; must start with a letter; max 64 chars.
 # Rejects null bytes, shell metacharacters, path separators, and injected
 # YAML structure characters.
-_FIELD_NAME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$")
+# NB: anchored with \Z, not $ — `$` also matches before a trailing newline,
+# which let field="status\n" through and wrote a junk YAML key (#518).
+_FIELD_NAME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}\Z")
 
 # Isolates a frontmatter block into its three parts (opening ---, raw body,
 # closing ---) so a single field's line can be patched without touching the

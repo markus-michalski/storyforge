@@ -43,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   success response with the null byte intact. Same fix as #512/#516: an explicit pre-check
   rejects both parameters uniformly before `resolve()`, with `ValueError` added to the
   except clause as a second layer (#517).
+- `update_field` accepted a field name with a trailing newline. `_FIELD_NAME_RE` was
+  anchored with `$`, which also matches before a trailing newline, so `field="status\n"`
+  passed the allowlist and silently wrote a junk YAML key instead of updating `status` —
+  while still returning `success: true`. Anchored with `\Z` instead (#518).
 
 ### Security
 - Nothing yet

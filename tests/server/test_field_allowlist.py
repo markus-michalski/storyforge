@@ -238,3 +238,16 @@ class TestUpdateFieldNameValidation:
         target.write_text("---\nstatus: Draft\n---\n", encoding="utf-8")
         result = json.loads(server_module.update_field(str(target), "status", "Review"))
         assert result.get("success") is True
+
+    def test_field_with_trailing_newline_rejected(self, server_module, content_root: Path):
+        """Issue #518: `$` in _FIELD_NAME_RE matches before a trailing
+        newline, so 'status\\n' passed the guard and silently wrote a junk
+        'status\\n' key instead of updating 'status' — while still returning
+        success:true. Anchoring with \\Z (or .fullmatch()) must close the gap."""
+        target = content_root / "README.md"
+        target.write_text("---\nstatus: Draft\n---\n", encoding="utf-8")
+        result = json.loads(server_module.update_field(str(target), "status\n", "PWNED"))
+        assert "error" in result
+        content = target.read_text(encoding="utf-8")
+        assert "status: Draft" in content
+        assert "PWNED" not in content
