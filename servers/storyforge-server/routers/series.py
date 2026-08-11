@@ -1096,6 +1096,13 @@ def create_character_tracker(
             {"error": f"tracker_type must be one of {sorted(_VALID_TRACKER_TYPES)} — got {tracker_type!r}"}
         )
 
+    # slug names the file being created — unlike most slug params, an
+    # empty value has no legitimate meaning here. _validate_slug() alone
+    # passes "" through by design (issue #539), which would silently
+    # create a hidden characters/.md dotfile.
+    if not slug:
+        return json.dumps({"error": "slug is required"})
+
     # slug and book_slug both reach Path construction directly with no
     # validation of their own — issue #524 (book_slug found during code
     # review: it's persisted to the tracker's frontmatter and read back

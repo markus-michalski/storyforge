@@ -389,6 +389,28 @@ class TestCreateCharacterTrackerValidation:
         assert "slug" in result["error"]
         assert not target.exists()
 
+    def test_rejects_empty_slug(self, mock_config, content_root: Path):
+        """Issue #539: _validate_slug() passes an empty string through by
+        design (most callers use "" as a "no chapter / no component"
+        marker) — but slug here names the file being created, so an empty
+        slug currently succeeds and creates a hidden dotfile,
+        characters/.md, with slug: "" in its own frontmatter. Reject it
+        explicitly before the existing _validate_slug() call, matching
+        authors.py::delete_author's pattern."""
+        _make_series(content_root, "my-series")
+
+        result = json.loads(
+            create_character_tracker(
+                series_slug="my-series",
+                name="Kael",
+                slug="",
+                role="protagonist",
+                recurs_in=["B1"],
+            )
+        )
+        assert "slug" in result["error"]
+        assert not (content_root / "series" / "my-series" / "characters" / ".md").exists()
+
     def test_rejects_traversal_book_slug(self, mock_config, content_root: Path):
         """Issue #524 code review, finding H-1: book_slug is persisted
         verbatim into the tracker's frontmatter (unlike slug, which by this
