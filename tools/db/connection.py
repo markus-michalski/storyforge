@@ -42,6 +42,24 @@ def open_db(db_path: Path) -> sqlite3.Connection:
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
     """Create series/session tables and indexes if they don't exist yet (idempotent)."""
+    # #558: cover_images was re-keyed from book_num to book_slug. No
+    # released version of StoryForge ever created this table (verified
+    # against every DB under ~/.storyforge/db/ and the installed plugin
+    # cache at the time this fix was written — none have a cover_images
+    # table at all), so CREATE TABLE IF NOT EXISTS below is a genuine
+    # no-op everywhere it matters, not "safe because no rows exist" (an
+    # empty table with the old book_num column would silently keep it —
+    # CREATE TABLE IF NOT EXISTS doesn't touch existing tables regardless
+    # of row count). This check makes that assumption self-healing instead
+    # of load-bearing: a lingering book_num-keyed table (e.g. from running
+    # an intermediate `main` checkout between #554 and this fix) is
+    # provably droppable, since #554 shipped no reader/writer of
+    # cover_images other than the ones this repo controls and re-keys here.
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(cover_images)").fetchall()}
+    if cols and "book_slug" not in cols:
+        conn.execute("DROP TABLE cover_images")
+        conn.commit()
+
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS canon_facts (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,25 +118,40 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_br
             ON book_rules(book_num, rule_type);
 
+        -- Issue #558 (PR #554 introduced this table): keyed on book_slug,
+        -- not book_num. get_book_num() defaults to 1 whenever a book's
+        -- README frontmatter is missing/unparseable series_number — fine
+        -- for canon_facts/book_rules/character_snapshots (an established
+        -- repo-wide convention with real production data, out of scope
+        -- here), but cover_images never shipped in a release (see the
+        -- self-heal check above), so it's cheapest to just not inherit
+        -- that collision risk: two under-specified books in the same
+        -- series would otherwise share book_num=1 and silently clobber
+        -- each other's cover_images rows. book_slug is already unique per
+        -- book (including within a series) and is available on every row
+        -- insert via the calling MCP tool.
         CREATE TABLE IF NOT EXISTS cover_images (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            book_num    INTEGER NOT NULL,
+            book_slug   TEXT NOT NULL,
             filename    TEXT NOT NULL,
             is_final    BOOLEAN DEFAULT FALSE,
             imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(book_num, filename)
+            UNIQUE(book_slug, filename)
         );
 
         CREATE INDEX IF NOT EXISTS idx_ci
-            ON cover_images(book_num, is_final);
+            ON cover_images(book_slug, is_final);
 
         -- #556 L-1: the one-final-per-book invariant previously lived only
         -- in upsert_cover_image()'s application code (clearing other rows'
         -- is_final before insert). This partial unique index makes SQLite
-        -- itself reject a second is_final=1 row for the same book_num,
+        -- itself reject a second is_final=1 row for the same book_slug,
         -- rather than silently accepting one and letting
         -- get_final_cover_image()'s LIMIT 1 mask the broken state by
-        -- returning an arbitrary match.
+        -- returning an arbitrary match. Targets book_slug, not book_num
+        -- (#558) — the two were re-keyed together during the #558/#556
+        -- merge, since the DB layer's ordering/atomicity/uniqueness
+        -- guarantees have to hold for whichever column is the real key.
         --
         -- Safe to add unguarded (no pre-migration data cleanup) because
         -- ensure_schema() runs this on every connection open, and a DB
@@ -129,7 +162,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         -- no existing DB can contain a violating row — if a second writer
         -- is ever added, re-check this before touching the invariant.
         CREATE UNIQUE INDEX IF NOT EXISTS idx_ci_one_final
-            ON cover_images(book_num) WHERE is_final = 1;
+            ON cover_images(book_slug) WHERE is_final = 1;
     """)
     conn.commit()
 

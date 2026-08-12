@@ -10,10 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `import_cover_image(book_slug, source_path, is_final=False)` MCP tool — copies an
   externally-generated cover image (Midjourney/DALL-E output, outside StoryForge's control)
-  into `{project}/cover/art/` and records it in a new `cover_images` SQLite table with a
-  draft/final flag. Marking an import final clears the flag on any previously final image
-  for the same book, so at most one file is ever "the" final version. Re-importing the same
-  source file is idempotent (#551).
+  into `{project}/cover/art/` and records it in a new `cover_images` SQLite table,
+  keyed on `book_slug` (unique per book, including within a series — not `book_num`,
+  which defaults to 1 whenever a book's README frontmatter is missing or has an
+  unparseable `series_number`, and would otherwise collide between two
+  under-specified books in the same series-scoped DB, #558), with a draft/final flag.
+  Marking an import final clears the flag on any previously final image for the same
+  book, so at most one file is ever "the" final version. Re-importing the same source
+  file is idempotent (#551).
 
 ### Changed
 - `import_cover_image` hardened against unsafe/malformed copy sources (#555): rejects

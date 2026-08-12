@@ -92,10 +92,11 @@ def mock_env(content_root: Path, db_dir: Path, monkeypatch: pytest.MonkeyPatch) 
     return cfg
 
 
-def _make_book(content_root: Path, book_slug: str, series: str = "") -> Path:
+def _make_book(content_root: Path, book_slug: str, series: str = "", series_number: str | None = "1") -> Path:
     book_dir = content_root / "projects" / book_slug
     (book_dir / "cover" / "art").mkdir(parents=True)
-    readme = f'---\ntitle: Test\nslug: {book_slug}\nseries: "{series}"\nseries_number: 1\n---\n\n# Test\n'
+    series_number_line = f"series_number: {series_number}\n" if series_number is not None else ""
+    readme = f'---\ntitle: Test\nslug: {book_slug}\nseries: "{series}"\n{series_number_line}---\n\n# Test\n'
     (book_dir / "README.md").write_text(readme, encoding="utf-8")
     return book_dir
 
@@ -267,7 +268,47 @@ class TestImportCoverImage:
         book_root = resolve_project_path(mock_env, "firelight")
         conn = open_canon_db(get_db_slug_for_book(book_root))
         try:
-            assert get_final_cover_image(conn, book_num=1) == "final-b.png"
+            assert get_final_cover_image(conn, book_slug="firelight") == "final-b.png"
+        finally:
+            conn.close()
+
+    def test_two_under_specified_series_books_do_not_collide(
+        self, mock_env, content_root: Path, tmp_path: Path
+    ):
+        """#558: get_book_num() defaults to 1 whenever a book's README is
+        missing/unparseable series_number — exercised directly here by
+        omitting series_number from book-one's frontmatter entirely
+        (book-two keeps an explicit series_number: 1, so both land on
+        book_num=1 via two different paths through get_book_num()). Both
+        books import a same-named final cover — they must not share a
+        cover_images row or clobber each other's final flag just because
+        both report book_num=1."""
+        from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
+        from tools.db.cover_images import get_final_cover_image
+        from tools.shared.paths import resolve_project_path
+
+        _make_book(content_root, "book-one", series="myseries", series_number=None)
+        _make_book(content_root, "book-two", series="myseries", series_number="1")
+        book_one_root = resolve_project_path(mock_env, "book-one")
+        book_two_root = resolve_project_path(mock_env, "book-two")
+        assert get_book_num(book_one_root) == get_book_num(book_two_root) == 1
+        assert get_db_slug_for_book(book_one_root) == get_db_slug_for_book(book_two_root) == "myseries"
+
+        src1 = _make_source_image(tmp_path, name="cover.png", data=b"one")
+        src2_dir = tmp_path / "external2"
+        src2_dir.mkdir()
+        src2 = src2_dir / "cover.png"
+        src2.write_bytes(_MAGIC_PREFIXES[".png"] + b"two")
+
+        import_cover_image(book_slug="book-one", source_path=str(src1), is_final=True)
+        import_cover_image(book_slug="book-two", source_path=str(src2), is_final=True)
+
+        conn = open_canon_db("myseries")
+        try:
+            assert get_final_cover_image(conn, book_slug="book-one") == "cover.png"
+            assert get_final_cover_image(conn, book_slug="book-two") == "cover.png"
+            rows = conn.execute("SELECT COUNT(*) as cnt FROM cover_images").fetchone()
+            assert rows["cnt"] == 2
         finally:
             conn.close()
 

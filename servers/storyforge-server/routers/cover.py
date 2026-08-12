@@ -175,8 +175,13 @@ def import_cover_image(book_slug: str, source_path: str, is_final: bool = False)
     # SlugValidationError (caught by @catch_slug_value_error) on a
     # hand-edited, malformed value. Doing this first means that failure
     # never leaves a copied file with no matching DB record.
+    #
+    # Rows are keyed on book_slug, not get_book_num() (#558) — book_num
+    # defaults to 1 for a book whose README is missing/unparseable, which
+    # would collide with any other under-specified book in the same
+    # series-scoped DB. book_slug (this function's own parameter) is
+    # already unique per book, including within a series.
     db_slug = _db_conn.get_db_slug_for_book(book_root)
-    book_num = _db_conn.get_book_num(book_root)
     conn = _db_conn.open_canon_db(db_slug)
     try:
         if needs_copy:
@@ -186,7 +191,7 @@ def import_cover_image(book_slug: str, source_path: str, is_final: bool = False)
                 return json.dumps({"error": f"Failed to copy cover image: {exc}"})
             except RuntimeError as exc:
                 return json.dumps({"error": str(exc)})
-        upsert_cover_image(conn, book_num=book_num, filename=dest.name, is_final=is_final)
+        upsert_cover_image(conn, book_slug=book_slug, filename=dest.name, is_final=is_final)
     finally:
         conn.close()
 
