@@ -29,13 +29,16 @@ can preserve the existing structure rather than dual-writing.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from tools.shared.paths import _validate_slug
+from tools.shared.paths import SlugValidationError, _validate_slug
 from tools.state.parsers import parse_frontmatter
+
+logger = logging.getLogger(__name__)
 
 
 # Heading patterns
@@ -163,33 +166,78 @@ def find_series_trackers(series_dir: Path) -> list[Path]:
 RE_BAND_ID = re.compile(r"^B\d+\Z")
 
 
-def recurring_chars_for_book(series_dir: Path, band: str) -> list[dict[str, Any]]:
-    """Return tracker dicts whose ``recurs_in`` includes ``band``.
+def _try_parse_series_tracker(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    """Parse a tracker file, returning ``(tracker, None)`` on success or
+    ``(None, error_message)`` if the file can't be read.
+
+    A non-UTF-8 or otherwise unreadable tracker file must not abort a
+    whole listing/lookup loop any more than an invalid slug does (issue
+    #549 review finding L-4) — callers treat this the same way they treat
+    a :class:`SlugValidationError`: skip the one bad tracker, keep going.
+    """
+    try:
+        return parse_series_tracker(path), None
+    except (OSError, UnicodeDecodeError) as exc:
+        return None, f"{type(exc).__name__}: {exc}"
+
+
+def recurring_chars_for_book(
+    series_dir: Path, band: str
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """Return ``(trackers, errors)`` for every tracker whose ``recurs_in``
+    includes ``band``.
 
     Used by the new-book auto-copy logic (Issue #196) and the future
     bootstrap-book-from-series skill (D-2 of Epic #195) to learn which
     characters belong in a given book band.
 
-    Each entry mirrors :func:`parse_series_tracker` output (so callers
-    have ``slug``, ``book_slug``, ``recurs_in``, ``role``, ...) plus a
-    ``tracker_slug`` alias and a ``prior_bands`` field — the bands in
-    ``recurs_in`` that come strictly before ``band``, sorted ascending.
-    Empty ``prior_bands`` means the character first appears in ``band``
-    and has no source file in any prior book.
+    Each ``trackers`` entry mirrors :func:`parse_series_tracker` output
+    (so callers have ``slug``, ``book_slug``, ``recurs_in``, ``role``,
+    ...) plus a ``tracker_slug`` alias and a ``prior_bands`` field — the
+    bands in ``recurs_in`` that come strictly before ``band``, sorted
+    ascending. Empty ``prior_bands`` means the character first appears in
+    ``band`` and has no source file in any prior book.
 
-    Returns an empty list when ``band`` is not a valid ``B<N>`` id, when
+    A tracker whose resolved ``book_slug`` fails :func:`_validate_slug`
+    (hand-edited or pre-#524 file), or that can't even be read (non-UTF-8
+    content — review finding L-4), is skipped rather than aborting the
+    whole call (Issue #549) — either way its ``tracker_slug``/path/error
+    land in ``errors`` instead of ``trackers``. Callers that write to disk from
+    the result (e.g. ``copy_recurring_chars_to_new_book``) should treat
+    any non-empty ``errors`` as reason to abort the whole operation
+    themselves (Issue #542's all-or-nothing guarantee for WRITE targets
+    still holds — it's just the caller's decision now, not an exception
+    raised mid-list-comprehension).
+
+    Returns ``([], [])`` when ``band`` is not a valid ``B<N>`` id, when
     the characters directory is missing, or when no trackers match.
-    Results are sorted by ``tracker_slug`` for deterministic output.
+    ``trackers`` is sorted by ``tracker_slug`` for deterministic output.
     """
     if not RE_BAND_ID.match(band):
-        return []
+        return [], []
 
     target_n = int(band[1:])
     out: list[dict[str, Any]] = []
+    errors: list[dict[str, str]] = []
     for path in find_series_trackers(series_dir):
-        tracker = parse_series_tracker(path)
+        tracker, read_err = _try_parse_series_tracker(path)
+        if tracker is None:
+            errors.append({"tracker_slug": path.stem, "path": str(path), "error": read_err or ""})
+            continue
         recurs = [str(b) for b in tracker.get("recurs_in") or []]
         if band not in recurs:
+            continue
+
+        try:
+            book_slug = resolve_book_slug_for_series_tracker(tracker)
+        except SlugValidationError as exc:
+            errors.append(
+                {
+                    "tracker_slug": tracker["slug"],
+                    "path": str(path),
+                    "error": str(exc),
+                }
+            )
             continue
 
         # Sort prior bands numerically so B10 comes after B2 (string sort
@@ -202,13 +250,13 @@ def recurring_chars_for_book(series_dir: Path, band: str) -> list[dict[str, Any]
             {
                 **tracker,
                 "tracker_slug": tracker["slug"],
-                "book_slug": resolve_book_slug_for_series_tracker(tracker),
+                "book_slug": book_slug,
                 "prior_bands": prior_bands,
             }
         )
 
     out.sort(key=lambda t: t["tracker_slug"])
-    return out
+    return out, errors
 
 
 def find_tracker_for_book_character(series_dir: Path, book_slug: str) -> Path | None:
@@ -223,12 +271,30 @@ def find_tracker_for_book_character(series_dir: Path, book_slug: str) -> Path | 
     Returns ``None`` when no tracker matches or when the directory does
     not exist. The first sorted match wins for defensive determinism if
     duplicates ever creep in (authors should not produce them).
+
+    A tracker whose resolved ``book_slug`` fails :func:`_validate_slug`
+    (hand-edited or pre-#524 file), or that can't even be read (non-UTF-8
+    content, permission error — review finding L-4), is skipped rather
+    than aborting the whole lookup (Issue #549) — trackers sorted after
+    it are still examined. Neither rejection has a caller-visible error
+    channel (unlike :func:`recurring_chars_for_book`'s ``errors`` list —
+    this function's ``Path | None`` return has nowhere to carry one
+    without a breaking signature change), so both are logged instead of
+    silently dropped.
     """
     if not book_slug:
         return None
     for path in find_series_trackers(series_dir):
-        tracker = parse_series_tracker(path)
-        if resolve_book_slug_for_series_tracker(tracker) == book_slug:
+        tracker, read_err = _try_parse_series_tracker(path)
+        if tracker is None:
+            logger.warning("skipping unreadable series tracker %s: %s", path, read_err)
+            continue
+        try:
+            resolved = resolve_book_slug_for_series_tracker(tracker)
+        except SlugValidationError as exc:
+            logger.warning("skipping invalid series tracker %s: %s", path, exc)
+            continue
+        if resolved == book_slug:
             return path
     return None
 

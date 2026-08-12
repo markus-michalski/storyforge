@@ -64,7 +64,17 @@ mcp__storyforge-mcp__list_series_trackers_for_book(
 )
 ```
 
-Returns trackers that recur in `new_band`. Show summary:
+Returns `{"trackers": [...], "invalid_trackers": [{tracker_slug, path,
+error}, ...]}` — `trackers` recur in `new_band`; `invalid_trackers` lists
+trackers that failed slug validation and were excluded (hand-edited or
+pre-#524 file, issue #549).
+
+If `invalid_trackers` is non-empty: report each entry's `tracker_slug`
+and `path` to the author as needing repair, **before** the zero-entries
+check below — otherwise an all-invalid batch is misreported as "none
+found".
+
+Show summary:
 
 ```
 Bootstrap plan for {new_book_slug} ({new_band}):

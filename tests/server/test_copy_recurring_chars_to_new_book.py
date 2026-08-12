@@ -249,18 +249,22 @@ class TestCopyRecurringCharsValidation:
 
         result = json.loads(copy_recurring_chars_to_new_book("blood-and-binary", "firelight", "moonrise", "B2"))
         assert "error" in result
-        assert "book_slug" in result["error"]
+        assert len(result["tracker_errors"]) == 1
+        assert result["tracker_errors"][0]["tracker_slug"] == "evil"
+        assert "book_slug" in result["tracker_errors"][0]["error"]
         assert not (content_root.parent / "tmp" / "pwned.md").exists()
 
     def test_all_or_nothing_when_one_tracker_is_malicious(self, mock_config, content_root: Path):
-        # Code review finding on #542: recurring_chars_for_book() calls
-        # resolve_book_slug_for_series_tracker() for every tracker while
-        # building its (eagerly-evaluated, non-generator) return list —
-        # BEFORE this tool's own for-loop starts iterating. So a malicious
-        # tracker sorting AFTER a legitimate one (by tracker_slug) must
-        # still block the legitimate one's copy, not let it land first and
-        # then abort partway through, which would leave a stale state
-        # cache (skipped _cache.invalidate()) and a discarded `copied` list.
+        # Code review finding on #542, mechanism updated for #549:
+        # recurring_chars_for_book() now skips invalid trackers internally
+        # (returning them in its `errors` list) instead of raising
+        # mid-list-comprehension, but this WRITE-target tool still checks
+        # that list and aborts the whole call before its own copy loop
+        # ever starts — so a malicious tracker sorting AFTER a legitimate
+        # one (by tracker_slug) must still block the legitimate one's
+        # copy, not let it land first and then abort partway through,
+        # which would leave a stale state cache (skipped
+        # _cache.invalidate()) and a discarded `copied` list.
         _make_tracker(content_root, "blood-and-binary", "a-good", recurs_in=["B1", "B2"])
         _make_tracker(
             content_root,
@@ -275,7 +279,33 @@ class TestCopyRecurringCharsValidation:
 
         result = json.loads(copy_recurring_chars_to_new_book("blood-and-binary", "firelight", "moonrise", "B2"))
         assert "error" in result
+        assert result["tracker_errors"][0]["tracker_slug"] == "z-evil"
         assert not (content_root / "projects" / "moonrise" / "characters" / "a-good.md").exists()
+
+    def test_reports_every_invalid_tracker_not_just_the_first(self, mock_config, content_root: Path):
+        # Issue #549 review finding M-2: with two bad trackers, the author
+        # must see both in one response instead of fix-and-retry twice.
+        _make_tracker(
+            content_root,
+            "blood-and-binary",
+            "a-evil",
+            book_slug="../../../../tmp/pwned-a",
+            recurs_in=["B1", "B2"],
+        )
+        _make_tracker(
+            content_root,
+            "blood-and-binary",
+            "z-evil",
+            book_slug="../../../../tmp/pwned-z",
+            recurs_in=["B1", "B2"],
+        )
+        _make_book_dir(content_root, "firelight")
+        _make_book_dir(content_root, "moonrise")
+
+        result = json.loads(copy_recurring_chars_to_new_book("blood-and-binary", "firelight", "moonrise", "B2"))
+        assert "error" in result
+        slugs = {e["tracker_slug"] for e in result["tracker_errors"]}
+        assert slugs == {"a-evil", "z-evil"}
 
     def test_router_own_validate_slug_call_is_load_bearing(
         self, mock_config, content_root: Path, monkeypatch: pytest.MonkeyPatch
@@ -295,14 +325,17 @@ class TestCopyRecurringCharsValidation:
         monkeypatch.setattr(
             series_router,
             "recurring_chars_for_book",
-            lambda series_dir, band: [
-                {
-                    "tracker_slug": "evil",
-                    "book_slug": "../../../evil",
-                    "recurs_in": ["B1", "B2"],
-                    "prior_bands": ["B1"],
-                }
-            ],
+            lambda series_dir, band: (
+                [
+                    {
+                        "tracker_slug": "evil",
+                        "book_slug": "../../../evil",
+                        "recurs_in": ["B1", "B2"],
+                        "prior_bands": ["B1"],
+                    }
+                ],
+                [],
+            ),
         )
         # Series/book dirs must exist to pass the tool's own not-found
         # checks before it ever reaches the (monkeypatched) tracker loop —

@@ -52,9 +52,10 @@ class TestRecurringCharsForBook:
         # Only-B1 char (e.g. dies in B1) — must be excluded for B2 query.
         _write_tracker(chars, "sera", recurs_in=["B1"])
 
-        result = recurring_chars_for_book(tmp_path, "B2")
+        result, errors = recurring_chars_for_book(tmp_path, "B2")
         slugs = sorted(t["tracker_slug"] for t in result)
         assert slugs == ["kael", "viktor"]
+        assert errors == []
 
     def test_includes_band_only_chars(self, tmp_path: Path) -> None:
         # A character that first appears in B2 (e.g. Tristan) — recurs_in
@@ -62,15 +63,16 @@ class TestRecurringCharsForBook:
         # the caller knows there's no source to copy from.
         chars = tmp_path / "characters"
         _write_tracker(chars, "tristan", recurs_in=["B2", "B3"])
-        result = recurring_chars_for_book(tmp_path, "B2")
+        result, errors = recurring_chars_for_book(tmp_path, "B2")
         assert len(result) == 1
         assert result[0]["tracker_slug"] == "tristan"
         assert result[0]["prior_bands"] == []
+        assert errors == []
 
     def test_prior_bands_sorted_and_filtered(self, tmp_path: Path) -> None:
         chars = tmp_path / "characters"
         _write_tracker(chars, "kael", recurs_in=["B1", "B2", "B3"])
-        result = recurring_chars_for_book(tmp_path, "B3")
+        result, _errors = recurring_chars_for_book(tmp_path, "B3")
         entry = result[0]
         # prior_bands = bands in recurs_in that come BEFORE B3.
         assert entry["prior_bands"] == ["B1", "B2"]
@@ -78,16 +80,16 @@ class TestRecurringCharsForBook:
     def test_prior_bands_empty_for_first_appearance(self, tmp_path: Path) -> None:
         chars = tmp_path / "characters"
         _write_tracker(chars, "tristan", recurs_in=["B2", "B3"])
-        result = recurring_chars_for_book(tmp_path, "B2")
+        result, _errors = recurring_chars_for_book(tmp_path, "B2")
         assert result[0]["prior_bands"] == []
 
     def test_returns_empty_when_no_trackers(self, tmp_path: Path) -> None:
         # No characters/ dir at all.
-        assert recurring_chars_for_book(tmp_path, "B1") == []
+        assert recurring_chars_for_book(tmp_path, "B1") == ([], [])
 
     def test_returns_empty_when_dir_empty(self, tmp_path: Path) -> None:
         (tmp_path / "characters").mkdir()
-        assert recurring_chars_for_book(tmp_path, "B1") == []
+        assert recurring_chars_for_book(tmp_path, "B1") == ([], [])
 
     def test_rejects_band_with_trailing_newline(self) -> None:
         """Issue #525: `$` in RE_BAND_ID matches before a trailing newline,
@@ -104,7 +106,7 @@ class TestRecurringCharsForBook:
         _write_tracker(chars, "kael", recurs_in=["B1", "B2"])
         chars.mkdir(parents=True, exist_ok=True)
         (chars / "INDEX.md").write_text("---\nslug: index\nrecurs_in: [B1, B2]\n---\n", encoding="utf-8")
-        result = recurring_chars_for_book(tmp_path, "B2")
+        result, _errors = recurring_chars_for_book(tmp_path, "B2")
         slugs = [t["tracker_slug"] for t in result]
         assert "kael" in slugs
         assert "index" not in slugs
@@ -118,14 +120,14 @@ class TestRecurringCharsForBook:
             book_slug="caelan",
             recurs_in=["B1", "B2", "B3"],
         )
-        result = recurring_chars_for_book(tmp_path, "B2")
+        result, _errors = recurring_chars_for_book(tmp_path, "B2")
         assert result[0]["tracker_slug"] == "king-caelan"
         assert result[0]["book_slug"] == "caelan"
 
     def test_falls_back_to_tracker_slug_when_book_slug_absent(self, tmp_path: Path) -> None:
         chars = tmp_path / "characters"
         _write_tracker(chars, "kael", recurs_in=["B1", "B2"])
-        result = recurring_chars_for_book(tmp_path, "B2")
+        result, _errors = recurring_chars_for_book(tmp_path, "B2")
         assert result[0]["tracker_slug"] == "kael"
         assert result[0]["book_slug"] == "kael"
 
@@ -134,7 +136,7 @@ class TestRecurringCharsForBook:
         # exception.
         chars = tmp_path / "characters"
         _write_tracker(chars, "kael", recurs_in=["B1", "B2"])
-        assert recurring_chars_for_book(tmp_path, "Book1") == []
+        assert recurring_chars_for_book(tmp_path, "Book1") == ([], [])
 
     def test_results_sorted_by_tracker_slug(self, tmp_path: Path) -> None:
         # Stable ordering helps deterministic skill output.
@@ -142,9 +144,76 @@ class TestRecurringCharsForBook:
         _write_tracker(chars, "viktor", recurs_in=["B1", "B2"])
         _write_tracker(chars, "kael", recurs_in=["B1", "B2"])
         _write_tracker(chars, "dominic", recurs_in=["B1", "B2"])
-        result = recurring_chars_for_book(tmp_path, "B2")
+        result, _errors = recurring_chars_for_book(tmp_path, "B2")
         slugs = [t["tracker_slug"] for t in result]
         assert slugs == sorted(slugs)
+
+    def test_skips_malicious_tracker_and_surfaces_error(self, tmp_path: Path) -> None:
+        # Issue #549: a single hand-edited/pre-#524 tracker with a
+        # traversal book_slug must not abort the whole call — it's
+        # skipped and reported in `errors`, the well-formed trackers
+        # around it are still returned in `trackers`.
+        chars = tmp_path / "characters"
+        _write_tracker(chars, "a-good", recurs_in=["B1", "B2"])
+        _write_tracker(
+            chars,
+            "z-evil",
+            book_slug="../../../../tmp/pwned",
+            recurs_in=["B1", "B2"],
+        )
+        result, errors = recurring_chars_for_book(tmp_path, "B2")
+        slugs = [t["tracker_slug"] for t in result]
+        assert slugs == ["a-good"]
+        assert len(errors) == 1
+        assert errors[0]["tracker_slug"] == "z-evil"
+        assert "book_slug" in errors[0]["error"]
+
+    def test_skips_unreadable_tracker_file(self, tmp_path: Path) -> None:
+        # Review finding L-4 on issue #549: a non-UTF-8 tracker file must
+        # not abort the whole call any more than an invalid slug does —
+        # same bug shape, narrower trigger (a corrupt/foreign-encoding
+        # file predating this repo's UTF-8-only convention).
+        chars = tmp_path / "characters"
+        _write_tracker(chars, "a-good", recurs_in=["B1", "B2"])
+        (chars / "z-corrupt.md").write_bytes(b"\xff\xfe\x00\x01garbage")
+        result, errors = recurring_chars_for_book(tmp_path, "B2")
+        slugs = [t["tracker_slug"] for t in result]
+        assert slugs == ["a-good"]
+        assert len(errors) == 1
+        assert errors[0]["tracker_slug"] == "z-corrupt"
+
+    def test_skips_malicious_tracker_sorted_before_a_good_one(self, tmp_path: Path) -> None:
+        # Test-gap closed after the branch's own test-execution report
+        # (Q2): every prior malicious-tracker test here sorted the bad
+        # tracker AFTER the good one. The loop uses `continue`, not an
+        # early return or eager comprehension, so order shouldn't matter
+        # — this pins that for the sibling function that matters most
+        # (find_tracker_for_book_character's own before/after test exists
+        # precisely because order DID matter there pre-fix).
+        chars = tmp_path / "characters"
+        _write_tracker(chars, "a-evil", book_slug="../../../../tmp/pwned3", recurs_in=["B1", "B2"])
+        _write_tracker(chars, "z-good", recurs_in=["B1", "B2"])
+        result, errors = recurring_chars_for_book(tmp_path, "B2")
+        slugs = [t["tracker_slug"] for t in result]
+        assert slugs == ["z-good"]
+        assert len(errors) == 1
+        assert errors[0]["tracker_slug"] == "a-evil"
+
+    def test_reports_multiple_errors_independently(self, tmp_path: Path) -> None:
+        # Test-gap closed after the branch's own test-execution report
+        # (Q1): the loader's own test file had no direct multi-error
+        # test — only a router-level one (copy_recurring_chars_to_new_book's
+        # test_reports_every_invalid_tracker_not_just_the_first) exercised
+        # more than one bad tracker at once.
+        chars = tmp_path / "characters"
+        _write_tracker(chars, "a-evil", book_slug="../../../../tmp/pwned-a", recurs_in=["B1", "B2"])
+        _write_tracker(chars, "m-good", recurs_in=["B1", "B2"])
+        _write_tracker(chars, "z-evil", book_slug="../../../../tmp/pwned-z", recurs_in=["B1", "B2"])
+        result, errors = recurring_chars_for_book(tmp_path, "B2")
+        slugs = [t["tracker_slug"] for t in result]
+        assert slugs == ["m-good"]
+        error_slugs = {e["tracker_slug"] for e in errors}
+        assert error_slugs == {"a-evil", "z-evil"}
 
 
 class TestBandRegexConsolidation:

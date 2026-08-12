@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the widened scan surfaced 7 pre-existing, real matches; each was manually traced and
   confirmed safe (slugify()-derived values, upstream validation, or genuinely
   unreachable code) and documented with a concrete, checked reason (#544).
+- `list_series_trackers_for_book` gained an `invalid_trackers` key
+  (`[{tracker_slug, path, error}, ...]`). A tracker whose resolved `book_slug`
+  fails validation is now skipped and reported there instead of aborting the
+  whole listing with `{error}` — so a call that previously failed loudly now
+  returns a success payload with a shortened `trackers` list. Consuming skills
+  surface `invalid_trackers` before their zero-entries branch (#549).
+- `copy_recurring_chars_to_new_book`'s validation-failure response gained a
+  `tracker_errors` list alongside the existing `error` string, naming every
+  offending tracker rather than only the first. #542's all-or-nothing write
+  guarantee is unchanged — the abort still happens before any file is touched (#549).
 
 ### Deprecated
 - Nothing yet
@@ -95,6 +105,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   back at the real install, the same stdlib-redirection mechanism `python -m venv`
   itself uses, so no directory ever needs copying. A new test spawns the copied
   interpreter for real to verify it actually starts (#545).
+- `build_chapter_writing_brief` raised instead of degrading when a book's
+  `series:` frontmatter was a traversal payload: `load_rules_for_brief` and
+  `load_callbacks_for_brief` were the only two sub-loaders called outside the
+  `recorder.run()` graceful-degrade wrapper, so a `SlugValidationError` deep in
+  `open_canon_db()` failed the entire brief instead of shipping with partial
+  data like every other sub-loader failure. Both are now wrapped; the brief
+  ships with empty `rules_to_honor`/`callbacks_in_register` plus an `errors`
+  entry (#548).
+- `recurring_chars_for_book`, `find_tracker_for_book_character`, and
+  `list_series_trackers_for_book` aborted their whole loop on the first
+  series-tracker that failed slug validation, hiding every tracker sorted
+  after it — the exact availability regression #542's fix was designed to
+  avoid, just one loop layer up. Each now skips the bad tracker and continues
+  (#549).
+- `test_catch_slug_value_error_coverage.py`'s `_all_function_defs()` keyed its
+  results by bare function name over `ast.walk()`, so a same-named function in
+  another scope (e.g. two classes' `to_dict()` methods) silently overwrote an
+  earlier one and could drop a real violation from the #544 `tools/` sweep.
+  Changed to a list of `(scope_qualified_name, node)` pairs (e.g.
+  `"ClassA.to_dict"`, `"outer.inner"`) so exemptions in `TOOLS_SLUG_JOIN_KNOWN_EXEMPT`
+  stay scoped to the exact function they were written for, without being
+  sensitive to line-number drift from unrelated edits (#550).
 
 ### Security
 - `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a

@@ -690,9 +690,20 @@ def test_no_unvalidated_slug_path_join_in_tool_body() -> None:
 TOOLS_DIR = Path(__file__).resolve().parent.parent.parent / "tools"
 _TOOLS_PATHS_MODULE = TOOLS_DIR / "shared" / "paths.py"
 
-# (path-relative-to-tools/, function_name) -> reason a real slug-name reaching
-# a Path join in this function is safe without _validate_slug(). Same
-# discipline as SLUG_JOIN_KNOWN_EXEMPT above.
+# (path-relative-to-tools/, scope-qualified function name) -> reason a real
+# slug-name reaching a Path join in this function is safe without
+# _validate_slug(). Same discipline as SLUG_JOIN_KNOWN_EXEMPT above.
+#
+# The name is scope-qualified (not just the bare def name) because
+# _all_function_defs() enumerates every function at every nesting depth —
+# two functions can share a bare name in the same module (per-class
+# to_dict() methods, same-named nested helpers). A bare-name key would let
+# an exemption written for one function silently also exempt any other
+# same-named function added anywhere else in that module later (issue
+# #550). Qualification is scope-based ("ClassA.to_dict", "outer.inner"),
+# not line-based, so it stays correct across unrelated edits that shift
+# line numbers — all 7 entries below are module-level functions, so their
+# qualified name equals their bare name (empty prefix).
 TOOLS_SLUG_JOIN_KNOWN_EXEMPT: dict[tuple[str, str], str] = {
     # author_slug reaches every load_author_vocab() call site exclusively via
     # author_slug_from_book(), which slugify()s a name parsed from CLAUDE.md —
@@ -744,11 +755,104 @@ def _tools_modules() -> list[Path]:
     return sorted(p for p in TOOLS_DIR.rglob("*.py") if p != _TOOLS_PATHS_MODULE and p.name != "__init__.py")
 
 
-def _all_function_defs(tree: ast.Module) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+def _all_function_defs(
+    tree: ast.Module,
+) -> list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]]:
     """Every function definition in the module, at any nesting depth —
     unlike _mcp_tool_functions_and_calls, tools/ helpers carry no decorator
-    to filter on."""
-    return {n.name: n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    to filter on.
+
+    Returns a list of (qualified_name, node) pairs, not a dict keyed on
+    bare name: two functions can legitimately share a bare name at
+    different scopes in the same module (per-class ``to_dict()``/
+    ``to_json_dict()`` methods, same-named nested helpers in sibling
+    functions). A dict comprehension keyed on bare name silently keeps
+    only the last-visited entry for a collided name, dropping the rest
+    from the scan entirely (issue #550).
+
+    The name is scope-qualified with dotted enclosing def/class names
+    (``"ClassA.to_dict"``, ``"outer.inner"``) rather than paired with a
+    line number, so identity survives unrelated edits that shift line
+    numbers elsewhere in the module (review finding M-3) — a module-level
+    function's qualified name is just its bare name (no ancestor scope).
+    """
+    out: list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]] = []
+
+    def walk(node: ast.AST, prefix: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                qualified = f"{prefix}{child.name}"
+                out.append((qualified, child))
+                walk(child, f"{qualified}.")
+            elif isinstance(child, ast.ClassDef):
+                walk(child, f"{prefix}{child.name}.")
+            else:
+                walk(child, prefix)
+
+    walk(tree, "")
+    return out
+
+
+class TestAllFunctionDefsScopeSafety:
+    """Regression tests for issue #550: _all_function_defs() used to key a
+    dict comprehension on bare function name over ast.walk(tree), which
+    visits every function at every nesting depth. Two functions sharing a
+    name anywhere in the module — sibling classes' to_dict() methods,
+    same-named nested helpers — collided, and the dict kept only the
+    last-visited one, silently dropping the rest from every downstream
+    scan and TOOLS_SLUG_JOIN_KNOWN_EXEMPT lookup."""
+
+    def test_returns_both_same_named_functions_in_different_scopes(self) -> None:
+        tree = ast.parse(
+            "class A:\n"
+            "    def to_dict(self):\n"
+            "        return {}\n"
+            "\n"
+            "class B:\n"
+            "    def to_dict(self):\n"
+            "        return {}\n"
+        )
+        names = [name for name, _node in _all_function_defs(tree)]
+        assert names == ["A.to_dict", "B.to_dict"]
+
+    def test_does_not_drop_a_violation_shadowed_by_a_same_named_clean_function(self) -> None:
+        # The exact failure mode: with the old dict-keyed-on-bare-name
+        # implementation, whichever same-named function ast.walk() visits
+        # LAST wins the dict slot — here that's B's harmless to_dict(),
+        # silently discarding A's vulnerable one from the scan entirely.
+        tree = ast.parse(
+            "class A:\n"
+            "    def to_dict(self, book_slug):\n"
+            "        return root / book_slug\n"
+            "\n"
+            "class B:\n"
+            "    def to_dict(self):\n"
+            "        return {}\n"
+        )
+        defs = _all_function_defs(tree)
+        assert len(defs) == 2
+        violations = [name for name, node in defs if _unvalidated_slug_join_params(node)]
+        assert violations == ["A.to_dict"]
+
+    def test_qualifies_nested_function_names_by_enclosing_scope(self) -> None:
+        # A module-level function's qualified name has no ancestor prefix
+        # (matches its bare name, so existing TOOLS_SLUG_JOIN_KNOWN_EXEMPT
+        # entries for module-level functions need no change). A nested
+        # function's qualified name includes its enclosing def, distinct
+        # from a same-named function nested in a sibling.
+        tree = ast.parse(
+            "def outer_a():\n"
+            "    def helper():\n"
+            "        return None\n"
+            "    return helper\n"
+            "\n"
+            "def outer_b():\n"
+            "    def helper():\n"
+            "        return None\n"
+            "    return helper\n"
+        )
+        names = [name for name, _node in _all_function_defs(tree)]
+        assert names == ["outer_a", "outer_a.helper", "outer_b", "outer_b.helper"]
 
 
 def test_no_unvalidated_slug_path_join_in_tools_layer() -> None:
@@ -760,7 +864,7 @@ def test_no_unvalidated_slug_path_join_in_tools_layer() -> None:
         # every exemption on the windows-latest CI job (code review finding).
         rel = module_path.relative_to(TOOLS_DIR).as_posix()
         tree = ast.parse(module_path.read_text(encoding="utf-8"))
-        for name, node in _all_function_defs(tree).items():
+        for name, node in _all_function_defs(tree):
             if (rel, name) in TOOLS_SLUG_JOIN_KNOWN_EXEMPT:
                 continue
             for param in _unvalidated_slug_join_params(node):
@@ -813,7 +917,7 @@ def test_tools_slug_join_known_exempt_functions_still_exist() -> None:
         module_path = TOOLS_DIR / rel
         assert module_path.exists(), f"TOOLS_SLUG_JOIN_KNOWN_EXEMPT references missing module: {rel}"
         tree = ast.parse(module_path.read_text(encoding="utf-8"))
-        assert fn_name in _all_function_defs(tree), (
+        assert any(name == fn_name for name, _node in _all_function_defs(tree)), (
             f"TOOLS_SLUG_JOIN_KNOWN_EXEMPT references missing function: {rel}::{fn_name}"
         )
 
@@ -823,7 +927,7 @@ def test_tools_slug_join_known_exempt_entries_are_still_needed() -> None:
     for rel, fn_name in TOOLS_SLUG_JOIN_KNOWN_EXEMPT:
         module_path = TOOLS_DIR / rel
         tree = ast.parse(module_path.read_text(encoding="utf-8"))
-        node = _all_function_defs(tree).get(fn_name)
+        node = next((n for name, n in _all_function_defs(tree) if name == fn_name), None)
         if node is None or not _unvalidated_slug_join_params(node):
             stale.append(f"{rel}::{fn_name}")
 

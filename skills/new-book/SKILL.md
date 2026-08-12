@@ -80,7 +80,7 @@ argument-hint: "[title]"
 
       Options: **Yes, copy** (default) / **Skip — I'll do it manually**.
 
-   d. On confirmation, call MCP `copy_recurring_chars_to_new_book(series_slug, prev_book_slug, new_book_slug, band, book_category)` — pass all five parameters, including `book_category` (easy to drop since it's last in the list; the tool needs it to know whether to write into `characters/` or `people/`). The tool returns `{copied, skipped, new_chars}`.
+   d. On confirmation, call MCP `copy_recurring_chars_to_new_book(series_slug, prev_book_slug, new_book_slug, band, book_category)` — pass all five parameters, including `book_category` (easy to drop since it's last in the list; the tool needs it to know whether to write into `characters/` or `people/`). The tool returns `{copied, skipped, new_chars}` on success, or `{error, tracker_errors}` if one or more series-trackers in the band failed validation (hand-edited or pre-#524 file, issue #549) — nothing is copied in that case. Report each `tracker_errors` entry's `tracker_slug`/`path` to the author so they know which tracker file needs repair, then let them retry.
 
    e. Report the result:
 
