@@ -119,6 +119,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   after it — the exact availability regression #542's fix was designed to
   avoid, just one loop layer up. Each now skips the bad tracker and continues
   (#549).
+- `test_catch_slug_value_error_coverage.py`'s `_all_function_defs()` keyed its
+  results by bare function name over `ast.walk()`, so a same-named function in
+  another scope (e.g. two classes' `to_dict()` methods) silently overwrote an
+  earlier one and could drop a real violation from the #544 `tools/` sweep.
+  Changed to a list of `(scope_qualified_name, node)` pairs (e.g.
+  `"ClassA.to_dict"`, `"outer.inner"`) so exemptions in `TOOLS_SLUG_JOIN_KNOWN_EXEMPT`
+  stay scoped to the exact function they were written for, without being
+  sensitive to line-number drift from unrelated edits (#550).
 
 ### Security
 - `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a
