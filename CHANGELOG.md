@@ -164,6 +164,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `"ClassA.to_dict"`, `"outer.inner"`) so exemptions in `TOOLS_SLUG_JOIN_KNOWN_EXEMPT`
   stay scoped to the exact function they were written for, without being
   sensitive to line-number drift from unrelated edits (#550).
+- `import_cover_image` left an orphaned file on disk if `upsert_cover_image()`
+  raised after the file copy already succeeded (disk full, locked DB, or any
+  other DB-layer failure) — the exception propagated uncaught instead of
+  cleaning up. Now catches the DB failure, removes the just-copied file, and
+  returns a clean `{"error": ...}` instead. The cleanup is gated on whether
+  *this specific call* created the file (`_copy_exclusive_with_retry()` now
+  returns that as an explicit flag) rather than on `needs_copy` alone — the
+  naive version would have deleted a different, concurrent import's
+  already-committed file on the TOCTOU race path #555 closed, orphaning that
+  call's DB row instead of preventing an orphan (#567).
 
 ### Security
 - `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a

@@ -10,6 +10,7 @@ from __future__ import annotations
 from mcp.types import ToolAnnotations
 
 import json
+import sqlite3
 from pathlib import Path
 
 import tools.db.connection as _db_conn
@@ -78,6 +79,13 @@ def import_cover_image(book_slug: str, source_path: str, is_final: bool = False)
         is_final: True records this as the version an export step should
             use; False (default) records it as a draft (e.g. an
             image-without-text preview).
+
+    Returns:
+        JSON with ``{"success": True, ...}`` on success, or
+        ``{"error": ...}`` on any failure — including a DB write failure
+        after the file copy already succeeded, in which case the just-copied
+        file is removed before returning so no orphan is left on disk
+        (#567).
     """
     if "\x00" in source_path:
         return json.dumps({"error": "Invalid source_path: embedded null byte"})
@@ -183,15 +191,33 @@ def import_cover_image(book_slug: str, source_path: str, is_final: bool = False)
     # already unique per book, including within a series.
     db_slug = _db_conn.get_db_slug_for_book(book_root)
     conn = _db_conn.open_canon_db(db_slug)
+    created_here = False
     try:
         if needs_copy:
             try:
-                dest = _copy_exclusive_with_retry(dest_dir, src, dest)
+                dest, created_here = _copy_exclusive_with_retry(dest_dir, src, dest)
             except OSError as exc:
                 return json.dumps({"error": f"Failed to copy cover image: {exc}"})
             except RuntimeError as exc:
                 return json.dumps({"error": str(exc)})
-        upsert_cover_image(conn, book_slug=book_slug, filename=dest.name, is_final=is_final)
+        try:
+            upsert_cover_image(conn, book_slug=book_slug, filename=dest.name, is_final=is_final)
+        except sqlite3.Error as exc:
+            # Only remove dest if *this call* provably created it
+            # (created_here, set from _copy_exclusive_with_retry's O_EXCL
+            # branch) — needs_copy alone isn't enough: on the TOCTOU race
+            # path (#555 L-6) a concurrent writer can create dest first and
+            # this call reuses its byte-identical file with needs_copy still
+            # True. Deleting that file here would orphan the *other* call's
+            # already-committed cover_images row instead of preventing an
+            # orphan.
+            cleanup_note = ""
+            if created_here:
+                try:
+                    dest.unlink(missing_ok=True)
+                except OSError as unlink_exc:
+                    cleanup_note = f" (also failed to remove the copied file {dest}: {unlink_exc})"
+            return json.dumps({"error": f"Failed to record cover image in database: {exc}{cleanup_note}"})
     finally:
         conn.close()
 
@@ -382,7 +408,7 @@ def _resolve_dest_path(dest_dir: Path, src: Path) -> tuple[Path, bool]:
 _COPY_CHUNK_BYTES = 1024 * 1024  # 1 MB
 
 
-def _copy_exclusive_with_retry(dest_dir: Path, src: Path, dest: Path) -> Path:
+def _copy_exclusive_with_retry(dest_dir: Path, src: Path, dest: Path) -> tuple[Path, bool]:
     """Copy src to dest using exclusive creation, retrying on a race.
 
     ``_resolve_dest_path()`` decides ``dest`` from a plain ``.exists()``
@@ -408,6 +434,13 @@ def _copy_exclusive_with_retry(dest_dir: Path, src: Path, dest: Path) -> Path:
     convenience, not a real bound on what lands on disk. This loop is the
     actual bound — a source that grows past the cap between the two reads
     aborts here and the partial file is removed rather than kept.
+
+    Returns ``(path, created)``. ``created`` is True only for the ``O_EXCL``
+    branch below, where this call is provably the one that put the file on
+    disk. The ``FileExistsError`` / byte-identical branch returns
+    ``created=False`` — the file's bytes match, but a different writer (a
+    concurrent ``import_cover_image()`` call, or a prior call entirely, see
+    #567) created it, so it isn't this call's to delete on a later failure.
     """
     stem, suffix = src.stem, src.suffix
     counter = 2
@@ -440,10 +473,10 @@ def _copy_exclusive_with_retry(dest_dir: Path, src: Path, dest: Path) -> Path:
                     fdst.close()
                     dest.unlink(missing_ok=True)
                     raise
-            return dest
+            return dest, True
         except FileExistsError:
             if _files_identical(dest, src):
-                return dest
+                return dest, False
             if counter > _MAX_COVER_VARIANTS:
                 raise RuntimeError(f"Too many cover image variants named '{stem}{suffix}' in {dest_dir}")
             dest = dest_dir / f"{stem}-{counter}{suffix}"
