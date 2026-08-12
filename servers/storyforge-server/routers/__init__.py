@@ -15,6 +15,7 @@ from . import (  # noqa: F401
     canon,
     chapters,
     claudemd,
+    cover,
     creation,
     gates,
     ideas,

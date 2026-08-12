@@ -127,6 +127,9 @@ from routers.series import (  # noqa: E402, F401
 from routers.canon import (  # noqa: E402, F401
     add_canon_fact,
 )
+from routers.cover import (  # noqa: E402, F401
+    import_cover_image,
+)
 from routers.state import (  # noqa: E402, F401
     get_book_category_dir,
     get_review_handle_config,
