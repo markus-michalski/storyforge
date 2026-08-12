@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import tempfile
 from pathlib import Path
 
@@ -162,6 +163,18 @@ class TestImportCoverImage:
         result = json.loads(import_cover_image(book_slug="firelight", source_path=str(src)))
         assert "error" in result
 
+    def test_uppercase_extension_is_accepted(self, mock_env, content_root: Path, tmp_path: Path):
+        """Issue #560 item 6: the code lowercases the suffix
+        (src.suffix.lower()) before checking _ALLOWED_IMAGE_EXTENSIONS, but
+        no test previously exercised an uppercase extension like cover.PNG."""
+        _make_book(content_root, "firelight")
+        src = _make_source_image(tmp_path, name="cover.PNG")
+        result = json.loads(import_cover_image(book_slug="firelight", source_path=str(src)))
+        assert result.get("success") is True
+        # The extension check is case-insensitive, but the destination
+        # filename itself preserves the source's original casing verbatim.
+        assert result["filename"] == "cover.PNG"
+
     def test_source_inside_content_root_is_rejected(self, mock_env, content_root: Path, tmp_path: Path):
         _make_book(content_root, "firelight")
         # Point source_path at a file that's already inside content_root —
@@ -309,6 +322,62 @@ class TestImportCoverImage:
             assert get_final_cover_image(conn, book_slug="book-two") == "cover.png"
             rows = conn.execute("SELECT COUNT(*) as cnt FROM cover_images").fetchone()
             assert rows["cnt"] == 2
+        finally:
+            conn.close()
+
+
+class TestImportCoverImageErrorHandling:
+    """Issue #560 M-3: branch coverage for the try/except OSError paths
+    wrapping mkdir/shutil.copyfile — previously untested."""
+
+    def test_mkdir_failure_returns_clean_error(self, mock_env, content_root: Path, tmp_path: Path, monkeypatch):
+        _make_book(content_root, "firelight")
+        src = _make_source_image(tmp_path)
+
+        def _raise(*args, **kwargs):
+            raise OSError("simulated permission denied")
+
+        monkeypatch.setattr(Path, "mkdir", _raise)
+        result = json.loads(import_cover_image(book_slug="firelight", source_path=str(src)))
+
+        assert "error" in result
+        assert "Failed to prepare cover/art directory" in result["error"]
+
+    def test_copy_failure_returns_clean_error_and_no_db_row(
+        self, mock_env, content_root: Path, tmp_path: Path, monkeypatch
+    ):
+        """#555 replaced the shutil.copyfile-based copy with a manual
+        streaming write inside _copy_exclusive_with_retry() — inject the
+        failure there (via the same _FailingWriter wrapper #555's own
+        orphan-file test uses) rather than at shutil.copyfile, which no
+        longer exists in this module."""
+        _make_book(content_root, "firelight")
+        src = _make_source_image(tmp_path)
+
+        original_open = Path.open
+
+        def _flaky_open(self, mode="r", *args, **kwargs):
+            handle = original_open(self, mode, *args, **kwargs)
+            if self.name == "cover.png" and "x" in mode:
+                return _FailingWriter(handle)
+            return handle
+
+        monkeypatch.setattr(Path, "open", _flaky_open)
+        result = json.loads(import_cover_image(book_slug="firelight", source_path=str(src)))
+
+        assert "error" in result
+        assert "Failed to copy cover image" in result["error"]
+
+        # No partial state: the copy failed and was cleaned up, so no DB
+        # row should exist referencing it either.
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+        from tools.shared.paths import resolve_project_path
+
+        book_root = resolve_project_path(mock_env, "firelight")
+        conn = open_canon_db(get_db_slug_for_book(book_root))
+        try:
+            rows = conn.execute("SELECT COUNT(*) as cnt FROM cover_images WHERE book_slug = 'firelight'").fetchone()
+            assert rows["cnt"] == 0
         finally:
             conn.close()
 
@@ -590,3 +659,142 @@ class TestFilesIdentical:
         b.write_bytes(chunk + chunk + b"tail-b")
 
         assert cover_module._files_identical(a, b) is False
+
+
+class TestImportCoverImageDbFailureAfterCopy:
+    """Issue #560 item 2: upsert_cover_image() raising *after*
+    shutil.copyfile already succeeded leaves an orphaned file with no DB
+    record — the mirror image of the #551 H-1 bug (which was about
+    idempotent re-import after a filename collision, not this direction).
+    This is currently unhandled: the exception propagates straight out of
+    import_cover_image, uncaught. This test pins that behavior — documents
+    the gap with an explicit assertion rather than leaving it accidental —
+    it is not a fix. Tracked for a real fix as issue #567; when that lands,
+    invert this test to assert the orphan is cleaned up instead."""
+
+    def test_db_write_failure_after_copy_leaves_orphaned_file_and_propagates(
+        self, mock_env, content_root: Path, tmp_path: Path, monkeypatch
+    ):
+        book_dir = _make_book(content_root, "firelight")
+        src = _make_source_image(tmp_path)
+
+        import routers.cover as cover_module
+
+        def _raise(*args, **kwargs):
+            raise sqlite3.OperationalError("simulated DB failure")
+
+        monkeypatch.setattr(cover_module, "upsert_cover_image", _raise)
+
+        with pytest.raises(sqlite3.OperationalError, match="simulated DB failure"):
+            import_cover_image(book_slug="firelight", source_path=str(src))
+
+        # The copy already happened before the DB write was attempted —
+        # that's the gap being pinned, not asserted as correct behavior.
+        dest = book_dir / "cover" / "art" / "cover.png"
+        assert dest.exists()
+
+        # And the file is genuinely orphaned: no matching DB row, since the
+        # upsert itself is what raised.
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+        from tools.shared.paths import resolve_project_path
+
+        book_root = resolve_project_path(mock_env, "firelight")
+        conn = open_canon_db(get_db_slug_for_book(book_root))
+        try:
+            rows = conn.execute("SELECT COUNT(*) as cnt FROM cover_images WHERE book_slug = 'firelight'").fetchone()
+            assert rows["cnt"] == 0
+        finally:
+            conn.close()
+
+
+class TestImportCoverImageUnfinalizing:
+    def test_reimporting_final_file_as_draft_clears_final_flag(
+        self, mock_env, content_root: Path, tmp_path: Path
+    ):
+        """Issue #560 item 3: upsert_cover_image's
+        ON CONFLICT ... DO UPDATE SET is_final = excluded.is_final means
+        re-importing a currently-final file with is_final=False silently
+        clears its final flag, with no other row becoming final.
+        Presumably intended (mirrors promoting a draft to final), but was
+        untested anywhere."""
+        _make_book(content_root, "firelight")
+        src = _make_source_image(tmp_path)
+
+        import_cover_image(book_slug="firelight", source_path=str(src), is_final=True)
+        result = json.loads(import_cover_image(book_slug="firelight", source_path=str(src), is_final=False))
+
+        assert result.get("success") is True
+        assert result["is_final"] is False
+
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+        from tools.db.cover_images import get_final_cover_image
+        from tools.shared.paths import resolve_project_path
+
+        book_root = resolve_project_path(mock_env, "firelight")
+        conn = open_canon_db(get_db_slug_for_book(book_root))
+        try:
+            assert get_final_cover_image(conn, book_slug="firelight") is None
+        finally:
+            conn.close()
+
+
+class TestImportCoverImageRealScaffold:
+    """Issue #560 item 4: the other tests in this file use a hand-rolled
+    _make_book() fixture that manually creates cover/art/. This verifies
+    the docstring's central integration claim ("already scaffolded by
+    create_book_structure()") against the real scaffold, not a stand-in."""
+
+    def test_import_after_real_create_book_structure(self, mock_env, content_root: Path, tmp_path: Path):
+        import routers.creation as creation_module
+
+        create_result = json.loads(creation_module.create_book_structure(title="Real Scaffold Book"))
+        assert create_result.get("success") is True
+        book_slug = create_result["slug"]
+
+        # The scaffolding claim itself: create_book_structure() must have
+        # already made cover/art/ before import_cover_image() ever runs.
+        # import_cover_image()'s own mkdir(exist_ok=True) would silently
+        # paper over this being false, so assert it directly rather than
+        # relying on the import succeeding as a proxy.
+        assert (content_root / "projects" / book_slug / "cover" / "art").is_dir()
+
+        src = _make_source_image(tmp_path)
+        result = json.loads(import_cover_image(book_slug=book_slug, source_path=str(src)))
+
+        assert result.get("success") is True
+        dest = content_root / "projects" / book_slug / "cover" / "art" / "cover.png"
+        assert dest.exists()
+
+
+class TestImportCoverImageRealDbRoundtrip:
+    """Issue #560 item 5: get_final_cover_image/list_cover_images were
+    only tested (in tests/db/test_cover_images.py) against a bare
+    ensure_schema() connection, never against a connection obtained the
+    way import_cover_image actually obtains one (get_db_slug_for_book() ->
+    open_canon_db()) — this catches any DB-slug routing mismatch (series
+    vs standalone) the bare-connection tests structurally can't see."""
+
+    def test_list_and_get_final_via_real_connection_path(
+        self, mock_env, content_root: Path, tmp_path: Path
+    ):
+        _make_book(content_root, "firelight", series="myseries")
+        src1 = _make_source_image(tmp_path, name="draft.png", data=b"a")
+        src2 = _make_source_image(tmp_path, name="final.png", data=b"b")
+
+        import_cover_image(book_slug="firelight", source_path=str(src1), is_final=False)
+        import_cover_image(book_slug="firelight", source_path=str(src2), is_final=True)
+
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+        from tools.db.cover_images import get_final_cover_image, list_cover_images
+        from tools.shared.paths import resolve_project_path
+
+        book_root = resolve_project_path(mock_env, "firelight")
+        db_slug = get_db_slug_for_book(book_root)
+        assert db_slug == "myseries"  # confirms this exercises series-scoped routing, not standalone
+        conn = open_canon_db(db_slug)
+        try:
+            assert get_final_cover_image(conn, book_slug="firelight") == "final.png"
+            filenames = {r["filename"] for r in list_cover_images(conn, book_slug="firelight")}
+            assert filenames == {"draft.png", "final.png"}
+        finally:
+            conn.close()

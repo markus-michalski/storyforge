@@ -6,6 +6,7 @@ and that repeated calls are idempotent.
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -70,6 +71,10 @@ class TestEnsureSchema:
         assert "idx_cf_subject" in indexes
 
     def test_cover_images_table_exists(self, db_path: Path):
+        """Issue #560 item 7: this file's own docstring claims it verifies
+        every canonical table ensure_schema() creates, with per-table
+        assertions for canon_facts and sessions — but had no assertion for
+        cover_images (added in #551) at all. Closes that gap."""
         conn = open_db(db_path)
         ensure_schema(conn)
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -93,6 +98,25 @@ class TestEnsureSchema:
         indexes = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
         conn.close()
         assert "idx_ci" in indexes
+
+    def test_cover_images_enforces_unique_book_slug_filename(self, db_path: Path):
+        """upsert_cover_image()'s ON CONFLICT(book_slug, filename) DO UPDATE
+        depends on this constraint existing — assert it directly rather
+        than only indirectly through upsert_cover_image()'s own tests, so
+        a schema change that drops it fails here first. book_slug, not
+        book_num (#558) — the constraint was re-keyed along with the rest
+        of the table."""
+        conn = open_db(db_path)
+        ensure_schema(conn)
+        conn.execute("INSERT INTO cover_images (book_slug, filename, is_final) VALUES ('firelight', 'cover.png', 0)")
+        conn.commit()
+        try:
+            with pytest.raises(sqlite3.IntegrityError):
+                conn.execute(
+                    "INSERT INTO cover_images (book_slug, filename, is_final) VALUES ('firelight', 'cover.png', 1)"
+                )
+        finally:
+            conn.close()
 
 
 class TestCoverImagesBookSlugMigration:
