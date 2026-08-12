@@ -45,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   TOCTOU-safe retry path added by #555) now uses a direct chunked byte comparison
   instead of `filecmp.cmp()`, whose process-global stat-signature cache can go stale on
   filesystems with coarse mtime resolution.
+- `cover-artist` skill now points to `import_cover_image` in a new "Next Steps" section
+  after its prompt-generation workflow — previously the only way to discover that tool
+  was CLAUDE.md's own MCP tool table (#559).
 - `BODY_PARTS` vocabulary gained `chins`/`elbows`/`wrists`/`thumbs` — n-grams containing
   these may now classify as `character_tell` where they previously landed in another
   repetition category (#511).
