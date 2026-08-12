@@ -86,6 +86,7 @@ from routers.claudemd import (
     list_book_rules,
     update_character_snapshot,
 )
+from routers.cover import import_cover_image
 from routers.creation import create_chapter, create_character
 from routers.gates import (
     analyze_plot_logic,
@@ -136,6 +137,7 @@ DECORATED_FUNCTIONS = [
     run_quality_gates,
     run_pre_export_gates,
     add_canon_fact,
+    import_cover_image,
     create_scene_list,
     update_scene,
     init_book_claudemd,

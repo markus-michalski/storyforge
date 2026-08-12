@@ -99,6 +99,18 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_br
             ON book_rules(book_num, rule_type);
+
+        CREATE TABLE IF NOT EXISTS cover_images (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_num    INTEGER NOT NULL,
+            filename    TEXT NOT NULL,
+            is_final    BOOLEAN DEFAULT FALSE,
+            imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(book_num, filename)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_ci
+            ON cover_images(book_num, is_final);
     """)
     conn.commit()
 

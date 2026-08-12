@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- `import_cover_image(book_slug, source_path, is_final=False)` MCP tool — copies an
+  externally-generated cover image (Midjourney/DALL-E output, outside StoryForge's control)
+  into `{project}/cover/art/` and records it in a new `cover_images` SQLite table with a
+  draft/final flag. Marking an import final clears the flag on any previously final image
+  for the same book, so at most one file is ever "the" final version. Re-importing the same
+  source file is idempotent (#551).
 
 ### Changed
 - `BODY_PARTS` vocabulary gained `chins`/`elbows`/`wrists`/`thumbs` — n-grams containing
