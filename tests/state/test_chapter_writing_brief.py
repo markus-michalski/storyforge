@@ -417,6 +417,41 @@ class TestBriefGracefulDegrade:
                 plugin_root=plugin_root,
             )
 
+    def test_malicious_series_frontmatter_degrades_rules_and_callbacks(
+        self, tmp_path, db_dir
+    ):
+        """Issue #548: load_rules_for_brief/load_callbacks_for_brief are the
+        only two sub-loaders in build_chapter_writing_brief not wrapped in
+        recorder.run(...). A traversal `series:` value makes their internal
+        get_canon_db_path() -> _validate_slug() raise SlugValidationError,
+        which isn't a sqlite3.Error/OSError, so it used to propagate out of
+        build_chapter_writing_brief entirely (via @catch_slug_value_error at
+        the router) instead of degrading gracefully like every other
+        sub-loader failure."""
+        book, plugin_root = _setup_book(tmp_path)
+        (book / "README.md").write_text(
+            '---\ntitle: "Test Book"\nauthor: ""\nseries: "../../../../tmp/evil"\n---\n\n# Test Book\n',
+            encoding="utf-8",
+        )
+        _make_chapter(book, "01-intro", number=1, title="Intro", pov="Theo")
+        _add_character(book, "theo", name="Theo")
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
+        )
+
+        assert brief["rules_to_honor"] == []
+        assert brief["callbacks_in_register"] == []
+        components = {e["component"] for e in brief["errors"]}
+        assert "rules_to_honor" in components
+        assert "callbacks_in_register" in components
+        # Everything gathered before the bad sub-loaders still ships.
+        assert brief["pov_character"] == "Theo"
+        assert brief["characters_present"]
+
 
 # ---------------------------------------------------------------------------
 # Determinism + serialization

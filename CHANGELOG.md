@@ -95,6 +95,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   back at the real install, the same stdlib-redirection mechanism `python -m venv`
   itself uses, so no directory ever needs copying. A new test spawns the copied
   interpreter for real to verify it actually starts (#545).
+- `build_chapter_writing_brief` raised instead of degrading when a book's
+  `series:` frontmatter was a traversal payload: `load_rules_for_brief` and
+  `load_callbacks_for_brief` were the only two sub-loaders called outside the
+  `recorder.run()` graceful-degrade wrapper, so a `SlugValidationError` deep in
+  `open_canon_db()` failed the entire brief instead of shipping with partial
+  data like every other sub-loader failure. Both are now wrapped; the brief
+  ships with empty `rules_to_honor`/`callbacks_in_register` plus an `errors`
+  entry (#548).
 
 ### Security
 - `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a

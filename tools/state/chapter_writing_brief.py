@@ -467,8 +467,16 @@ def build_chapter_writing_brief(
     )
 
     # ----- rules + callbacks from book_rules DB (#304) ----------------------
-    rules_to_honor = load_rules_for_brief(book_root)
-    callbacks_in_register = load_callbacks_for_brief(book_root)
+    rules_to_honor = recorder.run(
+        "rules_to_honor",
+        lambda: load_rules_for_brief(book_root),
+        [],
+    )
+    callbacks_in_register = recorder.run(
+        "callbacks_in_register",
+        lambda: load_callbacks_for_brief(book_root),
+        [],
+    )
 
     banned_phrases = recorder.run(
         "banned_phrases",
