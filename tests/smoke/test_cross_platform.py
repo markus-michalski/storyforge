@@ -322,6 +322,13 @@ def test_setup_skill_uses_write_then_run_for_multiline_python_not_inline_c():
 
 UNENCODED_FILE_IO = re.compile(r"(?<![\w.])(?:\w+\.)?(?:open|write_text|read_text)\(")
 NON_PATH_OPEN_RECEIVERS = ("fitz.open(", "zipfile.open(", "tarfile.open(")
+# Any binary-mode literal ('rb', 'wb', 'xb', 'ab', 'rb+', 'r+b', ...) — binary
+# mode never takes encoding= (Python raises ValueError if you try), so any
+# open() call carrying one of these is exempt by construction, not just the
+# 'rb'/'wb' literals originally special-cased here. Expressed as a pattern
+# rather than an enumerated literal list so it doesn't need re-widening the
+# next time a new binary-mode spelling shows up (#555).
+BINARY_OPEN_MODE = re.compile(r"""['"][rwxa]\+?b\+?['"]""")
 
 
 def _call_span(source: str, open_paren_index: int) -> str:
@@ -357,7 +364,12 @@ def test_no_unencoded_file_io_in_source():
                 if any(source[match.start() :].startswith(r) for r in NON_PATH_OPEN_RECEIVERS):
                     continue
                 call = _call_span(source, match.end() - 1)
-                if "encoding=" not in call and "'rb'" not in call and '"rb"' not in call and "'wb'" not in call and '"wb"' not in call:
+                # The binary-mode exemption only applies to open(...) — write_text()/
+                # read_text() take no mode argument, so a literal like 'ab' appearing
+                # in their arguments for unrelated reasons (e.g. an actual two-char
+                # string payload) must not be mistaken for a binary-mode marker.
+                is_open_call = match.group(0).endswith("open(")
+                if "encoding=" not in call and not (is_open_call and BINARY_OPEN_MODE.search(call)):
                     lineno = source.count("\n", 0, match.start()) + 1
                     violations.append(f"{path.relative_to(ROOT)}:{lineno}: {match.group(0)}")
     assert not violations, 'Missing encoding="utf-8":\n' + "\n".join(violations)
