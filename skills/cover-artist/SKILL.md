@@ -115,6 +115,9 @@ Include size requirements:
 - **Print:** 6x9 inches at 300 DPI = 1800 x 2700px
 - **Always generate WITHOUT text** — add title/author in post-processing
 
+### Step 5: Next Steps
+- Once the image is generated externally, `import_cover_image` copies it into the project and records whether it's a draft or the final version.
+
 ## Rules
 - ALWAYS specify "no text" in prompts — text will be added separately
 - Prompt length limits (fiction and memoir alike): DALL-E prompts max 80 words, Midjourney prompts max 200 characters — before finalizing, check each prompt against its limit and trim any that run over
