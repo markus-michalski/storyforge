@@ -8,18 +8,25 @@ import sqlite3
 def upsert_cover_image(
     conn: sqlite3.Connection,
     *,
-    book_num: int,
+    book_slug: str,
     filename: str,
     is_final: bool = False,
 ) -> None:
-    """Record an imported cover image file, keyed on (book_num, filename).
+    """Record an imported cover image file, keyed on (book_slug, filename).
 
     Re-importing the same filename updates its ``is_final`` flag and
     ``imported_at`` timestamp rather than creating a duplicate row.
 
     When ``is_final=True``, every other cover image recorded for this
-    book_num is cleared to ``is_final=0`` first — only one file can be
+    book_slug is cleared to ``is_final=0`` first — only one file can be
     "the" final version a consumer (e.g. Pandoc export) should use.
+
+    Keyed on ``book_slug`` rather than ``book_num`` (#558): ``book_num``
+    defaults to 1 whenever a book's README frontmatter is missing or has an
+    unparseable ``series_number``, so two under-specified books in the same
+    series-scoped DB would otherwise collide on ``book_num=1`` — sharing
+    rows and clobbering each other's final-cover flag. ``book_slug`` is
+    unique per book even within a series.
 
     The clear-then-upsert pair runs inside one explicit transaction
     (``with conn:``) rather than the old trailing ``conn.commit()`` after
@@ -40,40 +47,40 @@ def upsert_cover_image(
     with conn:
         if is_final:
             conn.execute(
-                "UPDATE cover_images SET is_final = 0 WHERE book_num = ? AND filename != ?",
-                (book_num, filename),
+                "UPDATE cover_images SET is_final = 0 WHERE book_slug = ? AND filename != ?",
+                (book_slug, filename),
             )
         conn.execute(
             """
-            INSERT INTO cover_images (book_num, filename, is_final)
+            INSERT INTO cover_images (book_slug, filename, is_final)
             VALUES (?, ?, ?)
-            ON CONFLICT(book_num, filename) DO UPDATE SET
+            ON CONFLICT(book_slug, filename) DO UPDATE SET
                 is_final = excluded.is_final,
                 imported_at = CURRENT_TIMESTAMP
             """,
-            (book_num, filename, int(is_final)),
+            (book_slug, filename, int(is_final)),
         )
 
 
-def get_final_cover_image(conn: sqlite3.Connection, *, book_num: int) -> str | None:
+def get_final_cover_image(conn: sqlite3.Connection, *, book_slug: str) -> str | None:
     """Return the filename marked as final for this book, or None.
 
     Ordered by ``imported_at DESC, id DESC`` even though the
     ``idx_ci_one_final`` partial unique index (tools/db/connection.py)
-    should make at most one ``is_final=1`` row possible per ``book_num`` —
+    should make at most one ``is_final=1`` row possible per ``book_slug`` —
     defense in depth, matching M-2's fix below, so a hand-edited DB that
     somehow violates that invariant returns the most recent match instead
     of an arbitrary one from an unordered ``LIMIT 1`` (#556 L-1).
     """
     row = conn.execute(
-        "SELECT filename FROM cover_images WHERE book_num = ? AND is_final = 1 "
+        "SELECT filename FROM cover_images WHERE book_slug = ? AND is_final = 1 "
         "ORDER BY imported_at DESC, id DESC LIMIT 1",
-        (book_num,),
+        (book_slug,),
     ).fetchone()
     return row["filename"] if row else None
 
 
-def list_cover_images(conn: sqlite3.Connection, *, book_num: int) -> list[dict]:
+def list_cover_images(conn: sqlite3.Connection, *, book_slug: str) -> list[dict]:
     """Return every cover image recorded for this book, newest first.
 
     Ordered by ``imported_at DESC, id DESC`` — ``imported_at`` alone is not
@@ -90,7 +97,7 @@ def list_cover_images(conn: sqlite3.Connection, *, book_num: int) -> list[dict]:
     """
     rows = conn.execute(
         "SELECT filename, is_final, imported_at FROM cover_images "
-        "WHERE book_num = ? ORDER BY imported_at DESC, id DESC",
-        (book_num,),
+        "WHERE book_slug = ? ORDER BY imported_at DESC, id DESC",
+        (book_slug,),
     ).fetchall()
     return [dict(r) for r in rows]
