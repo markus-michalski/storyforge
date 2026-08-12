@@ -15,6 +15,10 @@ argument-hint: "<series-name>"
 
 Before asking questions, check whether the user is resuming work on an existing series:
 - If a series slug is provided or deducible, call `list_series_trackers_for_book(series_slug, "B1")` to surface existing trackers.
+- If `invalid_trackers` is non-empty: report each entry's `tracker_slug` and `path`
+  as a tracker file that failed validation and was excluded from the listing
+  (hand-edited or pre-#524 file, issue #549) — do this before reporting counts,
+  so the orientation summary is never silently short a character.
 - Report how many trackers exist and which characters are already tracked — this prevents duplicates and gives the user immediate orientation.
 - Skip the check when the user's own framing makes clear this is a brand-new series (e.g. "I want to plan a new series called X", "let's start a new series") — trust that signal rather than querying anyway just to double-check. Only call the lookup when a slug is given/deducible AND nothing in the request signals "new."
 

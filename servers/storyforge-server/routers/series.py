@@ -22,6 +22,7 @@ import yaml
 from tools.db.character_snapshots import get_latest_snapshot_for_book
 from tools.db.connection import get_book_num, get_canon_db_path, get_db_slug_for_book, open_canon_db
 from tools.shared.paths import (
+    SlugValidationError,
     _validate_slug,
     catch_slug_value_error,
     resolve_people_dir,
@@ -32,6 +33,7 @@ from tools.shared.paths import (
 )
 from tools.state.loaders.series import (
     RE_BAND_ID,
+    _try_parse_series_tracker,
     append_updates_log_entry,
     find_series_trackers,
     parse_evolution_sections,
@@ -394,10 +396,19 @@ def list_series_trackers_for_book(
         series_slug: Series slug.
         band: Band id (``"B1"``, ``"B2"``, ...).
 
+    A tracker whose resolved ``book_slug`` fails validation, or that
+    can't even be read (non-UTF-8 content — review finding L-4), is
+    skipped rather than aborting the whole listing (Issue #549) — either
+    way it's reported in ``invalid_trackers`` instead. Named distinctly
+    from ``copy_recurring_chars_to_new_book``'s unrelated ``skipped``
+    field (a benign "destination already exists" no-op) so the two
+    aren't conflated by a caller reading both tools' JSON.
+
     Returns:
         ``{trackers: [{tracker_slug, book_slug, name, role, recurs_in,
-        has_existing_ende, existing_ende, path}, ...]}`` JSON or
-        ``{error}`` on validation / not-found failure.
+        has_existing_ende, existing_ende, path}, ...], invalid_trackers:
+        [{tracker_slug, path, error}, ...]}`` JSON or ``{error}`` on
+        validation / not-found failure.
     """
     if not RE_BAND_ID.match(band):
         return json.dumps({"error": f"band must match B<N> (e.g. 'B1') — got {band!r}"})
@@ -408,16 +419,33 @@ def list_series_trackers_for_book(
         return json.dumps({"error": f"Series '{series_slug}' not found"})
 
     out: list[dict] = []
+    invalid_trackers: list[dict[str, str]] = []
     for tracker_path in find_series_trackers(series_dir):
-        tracker = parse_series_tracker(tracker_path)
+        tracker, read_err = _try_parse_series_tracker(tracker_path)
+        if tracker is None:
+            invalid_trackers.append(
+                {"tracker_slug": tracker_path.stem, "path": str(tracker_path), "error": read_err or ""}
+            )
+            continue
         if band not in tracker["recurs_in"]:
+            continue
+        try:
+            book_slug = resolve_book_slug_for_series_tracker(tracker)
+        except SlugValidationError as exc:
+            invalid_trackers.append(
+                {
+                    "tracker_slug": tracker["slug"],
+                    "path": str(tracker_path),
+                    "error": str(exc),
+                }
+            )
             continue
         sections = parse_evolution_sections(tracker_path)
         existing_ende = sections.get(band, {}).get("ende", "")
         out.append(
             {
                 "tracker_slug": tracker["slug"],
-                "book_slug": resolve_book_slug_for_series_tracker(tracker),
+                "book_slug": book_slug,
                 "name": tracker["name"],
                 "role": tracker["role"],
                 "recurs_in": tracker["recurs_in"],
@@ -427,7 +455,7 @@ def list_series_trackers_for_book(
             }
         )
 
-    return json.dumps({"trackers": out})
+    return json.dumps({"trackers": out, "invalid_trackers": invalid_trackers})
 
 
 @mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
@@ -548,7 +576,13 @@ def copy_recurring_chars_to_new_book(
           for trackers whose first appearance is ``new_band`` (no source
           to copy from — author must create manually)
 
-        ``{error}`` on validation / not-found failure.
+        ``{error, tracker_errors}`` on validation / not-found failure.
+        ``tracker_errors`` (list of ``{tracker_slug, path, error}``) is
+        present when at least one series-tracker in ``new_band`` failed
+        slug validation (hand-edited or pre-#524 file) — the whole copy
+        is aborted before touching disk rather than copying the valid
+        trackers and silently dropping the invalid ones (Issue #542's
+        all-or-nothing write guarantee, re-verified for Issue #549).
     """
     if not RE_BAND_ID.match(new_band):
         return json.dumps({"error": f"new_band must match B<N> (e.g. 'B2') — got {new_band!r}"})
@@ -566,6 +600,28 @@ def copy_recurring_chars_to_new_book(
     if not new_dir.exists():
         return json.dumps({"error": f"New book '{new_book_slug}' not found"})
 
+    trackers, tracker_errors = recurring_chars_for_book(series_dir, new_band)
+    if tracker_errors:
+        # Issue #549: recurring_chars_for_book() now skips invalid
+        # trackers internally instead of raising mid-list-comprehension,
+        # but this WRITE-target tool still needs #542's all-or-nothing
+        # guarantee — a malicious tracker anywhere in the band must block
+        # every copy in the same call, not just its own. Checked before
+        # any directory is created or file is touched (issue #549 review
+        # finding L-2) so an aborted call leaves zero side effects, and
+        # the full list (not just the first entry) is returned so the
+        # author can fix every offending tracker in one pass instead of
+        # discovering them one fix-and-retry at a time (finding M-2).
+        return json.dumps(
+            {
+                "error": (
+                    f"{len(tracker_errors)} series-tracker(s) failed validation — "
+                    "aborting the whole copy so no partial state is written"
+                ),
+                "tracker_errors": tracker_errors,
+            }
+        )
+
     layout = "people" if book_category == "memoir" else "characters"
     src_layout = resolve_people_dir(prev_dir, "memoir") if book_category == "memoir" else prev_dir / "characters"
     dst_layout = resolve_people_dir(new_dir, "memoir") if book_category == "memoir" else new_dir / "characters"
@@ -575,7 +631,7 @@ def copy_recurring_chars_to_new_book(
     skipped: list[dict[str, str]] = []
     new_chars: list[dict] = []
 
-    for tracker in recurring_chars_for_book(series_dir, new_band):
+    for tracker in trackers:
         tracker_slug = tracker["tracker_slug"]
         book_slug = tracker["book_slug"]
         # recurring_chars_for_book() already validates book_slug via

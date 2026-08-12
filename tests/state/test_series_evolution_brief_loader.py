@@ -16,7 +16,10 @@ matching tracker exists, or section parsing yields nothing useful.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+
+import pytest
 
 from tools.state.loaders.series import (
     build_series_evolution_for_character,
@@ -86,6 +89,58 @@ class TestFindTrackerForBookCharacter:
         result = find_tracker_for_book_character(tmp_path, "caelan")
         assert result is not None
         assert result.name == "king-caelan.md"  # sorted alphabetically
+
+    def test_skips_malicious_tracker_sorted_before_the_real_match(self, tmp_path: Path) -> None:
+        # Issue #549: a hand-edited/pre-#524 tracker with a traversal
+        # book_slug sorts before the real match ("a-evil" < "kael")
+        # and used to abort resolve_book_slug_for_series_tracker with
+        # SlugValidationError, so every tracker sorted after it — including
+        # the legitimate one — was never examined.
+        chars_dir = tmp_path / "characters"
+        _make_tracker(chars_dir, "a-evil", book_slug="../../../../tmp/evil")
+        _make_tracker(chars_dir, "kael")
+        result = find_tracker_for_book_character(tmp_path, "kael")
+        assert result is not None
+        assert result.name == "kael.md"
+
+    def test_skips_unreadable_tracker_sorted_before_the_real_match(self, tmp_path: Path) -> None:
+        # Review finding L-4 on issue #549: a non-UTF-8 tracker file must
+        # not abort the whole reverse lookup any more than an invalid
+        # slug does.
+        chars_dir = tmp_path / "characters"
+        (chars_dir).mkdir(parents=True, exist_ok=True)
+        (chars_dir / "a-corrupt.md").write_bytes(b"\xff\xfe\x00\x01garbage")
+        _make_tracker(chars_dir, "kael")
+        result = find_tracker_for_book_character(tmp_path, "kael")
+        assert result is not None
+        assert result.name == "kael.md"
+
+    def test_logs_a_warning_when_skipping_a_malicious_tracker(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # Test-gap closed after the branch's own test-execution report (Q3):
+        # both logger.warning() calls in find_tracker_for_book_character
+        # were executed by existing tests but never asserted on — the log
+        # line could have been silently deleted without failing anything.
+        chars_dir = tmp_path / "characters"
+        _make_tracker(chars_dir, "a-evil", book_slug="../../../../tmp/evil")
+        _make_tracker(chars_dir, "kael")
+        with caplog.at_level(logging.WARNING, logger="tools.state.loaders.series"):
+            result = find_tracker_for_book_character(tmp_path, "kael")
+        assert result is not None
+        assert any("a-evil" in r.getMessage() for r in caplog.records)
+
+    def test_logs_a_warning_when_skipping_an_unreadable_tracker(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        chars_dir = tmp_path / "characters"
+        (chars_dir).mkdir(parents=True, exist_ok=True)
+        (chars_dir / "a-corrupt.md").write_bytes(b"\xff\xfe\x00\x01garbage")
+        _make_tracker(chars_dir, "kael")
+        with caplog.at_level(logging.WARNING, logger="tools.state.loaders.series"):
+            result = find_tracker_for_book_character(tmp_path, "kael")
+        assert result is not None
+        assert any("a-corrupt" in r.getMessage() for r in caplog.records)
 
 
 class TestBuildSeriesEvolutionForCharacter:

@@ -383,3 +383,58 @@ class TestListSeriesTrackersForBook:
         (content_root / "series" / "my-series").mkdir(parents=True)
         result = json.loads(list_series_trackers_for_book("my-series", "B1"))
         assert result["trackers"] == []
+
+    def test_skips_malicious_tracker_and_reports_it_in_invalid_trackers(self, mock_config, content_root: Path):
+        # Issue #549: a hand-edited/pre-#524 tracker with a traversal
+        # book_slug used to abort the whole listing via SlugValidationError
+        # instead of being skipped — every other tracker in the series
+        # (potentially dozens) disappeared from the result too.
+        _make_tracker(content_root, "my-series", "a-good", recurs_in=["B1"])
+        _make_tracker(
+            content_root,
+            "my-series",
+            "z-evil",
+            book_slug="../../../../tmp/evil",
+            recurs_in=["B1"],
+        )
+        result = json.loads(list_series_trackers_for_book("my-series", "B1"))
+        assert "error" not in result
+        slugs = [t["tracker_slug"] for t in result["trackers"]]
+        assert slugs == ["a-good"]
+        assert len(result["invalid_trackers"]) == 1
+        assert result["invalid_trackers"][0]["tracker_slug"] == "z-evil"
+        assert "book_slug" in result["invalid_trackers"][0]["error"]
+
+    def test_skips_unreadable_tracker_and_reports_it_in_invalid_trackers(self, mock_config, content_root: Path):
+        # Review finding L-4 on issue #549: a non-UTF-8 tracker file must
+        # not abort the whole listing any more than an invalid slug does.
+        _make_tracker(content_root, "my-series", "a-good", recurs_in=["B1"])
+        chars_dir = content_root / "series" / "my-series" / "characters"
+        (chars_dir / "z-corrupt.md").write_bytes(b"\xff\xfe\x00\x01garbage")
+
+        result = json.loads(list_series_trackers_for_book("my-series", "B1"))
+        assert "error" not in result
+        slugs = [t["tracker_slug"] for t in result["trackers"]]
+        assert slugs == ["a-good"]
+        assert len(result["invalid_trackers"]) == 1
+        assert result["invalid_trackers"][0]["tracker_slug"] == "z-corrupt"
+
+    def test_skips_malicious_tracker_sorted_before_a_good_one(self, mock_config, content_root: Path):
+        # Test-gap closed after the branch's own test-execution report
+        # (Q2): every prior malicious-tracker test at this layer sorted
+        # the bad tracker AFTER the good one.
+        _make_tracker(
+            content_root,
+            "my-series",
+            "a-evil",
+            book_slug="../../../../tmp/pwned-router",
+            recurs_in=["B1"],
+        )
+        _make_tracker(content_root, "my-series", "z-good", recurs_in=["B1"])
+
+        result = json.loads(list_series_trackers_for_book("my-series", "B1"))
+        assert "error" not in result
+        slugs = [t["tracker_slug"] for t in result["trackers"]]
+        assert slugs == ["z-good"]
+        assert len(result["invalid_trackers"]) == 1
+        assert result["invalid_trackers"][0]["tracker_slug"] == "a-evil"

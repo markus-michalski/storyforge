@@ -65,7 +65,15 @@ mcp__storyforge-mcp__list_series_trackers_for_book(
 ```
 
 Returns `{"trackers": [{tracker_slug, book_slug, name, role, recurs_in,
-has_existing_ende, existing_ende, path}, ...]}`.
+has_existing_ende, existing_ende, path}, ...], "invalid_trackers":
+[{tracker_slug, path, error}, ...]}`.
+
+If `invalid_trackers` is non-empty: report each entry's `tracker_slug`
+and `path` to the author as a tracker that failed validation and was
+excluded from the listing — this indicates a hand-edited or pre-#524
+tracker file that needs repair. Do this **before** the `trackers == []`
+check below, so a run where every tracker was invalid is never reported
+as "nothing to harvest" (issue #549).
 
 If `trackers == []`: report "No recurring trackers for {band} in
 {series_slug} — nothing to harvest" and exit.
