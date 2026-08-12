@@ -554,10 +554,13 @@ class TestCopyExclusiveWithRetry:
         src.write_bytes(b"content")
         dest = dest_dir / "cover.png"
 
-        result = cover_module._copy_exclusive_with_retry(dest_dir, src, dest)
+        result, created = cover_module._copy_exclusive_with_retry(dest_dir, src, dest)
 
         assert result == dest
         assert dest.read_bytes() == b"content"
+        # This call performed the O_EXCL write itself — #567's cleanup-on-
+        # DB-failure path relies on this flag to know it's safe to unlink.
+        assert created is True
 
     def test_race_with_different_content_retries_to_next_suffix(self, tmp_path: Path):
         dest_dir = tmp_path / "art"
@@ -570,13 +573,21 @@ class TestCopyExclusiveWithRetry:
         # this call should use it.
         dest.write_bytes(b"raced-content")
 
-        result = cover_module._copy_exclusive_with_retry(dest_dir, src, dest)
+        result, created = cover_module._copy_exclusive_with_retry(dest_dir, src, dest)
 
         assert result == dest_dir / "cover-2.png"
         assert result.read_bytes() == b"new-content"
         assert dest.read_bytes() == b"raced-content"
+        # The numbered suffix was free, so this call's O_EXCL write created it.
+        assert created is True
 
     def test_race_with_identical_content_reuses_file(self, tmp_path: Path):
+        """#567 H-1: the FileExistsError/byte-identical branch reuses a file
+        this call did NOT create — a concurrent writer (or an earlier call)
+        did. ``created`` must come back False so a caller never deletes a
+        file it doesn't own on a later failure (see import_cover_image's
+        DB-failure cleanup, which orphaned the *other* writer's already-
+        committed DB row before this was fixed)."""
         dest_dir = tmp_path / "art"
         dest_dir.mkdir()
         src = tmp_path / "src.png"
@@ -584,9 +595,10 @@ class TestCopyExclusiveWithRetry:
         dest = dest_dir / "cover.png"
         dest.write_bytes(b"same-content")
 
-        result = cover_module._copy_exclusive_with_retry(dest_dir, src, dest)
+        result, created = cover_module._copy_exclusive_with_retry(dest_dir, src, dest)
 
         assert result == dest
+        assert created is False
 
     def test_overflow_raises_runtime_error(self, tmp_path: Path, monkeypatch):
         monkeypatch.setattr(cover_module, "_MAX_COVER_VARIANTS", 2)
@@ -662,17 +674,15 @@ class TestFilesIdentical:
 
 
 class TestImportCoverImageDbFailureAfterCopy:
-    """Issue #560 item 2: upsert_cover_image() raising *after*
-    shutil.copyfile already succeeded leaves an orphaned file with no DB
-    record — the mirror image of the #551 H-1 bug (which was about
+    """Issue #560 item 2 / #567: upsert_cover_image() raising *after*
+    shutil.copyfile already succeeded used to leave an orphaned file with no
+    DB record — the mirror image of the #551 H-1 bug (which was about
     idempotent re-import after a filename collision, not this direction).
-    This is currently unhandled: the exception propagates straight out of
-    import_cover_image, uncaught. This test pins that behavior — documents
-    the gap with an explicit assertion rather than leaving it accidental —
-    it is not a fix. Tracked for a real fix as issue #567; when that lands,
-    invert this test to assert the orphan is cleaned up instead."""
+    #567 closed that gap: import_cover_image() now catches the DB failure,
+    removes the just-copied file, and returns a clean {"error": ...} instead
+    of letting the exception propagate."""
 
-    def test_db_write_failure_after_copy_leaves_orphaned_file_and_propagates(
+    def test_db_write_failure_after_copy_removes_orphaned_file_and_returns_error(
         self, mock_env, content_root: Path, tmp_path: Path, monkeypatch
     ):
         book_dir = _make_book(content_root, "firelight")
@@ -685,16 +695,19 @@ class TestImportCoverImageDbFailureAfterCopy:
 
         monkeypatch.setattr(cover_module, "upsert_cover_image", _raise)
 
-        with pytest.raises(sqlite3.OperationalError, match="simulated DB failure"):
-            import_cover_image(book_slug="firelight", source_path=str(src))
+        result = json.loads(import_cover_image(book_slug="firelight", source_path=str(src)))
 
-        # The copy already happened before the DB write was attempted —
-        # that's the gap being pinned, not asserted as correct behavior.
+        assert "error" in result
+        assert "simulated DB failure" in result["error"]
+
+        # The copy happened before the DB write was attempted, but the
+        # cleanup on failure must remove it — no orphaned file left behind.
         dest = book_dir / "cover" / "art" / "cover.png"
-        assert dest.exists()
+        assert not dest.exists()
+        art_files = list((book_dir / "cover" / "art").iterdir())
+        assert art_files == []
 
-        # And the file is genuinely orphaned: no matching DB row, since the
-        # upsert itself is what raised.
+        # And no DB row either, since the upsert itself is what raised.
         from tools.db.connection import get_db_slug_for_book, open_canon_db
         from tools.shared.paths import resolve_project_path
 
@@ -703,6 +716,136 @@ class TestImportCoverImageDbFailureAfterCopy:
         try:
             rows = conn.execute("SELECT COUNT(*) as cnt FROM cover_images WHERE book_slug = 'firelight'").fetchone()
             assert rows["cnt"] == 0
+        finally:
+            conn.close()
+
+    def test_db_write_failure_where_cleanup_unlink_also_fails_returns_clean_error(
+        self, mock_env, content_root: Path, tmp_path: Path, monkeypatch
+    ):
+        """#567 M-1: the cleanup unlink() itself can raise (e.g. a locked
+        file on Windows, a read-only mount on POSIX). That must not escape
+        import_cover_image() and defeat the whole point of #567 — it must
+        still return a clean {"error": ...} instead of propagating."""
+        _make_book(content_root, "firelight")
+        src = _make_source_image(tmp_path)
+
+        import routers.cover as cover_module
+
+        def _raise_db(*args, **kwargs):
+            raise sqlite3.OperationalError("simulated DB failure")
+
+        monkeypatch.setattr(cover_module, "upsert_cover_image", _raise_db)
+
+        original_unlink = Path.unlink
+
+        def _flaky_unlink(self, *args, **kwargs):
+            if self.name == "cover.png":
+                raise PermissionError("simulated unlink failure")
+            return original_unlink(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "unlink", _flaky_unlink)
+
+        result = json.loads(import_cover_image(book_slug="firelight", source_path=str(src)))
+
+        assert "error" in result
+        assert "simulated DB failure" in result["error"]
+        assert "simulated unlink failure" in result["error"]
+
+    def test_db_write_failure_on_reused_identical_file_does_not_delete_it(
+        self, mock_env, content_root: Path, tmp_path: Path, monkeypatch
+    ):
+        """needs_copy=False means dest was NOT written by this call — it's a
+        pre-existing, byte-identical file from an earlier successful import.
+        A DB failure on this call must not delete a file it didn't create."""
+        book_dir = _make_book(content_root, "firelight")
+        src = _make_source_image(tmp_path)
+
+        # First import succeeds normally, establishing the on-disk file.
+        first = json.loads(import_cover_image(book_slug="firelight", source_path=str(src)))
+        assert first.get("success") is True
+        dest = book_dir / "cover" / "art" / "cover.png"
+        assert dest.exists()
+
+        import routers.cover as cover_module
+
+        def _raise(*args, **kwargs):
+            raise sqlite3.OperationalError("simulated DB failure")
+
+        monkeypatch.setattr(cover_module, "upsert_cover_image", _raise)
+
+        result = json.loads(import_cover_image(book_slug="firelight", source_path=str(src)))
+
+        assert "error" in result
+        # needs_copy was False (byte-identical reuse) — the pre-existing
+        # file must survive this failed call untouched.
+        assert dest.exists()
+
+        # And the first import's DB row must survive untouched too — a
+        # cleanup path that deletes the row instead of (or as well as) the
+        # file would pass a file-only assertion while still orphaning state.
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+        from tools.shared.paths import resolve_project_path
+
+        book_root = resolve_project_path(mock_env, "firelight")
+        conn = open_canon_db(get_db_slug_for_book(book_root))
+        try:
+            rows = conn.execute("SELECT COUNT(*) as cnt FROM cover_images WHERE book_slug = 'firelight'").fetchone()
+            assert rows["cnt"] == 1
+        finally:
+            conn.close()
+
+    def test_db_write_failure_after_toctou_race_does_not_delete_other_writers_file(
+        self, mock_env, content_root: Path, tmp_path: Path, monkeypatch
+    ):
+        """#567 H-1: needs_copy=True only reflects what _resolve_dest_path()
+        saw at decision time — it does NOT mean this call is the one that
+        ends up creating the file. If a concurrent import wins the O_EXCL
+        race inside _copy_exclusive_with_retry() and this call reuses that
+        writer's byte-identical file (created_here=False even though
+        needs_copy was True), a subsequent DB failure on *this* call must
+        not delete a file — and orphan a DB row — that belongs to the
+        other, already-committed import."""
+        book_dir = _make_book(content_root, "firelight")
+        src = _make_source_image(tmp_path)
+        dest = book_dir / "cover" / "art" / "cover.png"
+
+        import routers.cover as cover_module
+        from tools.db.connection import get_db_slug_for_book, open_canon_db
+        from tools.db.cover_images import upsert_cover_image as real_upsert_cover_image
+        from tools.shared.paths import resolve_project_path
+
+        # Force needs_copy=True, as _resolve_dest_path() would if it ran
+        # before the "concurrent writer" below placed the file — the real
+        # _copy_exclusive_with_retry() then runs unmocked and hits the
+        # genuine FileExistsError/byte-identical branch.
+        monkeypatch.setattr(cover_module, "_resolve_dest_path", lambda dest_dir, src: (dest, True))
+
+        book_root = resolve_project_path(mock_env, "firelight")
+        db_slug = get_db_slug_for_book(book_root)
+        conn = open_canon_db(db_slug)
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(src.read_bytes())
+            real_upsert_cover_image(conn, book_slug="firelight", filename="cover.png", is_final=False)
+        finally:
+            conn.close()
+
+        def _raise(*args, **kwargs):
+            raise sqlite3.OperationalError("simulated DB failure")
+
+        monkeypatch.setattr(cover_module, "upsert_cover_image", _raise)
+
+        result = json.loads(import_cover_image(book_slug="firelight", source_path=str(src)))
+
+        assert "error" in result
+        # The other writer's file must survive — this call never created it.
+        assert dest.exists()
+
+        conn = open_canon_db(db_slug)
+        try:
+            rows = conn.execute("SELECT COUNT(*) as cnt FROM cover_images WHERE book_slug = 'firelight'").fetchone()
+            # The other writer's already-committed row must survive too.
+            assert rows["cnt"] == 1
         finally:
             conn.close()
 
