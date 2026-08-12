@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -86,3 +87,98 @@ class TestListCoverImages:
         upsert_cover_image(conn, book_num=1, filename="a.png", is_final=False)
         result = list_cover_images(conn, book_num=1)
         assert {"filename", "is_final", "imported_at"} <= result[0].keys()
+
+    def test_same_second_batch_orders_by_id_desc_not_insertion_order(self, conn):
+        """#556 M-2: SQLite's CURRENT_TIMESTAMP has 1-second resolution, so
+        a batch of imports landing within the same second degrades
+        imported_at-only ordering to insertion order — the opposite of
+        newest-first. Force all rows to an identical timestamp so this
+        test is deterministic regardless of how fast it actually runs, and
+        assert id DESC (monotonically increasing) breaks the tie correctly."""
+        upsert_cover_image(conn, book_num=1, filename="a.png", is_final=False)
+        upsert_cover_image(conn, book_num=1, filename="b.png", is_final=False)
+        upsert_cover_image(conn, book_num=1, filename="c.png", is_final=False)
+        conn.execute("UPDATE cover_images SET imported_at = '2026-01-01 00:00:00' WHERE book_num = 1")
+        conn.commit()
+
+        result = list_cover_images(conn, book_num=1)
+
+        assert [r["filename"] for r in result] == ["c.png", "b.png", "a.png"]
+
+
+class TestOneCoverFinalPerBookSchemaInvariant:
+    """#556 L-1: the one-final-per-book invariant is now enforced at the
+    schema level (a partial unique index), not just by upsert_cover_image()'s
+    application-level clear-then-insert."""
+
+    def test_direct_sql_insert_of_second_final_row_is_rejected(self, conn):
+        upsert_cover_image(conn, book_num=1, filename="a.png", is_final=True)
+
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                "INSERT INTO cover_images (book_num, filename, is_final) VALUES (?, ?, ?)",
+                (1, "b.png", 1),
+            )
+
+    def test_second_final_row_is_permitted_for_a_different_book(self, conn):
+        upsert_cover_image(conn, book_num=1, filename="a.png", is_final=True)
+        # Must not raise — the index is scoped to book_num, not global.
+        upsert_cover_image(conn, book_num=2, filename="b.png", is_final=True)
+
+    def test_get_final_cover_image_picks_most_recent_if_invariant_ever_broken(self, conn):
+        """Defense in depth (#556 L-1): if the schema-level index were ever
+        absent (e.g. a pre-migration DB) and two rows ended up marked
+        final, get_final_cover_image() must return the most recently
+        imported one rather than an arbitrary row from an unordered
+        LIMIT 1."""
+        conn.execute("DROP INDEX idx_ci_one_final")
+        conn.execute(
+            "INSERT INTO cover_images (book_num, filename, is_final, imported_at) VALUES (?, ?, ?, ?)",
+            (1, "older.png", 1, "2020-01-01 00:00:00"),
+        )
+        conn.execute(
+            "INSERT INTO cover_images (book_num, filename, is_final, imported_at) VALUES (?, ?, ?, ?)",
+            (1, "newer.png", 1, "2025-01-01 00:00:00"),
+        )
+        conn.commit()
+
+        assert get_final_cover_image(conn, book_num=1) == "newer.png"
+
+
+class _FlakyConn:
+    """Wraps a real sqlite3.Connection; the Nth execute() call raises,
+    everything else (including the with-statement transaction protocol)
+    passes through to the real connection unchanged."""
+
+    def __init__(self, real: sqlite3.Connection, fail_on_call: int):
+        self._real = real
+        self._fail_on_call = fail_on_call
+        self._calls = 0
+
+    def execute(self, sql, params=()):
+        self._calls += 1
+        if self._calls == self._fail_on_call:
+            raise sqlite3.IntegrityError("simulated failure")
+        return self._real.execute(sql, params)
+
+    def __enter__(self):
+        self._real.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return self._real.__exit__(exc_type, exc, tb)
+
+
+class TestUpsertCoverImageAtomicity:
+    """#556 L-3: the UPDATE (clear other final flags) + INSERT pair must be
+    one atomic transaction — a failure partway through must not leave the
+    book with the old final flag cleared but no new one set."""
+
+    def test_insert_failure_after_clearing_final_rolls_back_the_clear(self, conn):
+        upsert_cover_image(conn, book_num=1, filename="existing-final.png", is_final=True)
+
+        flaky = _FlakyConn(conn, fail_on_call=2)  # the INSERT, after the UPDATE already ran
+        with pytest.raises(sqlite3.IntegrityError):
+            upsert_cover_image(flaky, book_num=1, filename="new-final.png", is_final=True)
+
+        assert get_final_cover_image(conn, book_num=1) == "existing-final.png"

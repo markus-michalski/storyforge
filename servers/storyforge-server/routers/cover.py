@@ -9,7 +9,6 @@ the final version, so a future export step can find the right file.
 from __future__ import annotations
 from mcp.types import ToolAnnotations
 
-import filecmp
 import json
 from pathlib import Path
 
@@ -202,6 +201,36 @@ def import_cover_image(book_slug: str, source_path: str, is_final: bool = False)
     )
 
 
+def _files_identical(a: Path, b: Path) -> bool:
+    """Byte-for-byte comparison, deliberately not using filecmp (#556 L-4).
+
+    ``filecmp.cmp(..., shallow=False)`` still consults ``filecmp._cache``,
+    a process-global cache keyed on ``(path1, path2, sig1, sig2)`` where the
+    signature is ``(mode, size, mtime)``. On a filesystem with coarse mtime
+    resolution (FAT32: 2s, some network mounts: 1s), a regenerated file
+    written to the same path with the same size within that window can hit
+    a stale cache entry from an earlier, different version of that file —
+    reporting "identical" for content that actually changed. Comparing
+    directly, chunk by chunk, has no such cache to go stale.
+    """
+    if not (a.is_file() and b.is_file()):
+        return False
+    try:
+        if a.stat().st_size != b.stat().st_size:
+            return False
+    except OSError:
+        return False
+    chunk_size = 1024 * 1024
+    with a.open("rb") as fa, b.open("rb") as fb:
+        while True:
+            chunk_a = fa.read(chunk_size)
+            chunk_b = fb.read(chunk_size)
+            if chunk_a != chunk_b:
+                return False
+            if not chunk_a:
+                return True
+
+
 def _resolve_dest_path(dest_dir: Path, src: Path) -> tuple[Path, bool]:
     """Pick the destination path inside dest_dir for a copy of src.
 
@@ -226,7 +255,7 @@ def _resolve_dest_path(dest_dir: Path, src: Path) -> tuple[Path, bool]:
     for counter in range(2, _MAX_COVER_VARIANTS + 1):
         if not candidate.exists():
             return candidate, True
-        if filecmp.cmp(candidate, src, shallow=False):
+        if _files_identical(candidate, src):
             return candidate, False
         candidate = dest_dir / f"{stem}-{counter}{suffix}"
     raise RuntimeError(f"Too many cover image variants named '{stem}{suffix}' in {dest_dir}")
@@ -250,9 +279,9 @@ def _copy_exclusive_with_retry(dest_dir: Path, src: Path, dest: Path) -> Path:
     through one), and retries against the next numbered candidate the same
     way ``_resolve_dest_path()``'s own loop does. A concurrent import of the
     exact same source file is a best-effort convergence, not a guarantee —
-    the ``filecmp`` check below can race against a writer that's still
-    mid-copy and see a false "different" verdict, growing a harmless extra
-    copy rather than corrupting anything.
+    the ``_files_identical()`` check below can race against a writer
+    that's still mid-copy and see a false "different" verdict, growing a
+    harmless extra copy rather than corrupting anything.
 
     Copies in chunks with a running byte count against
     ``_MAX_COVER_IMAGE_BYTES`` rather than trusting the caller's earlier
@@ -295,7 +324,7 @@ def _copy_exclusive_with_retry(dest_dir: Path, src: Path, dest: Path) -> Path:
                     raise
             return dest
         except FileExistsError:
-            if filecmp.cmp(dest, src, shallow=False):
+            if _files_identical(dest, src):
                 return dest
             if counter > _MAX_COVER_VARIANTS:
                 raise RuntimeError(f"Too many cover image variants named '{stem}{suffix}' in {dest_dir}")
