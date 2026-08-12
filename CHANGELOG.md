@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Marking an import final clears the flag on any previously final image for the same
   book, so at most one file is ever "the" final version. Re-importing the same source
   file is idempotent (#551).
+- `get_cover_image(book_slug)` MCP tool — read-side counterpart to `import_cover_image`.
+  Returns the recorded final cover, or falls back to a single untracked file sitting in
+  `cover/art/` that was placed by hand and never imported (with a `warning`; a recorded
+  draft with nothing marked final is reported via `warning` too, rather than guessed at).
+  `export-engineer` now calls this before generating EPUB/PDF output and passes
+  `--epub-cover-image`/a LaTeX title page when a cover is found (#557).
 
 ### Changed
 - `import_cover_image` hardened against unsafe/malformed copy sources (#555): rejects
