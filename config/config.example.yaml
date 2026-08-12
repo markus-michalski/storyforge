@@ -24,6 +24,10 @@ cover:
   platform: "midjourney"    # midjourney, dall-e
   default_style: "realistic"
 
+# Cover typography post-processing (title/author text added after image generation)
+post_processing:
+  tool: "canva"    # canva, gimp, photoshop
+
 # Translation
 translation:
   preserve_formatting: true

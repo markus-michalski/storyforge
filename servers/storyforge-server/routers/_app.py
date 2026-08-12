@@ -12,9 +12,11 @@ from __future__ import annotations
 from mcp.server.mcpserver import MCPServer
 
 from tools.shared.config import (
+    POST_PROCESSING_TOOLS,
     get_book_categories_dir,
     get_content_root,
     get_genres_dir,
+    get_post_processing_tool,
     get_reference_dir,
     get_review_handle,
     load_config,
@@ -34,7 +36,9 @@ __all__ = [
     "load_config",
     "get_content_root",
     "get_genres_dir",
+    "get_post_processing_tool",
     "get_reference_dir",
     "get_review_handle",
     "get_book_categories_dir",
+    "POST_PROCESSING_TOOLS",
 ]

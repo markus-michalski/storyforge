@@ -110,7 +110,7 @@ Memoir prompt variations (generate 3-4 of the four approaches below; not all wil
 
 ### Step 4: Platform Specs
 Include size requirements:
-- **Amazon KDP:** 2560 x 1600px (front cover), 300 DPI
+- **Amazon KDP:** 1600 x 2560px (front cover), 300 DPI
 - **EPUB:** 1600 x 2400px minimum
 - **Print:** 6x9 inches at 300 DPI = 1800 x 2700px
 - **Always generate WITHOUT text** — add title/author in post-processing

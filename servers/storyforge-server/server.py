@@ -129,6 +129,7 @@ from routers.canon import (  # noqa: E402, F401
 )
 from routers.cover import (  # noqa: E402, F401
     get_cover_image,
+    get_post_processing_config,
     import_cover_image,
 )
 from routers.state import (  # noqa: E402, F401

@@ -29,6 +29,7 @@ user-invocable: true
    Pandoc Path:     pandoc          (informational — not in Configurable Settings below)
    Calibre Path:    ebook-convert   (informational — not in Configurable Settings below)
    Cover Platform:  midjourney
+   Post-Proc. Tool: canva
    ```
 3. **Ask what to change** via AskUserQuestion
    Do this even if the user only asked to view the current settings and didn't request a change —
@@ -57,6 +58,7 @@ user-invocable: true
 | Export format | `export.default_format` | epub, pdf, mobi |
 | PDF engine | `export.pdf_engine` | xelatex, pdflatex, wkhtmltopdf |
 | Cover platform | `cover.platform` | midjourney, dall-e |
+| Cover post-processing tool | `post_processing.tool` | canva, gimp, photoshop |
 
 ## Author Profile Settings
 

@@ -1,9 +1,12 @@
-"""Cover-image import — Issue #551.
+"""Cover-image import and post-processing config — Issues #551, #552.
 
 import_cover_image(): copy an externally-generated cover image (Midjourney,
 DALL-E, etc. — StoryForge only generates the prompts via cover-artist, never
 the image itself) into the book project and record whether it's a draft or
 the final version, so a future export step can find the right file.
+
+get_post_processing_config(): read-side accessor for the tool
+cover-typography-mockup uses to add title/author text on top of that image.
 """
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ from mcp.types import ToolAnnotations
 import json
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 import tools.db.connection as _db_conn
 from tools.db.cover_images import get_final_cover_image, list_cover_images, upsert_cover_image
@@ -373,6 +377,33 @@ def get_cover_image(book_slug: str) -> str:
         )
 
     return json.dumps({"cover_image_path": None, "is_final": False})
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, idempotent_hint=True))
+def get_post_processing_config() -> str:
+    """Return the configured cover-typography post-processing tool.
+
+    Mirrors get_review_handle_config() (routers/state.py): a thin read-only
+    accessor so cover-typography-mockup can branch its generated guidance on
+    the author's tool of choice without duplicating config-loading logic.
+    Configurable via post_processing.tool in ~/.storyforge/config.yaml
+    (canva, gimp, photoshop — default: canva).
+
+    Returns:
+        JSON with ``tool`` (always one of canva/gimp/photoshop). If the
+        configured value isn't one of those three, ``tool`` falls back to
+        canva and a ``warning`` key names the unrecognized value rather than
+        silently swallowing the typo.
+    """
+    config = _app.load_config()
+    raw_tool = (config.get("post_processing") or {}).get("tool")
+    tool = _app.get_post_processing_tool(config)
+    result: dict[str, Any] = {"tool": tool}
+    if raw_tool is not None and raw_tool not in _app.POST_PROCESSING_TOOLS:
+        result["warning"] = (
+            f"post_processing.tool={raw_tool!r} is not one of canva/gimp/photoshop — falling back to {tool!r}"
+        )
+    return json.dumps(result)
 
 
 def _resolve_dest_path(dest_dir: Path, src: Path) -> tuple[Path, bool]:

@@ -8,6 +8,7 @@ import yaml
 
 from tools.shared import config as cfg_module
 from tools.shared.config import (
+    POST_PROCESSING_TOOLS,
     _deep_merge,
     _default_config,
     get_authors_root,
@@ -15,11 +16,14 @@ from tools.shared.config import (
     get_content_root,
     get_genres_dir,
     get_plugin_root,
+    get_post_processing_tool,
     get_reference_dir,
     get_review_handle,
     get_templates_dir,
     load_config,
 )
+
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +50,10 @@ class TestDefaultConfig:
     def test_has_export_section(self):
         cfg = _default_config()
         assert cfg["export"]["pdf_engine"] == "xelatex"
+
+    def test_has_post_processing_section(self):
+        cfg = _default_config()
+        assert cfg["post_processing"]["tool"] == "canva"
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +137,10 @@ class TestAccessors:
     def test_get_review_handle_missing_key(self):
         assert get_review_handle({}) == "Author"
 
+    def test_get_review_handle_null_section(self):
+        # `defaults:` present but empty in user YAML parses to None, not {}.
+        assert get_review_handle({"defaults": None}) == "Author"
+
     def test_get_content_root_returns_path(self):
         cfg = {"paths": {"content_root": "/some/path"}}
         result = get_content_root(cfg)
@@ -140,6 +152,44 @@ class TestAccessors:
         result = get_authors_root(cfg)
         assert isinstance(result, Path)
         assert result == Path("/authors")
+
+    def test_get_post_processing_tool_default(self):
+        cfg = _default_config()
+        assert get_post_processing_tool(cfg) == "canva"
+
+    def test_get_post_processing_tool_custom(self):
+        cfg = {"post_processing": {"tool": "gimp"}}
+        assert get_post_processing_tool(cfg) == "gimp"
+
+    def test_get_post_processing_tool_missing_key(self):
+        assert get_post_processing_tool({}) == "canva"
+
+    def test_get_post_processing_tool_null_section(self):
+        # `post_processing:` present but empty in user YAML parses to None, not {}.
+        assert get_post_processing_tool({"post_processing": None}) == "canva"
+
+    def test_get_post_processing_tool_unrecognized_falls_back(self):
+        cfg = {"post_processing": {"tool": "affinity"}}
+        assert get_post_processing_tool(cfg) == "canva"
+
+    def test_get_post_processing_tool_all_allowed_values(self):
+        for tool in ("canva", "gimp", "photoshop"):
+            assert get_post_processing_tool({"post_processing": {"tool": tool}}) == tool
+
+
+# ---------------------------------------------------------------------------
+# POST_PROCESSING_TOOLS <-> reference/post-processing/*.md
+# ---------------------------------------------------------------------------
+
+
+class TestPostProcessingReferenceFiles:
+    """Every allowlisted tool must have a matching reference file cover-typography-mockup
+    can load — otherwise get_post_processing_tool() accepts a value the skill can't act on."""
+
+    def test_every_allowed_tool_has_a_reference_file(self):
+        for tool in POST_PROCESSING_TOOLS:
+            path = PLUGIN_ROOT / "reference" / "post-processing" / f"{tool}-typography.md"
+            assert path.is_file(), f"Missing reference file for allowlisted tool {tool!r}: {path}"
 
 
 # ---------------------------------------------------------------------------
