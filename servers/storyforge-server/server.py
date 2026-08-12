@@ -128,6 +128,7 @@ from routers.canon import (  # noqa: E402, F401
     add_canon_fact,
 )
 from routers.cover import (  # noqa: E402, F401
+    get_cover_image,
     import_cover_image,
 )
 from routers.state import (  # noqa: E402, F401

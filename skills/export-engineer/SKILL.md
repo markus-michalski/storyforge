@@ -81,6 +81,17 @@ uses the same pattern). If a default is set, tell the user which format you're u
 "Using default format from config: EPUB — say a different format to switch") and proceed. Only
 ask the user to choose (EPUB/PDF/MOBI) when the config file is missing or has no default set.
 
+**Cover image lookup.** Call MCP `get_cover_image(book_slug)` before building the pandoc command.
+- `cover_image_path` present → use it (see EPUB/PDF commands below). If the response also has a
+  `warning` key, the path is a best-effort guess (an untracked file in `cover/art/`, not one
+  recorded via `import_cover_image(is_final=True)`) — surface that warning to the user alongside
+  the export result, don't just silently use it.
+- `cover_image_path` is `null` → export without a cover. If a `warning` key is present (e.g.
+  several untracked candidates in `cover/art/` with none marked final), mention it — the user
+  likely wants `import_cover_image(is_final=True)` on one of them before exporting for real.
+- `{"error": ...}` → the recorded final file is missing from disk; tell the user and ask whether
+  to proceed without a cover or fix the DB record first.
+
 Before running the pandoc command, use the Write tool to create `export/output/metadata.yaml` with the book's title, author, and language as YAML key-value pairs. This avoids shell and LaTeX injection — never interpolate `{title}` or `{author}` directly into the shell command line (they are user-controlled strings and can contain shell metacharacters or LaTeX control sequences). Example file content:
 ```yaml
 ---
@@ -101,6 +112,9 @@ pandoc manuscript.md -o "{book_slug}.epub" \
 `lang` in `metadata.yaml` is the book's `language` field from `get_book_full()` (default `"en"`) — EPUB
 requires a `dc:language` element; without it pandoc warns and epubcheck flags the output.
 
+If `get_cover_image()` returned a `cover_image_path`, append `--epub-cover-image "{cover_image_path}"`
+to the command above (quote the path — it can contain spaces).
+
 **PDF:**
 ```bash
 pandoc manuscript.md -o "{book_slug}.pdf" \
@@ -111,6 +125,41 @@ pandoc manuscript.md -o "{book_slug}.pdf" \
   -V fontsize=11pt \
   -V mainfont="Linux Libertine O"
 ```
+
+If `get_cover_image()` returned a `cover_image_path`, render it as a dedicated title page before
+the manuscript, since pandoc's LaTeX path has no `--epub-cover-image` equivalent. Never write the
+raw `cover_image_path` directly into a `.tex` file or command-line flag — same reasoning as the
+`metadata.yaml` rule above, but sharper: an absolute Windows path (`C:\Users\...\cover.png`)
+contains backslashes that LaTeX reads as control-sequence introducers, and the filename itself
+(preserved verbatim from whatever the user's image generator produced) can contain LaTeX special
+characters. Use a short, fixed, relative filename instead:
+
+1. Copy the file at `cover_image_path` to `export/output/cover.jpg` (or `.png`/whatever its
+   original extension is — keep it, just drop the rest of the path) using the Read/Write tools
+   (or a file copy) — never a shell command that interpolates the path.
+2. Use the Write tool to create `export/output/cover-preamble.tex`:
+   ```latex
+   \usepackage{graphicx}
+   ```
+3. Use the Write tool to create `export/output/cover-page.tex`, matching the extension used in
+   step 1 (`cover.jpg` here — adjust if the source was e.g. `.png`):
+   ```latex
+   \begin{titlepage}
+   \centering
+   \includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{cover.jpg}
+   \end{titlepage}
+   ```
+4. Add two flags to the pandoc command above: `--include-in-header=cover-preamble.tex` and
+   `--include-before-body=cover-page.tex`.
+5. Run pandoc from `export/output/` (same as Step 2's resolved export path) so the relative
+   `cover.jpg`/`cover-page.tex` references resolve.
+
+Note: pandoc's default LaTeX template places `--include-before-body` content *after* its own
+generated title page (built from `metadata.yaml`'s `title`/`author`), so the cover lands as the
+second page, not the first — a template default, not a bug in this wiring.
+
+**MOBI** inherits whatever cover was embedded in the intermediate EPUB automatically — no separate
+cover step needed for the `ebook-convert` command below.
 
 **MOBI (via Calibre):**
 First generate EPUB (with the metadata file approach above), then convert. Run both commands from the resolved `export/output/` directory

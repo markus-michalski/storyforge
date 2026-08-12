@@ -89,6 +89,7 @@ PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
     "chapter-proofreader": {"count"},
     "continuity-checker": {"date"},
     "emotional-truth-prompt": {"chapter-path"},  # slug-in-file-path, self-evident from "{chapter-path}/draft.md"
+    "export-engineer": {"graphicx", "titlepage"},  # LaTeX \usepackage{}/\begin{}/\end{} syntax in a fenced ```latex block, not a book-workflow placeholder
     "harvest-author-rules": {"idx"},
     "harvest-character-evolution": {
         "n_accepted",

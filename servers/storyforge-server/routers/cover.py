@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 import tools.db.connection as _db_conn
-from tools.db.cover_images import upsert_cover_image
+from tools.db.cover_images import get_final_cover_image, list_cover_images, upsert_cover_image
 from tools.shared.paths import catch_slug_value_error, resolve_project_path
 
 from . import _app
@@ -234,6 +234,119 @@ def _files_identical(a: Path, b: Path) -> bool:
                 return False
             if not chunk_a:
                 return True
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, idempotent_hint=True))
+@catch_slug_value_error
+def get_cover_image(book_slug: str) -> str:
+    """Look up the cover image an export step should use for this book.
+
+    Prefers the file recorded as final via ``import_cover_image()``. Falls
+    back to a single image sitting in ``cover/art/`` that was never
+    imported at all (placed there by hand, outside ``import_cover_image()``)
+    — that fallback comes back with a ``warning`` key so a caller can
+    surface it rather than silently trusting an unrecorded file. Recorded
+    drafts with nothing marked final are reported via ``warning`` too,
+    rather than guessed at — a deliberately-recorded draft (e.g. an
+    image-without-text preview) must never be silently shipped as the
+    cover.
+
+    Args:
+        book_slug: Book identifier.
+
+    Returns:
+        JSON with ``cover_image_path`` (str or null) and ``is_final``
+        (bool), plus an optional ``warning`` when the result is a fallback
+        guess rather than a recorded final version. ``{"error": ...}`` if
+        the book doesn't exist, the recorded final filename is invalid, or
+        the recorded final file is missing from disk.
+    """
+    config = _app.load_config()
+    book_root = resolve_project_path(config, book_slug)
+    if not book_root.is_dir():
+        return json.dumps({"error": f"Book '{book_slug}' not found"})
+
+    art_dir = book_root / "cover" / "art"
+
+    # Rows are keyed on book_slug, not get_book_num() (#558) — book_num
+    # defaults to 1 for a book whose README is missing/unparseable, which
+    # would collide with any other under-specified book in the same
+    # series-scoped DB. book_slug (this function's own parameter) is
+    # already unique per book, including within a series.
+    db_slug = _db_conn.get_db_slug_for_book(book_root)
+    conn = _db_conn.open_canon_db(db_slug)
+    try:
+        final_filename = get_final_cover_image(conn, book_slug=book_slug)
+        tracked_filenames = (
+            frozenset(row["filename"] for row in list_cover_images(conn, book_slug=book_slug))
+            if final_filename is None
+            else frozenset()
+        )
+    finally:
+        conn.close()
+
+    if final_filename:
+        # final_filename comes straight out of SQLite, hand-editable outside
+        # import_cover_image() same as any other file under content_root —
+        # re-check containment rather than trusting it (cf. update_field's
+        # allowed_roots check in routers/state.py, Audit H1 #115).
+        candidate = art_dir / final_filename
+        try:
+            resolved = candidate.resolve()
+        except (OSError, RuntimeError, ValueError) as exc:
+            return json.dumps({"error": f"Invalid recorded cover filename: {exc}"})
+        if not art_dir.is_dir() or not resolved.is_relative_to(art_dir.resolve()):
+            return json.dumps({"error": f"Recorded cover filename escapes cover/art/: {final_filename!r}"})
+        if not resolved.is_file():
+            return json.dumps({"error": f"Recorded final cover image missing on disk: {resolved}"})
+        return json.dumps({"cover_image_path": str(resolved), "is_final": True})
+
+    if not art_dir.is_dir():
+        return json.dumps({"cover_image_path": None, "is_final": False})
+
+    untracked = sorted(
+        p
+        for p in art_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in _ALLOWED_IMAGE_EXTENSIONS and p.name not in tracked_filenames
+    )
+
+    if len(untracked) == 1:
+        return json.dumps(
+            {
+                "cover_image_path": str(untracked[0]),
+                "is_final": False,
+                "warning": (
+                    "No cover marked final in cover_images — using the single untracked image "
+                    "in cover/art/. Run import_cover_image(is_final=True) to record it."
+                ),
+            }
+        )
+
+    if len(untracked) > 1:
+        return json.dumps(
+            {
+                "cover_image_path": None,
+                "is_final": False,
+                "warning": (
+                    f"{len(untracked)} untracked images in cover/art/ but none marked final — cannot "
+                    "pick automatically. Run import_cover_image(is_final=True) to select one."
+                ),
+            }
+        )
+
+    if tracked_filenames:
+        return json.dumps(
+            {
+                "cover_image_path": None,
+                "is_final": False,
+                "warning": (
+                    "cover_images has recorded draft(s) for this book but none marked final. "
+                    "Run import_cover_image(is_final=True) to select one."
+                ),
+            }
+        )
+
+    return json.dumps({"cover_image_path": None, "is_final": False})
 
 
 def _resolve_dest_path(dest_dir: Path, src: Path) -> tuple[Path, bool]:
