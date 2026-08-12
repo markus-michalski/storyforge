@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source file is idempotent (#551).
 
 ### Changed
+- `import_cover_image` hardened against unsafe/malformed copy sources (#555): rejects
+  relative `source_path` values (must be absolute), rejects empty files and files over a
+  50 MB cap, verifies the source's magic bytes actually match its declared extension
+  instead of trusting the suffix alone, excludes `authors_root` (not just `content_root`)
+  from valid copy sources, re-asserts that the resolved book path stays contained within
+  `content_root` before writing, and closes a TOCTOU window between picking a destination
+  filename and writing to it (exclusive file creation, with retry on a genuine race).
 - `BODY_PARTS` vocabulary gained `chins`/`elbows`/`wrists`/`thumbs` — n-grams containing
   these may now classify as `character_tell` where they previously landed in another
   repetition category (#511).
