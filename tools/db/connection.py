@@ -111,6 +111,25 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_ci
             ON cover_images(book_num, is_final);
+
+        -- #556 L-1: the one-final-per-book invariant previously lived only
+        -- in upsert_cover_image()'s application code (clearing other rows'
+        -- is_final before insert). This partial unique index makes SQLite
+        -- itself reject a second is_final=1 row for the same book_num,
+        -- rather than silently accepting one and letting
+        -- get_final_cover_image()'s LIMIT 1 mask the broken state by
+        -- returning an arbitrary match.
+        --
+        -- Safe to add unguarded (no pre-migration data cleanup) because
+        -- ensure_schema() runs this on every connection open, and a DB
+        -- that already violated the invariant would make this CREATE
+        -- UNIQUE INDEX fail every time, permanently blocking that DB from
+        -- opening at all. cover_images was introduced by #554 and
+        -- upsert_cover_image() is its only writer anywhere in the repo, so
+        -- no existing DB can contain a violating row — if a second writer
+        -- is ever added, re-check this before touching the invariant.
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_ci_one_final
+            ON cover_images(book_num) WHERE is_final = 1;
     """)
     conn.commit()
 

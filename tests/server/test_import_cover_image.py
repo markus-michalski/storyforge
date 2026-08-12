@@ -490,3 +490,62 @@ class TestCopyExclusiveWithRetry:
 
         with pytest.raises(RuntimeError):
             cover_module._copy_exclusive_with_retry(dest_dir, src, dest)
+
+
+class TestFilesIdentical:
+    """#556 L-4: _files_identical() replaced filecmp.cmp() to avoid its
+    process-global stat-signature cache, which can go stale on filesystems
+    with coarse mtime resolution. These pin the direct comparison's own
+    correctness independent of that motivation."""
+
+    def test_identical_content_returns_true(self, tmp_path: Path):
+        import routers.cover as cover_module
+
+        a = tmp_path / "a.bin"
+        b = tmp_path / "b.bin"
+        a.write_bytes(b"same content here")
+        b.write_bytes(b"same content here")
+
+        assert cover_module._files_identical(a, b) is True
+
+    def test_different_content_same_size_returns_false(self, tmp_path: Path):
+        import routers.cover as cover_module
+
+        a = tmp_path / "a.bin"
+        b = tmp_path / "b.bin"
+        a.write_bytes(b"aaaaaaaaaa")
+        b.write_bytes(b"bbbbbbbbbb")
+
+        assert cover_module._files_identical(a, b) is False
+
+    def test_different_size_returns_false_without_reading_content(self, tmp_path: Path):
+        import routers.cover as cover_module
+
+        a = tmp_path / "a.bin"
+        b = tmp_path / "b.bin"
+        a.write_bytes(b"short")
+        b.write_bytes(b"much much longer content")
+
+        assert cover_module._files_identical(a, b) is False
+
+    def test_content_spanning_multiple_chunks_is_compared_correctly(self, tmp_path: Path):
+        import routers.cover as cover_module
+
+        a = tmp_path / "a.bin"
+        b = tmp_path / "b.bin"
+        chunk = b"x" * (1024 * 1024)
+        a.write_bytes(chunk + chunk + b"tail")
+        b.write_bytes(chunk + chunk + b"tail")
+
+        assert cover_module._files_identical(a, b) is True
+
+    def test_difference_only_in_final_chunk_is_detected(self, tmp_path: Path):
+        import routers.cover as cover_module
+
+        a = tmp_path / "a.bin"
+        b = tmp_path / "b.bin"
+        chunk = b"x" * (1024 * 1024)
+        a.write_bytes(chunk + chunk + b"tail-a")
+        b.write_bytes(chunk + chunk + b"tail-b")
+
+        assert cover_module._files_identical(a, b) is False

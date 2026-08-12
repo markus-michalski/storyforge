@@ -23,6 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from valid copy sources, re-asserts that the resolved book path stays contained within
   `content_root` before writing, and closes a TOCTOU window between picking a destination
   filename and writing to it (exclusive file creation, with retry on a genuine race).
+- `cover_images` DB layer hardened (#556): added a partial unique index enforcing at
+  most one final cover per book at the schema level (not just in application code);
+  `list_cover_images`/`get_final_cover_image` now order by `imported_at DESC, id DESC`
+  instead of `imported_at` alone, since SQLite's `CURRENT_TIMESTAMP` has 1-second
+  resolution and a same-second batch previously degraded to insertion order;
+  `upsert_cover_image`'s clear-then-insert pair now runs in an explicit transaction
+  (`with conn:`) so a failed insert deterministically rolls back the preceding clear
+  instead of leaving it as a dirty uncommitted statement on the connection; every
+  idempotent-reimport content comparison in `import_cover_image` (including the
+  TOCTOU-safe retry path added by #555) now uses a direct chunked byte comparison
+  instead of `filecmp.cmp()`, whose process-global stat-signature cache can go stale on
+  filesystems with coarse mtime resolution.
 - `BODY_PARTS` vocabulary gained `chins`/`elbows`/`wrists`/`thumbs` — n-grams containing
   these may now classify as `character_tell` where they previously landed in another
   repetition category (#511).
