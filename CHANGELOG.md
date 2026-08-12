@@ -8,81 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- New skill `/storyforge:cover-typography-mockup` — generates an HTML mockup Artifact
-  for compositing title/author typography onto a text-free cover image (`cover-artist`
-  always generates "no text on the image"; this fills that post-processing gap).
-  Guidance branches on the newly configurable `post_processing.tool` setting (`canva` |
-  `gimp` | `photoshop`, default `canva`), backed by three researched reference files at
-  `reference/post-processing/{canva,gimp,photoshop}-typography.md` covering
-  letter-spacing/tracking unit conversion (or the documented lack of one — Canva's
-  slider has no published unit), font-pairing workflow, layer/filter effects (drop
-  shadow, outer glow, bevel/emboss), and export/resolution settings per platform. New
-  `get_post_processing_config()` MCP tool (mirrors `get_review_handle_config()`) and
-  `get_post_processing_tool()` config accessor read the setting; `/storyforge:configure`
-  gained a matching row (#552).
-- `import_cover_image(book_slug, source_path, is_final=False)` MCP tool — copies an
-  externally-generated cover image (Midjourney/DALL-E output, outside StoryForge's control)
-  into `{project}/cover/art/` and records it in a new `cover_images` SQLite table,
-  keyed on `book_slug` (unique per book, including within a series — not `book_num`,
-  which defaults to 1 whenever a book's README frontmatter is missing or has an
-  unparseable `series_number`, and would otherwise collide between two
-  under-specified books in the same series-scoped DB, #558), with a draft/final flag.
-  Marking an import final clears the flag on any previously final image for the same
-  book, so at most one file is ever "the" final version. Re-importing the same source
-  file is idempotent (#551).
-- `get_cover_image(book_slug)` MCP tool — read-side counterpart to `import_cover_image`.
-  Returns the recorded final cover, or falls back to a single untracked file sitting in
-  `cover/art/` that was placed by hand and never imported (with a `warning`; a recorded
-  draft with nothing marked final is reported via `warning` too, rather than guessed at).
-  `export-engineer` now calls this before generating EPUB/PDF output and passes
-  `--epub-cover-image`/a LaTeX title page when a cover is found (#557).
+- Nothing yet
 
 ### Changed
-- `import_cover_image` hardened against unsafe/malformed copy sources (#555): rejects
-  relative `source_path` values (must be absolute), rejects empty files and files over a
-  50 MB cap, verifies the source's magic bytes actually match its declared extension
-  instead of trusting the suffix alone, excludes `authors_root` (not just `content_root`)
-  from valid copy sources, re-asserts that the resolved book path stays contained within
-  `content_root` before writing, and closes a TOCTOU window between picking a destination
-  filename and writing to it (exclusive file creation, with retry on a genuine race).
-- `cover_images` DB layer hardened (#556): added a partial unique index enforcing at
-  most one final cover per book at the schema level (not just in application code);
-  `list_cover_images`/`get_final_cover_image` now order by `imported_at DESC, id DESC`
-  instead of `imported_at` alone, since SQLite's `CURRENT_TIMESTAMP` has 1-second
-  resolution and a same-second batch previously degraded to insertion order;
-  `upsert_cover_image`'s clear-then-insert pair now runs in an explicit transaction
-  (`with conn:`) so a failed insert deterministically rolls back the preceding clear
-  instead of leaving it as a dirty uncommitted statement on the connection; every
-  idempotent-reimport content comparison in `import_cover_image` (including the
-  TOCTOU-safe retry path added by #555) now uses a direct chunked byte comparison
-  instead of `filecmp.cmp()`, whose process-global stat-signature cache can go stale on
-  filesystems with coarse mtime resolution.
-- `cover-artist` skill now points to `import_cover_image` in a new "Next Steps" section
-  after its prompt-generation workflow — previously the only way to discover that tool
-  was CLAUDE.md's own MCP tool table (#559).
-- `BODY_PARTS` vocabulary gained `chins`/`elbows`/`wrists`/`thumbs` — n-grams containing
-  these may now classify as `character_tell` where they previously landed in another
-  repetition category (#511).
-- The #531 AST safety-net test (`test_no_unvalidated_slug_path_join_in_tool_body`) only
-  scanned `@mcp.tool` function parameters inside `servers/storyforge-server/routers/`,
-  missing exactly the bug shape #542 was: a slug-named local variable assigned from a
-  dict-like read (`tracker["book_slug"]`, `tracker.get(...)`), and any occurrence in
-  `tools/` rather than the router layer. Extended the sweep to catch slug-named local
-  variables (not just parameters), `os.path.join()`/`.joinpath()` call shapes alongside
-  the existing `/`-chain walk, and widened the scan root to also cover `tools/`. Running
-  the widened scan surfaced 7 pre-existing, real matches; each was manually traced and
-  confirmed safe (slugify()-derived values, upstream validation, or genuinely
-  unreachable code) and documented with a concrete, checked reason (#544).
-- `list_series_trackers_for_book` gained an `invalid_trackers` key
-  (`[{tracker_slug, path, error}, ...]`). A tracker whose resolved `book_slug`
-  fails validation is now skipped and reported there instead of aborting the
-  whole listing with `{error}` — so a call that previously failed loudly now
-  returns a success payload with a shortened `trackers` list. Consuming skills
-  surface `invalid_trackers` before their zero-entries branch (#549).
-- `copy_recurring_chars_to_new_book`'s validation-failure response gained a
-  `tracker_errors` list alongside the existing `error` string, naming every
-  offending tracker rather than only the first. #542's all-or-nothing write
-  guarantee is unchanged — the abort still happens before any file is touched (#549).
+- Nothing yet
 
 ### Deprecated
 - Nothing yet
@@ -91,178 +20,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Amazon KDP eBook cover dimensions were transposed (`2560 x 1600px`, landscape) in
-  `reference/export/cover-specs.md`, `reference/export/epub-standards.md`, and
-  `cover-artist`'s Step 4 platform specs — all three now correctly say
-  `1600 x 2560px` (portrait), matching the actual pixel target and the other
-  platforms' entries in the same tables. Found while adding
-  `cover-typography-mockup`, which reads `cover-specs.md` as its platform-spec
-  source (#552).
-- `manuscript-checker` now detects paraphrased body-language tells. The n-gram repetition
-  pass only fires on verbatim repetition, so a tic the author rephrases each time (e.g.
-  "shoulders came down" / "shoulders had dropped") was invisible to it. A new slot-based
-  detector matches `[body part] + [state signal]` regardless of exact wording, additive to
-  the existing pass (#511).
-- `extract_text_from_file` rejected a null-byte path via `Path.resolve()`'s platform-dependent
-  behavior (raises on POSIX, doesn't on Windows), producing a different error message — and on
-  Windows, for a path resolving inside an allowed root, no rejection message at all, only a
-  generic file-not-found. An explicit pre-check now rejects the path uniformly before
-  `resolve()` is called (#512).
-- `update_field` did not catch `ValueError` when resolving `file_path`, so a null-byte path
-  raised an unhandled exception on POSIX instead of a clean JSON error response; on Windows it
-  fell through to a generic file-not-found instead of a rejection. Same fix as #512: an explicit
-  null-byte pre-check ahead of `Path.resolve()`, plus `ValueError` added to the except clause
-  (#516).
-- `resolve_path` did not reject embedded null bytes in `component`/`sub_path`, so
-  `Path.resolve()`'s platform-dependent behavior leaked through: an unhandled `ValueError`
-  on POSIX, and on Windows a path that resolved inside `content_root` was returned as a
-  success response with the null byte intact. Same fix as #512/#516: an explicit pre-check
-  rejects both parameters uniformly before `resolve()`, with `ValueError` added to the
-  except clause as a second layer (#517).
-- `update_field` accepted a field name with a trailing newline. `_FIELD_NAME_RE` was
-  anchored with `$`, which also matches before a trailing newline, so `field="status\n"`
-  passed the allowlist and silently wrote a junk YAML key instead of updating `status` —
-  while still returning `success: true`. Anchored with `\Z` instead (#518).
-- 41 more MCP tool functions across `books.py`, `chapters.py`, `gates.py`, `canon.py`,
-  `scenes.py`, `claudemd.py`, `series.py`, `creation.py`, `authors.py`, and `memoir.py`
-  called `resolve_*_path()` helpers without catching the `SlugValidationError` those
-  helpers raise on an invalid slug (null byte, `..`, path separator, leading dot). The
-  exception propagated as a raw, unhandled server error instead of this codebase's
-  standard `{"error": ...}` JSON response. Rolled out `catch_slug_value_error`
-  (introduced alongside the memoir/idea path-traversal fixes) to the remaining call
-  sites — one shared decorator instead of 41 individual `try/except` blocks (#523).
-- `resolve_path` called `resolve_project_path(config, book_slug)` before the try/except
-  that wraps `base.resolve()` a few lines down, so an invalid `book_slug` raised an
-  unhandled `SlugValidationError` instead of the standard `{"error": ...}` JSON response —
-  the same gap #517 closed for `component`/`sub_path`. The existing test for this only
-  asserted that the validator itself raises, not that `resolve_path()` returns a clean
-  error. Applied `catch_slug_value_error` (#523) to close the gap and rewrote the test to
-  exercise `resolve_path()` directly (#521).
-- `pandoc.py`'s `_FONT_PATTERN` had the same `$`-vs-`\Z` anchoring gap as #518, so
-  `font="Arial\n"` passed the allowlist despite the pattern's own comment claiming
-  trailing/embedded structure characters are rejected. Anchored with `\Z` instead (#520).
-- `_RE_BAND_ID` (`routers/series.py`) and `_RE_VALID_BAND` (`tools/state/loaders/series.py`)
-  had the same `$`-vs-`\Z` anchoring gap, so `band="B1\n"` passed both guards. For
-  `write_series_evolution_section`, this meant an existing `### B1` tracker section was
-  never found (the regex-captured band can't contain `\n`, so it never matched the raw
-  input), so the write inserted a *duplicate* `### B1` block instead of updating the
-  existing one, silently corrupting the tracker file. The same gap let
-  `bootstrap_character_for_new_book` write a newline-bearing
-  `series_evolution_imported_from` value into a book character file's frontmatter.
-  Anchored both patterns with `\Z` instead (#525).
-- The Windows cross-platform smoke test's fake-venv builder
-  (`_build_fake_windows_venv`, `tests/smoke/test_cross_platform.py`) copied the entire
-  directory containing `sys.executable` to fix #541's `STATUS_DLL_NOT_FOUND` failure.
-  Correct when `sys.executable` is a small venv interpreter, but on a full/system
-  install (e.g. Windows CI via `actions/setup-python`, no venv) this copied `Lib/`,
-  `DLLs/`, `tcl/`, `Doc/`, `include/` — hundreds of MB and thousands of files, twice per
-  test run. Now copies only the files sitting directly next to `python.exe` (its DLL
-  dependencies — #541's actual concern) and writes a `pyvenv.cfg` whose `home` points
-  back at the real install, the same stdlib-redirection mechanism `python -m venv`
-  itself uses, so no directory ever needs copying. A new test spawns the copied
-  interpreter for real to verify it actually starts (#545).
-- `build_chapter_writing_brief` raised instead of degrading when a book's
-  `series:` frontmatter was a traversal payload: `load_rules_for_brief` and
-  `load_callbacks_for_brief` were the only two sub-loaders called outside the
-  `recorder.run()` graceful-degrade wrapper, so a `SlugValidationError` deep in
-  `open_canon_db()` failed the entire brief instead of shipping with partial
-  data like every other sub-loader failure. Both are now wrapped; the brief
-  ships with empty `rules_to_honor`/`callbacks_in_register` plus an `errors`
-  entry (#548).
-- `recurring_chars_for_book`, `find_tracker_for_book_character`, and
-  `list_series_trackers_for_book` aborted their whole loop on the first
-  series-tracker that failed slug validation, hiding every tracker sorted
-  after it — the exact availability regression #542's fix was designed to
-  avoid, just one loop layer up. Each now skips the bad tracker and continues
-  (#549).
-- `test_catch_slug_value_error_coverage.py`'s `_all_function_defs()` keyed its
-  results by bare function name over `ast.walk()`, so a same-named function in
-  another scope (e.g. two classes' `to_dict()` methods) silently overwrote an
-  earlier one and could drop a real violation from the #544 `tools/` sweep.
-  Changed to a list of `(scope_qualified_name, node)` pairs (e.g.
-  `"ClassA.to_dict"`, `"outer.inner"`) so exemptions in `TOOLS_SLUG_JOIN_KNOWN_EXEMPT`
-  stay scoped to the exact function they were written for, without being
-  sensitive to line-number drift from unrelated edits (#550).
-- `import_cover_image` left an orphaned file on disk if `upsert_cover_image()`
-  raised after the file copy already succeeded (disk full, locked DB, or any
-  other DB-layer failure) — the exception propagated uncaught instead of
-  cleaning up. Now catches the DB failure, removes the just-copied file, and
-  returns a clean `{"error": ...}` instead. The cleanup is gated on whether
-  *this specific call* created the file (`_copy_exclusive_with_retry()` now
-  returns that as an explicit flag) rather than on `needs_copy` alone — the
-  naive version would have deleted a different, concurrent import's
-  already-committed file on the TOCTOU race path #555 closed, orphaning that
-  call's DB row instead of preventing an orphan (#567).
+- Nothing yet
 
 ### Security
-- `read_character_for_harvest`'s and `update_character_snapshot`'s memoir branches built a
-  character file path via `resolve_people_dir()` — which takes a `Path`, not a slug, and
-  performs no validation at all — so a traversal `character_slug` (e.g.
-  `"../../../SECRET"`) reached `Path` construction completely unvalidated. Confirmed
-  exploitable: a file placed outside the book's project directory could be read (via
-  `read_character_for_harvest`) or a DB snapshot row written under an arbitrary traversal
-  key (via `update_character_snapshot`). Both now resolve through `resolve_person_path()`,
-  which validates the slug for both the fiction and memoir layouts uniformly, via a new
-  shared decorator `catch_slug_value_error` that converts the resulting validation error
-  into this codebase's standard `{"error": ...}` JSON response (#523).
-- `get_idea`, `update_idea`, and `promote_idea` built the idea file path as
-  `ideas_dir / f"{slug}.md"` with zero slug validation, letting a traversal `slug` read
-  and — via `update_idea`/`promote_idea` — overwrite a file outside `ideas_dir`. Confirmed
-  exploitable the same way. `_idea_path()`, the single choke point all three route through,
-  now validates (#523).
-- `write_series_evolution_section`, `read_tracker_for_bootstrap`, `create_character_tracker`,
-  and `bootstrap_character_for_new_book` (`series.py`) built a series-tracker file path
-  as `series_dir / "characters" / f"{tracker_slug}.md"` (or `chars_dir / f"{slug}.md"`)
-  with no slug validation at all — unlike `series_slug` on the same calls, which is
-  validated via `resolve_series_path()`. `bootstrap_character_for_new_book` wasn't part
-  of the original audit for this issue; found during the fix itself. Confirmed
-  exploitable end-to-end: a traversal `tracker_slug` let `write_series_evolution_section`
-  and `bootstrap_character_for_new_book` both read and overwrite (Updates Log entry
-  appended) a file outside the series `characters/` directory, `read_tracker_for_bootstrap`
-  leak one via read, and `create_character_tracker` create one at an arbitrary path. All
-  four now call `_validate_slug()` explicitly before building the path; the existing
-  `catch_slug_value_error` decorator on each (#523) converts the resulting validation
-  error into the standard `{"error": ...}` JSON response. Code review on this fix found
-  a second-order instance in the same call: `create_character_tracker`'s `book_slug` is
-  persisted verbatim into the tracker's frontmatter and read back by
-  `bootstrap_character_for_new_book`/`copy_recurring_chars_to_new_book` to build a write
-  target — a 2-step MCP exploit chain, confirmed exploitable end-to-end, now closed the
-  same way. Also found and fixed: `_validate_slug()` itself didn't reject `:`, so on
-  Windows a same-drive slug like `"C:evil"` silently desynced the stored slug from the
-  actual filename, and a slug prefixed with a different drive letter or a UNC share could
-  escape `content_root` entirely once joined with `pathlib`, which discards everything
-  before a `<drive>:` segment on join. `:` is now rejected alongside the existing unsafe
-  characters — this closes the gap for every `_validate_slug()` caller, not just series.py
-  (#524).
-- **Not yet closed for this bug class**: `validate_chapter` (`gates.py`) and three
-  `chapters.py`-routed tools (`get_chapter_writing_brief`, `get_review_brief`,
-  `get_current_story_anchor`) build a chapter file path from an unvalidated
-  `chapter_slug` the same way — found during #524's review, tracked separately as #538,
-  not part of this fix.
-- `resolve_book_slug_for_series_tracker()` (`tools/state/loaders/series.py`) returned a
-  series tracker's `book_slug` frontmatter field verbatim, with zero validation — the
-  read-side counterpart to #524's write-side fix, which only covers trackers created
-  through `create_character_tracker` from that point forward. A hand-edited or pre-#524
-  tracker's traversal `book_slug` reached a file WRITE target in two MCP tools:
-  `copy_recurring_chars_to_new_book` (arbitrary read + create) and
-  `bootstrap_character_for_new_book`, which unconditionally overwrites its destination's
-  frontmatter when it already exists (arbitrary EXISTING file overwrite). Confirmed
-  exploitable end-to-end against both. The resolver now validates the value it returns —
-  the single choke point both callers go through — with an added empty/whitespace-only
-  guard so a blank `book_slug` falls back to the tracker slug instead of resolving to a
-  hidden dotfile-adjacent name. Both MCP call sites also gained an explicit, redundant
-  `_validate_slug()` call so the fix doesn't rely solely on that one upstream function
-  (#542).
-- `load_series_link()` (`tools/state/loaders/chapter_meta.py`) read a book's `series:`
-  README-frontmatter field verbatim and passed it into the chapter-writing-brief
-  enricher, which joins it directly into a Path
-  (`_enrich_with_series_evolution`, `tools/state/chapter_writing_brief.py`). A
-  traversal `series` value let `get_chapter_writing_brief` read tracker files from an
-  arbitrary directory outside the series tree and surface their content
-  (`series_evolution` field) back through its JSON response — information disclosure,
-  read-only, no write primitive. Same bug class and same second-order shape as #542
-  (a value from on-disk frontmatter, not an MCP parameter, reaching an unvalidated Path
-  join): `load_series_link()` now validates before returning (#543).
+- Nothing yet
+
+## [3.4.0] - 2026-08-12
+
+### Added
+- add cover-typography-mockup skill and post_processing config (#552) (#570)
+- wire Pandoc export to consult the final cover image (#562)
+- import_cover_image MCP tool with draft/final tracking (#554)
+
+### Changed
+- fill 7 test-gap items for import_cover_image (#568)
+- point to import_cover_image after prompt generation (#566)
+
+### Fixed
+- clean up orphaned file when DB write fails after cover image copy (#569)
+- re-key cover_images on book_slug to avoid book_num collisions (#565)
+- harden cover_images DB layer (ordering, atomicity, cache staleness) (#564)
+- harden import_cover_image against unsafe copy sources (#563)
+- graceful degradation for invalid series trackers, brief assembly, and AST scan (3 issues) (#553)
+- slug-validation hardening, regex anchoring fixes, and manuscript-checker split (10 issues) (#546)
+- anchor band regex with \Z instead of $ (#525) (#530)
+- anchor _FONT_PATTERN with \Z, not $ (#520) (#528)
+- apply catch_slug_value_error to book_slug (#521) (#537)
+- return JSON error contract for invalid slugs across remaining MCP tools (#523) (#536)
+- null-byte path handling in resolve_path + field-name regex anchor (#517, #518) (#522)
+- unify null-byte path rejection across platforms (#519)
+- unify null-byte path rejection across platforms (#512) (#515)
+- detect paraphrased body-language tells (#511) (#514)
+- parse year-less, weekday-tagged plot/timeline.md layouts (#509) (#513)
+- parse non-canonical plot/timeline.md layouts (#510)
+
+### Security
+- validate frontmatter-sourced slugs, harden slug-join detector, fix Windows CI copy (#547)
+- validate tracker/book slugs in series.py, close drive-letter gap (#524) (#540)
+- fix path traversal in memoir/idea slug handling (#523) (#535)
 
 ## [3.3.1] - 2026-08-09
 
@@ -932,3 +727,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.2.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.2.2
 [3.3.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.3.0
 [3.3.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.3.1
+[3.4.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.4.0
