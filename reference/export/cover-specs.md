@@ -4,7 +4,7 @@
 
 | Platform | Print (6x9") | eBook Cover | Thumbnail |
 |----------|-------------|-------------|-----------|
-| Amazon KDP | 1800 x 2700 px | 2560 x 1600 px | 160 x 256 px |
+| Amazon KDP | 1800 x 2700 px | 1600 x 2560 px | 160 x 256 px |
 | Apple Books | — | 1400 x 1873 px | 80 x 107 px |
 | Kobo | — | 1600 x 2400 px | 120 x 180 px |
 | IngramSpark | 1800 x 2700 px | 1600 x 2400 px | — |
@@ -15,7 +15,7 @@
 ## Design Rules
 
 ### Typography on Covers
-- **Title:** Largest element. Must be readable at thumbnail size (50px wide).
+- **Title:** Largest element. Must be readable at thumbnail size (see The Thumbnail Test below).
 - **Author name:** Smaller than title. Consistent across series.
 - **Tagline:** Optional. Short (max 8 words). Below title or above author.
 - **Font:** Match genre expectations:

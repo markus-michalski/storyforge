@@ -91,6 +91,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Export" / "EPUB" / "PDF" / "MOBI" | `/storyforge:export-engineer` |
 | "Übersetzen" / "Translate" | `/storyforge:translator` |
 | "Cover" / "Buchcover" | `/storyforge:cover-artist` |
+| "Cover-Typografie" / "Cover typography" / "Typography mockup" / "Titel-Schriftzug" / "Titel aufs Cover" | `/storyforge:cover-typography-mockup` |
 | "Promo" / "Social Media" / "Marketing" / "bewerben" | `/storyforge:promo-writer` |
 | "Klappentext" / "Blurb" / "Back cover" / "Back-cover copy" | `/storyforge:promo-writer` (starts at blurb step) |
 | "Neues Genre" / "Genre-Mix" | `/storyforge:genre-creator` |
@@ -152,6 +153,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 10e. `/storyforge:beta-feedback` — (After eBook/ARC stage) Process curated beta-reader feedback, triage, revision plan
 11. `/storyforge:voice-checker` — (Optional) Holistic AI-authenticity score (0–100) across 7 dimensions; use when you want a scorecard rather than targeted fixes; not a required step in the standard workflow
 12. `/storyforge:cover-artist` — Generate cover prompts
+12a. `/storyforge:cover-typography-mockup` — (After the text-free cover is imported) HTML mockup Artifact for adding title/author typography, tool-specific guidance (Canva/GIMP/Photoshop)
 13. `/storyforge:export-engineer` — EPUB/PDF/MOBI via Pandoc
 14. `/storyforge:promo-writer` — Social media campaign (FB, Instagram, TikTok, X, Bluesky, Newsletter)
 15. `/storyforge:translator` — Translate to other languages
@@ -342,6 +344,7 @@ The following MCP tools are registered but have no skill wiring. They are availa
 | `add_vocabulary_entry` | Add a single vocabulary entry to an author profile: `entry_type` `banned` → donts, `preferred`/`phrase` → style_principles. Idempotent. Returns `{written, already_present, discovery_type}`. | Shortcut for one-off additions without running the full `study-author` flow. Args: `author_slug`, `entry_type`, `text`, optional `source` (book slug) |
 | `import_cover_image` | Copy an externally-generated cover image (from `/storyforge:cover-artist`'s prompts, generated outside StoryForge) into `cover/art/` and record it with a draft/final flag in the `cover_images` DB table | Bridges cover-artist's prompt output to a usable file. Args: `book_slug`, `source_path`, optional `is_final` (default `False`). If the DB write fails after the file copy already succeeded, the just-copied file is removed and `{"error": ...}` is returned — never an orphaned file (#567) |
 | `get_cover_image` | Look up the cover image an export step should use: the file recorded final in `cover_images`, or (with a `warning`) a single untracked image sitting in `cover/art/` | Read-side counterpart to `import_cover_image`. `export-engineer` calls this before building the Pandoc command. Args: `book_slug` |
+| `get_post_processing_config` | Return the configured cover-typography post-processing tool (`canva`/`gimp`/`photoshop`, default `canva`) | Mirrors `get_review_handle_config`. `cover-typography-mockup` calls this to branch its guidance. Falls back to `canva` with a `warning` if `post_processing.tool` is unrecognized. No args. |
 
 **Removed (Issue #236):** `get_chapter`, `get_character`, `get_series`, `update_book_claudemd_facts` — use `get_book_full()` for chapter/character data; series-planner reads series files directly; edit the book's CLAUDE.md directly to update Book Facts (pov, tense, genre, writing_mode). No stubs kept.
 

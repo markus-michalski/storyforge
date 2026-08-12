@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- New skill `/storyforge:cover-typography-mockup` — generates an HTML mockup Artifact
+  for compositing title/author typography onto a text-free cover image (`cover-artist`
+  always generates "no text on the image"; this fills that post-processing gap).
+  Guidance branches on the newly configurable `post_processing.tool` setting (`canva` |
+  `gimp` | `photoshop`, default `canva`), backed by three researched reference files at
+  `reference/post-processing/{canva,gimp,photoshop}-typography.md` covering
+  letter-spacing/tracking unit conversion (or the documented lack of one — Canva's
+  slider has no published unit), font-pairing workflow, layer/filter effects (drop
+  shadow, outer glow, bevel/emboss), and export/resolution settings per platform. New
+  `get_post_processing_config()` MCP tool (mirrors `get_review_handle_config()`) and
+  `get_post_processing_tool()` config accessor read the setting; `/storyforge:configure`
+  gained a matching row (#552).
 - `import_cover_image(book_slug, source_path, is_final=False)` MCP tool — copies an
   externally-generated cover image (Midjourney/DALL-E output, outside StoryForge's control)
   into `{project}/cover/art/` and records it in a new `cover_images` SQLite table,
@@ -79,6 +91,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
+- Amazon KDP eBook cover dimensions were transposed (`2560 x 1600px`, landscape) in
+  `reference/export/cover-specs.md`, `reference/export/epub-standards.md`, and
+  `cover-artist`'s Step 4 platform specs — all three now correctly say
+  `1600 x 2560px` (portrait), matching the actual pixel target and the other
+  platforms' entries in the same tables. Found while adding
+  `cover-typography-mockup`, which reads `cover-specs.md` as its platform-spec
+  source (#552).
 - `manuscript-checker` now detects paraphrased body-language tells. The n-gram repetition
   pass only fires on verbatim repetition, so a tic the author rephrases each time (e.g.
   "shoulders came down" / "shoulders had dropped") was invisible to it. A new slot-based

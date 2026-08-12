@@ -81,6 +81,7 @@ they are invocable strings, not prose.
 | `/storyforge:promo-writer` | Social media promo (FB, Instagram, TikTok, X, Bluesky, Newsletter) |
 | `/storyforge:translator` | Translate chapter by chapter |
 | `/storyforge:cover-artist` | Generate cover art prompts |
+| `/storyforge:cover-typography-mockup` | HTML mockup for adding title/author text to a cover image |
 | `/storyforge:genre-creator` | Create new genre definitions |
 
 ## Workflow

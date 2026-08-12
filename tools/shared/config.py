@@ -62,6 +62,9 @@ def _default_config() -> dict[str, Any]:
             "platform": "midjourney",
             "default_style": "realistic",
         },
+        "post_processing": {
+            "tool": "canva",
+        },
         "translation": {
             "preserve_formatting": True,
             "include_glossary": True,
@@ -80,7 +83,9 @@ def _deep_merge(base: dict, override: dict) -> None:
 
 def get_review_handle(config: dict[str, Any]) -> str:
     """Return the configured review comment handle (without colon)."""
-    return config.get("defaults", {}).get("review_handle", "Author")
+    # `defaults:` present but empty in user YAML parses to None, not {} — .get()
+    # on that would raise AttributeError instead of falling back to the default.
+    return (config.get("defaults") or {}).get("review_handle", "Author")
 
 
 def get_content_root(config: dict[str, Any]) -> Path:
@@ -91,6 +96,23 @@ def get_content_root(config: dict[str, Any]) -> Path:
 def get_authors_root(config: dict[str, Any]) -> Path:
     """Return the authors root path from config."""
     return Path(config["paths"]["authors_root"])
+
+
+POST_PROCESSING_TOOLS = frozenset({"canva", "gimp", "photoshop"})
+_DEFAULT_POST_PROCESSING_TOOL = "canva"
+
+
+def get_post_processing_tool(config: dict[str, Any]) -> str:
+    """Return the configured cover-typography post-processing tool.
+
+    One of ``canva``, ``gimp``, ``photoshop`` — falls back to ``canva`` for a
+    missing, empty, or unrecognized value rather than passing an arbitrary
+    string through to a reference-file path lookup
+    (``reference/post-processing/{tool}-typography.md``).
+    """
+    # `post_processing:` present but empty in user YAML parses to None, not {}.
+    tool = (config.get("post_processing") or {}).get("tool", _DEFAULT_POST_PROCESSING_TOOL)
+    return tool if tool in POST_PROCESSING_TOOLS else _DEFAULT_POST_PROCESSING_TOOL
 
 
 def get_plugin_root() -> Path:

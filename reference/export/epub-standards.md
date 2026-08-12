@@ -36,7 +36,7 @@ OEBPS/
 
 | Platform | Minimum Size | Aspect Ratio | Format |
 |----------|-------------|--------------|--------|
-| Amazon KDP | 2560 x 1600 px | 1.6:1 | JPEG/TIFF |
+| Amazon KDP | 1600 x 2560 px | 1:1.6 | JPEG/TIFF |
 | Apple Books | 1400 x 1873 px | ~3:4 | JPEG/PNG |
 | Kobo | 1600 x 2400 px | 2:3 | JPEG/PNG |
 | Generic EPUB | 1600 x 2400 px | 2:3 | JPEG |
