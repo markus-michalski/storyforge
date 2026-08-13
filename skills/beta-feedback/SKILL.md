@@ -2,6 +2,8 @@
 name: beta-feedback
 description: |
   Process curated beta-reader feedback — triage, cross-reference, revision plan.
+  This CONSUMES feedback that already came back from ARC readers — to produce the ARC file
+  itself, use /storyforge:export-engineer --arc instead.
   Use when: (1) User says "beta feedback", "ARC feedback", "reader feedback", "Beta-Feedback verarbeiten",
   (2) Book is in eBook/revision stage with beta-reader responses collected.
 model: claude-opus-5
