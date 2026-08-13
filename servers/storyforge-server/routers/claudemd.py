@@ -99,7 +99,13 @@ def init_book_claudemd(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 @catch_slug_value_error
 def get_book_claudemd(book_slug: str) -> str:
-    """Read the current CLAUDE.md for a book."""
+    """Read the current CLAUDE.md for a book.
+
+    A book that exists but hasn't run init_book_claudemd() yet has no prose
+    section — returns whatever DB-rendered Rules/Callbacks/Workflows exist
+    (or "" if none) instead of an error. ``error`` is only returned if the
+    book project itself doesn't exist (Issue #573).
+    """
     config = _app.load_config()
     try:
         content = _get_claudemd_impl(config, book_slug)
@@ -286,7 +292,10 @@ def list_book_rules(book_slug: str) -> str:
 
     Returns one entry per rule with index, rule_id, title, raw_text,
     has_regex, has_literals, and the patterns the manuscript-checker
-    scanner would extract from the rule.
+    scanner would extract from the rule. Returns an empty list — not an
+    error — for a book that exists but hasn't run init_book_claudemd() yet;
+    ``error`` is only returned if the book project itself doesn't exist
+    (Issue #573).
     """
     config = _app.load_config()
     try:
@@ -383,6 +392,8 @@ def lint_book_rules(book_slug: str) -> str:
 
     Returns ``{rules_total, issues: [{rule_index, title, warnings,
     extracted_patterns}, ...]}``. Rules with no warnings are not listed.
+    A book that exists but hasn't run init_book_claudemd() yet returns
+    ``rules_total: 0`` rather than an error (Issue #573).
     """
     config = _app.load_config()
     try:

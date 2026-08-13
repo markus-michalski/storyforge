@@ -105,10 +105,27 @@ class TestListRules:
         assert rules[2].has_literals is False
         assert rules[2].has_regex is False
 
-    def test_raises_if_claudemd_missing(self, book_config):
-        # No init_claudemd — CLAUDE.md does not exist.
+    def test_degrades_gracefully_if_claudemd_missing(self, book_config):
+        # No init_claudemd — CLAUDE.md does not exist, but the book itself
+        # does. Rules live in the book_rules DB independent of the file
+        # (Phase 4 migration), so this must not raise — Issue #573.
+        assert list_rules(book_config, "my-book") == []
+
+    def test_survives_claudemd_deleted_after_rules_seeded(self, book_config):
+        # The DB content must actually survive the file going away — not
+        # just "no raise" (which a hardcoded [] return would also satisfy).
+        _seed_rules(book_config, ["**Rule 1** — avoid passive voice"])
+        resolve_claudemd_path(book_config, "my-book").unlink()
+
+        rules = list_rules(book_config, "my-book")
+        assert len(rules) == 1
+        assert rules[0].title == "Rule 1"
+
+    def test_raises_if_book_itself_missing(self, book_config):
+        # No book directory at all — genuinely invalid input, unlike the
+        # missing-CLAUDE.md-only case above.
         with pytest.raises(FileNotFoundError):
-            list_rules(book_config, "my-book")
+            list_rules(book_config, "does-not-exist")
 
 
 # ---------------------------------------------------------------------------

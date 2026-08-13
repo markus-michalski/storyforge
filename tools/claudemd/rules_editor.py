@@ -23,6 +23,7 @@ from typing import Any
 from tools.analysis.manuscript.rules import _extract_patterns_from_rule
 from tools.claudemd.manager import _open_book_db, resolve_claudemd_path
 from tools.db.book_rules import delete_rule, list_rules as _db_list_rules, update_rule_text
+from tools.shared.paths import resolve_project_path
 
 
 # ---------------------------------------------------------------------------
@@ -125,12 +126,15 @@ def _build_parsed_rule(index: int, db_row: dict) -> ParsedRule:
 def list_rules(config: dict[str, Any], book_slug: str) -> list[ParsedRule]:
     """Return parsed rules from the book_rules DB for this book.
 
-    Returns an empty list when no rules exist (no error). Raises
-    FileNotFoundError if CLAUDE.md doesn't exist (book not initialized).
+    Returns an empty list when no rules exist (no error) — including books
+    that exist but haven't run init_book_claudemd() yet, since rules live in
+    the book_rules DB table independent of the CLAUDE.md file (Phase 4
+    migration, Issue #282; graceful-degradation fix Issue #573). Raises
+    FileNotFoundError only if the book project itself doesn't exist.
     """
-    path = resolve_claudemd_path(config, book_slug)
-    if not path.exists():
-        raise FileNotFoundError(f"CLAUDE.md not found for book '{book_slug}'")
+    book_root = resolve_project_path(config, book_slug)
+    if not book_root.is_dir():
+        raise FileNotFoundError(f"Book '{book_slug}' not found: {book_root}")
 
     conn, book_num = _open_book_db(config, book_slug)
     try:

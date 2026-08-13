@@ -98,14 +98,21 @@ def _render_rules_section(rules: list[dict]) -> str:
 def get_claudemd(config: dict[str, Any], book_slug: str) -> str:
     """Return the CLAUDE.md content for a book — prose + DB-rendered sections.
 
-    Reads Book Facts / Style Suppressions / Workflow prose from the file.
-    Rules, Callbacks, and Workflows are queried from the book_rules DB table
-    and injected as formatted markdown sections.
+    Reads Book Facts / Style Suppressions / Workflow prose from the file, if
+    it exists. Rules, Callbacks, and Workflows are always queried from the
+    book_rules DB table and injected as formatted markdown sections — these
+    live independent of the CLAUDE.md file (Phase 4 migration, Issue #282).
+    A book that exists but hasn't run init_book_claudemd() yet has no prose
+    section; this returns DB-rendered sections only (or "" if there are none
+    either) instead of raising (graceful-degradation fix, Issue #573).
+    Raises FileNotFoundError only if the book project itself doesn't exist.
     """
+    book_root = resolve_project_path(config, book_slug)
+    if not book_root.is_dir():
+        raise FileNotFoundError(f"Book '{book_slug}' not found: {book_root}")
+
     path = resolve_claudemd_path(config, book_slug)
-    if not path.exists():
-        raise FileNotFoundError(f"CLAUDE.md not found for book '{book_slug}': {path}")
-    prose = path.read_text(encoding="utf-8")
+    prose = path.read_text(encoding="utf-8").rstrip() if path.exists() else ""
 
     try:
         conn, book_num = _open_book_db(config, book_slug)
@@ -130,7 +137,10 @@ def get_claudemd(config: dict[str, Any], book_slug: str) -> str:
     if not sections:
         return prose
 
-    return prose.rstrip() + "\n\n---\n\n" + "\n\n".join(sections)
+    if not prose:
+        return "\n\n".join(sections)
+
+    return prose + "\n\n---\n\n" + "\n\n".join(sections)
 
 
 # Match a ban-cue followed by an optional 0-2-word qualifier and a
