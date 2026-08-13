@@ -88,6 +88,45 @@ class TestParseBookReadme:
         assert result["status"] == "Drafting"
         assert result["target_word_count"] == 80000
 
+    def test_series_string_value_passed_through(self, tmp_path):
+        book_dir = tmp_path / "my-book"
+        book_dir.mkdir()
+        readme = book_dir / "README.md"
+        readme.write_text(
+            '---\ntitle: "My Book"\nseries: "blood-and-binary"\nseries_number: 2\n---\n\n# My Book\n',
+            encoding="utf-8",
+        )
+
+        result = parse_book_readme(readme)
+        assert result["series"] == "blood-and-binary"
+
+    def test_null_series_returns_empty_string_not_literal_none(self, tmp_path):
+        """Issue #588 (L7): `series:` with no value (YAML null) must not
+        coerce to the literal string "None" — meta.get("series", "") only
+        applies its default when the key is *absent*, not when it's
+        present-but-null. This feeds get_book_full()/list_books()/the
+        indexer, a separate code path from get_book_num()/
+        get_book_series_slug() (fixed for the same bug in #584)."""
+        book_dir = tmp_path / "my-book"
+        book_dir.mkdir()
+        readme = book_dir / "README.md"
+        readme.write_text(
+            '---\ntitle: "My Book"\nseries:\n---\n\n# My Book\n',
+            encoding="utf-8",
+        )
+
+        result = parse_book_readme(readme)
+        assert result["series"] == ""
+
+    def test_absent_series_key_returns_empty_string(self, tmp_path):
+        book_dir = tmp_path / "my-book"
+        book_dir.mkdir()
+        readme = book_dir / "README.md"
+        readme.write_text('---\ntitle: "My Book"\n---\n\n# My Book\n', encoding="utf-8")
+
+        result = parse_book_readme(readme)
+        assert result["series"] == ""
+
 
 class TestParseChapterReadme:
     def test_parse_chapter(self, tmp_path):

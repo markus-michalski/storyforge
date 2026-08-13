@@ -219,7 +219,28 @@ def add_book_to_series(series_slug: str, book_slug: str, number: int, status: st
     which numbers are taken, so silently skipping the check when the file
     is merely missing would fail open on exactly the collision this guard
     exists to prevent.
+
+    Rejects an empty/whitespace-only ``series_slug`` (Issue #588) — that
+    value would otherwise get written verbatim into the book's README as
+    ``series: ""``, permanently disabling the #579/#584 guard for that book.
     """
+    if not series_slug.strip():
+        # resolve_series_path("") resolves to content_root/series itself
+        # (the parent directory, not a real series) — _validate_slug()
+        # deliberately lets an empty slug pass through as a "no component"
+        # marker for other callers, so series_dir.exists() below can't be
+        # relied on alone to catch this (that parent directory typically
+        # exists). In the current code, #586's "series.yaml must exist"
+        # check happens to also block this path (content_root/series/
+        # series.yaml normally doesn't exist) — this explicit guard exists
+        # so the protection doesn't depend on that coincidence holding.
+        # Without either guard, an empty series_slug gets written verbatim
+        # into the book's README as `series: ""`, permanently disabling
+        # get_book_num()'s #579/#584 guard for the book — `if series and
+        # num < 1` short-circuits on a falsy empty string, regardless of
+        # what series_number holds (Issue #588, L8).
+        return json.dumps({"error": "series_slug must not be empty"})
+
     config = _app.load_config()
     series_dir = resolve_series_path(config, series_slug)
     book_dir = resolve_project_path(config, book_slug)

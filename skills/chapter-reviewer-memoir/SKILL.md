@@ -50,7 +50,7 @@ plot/timeline.md missing"`) rather than reporting a bare `0`. A bare `0` implies
 found nothing wrong; for a missing file no check ran at all, and conflating the two misleads the
 author into trusting an unverified area of the chapter.
 
-People facts are read from DB (Issue #297); `plot/people-log.md` is a legacy archive, not the source of truth. Checks 16 and 19 below use `canon_log_facts`/`changed_facts` from this brief (book-scoped, size-capped). Only call the standalone `get_canon_brief(book_slug, chapter_slug)` if you need `pov_relevant_facts` filtered to a specific POV character — that data isn't in this brief. Run `scripts/migrate_canon_log_to_db.py` on books whose people-log was not yet migrated.
+People facts are read from DB (Issue #297); `plot/people-log.md` is a legacy archive, not the source of truth. Checks 16 and 19 below use `canon_log_facts`/`changed_facts` from this brief (book-scoped, size-capped). Only call the standalone `get_canon_brief(book_slug, chapter_slug)` if you need `pov_relevant_facts` filtered to a specific POV character — that data isn't in this brief. Run `scripts/migrate_canon_log_to_db.py --execute` on books whose people-log was not yet migrated.
 
 ### Step 1b — Consent Gate
 

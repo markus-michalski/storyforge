@@ -277,7 +277,9 @@ def _sync_book_status_to_disk(project_dir: Path, disk_status: str, derived_statu
 
     Edge case: a README with no frontmatter block at all gets a minimal
     block prepended. Existing frontmatter fields and body content are
-    preserved verbatim.
+    otherwise preserved verbatim, with one exception: a bare ``series:``
+    key (YAML null) is normalized to ``""`` rather than round-tripping as
+    an explicit ``series: null`` (Issue #588, L9).
     """
     import yaml as _yaml
 
@@ -293,6 +295,26 @@ def _sync_book_status_to_disk(project_dir: Path, disk_status: str, derived_statu
         # Prepend a minimal frontmatter while keeping the original content.
         new_text = f"---\nstatus: {derived_status}\n---\n\n{body}"
     else:
+        # A bare `series:` key (YAML null) round-trips through this
+        # function's own yaml.safe_dump() as an explicit `series: null`
+        # line — this function only meant to touch `status`, but silently
+        # turns an ambiguous-but-harmless bare key into a permanent,
+        # explicit one on every forward status-sync (Issue #588, L9).
+        #
+        # Deliberately narrower than parse_book_readme()'s
+        # _normalize_series_value() fix: this is a WRITE path, and that
+        # helper also coerces non-str "malformed" values (a stray YAML
+        # list, an unquoted number that resolves to a bool via YAML 1.1,
+        # ...) to "" as a read-time fallback. Applying that same coercion
+        # here would silently DESTROY whatever the user actually had on
+        # disk the next time an unrelated status sync ran — a read-path
+        # graceful-degradation choice is not an acceptable write-path
+        # data-loss default. Only the specific null-round-trip case this
+        # bug is about gets normalized; anything else present is left
+        # untouched, same as every other frontmatter field this function
+        # doesn't know about.
+        if meta.get("series") is None and "series" in meta:
+            meta["series"] = ""
         meta["status"] = derived_status
         fm = _yaml.safe_dump(meta, sort_keys=False, allow_unicode=True)
         new_text = f"---\n{fm}---\n{body}"

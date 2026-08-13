@@ -31,6 +31,7 @@ from tools.db.connection import (
     ensure_authors_schema,
     get_authors_db_path,
     get_book_num,
+    get_canon_db_path,
     get_db_slug_for_book,
     open_canon_db,
     open_db,
@@ -231,7 +232,14 @@ def _parse_chapter_num(as_of: str) -> int:
         return 0
 
 
-def migrate_character_snapshots(content_root: Path, dry_run: bool) -> None:
+def migrate_character_snapshots(content_root: Path, dry_run: bool) -> int:
+    """Migrate character snapshots for all discovered books.
+
+    Returns the number of books skipped due to a ValueError
+    (BookNotLinkedToSeriesError / SlugValidationError) — callers use this
+    to report a nonzero exit code instead of silently reporting success on
+    a partial migration (Issue #588).
+    """
     print(f"\n[character_snapshots] Scanning {content_root} ...")
     # find_projects() covers both the legacy projects/ tree and books
     # nested under series/ (Issue #279) — a manual projects/-only scan
@@ -246,9 +254,10 @@ def migrate_character_snapshots(content_root: Path, dry_run: bool) -> None:
     book_dirs = find_projects({"paths": {"content_root": str(content_root)}})
     if not book_dirs:
         print("  No book projects found — skipping.")
-        return
+        return 0
 
     total_inserted = 0
+    skipped = 0
 
     for book_dir in book_dirs:
         # get_db_slug_for_book() is a pure string derivation and can't fail,
@@ -258,12 +267,22 @@ def migrate_character_snapshots(content_root: Path, dry_run: bool) -> None:
         # BookNotLinkedToSeriesError so either failure mode skips-and-
         # continues instead of aborting the whole run — both subclass
         # ValueError (Issue #523/#579 precedent).
+        #
+        # get_canon_db_path() runs the same slug validation as
+        # open_canon_db() without opening a connection — called
+        # unconditionally so a malformed-slug skip is counted the same in
+        # --dry-run as in --execute. Without it, dry-run (which never
+        # called open_canon_db()) could exit 0 while --execute on the same
+        # content root exits 1, undermining dry-run's use as a pre-flight
+        # check (Issue #588 code review, L-4).
         try:
             db_slug = get_db_slug_for_book(book_dir)
             book_num = get_book_num(book_dir)
+            get_canon_db_path(db_slug)
             conn = open_canon_db(db_slug) if not dry_run else None
         except ValueError as exc:
             print(f"  SKIP: {book_dir.name} — {exc}")
+            skipped += 1
             continue
         try:
             for subdir in ("characters", "people"):
@@ -317,6 +336,9 @@ def migrate_character_snapshots(content_root: Path, dry_run: bool) -> None:
                 conn.close()
 
     print(f"  Done: {total_inserted} snapshots written.")
+    if skipped:
+        print(f"  {skipped} book(s) skipped — see SKIP lines above.")
+    return skipped
 
 
 # ---------------------------------------------------------------------------
@@ -363,8 +385,15 @@ def main() -> None:
     print(f"Dry run         : {args.dry_run}")
 
     migrate_author_discoveries(authors_root, dry_run=args.dry_run)
-    migrate_character_snapshots(content_root, dry_run=args.dry_run)
+    skipped = migrate_character_snapshots(content_root, dry_run=args.dry_run)
 
+    if skipped:
+        # migrate_character_snapshots() already printed its own "N book(s)
+        # skipped" line — an unqualified "Migration complete." as the very
+        # last line a human sees, immediately before a nonzero exit, would
+        # still read as success on top of that (Issue #588 code review,
+        # L-5). Skip it rather than duplicate the count.
+        sys.exit(1)
     print("\nMigration complete.")
 
 

@@ -140,6 +140,62 @@ class TestAddBookToSeriesYamlUpdate:
         assert numbers == sorted(numbers)
 
 
+class TestAddBookToSeriesRejectsEmptySeriesSlug:
+    """Issue #588 (L8): resolve_series_path("") resolves to
+    content_root/series itself (the parent directory, not a real series) —
+    _validate_slug() deliberately lets an empty slug pass through as a "no
+    component" marker for other callers. An empty series_slug would
+    otherwise get written verbatim into the book's README as `series: ""`,
+    permanently disabling get_book_num()'s #579/#584 guard for that book —
+    `if series and num < 1` short-circuits on a falsy empty string
+    regardless of series_number.
+
+    In the current code, #586's "series.yaml must exist" check
+    (content_root/series/series.yaml, which normally doesn't exist)
+    incidentally blocks this path too — this guard exists so the
+    protection doesn't depend on that coincidence holding."""
+
+    def test_empty_series_slug_is_rejected(self, mock_config, content_root: Path):
+        # No _make_series() call — asserting on the specific error message
+        # below (not just "error" in result) is what actually isolates
+        # this guard from the pre-existing "Series not found" check, which
+        # would otherwise also fire here and make this test pass whether
+        # or not the new guard exists.
+        _make_book(content_root, "firelight")
+
+        result = json.loads(add_book_to_series("", "firelight", 1))
+
+        assert result.get("error") == "series_slug must not be empty"
+
+    def test_whitespace_only_series_slug_is_rejected(self, mock_config, content_root: Path):
+        _make_book(content_root, "firelight")
+
+        result = json.loads(add_book_to_series("   ", "firelight", 1))
+
+        assert result.get("error") == "series_slug must not be empty"
+
+    def test_empty_series_slug_does_not_touch_book_readme(self, mock_config, content_root: Path):
+        # Defeat both incidental guards that would otherwise block this
+        # write for an unrelated reason: create content_root/series/ (so
+        # the pre-existing series_dir.exists() check doesn't reject it)
+        # AND a stray series.yaml directly inside it (so #586's
+        # series.yaml-must-exist check doesn't reject it either) —
+        # isolating this specific guard as the one actually stopping the
+        # write, rather than relying on either coincidence.
+        series_root = content_root / "series"
+        series_root.mkdir(parents=True)
+        (series_root / "series.yaml").write_text(
+            yaml.dump({"name": "not-a-real-series", "books": []}), encoding="utf-8"
+        )
+        book_dir = _make_book(content_root, "firelight")
+        readme_before = (book_dir / "README.md").read_text(encoding="utf-8")
+
+        add_book_to_series("", "firelight", 1)
+
+        readme_after = (book_dir / "README.md").read_text(encoding="utf-8")
+        assert readme_after == readme_before
+
+
 class TestAddBookToSeriesUniquenessGuard:
     """Issue #586: a duplicate series_number silently collides two books'
     book_rules/canon_facts/character_snapshots DB rows — the same failure

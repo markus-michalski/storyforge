@@ -459,11 +459,94 @@ class TestMainSkipsUnlinkedSeriesBooks:
             migrate_canon_log_to_db, "load_config", lambda: {"paths": {"content_root": str(content_root)}}
         )
 
-        migrate_canon_log_to_db.main()
+        with pytest.raises(SystemExit) as exc_info:
+            migrate_canon_log_to_db.main()
+        assert exc_info.value.code == 1
 
         out = capsys.readouterr().out
-        assert "SKIP: unlinked-book" in out
+        assert "SKIP (error): unlinked-book" in out
         assert "my-series" in out
         # The good book must still have been processed despite the other
         # book's failure — not silently dropped by an aborted loop.
         assert "good-book" in out
+
+    def test_main_prints_skip_summary_and_exits_nonzero(self, tmp_path, _patch_db, monkeypatch, capsys):
+        """Issue #588: the per-book SKIP lines scroll away on a real run —
+        a cron/CI caller needs a nonzero exit code, not just log lines, to
+        notice a partial migration. exit(0) on a run that silently skipped
+        books is exactly the "reports clean success" bug this closes."""
+        content_root = tmp_path / "content"
+        projects_dir = content_root / "projects"
+        projects_dir.mkdir(parents=True)
+
+        unlinked_book = projects_dir / "unlinked-book"
+        unlinked_book.mkdir(parents=True)
+        (unlinked_book / "plot").mkdir()
+        (unlinked_book / "chapters").mkdir()
+        (unlinked_book / "characters").mkdir()
+        (unlinked_book / "README.md").write_text(
+            '---\ntitle: unlinked-book\nslug: unlinked-book\nbook_category: fiction\n'
+            'series: "my-series"\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        _write_log(
+            unlinked_book,
+            "## Chapter 01 — Setup\n\n### X: traits\n- Should not crash the run.\n",
+        )
+
+        monkeypatch.setattr(
+            migrate_canon_log_to_db, "load_config", lambda: {"paths": {"content_root": str(content_root)}}
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            migrate_canon_log_to_db.main()
+        assert exc_info.value.code == 1
+
+        out = capsys.readouterr().out
+        assert "1 book(s) skipped" in out
+
+    def test_main_exits_zero_when_nothing_skipped(self, tmp_path, _patch_db, monkeypatch, capsys):
+        content_root = tmp_path / "content"
+        projects_dir = content_root / "projects"
+        projects_dir.mkdir(parents=True)
+        _write_log(
+            _book_at(projects_dir / "good-book"),
+            "## Chapter 01 — Setup\n\n### Theo: traits\n- Theo likes coffee.\n",
+        )
+
+        monkeypatch.setattr(
+            migrate_canon_log_to_db, "load_config", lambda: {"paths": {"content_root": str(content_root)}}
+        )
+
+        migrate_canon_log_to_db.main()  # must NOT raise SystemExit
+
+        out = capsys.readouterr().out
+        assert "book(s) skipped" not in out
+
+    def test_benign_no_log_skip_is_distinct_from_error_skip_and_does_not_exit_nonzero(
+        self, tmp_path, _patch_db, monkeypatch, capsys
+    ):
+        """Issue #588 code review, L-3: migrate_book()'s own benign
+        "SKIP: ... no log" / "no extractable facts" lines are expected
+        no-ops for a book that simply has nothing to migrate — they must
+        stay labeled plain "SKIP:" (not "SKIP (error):") and must not
+        count toward the exit-code-driving `skipped` total, or a content
+        root with several ordinary log-less books would exit nonzero for
+        no actual error."""
+        content_root = tmp_path / "content"
+        projects_dir = content_root / "projects"
+        projects_dir.mkdir(parents=True)
+        # _book() with no _write_log() call — no canon-log.md/people-log.md
+        # at all, the extraction_method == "none" benign-skip case.
+        _book(projects_dir, "no-log-book")
+
+        monkeypatch.setattr(
+            migrate_canon_log_to_db, "load_config", lambda: {"paths": {"content_root": str(content_root)}}
+        )
+
+        migrate_canon_log_to_db.main()  # must NOT raise SystemExit
+
+        out = capsys.readouterr().out
+        assert "SKIP: no-log-book" in out
+        assert "SKIP (error)" not in out
+        assert "book(s) skipped" not in out
