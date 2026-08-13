@@ -25,6 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [3.4.2] - 2026-08-13
+
+### Changed
+- split consult-on-demand rules into shared reference docs (storyforge#574) (#583)
+- sync corrected chapter_num + varied-phrasing guidance to fiction skill (#578)
+
+### Fixed
+- migration exit codes, series:null in parsers.py, empty series_slug guard, status-sync null round-trip (storyforge#588) (#591)
+- reject duplicate series_number in add_book_to_series() (storyforge#586) (#590)
+- skip-and-continue past unlinked series books in migrations, propagate DB-unreadable state (storyforge#584) (#589)
+- remove update_rule's redundant CLAUDE.md-existence guard (storyforge#580) (#587)
+- raise on unlinked series book instead of silently colliding book_num=1 (storyforge#579) (#585)
+- degrade gracefully when CLAUDE.md is missing in list_book_rules/get_book_claudemd (#581)
+
 ## [3.4.1] - 2026-08-13
 
 ### Fixed
@@ -736,3 +750,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.3.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.3.1
 [3.4.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.4.0
 [3.4.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.4.1
+[3.4.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.4.2
