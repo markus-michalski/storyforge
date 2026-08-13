@@ -201,3 +201,26 @@ class TestErrorHandling:
 
         result = json.loads(harvest_book_rules("nonexistent-book"))
         assert "error" in result
+
+    def test_unlinked_series_book_returns_clear_error_not_crash(
+        self, book_with_rules, tmp_path: Path
+    ):
+        """Issue #579: series set but series_number=0 (never linked via
+        add_book_to_series()) — get_book_num() now raises
+        BookNotLinkedToSeriesError via list_rules()'s _open_book_db() call.
+        Must surface as this tool's standard {"error": ...} contract, not
+        crash to the framework's generic ToolError fallback."""
+        content_root = tmp_path / "books"
+        book_dir = content_root / "projects" / "unlinked-book"
+        book_dir.mkdir(parents=True)
+        (book_dir / "README.md").write_text(
+            '---\ntitle: "Unlinked Book"\nauthor: "ethan-cole"\n'
+            'series: "my-series"\nseries_number: 0\n---\n# Unlinked Book\n',
+            encoding="utf-8",
+        )
+        init_book_claudemd("unlinked-book", "Unlinked Book")
+
+        result = json.loads(harvest_book_rules("unlinked-book"))
+
+        assert "error" in result
+        assert "my-series" in result["error"]

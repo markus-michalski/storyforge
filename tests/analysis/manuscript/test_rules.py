@@ -103,6 +103,20 @@ class TestReadBookRules:
         rules = _read_book_rules(tmp_path)
         assert rules == ["Real rule"]
 
+    def test_unlinked_series_book_raises(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        """Issue #579: series set but series_number=0 (never linked via
+        add_book_to_series()) must not silently degrade to [] — that would
+        report "no rule violations" for a book whose rules were never
+        actually checked (it doesn't have a reliable book_num to query)."""
+        from tools.db.connection import BookNotLinkedToSeriesError
+
+        (tmp_path / "README.md").write_text(
+            '---\ntitle: "T"\nseries: "my-series"\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        with pytest.raises(BookNotLinkedToSeriesError):
+            _read_book_rules(tmp_path)
+
 
 class TestScanBookRules:
     def _build_book(self, tmp_path: Path, draft_text: str) -> Path:
@@ -124,3 +138,27 @@ class TestScanBookRules:
         book = self._build_book(tmp_path, "Their teamwork was excellent.\n")
         _seed_rules(patch_db_dir, "demo", ["Avoid `synergy`."])
         assert _scan_book_rules(book) == []
+
+    def test_unlinked_series_book_warns_instead_of_false_clean(
+        self, tmp_path: Path, patch_db_dir: Path
+    ) -> None:
+        """Issue #579: without this, a book with series_number=0 and a real
+        rule violation in its draft would return zero findings — the
+        export gate (derive_from_manuscript_scan) treats zero findings as
+        PASS. A single non-book_rule_violation finding here keeps the gate
+        from claiming a clean bill of health for rules that were never
+        actually checked."""
+        book = self._build_book(tmp_path, "The synergy of the team was unmatched.\n")
+        (book / "README.md").write_text(
+            '---\ntitle: "Demo"\nseries: "my-series"\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        _seed_rules(patch_db_dir, "demo", ["Avoid `synergy` in narration."])
+
+        findings = _scan_book_rules(book)
+
+        assert len(findings) == 1
+        assert findings[0].category == "book_rules_unreadable"
+        assert findings[0].category != "book_rule_violation"
+        assert findings[0].promotable is False
+        assert "my-series" in findings[0].source_rule

@@ -272,6 +272,77 @@ class TestReadTrackerForBootstrap:
         assert result["prev_book_snapshot"]["current_inventory"] == ["silver knife"]
         assert result["prev_book_snapshot"]["as_of_chapter"] == "30-final"
 
+    def test_prev_book_snapshot_falls_back_to_frontmatter_for_unlinked_series_book(
+        self, mock_config, content_root: Path
+    ):
+        """Issue #579: the prev book's README has series set but
+        series_number=0 (never linked via add_book_to_series()) —
+        get_book_num() now raises BookNotLinkedToSeriesError instead of
+        silently querying book 1's DB rows. Must fall back to frontmatter,
+        same as the DB-empty case above, not crash the whole tool.
+
+        Seeds a real book_num=1 DB snapshot with a DIFFERENT inventory
+        value first, so the assertion proves the guard actually prevented
+        that collision (frontmatter wins) rather than merely coinciding
+        with an empty DB."""
+        import tools.db.connection as conn_mod
+        from tools.db.character_snapshots import upsert_snapshot
+
+        _make_tracker(
+            content_root,
+            "my-series",
+            "kael",
+            recurs_in=["B1", "B2"],
+            body=("## Evolution per Band\n\n### B1\n- **Ende:** End state.\n"),
+        )
+        _make_book_char(
+            content_root,
+            "firelight",
+            "kael",
+            snapshot={
+                "current_inventory": ["silver knife"],
+                "current_clothing": ["leather coat"],
+                "current_injuries": [],
+                "altered_states": [],
+                "environmental_limiters": [],
+                "as_of_chapter": "30-final",
+            },
+        )
+        (content_root / "projects" / "firelight" / "README.md").write_text(
+            '---\ntitle: "Firelight"\nseries: "my-series"\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        conn = conn_mod.open_canon_db(
+            conn_mod.get_db_slug_for_book(content_root / "projects" / "firelight")
+        )
+        try:
+            upsert_snapshot(
+                conn,
+                char_slug="kael",
+                book_num=1,
+                chapter_num=99,
+                inventory=["book_num=1's knife — must not leak"],
+                injuries=[],
+                clothing=[],
+                altered_states=[],
+                environmental_limiters="",
+            )
+        finally:
+            conn.close()
+
+        result = json.loads(
+            read_tracker_for_bootstrap(
+                "my-series",
+                "kael",
+                "B1",
+                "B2",
+                prev_book_slug="firelight",
+            )
+        )
+        assert result["prev_book_snapshot"]["current_inventory"] == ["silver knife"]
+        assert result["prev_book_snapshot"]["as_of_chapter"] == "30-final"
+        assert "book_num=1's knife — must not leak" not in result["prev_book_snapshot"]["current_inventory"]
+
     def test_prev_book_snapshot_omitted_when_no_prev_book(self, mock_config, content_root: Path):
         _make_tracker(content_root, "my-series", "kael", recurs_in=["B1", "B2"])
         result = json.loads(read_tracker_for_bootstrap("my-series", "kael", "B1", "B2"))

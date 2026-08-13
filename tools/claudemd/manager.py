@@ -17,7 +17,12 @@ from typing import Any
 
 from tools.claudemd.parser import EntryKind
 from tools.db.book_rules import insert_rule, list_rules
-from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
+from tools.db.connection import (
+    BookNotLinkedToSeriesError,
+    get_book_num,
+    get_db_slug_for_book,
+    open_canon_db,
+)
 from tools.shared.paths import resolve_project_path
 
 CLAUDE_MD_FILENAME = "CLAUDE.md"
@@ -116,6 +121,8 @@ def get_claudemd(config: dict[str, Any], book_slug: str) -> str:
 
     try:
         conn, book_num = _open_book_db(config, book_slug)
+    except BookNotLinkedToSeriesError:
+        raise
     except Exception:
         return prose
 

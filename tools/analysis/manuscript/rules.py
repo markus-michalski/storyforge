@@ -102,10 +102,18 @@ def _read_book_rules(book_path: Path) -> list[str]:
     """Return rule texts for a book — reads from the book_rules DB (sole source).
 
     Returns an empty list when no rules exist or the DB is unavailable.
+
+    Raises :class:`~tools.db.connection.BookNotLinkedToSeriesError` (Issue
+    #579) rather than swallowing it — a book scaffolded into a series but
+    never linked via ``add_book_to_series()`` has no reliable ``book_num``
+    to query, so returning ``[]`` here would silently report "no rule
+    violations" for a book whose rules were never actually checked. The
+    caller (:func:`_scan_book_rules`) turns this into a WARN-level finding
+    instead of a false gate PASS.
     """
     try:
         from tools.db.book_rules import list_rules as _db_list_rules
-        from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
+        from tools.db.connection import BookNotLinkedToSeriesError, get_book_num, get_db_slug_for_book, open_canon_db
 
         db_slug = get_db_slug_for_book(book_path)
         book_num = get_book_num(book_path)
@@ -115,6 +123,8 @@ def _read_book_rules(book_path: Path) -> list[str]:
         finally:
             conn.close()
         return [r["text"] for r in rows]
+    except BookNotLinkedToSeriesError:
+        raise
     except Exception:  # pylint: disable=broad-except
         return []
 
@@ -183,8 +193,31 @@ def _rule_label(rule: str, max_len: int = 80) -> str:
 
 
 def _scan_book_rules(book_path: Path) -> list[Finding]:
-    """Scan chapter drafts for violations of rules in the book's CLAUDE.md."""
-    rules = _read_book_rules(book_path)
+    """Scan chapter drafts for violations of rules in the book's CLAUDE.md.
+
+    A book that exists but hasn't been linked to its series via
+    ``add_book_to_series()`` yet (Issue #579) has no reliable ``book_num`` —
+    rather than silently reporting zero rule violations (which would read
+    as "verified clean" and let the export gate PASS), this returns a
+    single WARN-severity finding flagging that book-rule checking could not
+    run, so the manuscript scan never looks cleaner than it actually is.
+    """
+    from tools.db.connection import BookNotLinkedToSeriesError
+
+    try:
+        rules = _read_book_rules(book_path)
+    except BookNotLinkedToSeriesError as exc:
+        return [
+            Finding(
+                phrase="book_rules_unreadable",
+                category="book_rules_unreadable",
+                severity="high",
+                count=1,
+                occurrences=[],
+                source_rule=str(exc),
+                promotable=False,
+            )
+        ]
     if not rules:
         return []
     drafts = _read_chapter_drafts(book_path)

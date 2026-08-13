@@ -382,6 +382,33 @@ class TestUpdateCharacterSnapshotSecurity:
         # landed.
         assert _get_snapshot(content_root, "my-memoir", "../../../SECRET") is None
 
+    def test_unlinked_series_book_returns_clear_error_not_crash(
+        self, mock_config, content_root: Path
+    ):
+        """Issue #579: a book scaffolded into a series (series set) but
+        never passed to add_book_to_series() has series_number=0 —
+        get_book_num() now raises BookNotLinkedToSeriesError rather than
+        silently writing this snapshot under book 1's book_num. This is a
+        write tool, so failing loud with a clear {"error": ...} instead of
+        the framework's generic ToolError fallback matters more here than
+        for a read."""
+        char_file = _make_char(content_root, "series-book", "theo")
+        book_dir = char_file.parent.parent
+        (book_dir / "README.md").write_text(
+            '---\ntitle: "Series Book"\nseries: "my-series"\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            update_character_snapshot(
+                "series-book", "theo", json.dumps({"current_inventory": ["compass"]})
+            )
+        )
+
+        assert "error" in result
+        assert "my-series" in result["error"]
+        assert _get_snapshot(content_root, "series-book", "theo") is None
+
     def test_result_contains_sorted_updated_fields(self, mock_config, content_root: Path):
         _make_char(content_root, "my-book", "theo")
         snapshot = {

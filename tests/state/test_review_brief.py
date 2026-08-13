@@ -494,6 +494,39 @@ def test_build_review_brief_no_errors_for_minimal_book(tmp_path):
     assert result["errors"] == []
 
 
+def test_build_review_brief_degrades_gracefully_for_unlinked_series_book(tmp_path):
+    """Issue #579: a book scaffolded into a series (series set) but never
+    passed to add_book_to_series() has series_number=0 in its README —
+    get_book_num() now raises BookNotLinkedToSeriesError instead of
+    silently colliding with book 1's DB rows. active_rules/active_callbacks
+    (and book_num itself) must degrade to their fallback and record the
+    error, not crash the whole brief — same documented contract as every
+    other sub-component here."""
+    book, slug = _make_book(tmp_path)
+    _make_chapter(book, "01-opening", number=1)
+    (book / "README.md").write_text(
+        '---\ntitle: "Test Book"\nauthor: ""\nseries: "my-series"\nseries_number: 0\n---\n\n# Test Book\n',
+        encoding="utf-8",
+    )
+
+    result = build_review_brief(
+        book_root=book,
+        book_slug=slug,
+        chapter_slug="01-opening",
+    )
+
+    # active_rules/active_callbacks (tools.db.brief_helpers) now catch
+    # BookNotLinkedToSeriesError internally and return [] cleanly
+    # (restoring their own documented "empty list if DB is unreachable"
+    # contract, Issue #579 code review M-4) — no recorder error for those
+    # two, just a clean empty result. book_num's own recorder.run call
+    # still records the raise directly.
+    assert result["active_rules"] == []
+    assert result["active_callbacks"] == []
+    error_components = {e["component"] for e in result["errors"]}
+    assert "book_num" in error_components
+
+
 def test_build_review_brief_travel_matrix_populated(tmp_path):
     book, slug = _make_book(tmp_path)
     _make_chapter(book, "01-opening", number=1)
