@@ -37,7 +37,12 @@ from pathlib import Path
 from typing import Any
 
 from tools.db.canon_facts import query_facts
-from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
+from tools.db.connection import (
+    BookNotLinkedToSeriesError,
+    get_book_num,
+    get_db_slug_for_book,
+    open_canon_db,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +143,7 @@ def _load_db_facts(
             )
         finally:
             conn.close()
-    except (sqlite3.Error, OSError):
+    except (sqlite3.Error, OSError, BookNotLinkedToSeriesError):
         return {"current": [], "changed": []}
 
     scope_min = max(1, current_num - scope_chapters) if scope_chapters > 0 else 1

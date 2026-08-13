@@ -40,7 +40,7 @@ from tools.db.author_discoveries import (
     remove_discovery,
     update_source_genres,
 )
-from tools.db.connection import open_authors_db
+from tools.db.connection import BookNotLinkedToSeriesError, open_authors_db
 from tools.shared.paths import (
     catch_slug_value_error,
     find_projects,
@@ -399,7 +399,7 @@ def harvest_book_rules(book_slug: str, author_slug: str = "") -> str:
         parsed_rules = list_rules(config, book_slug)
     except MarkersNotFoundError as exc:
         return json.dumps({"error": f"Book CLAUDE.md missing RULES markers: {exc}"})
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, BookNotLinkedToSeriesError) as exc:
         return json.dumps({"error": str(exc)})
 
     author_profile, vocabulary_text = _load_author_for_dedup(config, resolved_author)

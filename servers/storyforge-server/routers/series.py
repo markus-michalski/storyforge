@@ -791,11 +791,15 @@ def read_tracker_for_bootstrap(
             # tracked during the prev book's actual chapter-by-chapter
             # writing (only ever saw state left over from a PRIOR bootstrap
             # write, or nothing at all for a book's first-ever bootstrap).
-            conn = open_canon_db(get_db_slug_for_book(prev_dir))
+            db_row = None
             try:
-                db_row = get_latest_snapshot_for_book(conn, book_slug, get_book_num(prev_dir))
-            finally:
-                conn.close()
+                conn = open_canon_db(get_db_slug_for_book(prev_dir))
+                try:
+                    db_row = get_latest_snapshot_for_book(conn, book_slug, get_book_num(prev_dir))
+                finally:
+                    conn.close()
+            except (ValueError, sqlite3.Error):
+                db_row = None
             if db_row:
                 env_raw = db_row.get("environmental_limiters") or ""
                 snap = {

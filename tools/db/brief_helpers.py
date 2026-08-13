@@ -26,7 +26,12 @@ from pathlib import Path
 
 from tools.db.book_rules import list_rules
 from tools.db.canon_facts import query_facts
-from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
+from tools.db.connection import (
+    BookNotLinkedToSeriesError,
+    get_book_num,
+    get_db_slug_for_book,
+    open_canon_db,
+)
 
 _BAN_CUE_RE = re.compile(
     r"\b(banned|ban|avoid|never|don['‘’]?t\s+use|do\s+not\s+use|limit|stop\s+using|"
@@ -68,18 +73,17 @@ def load_canon_facts_for_brief(
     not acceptable; unread Markdown content should be migrated, not silently
     served as a fallback.
     """
-    if book_num is None:
-        book_num = get_book_num(book_root)
-
-    db_slug = get_db_slug_for_book(book_root)
     try:
+        if book_num is None:
+            book_num = get_book_num(book_root)
+        db_slug = get_db_slug_for_book(book_root)
         conn = open_canon_db(db_slug)
         try:
             rows = query_facts(conn, book_num=book_num, up_to_chapter=chapter_num)
         finally:
             conn.close()
         return [_db_row_to_legacy_fact(r) for r in rows]
-    except (sqlite3.Error, OSError):
+    except (sqlite3.Error, OSError, BookNotLinkedToSeriesError):
         return []
 
 
@@ -122,15 +126,15 @@ def load_changed_facts_for_brief(book_root: Path) -> list[dict]:
     "revision_impact": list[str]}. Empty list if DB is unreachable, empty,
     or has no revision rows.
     """
-    book_num = get_book_num(book_root)
-    db_slug = get_db_slug_for_book(book_root)
     try:
+        book_num = get_book_num(book_root)
+        db_slug = get_db_slug_for_book(book_root)
         conn = open_canon_db(db_slug)
         try:
             rows = query_facts(conn, book_num=book_num, up_to_chapter=_ALL_CHAPTERS)
         finally:
             conn.close()
-    except (sqlite3.Error, OSError):
+    except (sqlite3.Error, OSError, BookNotLinkedToSeriesError):
         return []
 
     changed: list[dict] = []
@@ -159,16 +163,16 @@ def load_rules_for_brief(book_root: Path) -> list[dict]:
     Returns list of {"text": str, "severity": "block" | "advisory"}.
     Empty list if DB is unreachable or empty.
     """
-    book_num = get_book_num(book_root)
-    db_slug = get_db_slug_for_book(book_root)
     try:
+        book_num = get_book_num(book_root)
+        db_slug = get_db_slug_for_book(book_root)
         conn = open_canon_db(db_slug)
         try:
             rows = list_rules(conn, book_num=book_num, rule_type="rule")
         finally:
             conn.close()
         return [{"text": r["text"], "severity": _classify_rule(r["text"])} for r in rows]
-    except (sqlite3.Error, OSError):
+    except (sqlite3.Error, OSError, BookNotLinkedToSeriesError):
         return []
 
 
@@ -178,14 +182,14 @@ def load_callbacks_for_brief(book_root: Path) -> list[str]:
     Returns list of callback text strings.
     Empty list if DB is unreachable or empty.
     """
-    book_num = get_book_num(book_root)
-    db_slug = get_db_slug_for_book(book_root)
     try:
+        book_num = get_book_num(book_root)
+        db_slug = get_db_slug_for_book(book_root)
         conn = open_canon_db(db_slug)
         try:
             rows = list_rules(conn, book_num=book_num, rule_type="callback")
         finally:
             conn.close()
         return [r["text"] for r in rows]
-    except (sqlite3.Error, OSError):
+    except (sqlite3.Error, OSError, BookNotLinkedToSeriesError):
         return []

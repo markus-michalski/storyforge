@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from tools.db.brief_helpers import load_canon_facts_for_brief, load_changed_facts_for_brief
+from tools.db.brief_helpers import (
+    load_callbacks_for_brief,
+    load_canon_facts_for_brief,
+    load_changed_facts_for_brief,
+    load_rules_for_brief,
+)
+from tools.db.book_rules import insert_rule
 from tools.db.canon_facts import insert_fact
 from tools.db.connection import open_canon_db
 import tools.db.connection as _db_conn
@@ -195,3 +201,49 @@ class TestLoadChangedFactsForBrief:
         result = load_changed_facts_for_brief(book_dir)
         assert len(result) == 1
         assert result[0]["revision_impact"] == []
+
+
+class TestUnlinkedSeriesBookDegradesGracefully:
+    """Issue #579: series set but series_number=0 (never linked via
+    add_book_to_series()) — get_book_num() now raises
+    BookNotLinkedToSeriesError. All four brief_helpers functions promise
+    "empty list if the DB is unreachable" in their own docstrings; this
+    must hold for this cause too, not just sqlite/OSError causes. Each
+    function's get_book_num() call was previously OUTSIDE its own try
+    block, so widening that block's except tuple alone would not have
+    caught it — the call itself had to move inside."""
+
+    def test_load_canon_facts_for_brief(self, tmp_path: Path, db_dir: Path):
+        book_dir = _make_book(tmp_path, "unlinked", series="my-series", series_number=0)
+        conn = open_canon_db("unlinked")
+        insert_fact(conn, book_num=1, chapter_num=1, subject="X", fact="should not surface")
+        conn.close()
+
+        assert load_canon_facts_for_brief(book_dir) == []
+
+    def test_load_changed_facts_for_brief(self, tmp_path: Path, db_dir: Path):
+        book_dir = _make_book(tmp_path, "unlinked", series="my-series", series_number=0)
+        conn = open_canon_db("unlinked")
+        insert_fact(
+            conn, book_num=1, chapter_num=1, subject="X", fact="new value",
+            is_revision=True, old_value="old value",
+        )
+        conn.close()
+
+        assert load_changed_facts_for_brief(book_dir) == []
+
+    def test_load_rules_for_brief(self, tmp_path: Path, db_dir: Path):
+        book_dir = _make_book(tmp_path, "unlinked", series="my-series", series_number=0)
+        conn = open_canon_db("unlinked")
+        insert_rule(conn, book_num=1, rule_type="rule", text="Avoid `synergy`.")
+        conn.close()
+
+        assert load_rules_for_brief(book_dir) == []
+
+    def test_load_callbacks_for_brief(self, tmp_path: Path, db_dir: Path):
+        book_dir = _make_book(tmp_path, "unlinked", series="my-series", series_number=0)
+        conn = open_canon_db("unlinked")
+        insert_rule(conn, book_num=1, rule_type="callback", text="the locket returns")
+        conn.close()
+
+        assert load_callbacks_for_brief(book_dir) == []

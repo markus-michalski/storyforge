@@ -383,6 +383,43 @@ class TestBriefGracefulDegrade:
         assert brief["pov_character"] == "Ghost"
         # No exception should have propagated.
 
+    def test_unlinked_series_book_degrades_gracefully(self, tmp_path):
+        """Issue #579: series set but series_number=0 (never linked via
+        add_book_to_series()) — get_book_num() now raises
+        BookNotLinkedToSeriesError instead of silently colliding with book
+        1's DB rows. This is the most-frequently-called brief in normal
+        use (every chapter-writer invocation) — must ship with partial data
+        and a recorded error, not crash, same as every other sub-component."""
+        book, plugin_root = _setup_book(tmp_path)
+        _make_chapter(book, "01-intro", number=1, title="Intro", pov="Theo")
+        _add_character(book, "theo", name="Theo")
+        (book / "README.md").write_text(
+            '---\ntitle: "Test Book"\nauthor: ""\nseries: "my-series"\nseries_number: 0\n---\n\n# Test Book\n',
+            encoding="utf-8",
+        )
+
+        brief = build_chapter_writing_brief(
+            book_root=book,
+            book_slug="test-book",
+            chapter_slug="01-intro",
+            plugin_root=plugin_root,
+        )
+
+        assert isinstance(brief, dict)
+        assert brief["pov_character"] == "Theo"
+        # rules_to_honor/callbacks_in_register (tools.db.brief_helpers) now
+        # catch BookNotLinkedToSeriesError internally and return [] cleanly
+        # (restoring their own documented "empty list if DB is unreachable"
+        # contract, Issue #579 code review M-4) — no recorder error for
+        # those two. collect_banned_phrases still routes through
+        # tools.analysis.manuscript.rules._read_book_rules, which
+        # deliberately re-raises (feeds _scan_book_rules's WARN-finding
+        # instead), so that one *is* recorder-caught here.
+        assert brief["rules_to_honor"] == []
+        assert brief["callbacks_in_register"] == []
+        components = {e["component"] for e in brief["errors"]}
+        assert "banned_phrases" in components
+
     def test_missing_chapter_returns_error_not_crash(self, tmp_path):
         book, plugin_root = _setup_book(tmp_path)
         # No chapter dir created.

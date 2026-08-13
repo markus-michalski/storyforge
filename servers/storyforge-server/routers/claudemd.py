@@ -36,7 +36,7 @@ from tools.claudemd.rules_lint import (
     lint_rule_text as _lint_rule_text_impl,
 )
 from tools.db.character_snapshots import upsert_snapshot
-from tools.db.connection import get_db_slug_for_book, get_book_num, open_canon_db
+from tools.db.connection import BookNotLinkedToSeriesError, get_db_slug_for_book, get_book_num, open_canon_db
 from tools.shared.paths import (
     catch_slug_value_error,
     resolve_person_path,
@@ -109,7 +109,7 @@ def get_book_claudemd(book_slug: str) -> str:
     config = _app.load_config()
     try:
         content = _get_claudemd_impl(config, book_slug)
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, BookNotLinkedToSeriesError) as exc:
         return json.dumps({"error": str(exc)})
     return json.dumps({"content": content})
 
@@ -217,7 +217,10 @@ def update_character_snapshot(
             chapter_num = 0
 
     db_slug = get_db_slug_for_book(project_dir)
-    book_num = get_book_num(project_dir)
+    try:
+        book_num = get_book_num(project_dir)
+    except BookNotLinkedToSeriesError as exc:
+        return json.dumps({"error": str(exc)})
 
     conn = open_canon_db(db_slug)
     try:
@@ -300,7 +303,7 @@ def list_book_rules(book_slug: str) -> str:
     config = _app.load_config()
     try:
         rules = _list_rules_impl(config, book_slug)
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, BookNotLinkedToSeriesError) as exc:
         return json.dumps({"error": str(exc)})
     return json.dumps(
         {
@@ -367,7 +370,7 @@ def update_book_rule(
             delete=delete,
             validate=validate,
         )
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, BookNotLinkedToSeriesError) as exc:
         return json.dumps({"error": str(exc)})
     except MarkersNotFoundError as exc:
         return json.dumps({"error": str(exc)})
@@ -398,7 +401,7 @@ def lint_book_rules(book_slug: str) -> str:
     config = _app.load_config()
     try:
         result = _lint_book_rules_impl(config, book_slug)
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, BookNotLinkedToSeriesError) as exc:
         return json.dumps({"error": str(exc)})
     except MarkersNotFoundError as exc:
         return json.dumps({"error": str(exc)})

@@ -57,6 +57,31 @@ class TestManuscriptScan:
         assert gate.status == "WARN"
         assert gate.findings[0].severity == "WARN"
 
+    def test_book_rules_unreadable_warns_not_passes(self):
+        """Issue #579: an unlinked-series book's book_rules_unreadable
+        finding (tools.analysis.manuscript.rules._scan_book_rules, emitted
+        when get_book_num() raises BookNotLinkedToSeriesError) must not be
+        mistaken for 'no rule violations' — it isn't category
+        book_rule_violation, so it can never FAIL, but its mere presence
+        must keep the gate from PASSing a manuscript whose rules were never
+        actually checked."""
+        gate = derive_from_manuscript_scan(
+            {
+                "chapters_scanned": 3,
+                "findings": [
+                    {
+                        "phrase": "book_rules_unreadable",
+                        "category": "book_rules_unreadable",
+                        "severity": "high",
+                        "occurrences": [],
+                    },
+                ],
+            }
+        )
+        assert gate.status == "WARN"
+        assert gate.status != "PASS"
+        assert gate.metadata["rule_violations"] == 0
+
 
 class TestTimelineValidation:
     def test_clean_timeline_passes(self):

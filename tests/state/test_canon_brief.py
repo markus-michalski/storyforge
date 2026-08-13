@@ -925,6 +925,29 @@ class TestCanonBriefDbPath:
         facts = {f["fact"] for f in brief["current_facts"]}
         assert "Theo is 26 years old" in facts
 
+    def test_unlinked_series_book_degrades_to_empty_facts(self, tmp_path, _patch_db):
+        """Issue #579: series set but series_number=0 (never linked via
+        add_book_to_series()) — get_book_num() now raises
+        BookNotLinkedToSeriesError instead of silently colliding with
+        book 1's rows. build_canon_brief() must still return a valid,
+        empty-facts brief rather than crashing, per its own documented
+        'empty lists on any DB error' contract.
+
+        Seeds a real book_num=1 fact in the shared series DB first and
+        asserts it does NOT leak through — proving the guard actually
+        prevents the collision, not just that build_canon_brief() happens
+        to return [] regardless of what the guard does."""
+        root = _book_with_readme(tmp_path, "my-book", series="my-series", series_number=0)
+        _insert_db_fact(
+            root, chapter_num=1, subject="Other Book", fact="belongs to book_num=1, not us",
+            book_num=1,
+        )
+
+        brief = build_canon_brief(root, "02-conflict")
+
+        assert brief["current_facts"] == []
+        assert brief["changed_facts"] == []
+
     def test_db_revision_fact_appears_in_changed_facts(self, tmp_path, _patch_db):
         root = _book_with_readme(tmp_path, "my-book")
         _insert_db_fact(

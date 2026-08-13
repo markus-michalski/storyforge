@@ -265,16 +265,50 @@ def get_book_series_slug(book_root: Path) -> str:
     return str(_read_book_meta(book_root).get("series", "")).strip()
 
 
+class BookNotLinkedToSeriesError(ValueError):
+    """Raised by :func:`get_book_num` when a book has ``series`` set but
+    ``series_number`` is still ``0`` — i.e. ``create_book_structure()``
+    scaffolded it into a series but ``add_book_to_series()`` was never
+    called to assign its real number (Issue #579).
+
+    Subclasses ``ValueError`` so existing broad ``except ValueError``/
+    ``except Exception`` handlers keep degrading gracefully where that's
+    already the documented behavior (same pattern as
+    :class:`tools.shared.paths.SlugValidationError`, Issue #523) — new code
+    should catch this specifically for an actionable message instead of
+    relying on that.
+    """
+
+
 def get_book_num(book_root: Path) -> int:
     """Read series_number from a book's README.md frontmatter (default 1).
 
     Used by both the migration script and brief assemblers so book_num is
     always derived the same way from the same source (Issue #280 H1 fix).
+
+    Raises :class:`BookNotLinkedToSeriesError` when ``series`` is set but
+    ``series_number`` is less than ``1`` (``0`` is the scaffold-time default
+    written by ``create_book_structure()`` for every new series book, before
+    ``add_book_to_series()`` assigns its real number; a negative value is
+    equally not a real book number). Returning 1 there would silently
+    collide with book 1 of the same series' DB rows (Issue #579). A book
+    with ``series`` set but no ``series_number`` key at all (never written,
+    as opposed to explicitly 0 or negative) is the pre-existing Issue #558
+    case and still defaults to 1, same as a missing/unparseable README.
     """
+    meta = _read_book_meta(book_root)
+    series = str(meta.get("series", "")).strip()
+    raw = meta.get("series_number", 1)
     try:
-        return int(_read_book_meta(book_root).get("series_number", 1)) or 1
+        num = int(raw) if raw is not None else 1
     except (TypeError, ValueError):
         return 1
+    if series and num < 1:
+        raise BookNotLinkedToSeriesError(
+            f"Book '{book_root.name}' has series='{series}' but series_number={num} — "
+            f"call add_book_to_series('{series}', '{book_root.name}', <number>) first."
+        )
+    return num or 1
 
 
 def get_db_slug_for_book(book_root: Path) -> str:

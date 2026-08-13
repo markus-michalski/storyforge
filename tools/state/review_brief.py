@@ -507,8 +507,16 @@ def build_review_brief(
             )
 
     # ----- rules + callbacks from book_rules DB (#304) ----------------------
-    active_rules = load_rules_for_brief(book_root)
-    active_callbacks = load_callbacks_for_brief(book_root)
+    active_rules: list[dict] = recorder.run(
+        "active_rules",
+        lambda: load_rules_for_brief(book_root),
+        [],
+    )
+    active_callbacks: list[str] = recorder.run(
+        "active_callbacks",
+        lambda: load_callbacks_for_brief(book_root),
+        [],
+    )
 
     return {
         "book_slug": book_slug,
