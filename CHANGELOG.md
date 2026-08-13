@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [3.4.1] - 2026-08-13
+
+### Fixed
+- correct false claims and remove drift-prone file inventory (#577)
+- correct chapter_num derivation and varied-phrasing example in Step 6/Rules (#576)
+- tighten batch-cap ordering, closing-report template, and re-validation coverage (#571)
+
 ## [3.4.0] - 2026-08-12
 
 ### Added
@@ -728,3 +735,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.3.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.3.0
 [3.3.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.3.1
 [3.4.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.4.0
+[3.4.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.4.1
