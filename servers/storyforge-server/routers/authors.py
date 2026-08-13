@@ -377,8 +377,10 @@ def harvest_book_rules(book_slug: str, author_slug: str = "") -> str:
     ``evidence``, ``recommendation``, ``rationale``, ``source``,
     ``target_section``, and (for book-rule sources) ``source_rule_index``.
 
-    On error returns ``{"error": "..."}`` — typical causes: book not found,
-    CLAUDE.md missing RULES markers.
+    On error returns ``{"error": "..."}`` — typical cause: book not found.
+    A book that exists but has no rules yet (including one that hasn't run
+    init_book_claudemd()) returns an empty candidate list, not an error
+    (Issue #573).
     """
     config = _app.load_config()
 

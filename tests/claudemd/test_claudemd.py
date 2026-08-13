@@ -184,9 +184,33 @@ class TestGetClaudemd:
         content = get_claudemd(book_config, "my-book")
         assert "<!-- RULES:END -->" in content
 
-    def test_raises_if_missing(self, book_config):
+    def test_raises_if_book_itself_missing(self, book_config):
         with pytest.raises(FileNotFoundError):
             get_claudemd(book_config, "nonexistent")
+
+    def test_degrades_gracefully_if_claudemd_missing(self, book_config):
+        # "my-book" exists (book_config fixture creates the directory +
+        # README) but init_claudemd() was never called — no CLAUDE.md file.
+        # Rules/Callbacks/Workflows live in the book_rules DB independent
+        # of the file (Phase 4 migration), so this must not raise —
+        # Issue #573.
+        content = get_claudemd(book_config, "my-book")
+        assert content == ""
+
+    def test_survives_claudemd_deleted_after_rules_seeded(self, book_config):
+        # DB content must actually survive the file going away — not just
+        # "no raise" (a hardcoded "" return would also satisfy that).
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(book_config, "my-book", "avoid passive voice")
+        append_callback(book_config, "my-book", "Gary returns in Ch12")
+        resolve_claudemd_path(book_config, "my-book").unlink()
+
+        content = get_claudemd(book_config, "my-book")
+        assert "avoid passive voice" in content
+        assert "Gary returns in Ch12" in content
+        # No leading "---" separator when there's no prose to separate from.
+        assert not content.startswith("\n")
+        assert not content.startswith("---")
 
 
 class TestAppendRule:
