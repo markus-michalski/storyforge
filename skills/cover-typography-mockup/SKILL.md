@@ -54,10 +54,22 @@ Ask via AskUserQuestion (keep this short — defaults come from Step 1's data):
 - **Target platform** — eBook, print, or both — the export/resolution section (Step 3)
   and the canvas-size instruction (Step 3) both depend on this; don't assume
 - **Effect accent** — beyond the mandatory legibility outline (see Step 3), does the
-  author also want a shadow, glow, or (fiction fantasy/thriller only) bevel/emboss
-  treatment? Offer only the effects the configured tool actually supports per the
-  loaded reference file — e.g. never offer bevel/emboss if `tool == "canva"`, it has no
-  equivalent.
+  author also want a shadow, glow, or bevel/emboss treatment? Bevel/emboss has a hard
+  tool gate: **never offer it if `tool == "canva"`** — `canva-typography.md` documents
+  no bevel/emboss equivalent, only 2D effects (shadow, outline, offset, glow). Beyond
+  the tool gate, steer the author away from bevel/emboss by default outside
+  fantasy/thriller — `photoshop-typography.md` only calls it "common on" those covers,
+  not exclusive to them — but don't hard-block it: judge against the book's actual
+  genre(s) as configured, including any mix-genre component (e.g. dark-fantasy,
+  paranormal-romance counts as its fantasy/romance parts), since e.g. horror's
+  gothic/distressed styling or a gold-premium historical treatment (`cover-specs.md`'s
+  genre tables) can justify it too. If `tool == "canva"`, also check whether the chosen
+  accent can actually combine with Step 3's mandatory outline — Canva's Effects panel
+  presents Shadow/Outline/Neon/etc. as presets applied to a text box, and
+  `canva-typography.md` never states whether more than one stacks on the same text —
+  verify combinability in-tool rather than assuming Photoshop/GIMP-style layered
+  stacking. Offer only the effects the configured tool actually supports per the loaded
+  reference file beyond that.
 
 Pick title/author font pairing from `cover-specs.md`'s genre table as the default,
 confirm or let the user override. Write a one-paragraph rationale tying the chosen
@@ -100,18 +112,30 @@ sections right; single column on narrow viewports):
 5. **"Step by Step in {Tool}" numbered list** — concrete, transcribed from the loaded
    `{tool}-typography.md`: canvas size for the *actual* target platform chosen in Step
    2 (not a generic default), exact menu paths for the font-pairing workflow and the
-   chosen effect(s) in the order they need to be applied (effect order matters — e.g. a
-   glow added before a shadow reads differently than the reverse; the tool reference
-   file's own effect table covers this), and the export format/settings for the chosen
-   platform.
+   chosen effect(s), and the export format/settings for the chosen platform. If
+   applying more than one effect, check whether the loaded reference documents a
+   stacking/application relationship for those specific effects (e.g. one effect's row
+   or paragraph placing it beneath another, or an explicit combined-workflow
+   description) and follow it if so — effects composited in a different arrangement
+   than documented can render differently. If the loaded reference doesn't document a
+   relationship for the effects actually chosen, say so rather than inventing a
+   plausible-sounding sequence or silently carrying another tool's documented order
+   over and presenting it as this tool's own guidance.
 6. **"Platform Specs" grid** — pixel dimensions pulled from `cover-specs.md` (and the
    book's own `cover/prompts.md` if it exists) for whichever platform(s) the book
    targets, plus the export/resolution settings (DPI, RGB vs. CMYK, file format) from
-   the loaded `{tool}-typography.md` for that same platform. **This is where the
-   ≥0.25" print text-safety margin lives (from `{tool}-typography.md`'s IngramSpark
-   citation, not `cover-specs.md` — that file has no bleed/margin spec) if the target
-   includes print** — call it out explicitly rather than folding it silently into the
-   preview frame's scrim.
+   the loaded `{tool}-typography.md` for that same platform. **If the target includes
+   print, call out the text-safety margin explicitly** rather than folding it silently
+   into the preview frame's scrim — the margin figure (if any) comes from the loaded
+   `{tool}-typography.md`, never from `cover-specs.md` (that file has no bleed/margin
+   spec at all). If the loaded reference states a specific number, cite it together with
+   whichever platform(s) it says the number applies to — don't generalize a
+   platform-specific figure to a platform it wasn't stated for (e.g. a number given for
+   IngramSpark specifically isn't automatically KDP's number too, even where the two
+   platforms' figures happen to match). If the loaded reference doesn't document a
+   number (as with Canva), say that honestly and point at the chosen print platform's
+   own bleed/safety spec instead of presenting a margin figure the loaded reference
+   never actually stated.
 7. **Footer** citing the actual source files read in Step 1 (`cover/brief.md`,
    `cover/prompts.md` if present) and the real source image's resolution/aspect ratio,
    so the mockup stays traceable to what generated it.
