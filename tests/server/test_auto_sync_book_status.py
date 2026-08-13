@@ -257,6 +257,61 @@ class TestPreservesOtherContent:
         text = (project / "README.md").read_text(encoding="utf-8")
         assert "Body stays intact." in text
 
+    def test_bare_series_key_not_persisted_as_explicit_null(self, server_module, content_root: Path):
+        """Issue #588 (L9): _sync_book_status_to_disk() re-reads the raw
+        frontmatter, mutates only `status`, and re-dumps the whole dict via
+        yaml.safe_dump(). A bare `series:` key (YAML null, parses to Python
+        None) round-tripped through that dump as an explicit `series: null`
+        line — turning an ambiguous-but-harmless bare key into a permanent
+        one on every forward status-sync, a tool that was only asked to
+        touch `status`. Must normalize to an empty string instead, matching
+        parse_book_readme()'s equivalent fix."""
+        project = _write_book_with_frontmatter(
+            content_root, "book-k", "Idea", extra_fields="series:\n"
+        )
+        _write_chapter(project, "01-c", status="Draft")
+
+        server_module.rebuild_state()
+
+        text = (project / "README.md").read_text(encoding="utf-8")
+        assert "series: null" not in text
+        meta, _ = parse_frontmatter(text)
+        assert meta["series"] == ""
+        assert meta["status"] == "Drafting"
+
+    def test_non_null_series_value_survives_untouched(self, server_module, content_root: Path):
+        """Issue #588 code review, M-1: the fix for the null-round-trip bug
+        must NOT reuse parse_book_readme()'s _normalize_series_value() here
+        — that helper also coerces non-str "malformed" values (a stray YAML
+        list, an unquoted value that resolves to a bool via YAML 1.1, ...)
+        to "" as a read-time fallback. This is a WRITE path: applying that
+        same coercion would silently DESTROY whatever the user actually had
+        on disk the next time an unrelated status sync ran. A real,
+        non-null series value — even an unusual one — must survive a
+        status-only sync completely unchanged."""
+        project = _write_book_with_frontmatter(
+            content_root, "book-m", "Idea", extra_fields="series: [a, b]\n"
+        )
+        _write_chapter(project, "01-c", status="Draft")
+
+        server_module.rebuild_state()
+
+        meta, _ = parse_frontmatter((project / "README.md").read_text(encoding="utf-8"))
+        assert meta["series"] == ["a", "b"]
+        assert meta["status"] == "Drafting"
+
+    def test_no_series_key_does_not_gain_one(self, server_module, content_root: Path):
+        """The normalization must only touch a `series` key that was
+        already present — adding `series: ""` to every synced book that
+        never had the field would be its own new diff-noise regression."""
+        project = _write_book_with_frontmatter(content_root, "book-l", "Idea")
+        _write_chapter(project, "01-c", status="Draft")
+
+        server_module.rebuild_state()
+
+        meta, _ = parse_frontmatter((project / "README.md").read_text(encoding="utf-8"))
+        assert "series" not in meta
+
 
 # ---------------------------------------------------------------------------
 # rebuild_state response includes sync log

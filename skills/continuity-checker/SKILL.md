@@ -47,7 +47,7 @@ Honor every populated field. Empty lists mean "file missing — degrade graceful
 
 When `canon_log_facts_truncated` is `true`, the Continuity Report's Summary and fact-conflict sections must say so explicitly (e.g. `"checked N of M established facts — M-N dropped for size, earliest chapters prioritized"`) rather than reporting a bare count that implies every fact was checked. Do the same when `chapter_timelines_truncated` or `canonical_calendar_truncated` is `true`.
 
-**Memoir supplement:** If `book_category == "memoir"`, call `get_canon_brief(book_slug, chapter_slug)` to get people facts from DB (Issue #297). If `extraction_method == "none"`, the DB has no facts yet — note this and advise running `scripts/migrate_canon_log_to_db.py` to import from `plot/people-log.md`.
+**Memoir supplement:** If `book_category == "memoir"`, call `get_canon_brief(book_slug, chapter_slug)` to get people facts from DB (Issue #297). If `extraction_method == "none"`, the DB has no facts yet — note this and advise running `scripts/migrate_canon_log_to_db.py --execute` to import from `plot/people-log.md`.
 
 Also call MCP `check_memoir_consent(book_slug)` — this is the **only** source for `consent_status` in this skill. `character_index` (from Step 1 above) is built from `characters/`, not `people/`, and carries no `consent_status` field regardless of category; `canon_log_facts` doesn't carry it either. `check_memoir_consent` reads every profile in `people/` directly and returns a `people` list with a per-person verdict (`PASS`/`WARN`/`FAIL`, where `FAIL` means `consent_status: refused`). Use its `FAIL`-verdict entries as the input to the Step 7/Step 9 refused-consent rule below.
 

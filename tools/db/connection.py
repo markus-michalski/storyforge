@@ -252,6 +252,10 @@ def _read_book_meta(book_root: Path) -> dict:
     if not readme.exists():
         return {}
     try:
+        # Deferred, not just style: tools/state/parsers.py imports
+        # _normalize_series_value from this module (Issue #588) — a
+        # module-level import here would close that into a circular
+        # import. Keep this import function-local.
         from tools.state.parsers import parse_frontmatter
         text = readme.read_text(encoding="utf-8")
         meta, _ = parse_frontmatter(text)

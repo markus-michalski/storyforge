@@ -21,6 +21,8 @@ from typing import Any
 
 import yaml
 
+from tools.db.connection import _normalize_series_value
+
 # Pre-compiled patterns
 _RE_FRONTMATTER = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
@@ -60,7 +62,13 @@ def parse_book_readme(path: Path) -> dict[str, Any]:
         "status": _normalize_book_status(meta.get("status", "Idea")),
         "language": meta.get("language", "en"),
         "target_word_count": meta.get("target_word_count", 0),
-        "series": meta.get("series", ""),
+        # A YAML-null `series:` key (present, no value) parses to Python
+        # None — meta.get("series", "") only applies its default when the
+        # key is *absent*, not when it's present-but-null, so this would
+        # otherwise carry a literal None through to get_book_full()/
+        # list_books()/the indexer (Issue #588 — mirrors #584's
+        # _normalize_series_value() fix for get_book_series_slug()).
+        "series": _normalize_series_value(meta.get("series")),
         "series_number": meta.get("series_number", 0),
         "description": meta.get("description", ""),
         "author_writing_mode": meta.get("author_writing_mode", ""),

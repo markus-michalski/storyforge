@@ -139,6 +139,7 @@ def main() -> None:
     print(f"\nFound {len(books)} book(s):\n")
 
     total = 0
+    skipped = 0
     for book_root in books:
         try:
             total += migrate_book(book_root)
@@ -148,7 +149,17 @@ def main() -> None:
             # migrate_book() via get_book_num()/open_canon_db(), and both
             # subclass ValueError so either failure mode skips-and-continues
             # instead of aborting the whole run.
-            print(f"  SKIP: {book_root.name} — {exc}")
+            #
+            # "SKIP (error)" distinguishes this from migrate_book()'s own
+            # benign "SKIP: ... no log" / "no extractable facts" lines,
+            # which are expected no-ops and don't count toward `skipped`
+            # below — without the distinct label, a real content root with
+            # several log-less books and one actually-broken one prints a
+            # wall of identical-looking SKIP lines with no way to tell
+            # which one is the reason the run exits nonzero (Issue #588
+            # code review, L-3).
+            print(f"  SKIP (error): {book_root.name} — {exc}")
+            skipped += 1
 
     print(f"\n{'=' * 60}")
     if DRY_RUN:
@@ -157,6 +168,13 @@ def main() -> None:
     else:
         print(f"Migration complete. Up to {total} rows inserted (duplicates silently skipped).")
         print("\nLog files are preserved as read-only archives.")
+
+    if skipped:
+        # A cron/CI-invoked run must not report clean success (exit 0) when
+        # some books were silently not migrated — the SKIP lines above
+        # scroll away, but the exit code doesn't (Issue #588).
+        print(f"\n{skipped} book(s) skipped due to errors — see SKIP (error) lines above.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
