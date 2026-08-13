@@ -119,6 +119,23 @@ def _extract_relationships_text(body: str) -> str:
     return (rest[: next_h2.start()] if next_h2 else rest).strip()
 
 
+def _entry_number(entry: dict) -> int | None:
+    """Coerce a series.yaml books[] entry's ``number`` field to int.
+
+    series.yaml is hand-editable — a quoted ``number: "1"`` round-trips as
+    a str and would silently defeat both the Issue #586 uniqueness check
+    (``"1" == 1`` is False) and the existing sort-by-number call, since
+    ``int``/``str`` aren't orderable (Issue #586 code review, M-2).
+    """
+    raw = entry.get("number")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 @mcp.tool()
 def create_series(title: str, genres: str = "", planned_books: int = 3, author: str = "") -> str:
     """Create a new series directory with series.yaml (Issue #279).
@@ -186,6 +203,22 @@ def add_book_to_series(series_slug: str, book_slug: str, number: int, status: st
     1. Book's README.md frontmatter — sets series/series_number fields.
     2. series.yaml books[] list — appends or updates the entry for this book.
        No books/ ref-file directory is created (obsoleted by #279).
+
+    Rejects ``number`` if it's already assigned to a *different* book in
+    this series (Issue #586) — get_book_num()'s #579 guard only catches the
+    ``series_number: 0`` scaffold default, not two books sharing the same
+    real number, which collides their book_rules/canon_facts/
+    character_snapshots DB rows identically (verified: a duplicate
+    assignment let one book's ``update_book_rule(delete=True)`` silently
+    delete another book's rule via the shared book_num). Re-linking the
+    *same* book (matched by slug) to a new number is unaffected — that's
+    the normal correction path, not a collision.
+
+    Requires series.yaml to already exist (``create_series()`` always
+    writes one) — the uniqueness check reads it as the source of truth for
+    which numbers are taken, so silently skipping the check when the file
+    is merely missing would fail open on exactly the collision this guard
+    exists to prevent.
     """
     config = _app.load_config()
     series_dir = resolve_series_path(config, series_slug)
@@ -195,6 +228,35 @@ def add_book_to_series(series_slug: str, book_slug: str, number: int, status: st
         return json.dumps({"error": f"Series '{series_slug}' not found"})
     if not book_dir.exists():
         return json.dumps({"error": f"Book '{book_slug}' not found"})
+    try:
+        number = int(number)
+    except (TypeError, ValueError):
+        return json.dumps({"error": f"number must be an integer, got {number!r}"})
+
+    series_yaml_path = series_dir / "series.yaml"
+    if not series_yaml_path.exists():
+        return json.dumps(
+            {"error": f"Series '{series_slug}' has no series.yaml — cannot verify or record membership."}
+        )
+
+    # Read once, both to check for a duplicate `number` and to reuse for
+    # the write below (single source of truth for series membership).
+    series_data: dict = yaml.safe_load(series_yaml_path.read_text(encoding="utf-8")) or {}
+    books_list: list = series_data.get("books", [])
+    conflict = next(
+        (b for b in books_list if _entry_number(b) == number and b.get("slug") != book_slug),
+        None,
+    )
+    if conflict:
+        return json.dumps(
+            {
+                "error": (
+                    f"series_number {number} is already assigned to "
+                    f"'{conflict.get('slug')}' in series '{series_slug}' — "
+                    f"choose a different number."
+                )
+            }
+        )
 
     # Update book's README.md frontmatter
     book_readme = book_dir / "README.md"
@@ -206,22 +268,18 @@ def add_book_to_series(series_slug: str, book_slug: str, number: int, status: st
     new_text = "---\n" + yaml.dump(meta, default_flow_style=False, allow_unicode=True) + "---\n" + body
     book_readme.write_text(new_text, encoding="utf-8")
 
-    # Update series.yaml books[] list (single source of truth for series membership)
-    series_yaml_path = series_dir / "series.yaml"
-    if series_yaml_path.exists():
-        series_data = yaml.safe_load(series_yaml_path.read_text(encoding="utf-8")) or {}
-        books_list: list = series_data.get("books", [])
-        existing = next((b for b in books_list if b.get("slug") == book_slug), None)
-        if existing:
-            existing["number"] = number
-            existing["status"] = status
-        else:
-            books_list.append({"slug": book_slug, "number": number, "status": status})
-        series_data["books"] = sorted(books_list, key=lambda b: b.get("number", 0))
-        series_yaml_path.write_text(
-            yaml.dump(series_data, default_flow_style=False, allow_unicode=True, sort_keys=False),
-            encoding="utf-8",
-        )
+    # Write series.yaml — reuses series_data/books_list read above.
+    existing = next((b for b in books_list if b.get("slug") == book_slug), None)
+    if existing:
+        existing["number"] = number
+        existing["status"] = status
+    else:
+        books_list.append({"slug": book_slug, "number": number, "status": status})
+    series_data["books"] = sorted(books_list, key=lambda b: _entry_number(b) or 0)
+    series_yaml_path.write_text(
+        yaml.dump(series_data, default_flow_style=False, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
 
     _cache.invalidate()
     return json.dumps({"success": True, "series": series_slug, "book": book_slug, "number": number})
