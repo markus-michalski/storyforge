@@ -64,14 +64,11 @@ Before any other prerequisite load:
 
 **Note on simile coverage.** The `simile` category in this checker is
 *cross-chapter n-gram repetition* — the same simile phrase appearing in
-multiple chapters. Per-simile *quality* (is this comparison illogical?
-decorative?) is covered by `reference/craft/simile-discipline.md` and
-enforced at write-time by `chapter-writer` (Step 6c) and at review-time by
-`chapter-reviewer`. When walking the `simile` findings in interactive fix
-mode (section 5), apply the two-question test from `simile-discipline.md`
-to each hit before deciding whether to keep or rewrite — a repeated simile
-that also fails the discipline check is a clear cut; a repeated simile that
-does real work in each location may be an intentional motif.
+multiple chapters. Per-simile *quality* is covered separately by
+`reference/craft/simile-discipline.md`, enforced at write-time by
+`chapter-writer` (Step 6c) and at review-time by `chapter-reviewer`. See
+`reference/craft/repetition-category-rules.md` for how the two combine
+during Step 5's interactive fix mode.
 
 ## Detection categories
 
@@ -244,21 +241,9 @@ For each high-severity finding:
 
 ### Special handling for `question_as_statement`
 
-Flat-delivery questions ("Who did this.") are a legitimate stylistic choice
-(McCarthy-style) used sparingly. At scale they read as monotonous or buggy.
-**Do not blanket-convert.** For each hit offer two options:
-
-- **(A) Convert to a real question mark.** The default — most dialogue wants
-  this.
-- **(B) Keep the period, pair it with a narrative beat.** For moments where
-  the flatness is load-bearing:
-
-  > "Who?"
-  > It was a demand, not a question.
-
-Ask the user per hit, or bulk-apply (A) after a sample. A good heuristic: if
-the surrounding paragraph already establishes the character's flat delivery,
-(B) may be redundant and (A) is cleaner.
+See `reference/craft/question-as-statement-handling.md` for the two-option
+(convert to `?` vs. keep the period as a load-bearing beat) treatment —
+loaded when interactive fix mode (Step 5) reaches this category.
 
 ### 6. Record revision summary if the user fixed anything
 
@@ -271,36 +256,12 @@ If edits were applied, call `add_canon_fact(book_slug, chapter_num=<highest chap
 - A repeated phrase isn't always a bug. Some are deliberate motifs
   ("for a hundred and fifty years" might be a thematic refrain). When in
   doubt, ask.
-- For high-severity repetition in categories `simile`, `character_tell`,
-  and `blocking_tic`: default to "pick one to keep". For `structural` and
-  `signature_phrase`: be more cautious — these may be intentional voice
-  markers.
-- **`character_tell` findings whose `phrase` ends in `(varied phrasing)`** are the
-  paraphrased-tic detector, not the n-gram one — the phrase is a synthetic label
-  ("shoulder (varied phrasing)"), not text that appears anywhere in the manuscript. "Pick
-  one to keep" doesn't apply: there's no single literal phrase to keep or cut. Instead, walk
-  the listed occurrences with the user and vary the physical signal across them — a
-  different body part, a different kind of beat, or fewer repeats of the same character's
-  tell. A book's `## Allowed Repetitions` in CLAUDE.md (matched on the body-part word) is the
-  right escape hatch for a deliberate motif. E.g. for `"shoulder (varied phrasing)"` with
-  occurrences "her shoulders came down" (ch 02), "her shoulders had dropped" (ch 08), "his
-  shoulders squared" (ch 15), "her shoulders loosened" (ch 22), "his shoulders slumped"
-  (ch 29): the recommendation should propose varying the physical signal itself for at least
-  one occurrence (a different body part, or a beat that isn't a body-part release at all) —
-  not "keep ch 08's phrasing, cut the other four."
-- For `simile` findings specifically: apply the two-question test from
-  `reference/craft/simile-discipline.md` to each occurrence. If a repeated
-  simile also fails the discipline check (illogical, decorative, dead, or
-  stacked), cut all instances — don't just keep the "best" one. If every
-  instance does real work, the finding may be a deliberate motif worth
-  keeping — ask the user. **Mixed outcome** (some occurrences pass the
-  two-question test, some fail — e.g. one instance does real work, others
-  are lazy reuse with no connection to their scene): the test is applied
-  per occurrence, so the outcome is too — cut only the failing occurrences,
-  keep the one(s) that pass. Don't extend the "cut all instances" exception
-  to an occurrence that individually does real work, and don't fall back to
-  the ordinary "pick one to keep" repetition default for the ones that fail
-  the discipline check.
+- For repetition categories (`simile`, `character_tell`, `blocking_tic`, `sensory`,
+  `structural`, `signature_phrase`), including the `character_tell`
+  paraphrased-tic detector (`phrase` ending in `(varied phrasing)`) and the
+  `simile` two-question-test mixed-outcome handling: see
+  `reference/craft/repetition-category-rules.md`, loaded when interactive
+  fix mode (Step 5) actually reaches one of these categories.
 - **Clichés are high severity even at a count of 1.** A cliché doesn't
   become less clichéd by being rare.
 - **Filter words are not always bad.** Internal realisations, dream logic,
@@ -317,42 +278,10 @@ If edits were applied, call `add_canon_fact(book_slug, chapter_num=<highest chap
 
 ## Book-rule pattern extraction
 
-For `book_rule_violation` findings, the scanner extracts patterns from every
-rule stored in the book's **book_rules database** — *not* from hand-editing
-`CLAUDE.md` text. Rules get there via `append_book_rule(book_slug, text)` (used
-by `/storyforge:register-callback` for a `Regel:`-prefixed message) or
-`/storyforge:rules-audit`'s `update_book_rule`/promote-rule flows. CLAUDE.md's
-own `## Rules` section is a **read-only rendered view** of that same DB (`##
-Rules (from DB)`) — editing that section of the file directly does nothing;
-the render is regenerated from the DB, not parsed back into it. Preview exactly
-what the scanner will extract from the current rules via `list_book_rules(book_slug)`
-before running a scan, if you want to sanity-check a rule without waiting for a
-full manuscript scan.
-
-The extraction logic itself, applied to each rule's stored text:
-
-- **Backtick-wrapped regex** — if the content contains regex metacharacters
-  (`|`, `(`, `)`, `[`, `]`, `\`, `^`, `$`, `?`, `+`, `*`, `{`, `}`), it's
-  compiled as a case-insensitive regex. Example:
-  `` `the (specific|particular) [a-z]+ (that|of)` ``
-- **Backtick-wrapped literal** — otherwise treated as a literal case-insensitive
-  substring. Example: `` ` thing ` ``
-- **Double-quoted phrases** (≥6 chars) — extracted *only* when the rule text
-  contains a ban cue (`banned`, `avoid`, `never`, `don't use`, ...).
-  This prevents positive rewrite examples from being interpreted as bans.
-- Italics (`*foo*`) are **ignored** — they're for narrative examples.
-- Rules without any extractable pattern produce no findings. Rephrase the
-  rule text with backticks or a ban-cue-qualified quoted phrase — via
-  `/storyforge:rules-audit`'s `update_book_rule(book_slug, rule_match=...,
-  new_text=...)`, not by editing CLAUDE.md directly — to make it
-  machine-readable. `lint_book_rules(book_slug)` flags exactly which
-  existing rules the scanner will silently ignore or misinterpret.
-
-*(Live-verified 2026-07-25 against a real sandbox book: `append_book_rule`
-inserted into the DB while the on-disk CLAUDE.md's `<!-- RULES:START/END -->`
-markers stayed empty; `scan_manuscript` still correctly flagged the violation
-from the DB-stored rule. Prior wording described the pre-Phase-4 CLAUDE.md-text
-extraction model, which `append_book_rule`/the scanner no longer use.)*
+See `reference/craft/book-rule-pattern-extraction.md` for how the scanner
+extracts patterns from `book_rule_violation` findings' source rules
+(backtick-regex, backtick-literal, ban-cue-qualified quoted phrases), and
+how to sanity-check a rule via `list_book_rules(book_slug)` before scanning.
 
 ## Callback Register findings
 
