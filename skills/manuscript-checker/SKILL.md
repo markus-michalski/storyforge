@@ -262,7 +262,7 @@ the surrounding paragraph already establishes the character's flat delivery,
 
 ### 6. Record revision summary if the user fixed anything
 
-If edits were applied, call `add_canon_fact(book_slug, chapter_num=<highest chapter number covered by this scan>, subject="manuscript-pass", fact="<summary>", domain="revision")` where `<summary>` lists: N book-rule violations fixed, N clichés replaced, N question-as-statement hits converted, N filter-word passes tightened, N repetitions pruned. `chapter_num` is the chapter's integer number (not its slug) — use the highest chapter number covered by this scan, since the note isn't tied to one specific chapter. The `canon_brief` projector reads from DB exclusively (Issue #297) — `plot/canon-log.md` is no longer read.
+If edits were applied, call `add_canon_fact(book_slug, chapter_num=<highest chapter number covered by this scan>, subject="manuscript-pass", fact="<summary>", domain="revision")` where `<summary>` lists: N book-rule violations fixed, N clichés replaced, N question-as-statement hits converted, N filter-word passes tightened, N repetitions pruned. `chapter_num` is the chapter's integer number (not its slug) — use the actual highest chapter number that has a draft, **not** `chapters_scanned` itself: `chapters_scanned` is a count (`len(drafts)`), and only equals the highest drafted chapter number when the drafted chapters happen to form a contiguous `1..N` block. A book drafted as chapters 01-05 and 12-40, for example, has `chapters_scanned=34` but a highest chapter number of 40 — `chapters_scanned` would silently anchor the fact to the wrong chapter there. When the drafted range isn't obviously contiguous, confirm the real highest number from `get_book_full(book_slug)`'s `chapters_data` — take the max `number` among entries with `has_draft: true`, since that list also contains outlined-but-undrafted chapters. Also don't narrow this to only the chapters the user happened to apply fixes to in this walkthrough — the note isn't tied to one specific chapter, so it anchors to the manuscript's scanned extent, not to the fix subset. The `canon_brief` projector reads from DB exclusively (Issue #297) — `plot/canon-log.md` is no longer read.
 
 ## Rules
 
@@ -282,7 +282,12 @@ If edits were applied, call `add_canon_fact(book_slug, chapter_num=<highest chap
   the listed occurrences with the user and vary the physical signal across them — a
   different body part, a different kind of beat, or fewer repeats of the same character's
   tell. A book's `## Allowed Repetitions` in CLAUDE.md (matched on the body-part word) is the
-  right escape hatch for a deliberate motif.
+  right escape hatch for a deliberate motif. E.g. for `"shoulder (varied phrasing)"` with
+  occurrences "her shoulders came down" (ch 02), "her shoulders had dropped" (ch 08), "his
+  shoulders squared" (ch 15), "her shoulders loosened" (ch 22), "his shoulders slumped"
+  (ch 29): the recommendation should propose varying the physical signal itself for at least
+  one occurrence (a different body part, or a beat that isn't a body-part release at all) —
+  not "keep ch 08's phrasing, cut the other four."
 - For `simile` findings specifically: apply the two-question test from
   `reference/craft/simile-discipline.md` to each occurrence. If a repeated
   simile also fails the discipline check (illogical, decorative, dead, or
