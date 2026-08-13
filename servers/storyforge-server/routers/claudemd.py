@@ -332,7 +332,7 @@ def update_book_rule(
     delete: bool = False,
     validate: bool = True,
 ) -> str:
-    """Replace or remove a rule in the book's CLAUDE.md RULES block.
+    """Replace or remove a rule in the book_rules DB.
 
     Resolution: ``rule_match`` is matched first against bold titles
     (``**Title**``), then against rule body substrings — case-insensitive.
@@ -341,7 +341,7 @@ def update_book_rule(
 
     Args:
         book_slug: Book slug.
-        rule_index: 0-based index in the RULES block. ``-1`` = unset.
+        rule_index: 0-based index among this book's DB rules. ``-1`` = unset.
         rule_match: Substring to match against rule title or body. Empty
             string = unset.
         new_text: Replacement text for the rule body (without leading
@@ -352,9 +352,10 @@ def update_book_rule(
             manuscript-checker pattern contract and return warnings.
 
     Returns: ``{found, changed, rule_index, old_text, new_text,
-    warnings, extracted_patterns}``. ``found=False`` means the rule did
-    not exist (file unchanged). ``changed=False`` means the new text
-    matched the existing text (idempotent no-op).
+    warnings, extracted_patterns}``. ``found=False`` means no matching rule
+    exists in the DB (including a book that hasn't run init_book_claudemd()
+    yet, Issue #580 — CLAUDE.md is not required). ``changed=False`` means
+    the new text matched the existing text (idempotent no-op).
     """
     config = _app.load_config()
     resolved_index = rule_index if rule_index >= 0 else None

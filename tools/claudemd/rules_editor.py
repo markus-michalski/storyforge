@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from tools.analysis.manuscript.rules import _extract_patterns_from_rule
-from tools.claudemd.manager import _open_book_db, resolve_claudemd_path
+from tools.claudemd.manager import _open_book_db
 from tools.db.book_rules import delete_rule, list_rules as _db_list_rules, update_rule_text
 from tools.shared.paths import resolve_project_path
 
@@ -163,12 +163,32 @@ def update_rule(
     """Replace or remove a rule in the book_rules DB.
 
     Returns a result dict; on a ``found: False`` outcome the DB is unchanged.
+
+    Does not require CLAUDE.md to exist (Issue #580) — rules live in the
+    book_rules DB independent of the file (Phase 4 migration, Issue #282),
+    same as ``list_rules()`` (Issue #573), which this delegates to below and
+    which already raises ``FileNotFoundError`` if the book project itself
+    doesn't exist. A book missing CLAUDE.md simply has no rules to find,
+    same as any other book with an empty book_rules table — ``found: False``,
+    not an error.
+
+    This relies on ``get_book_num()``'s ``BookNotLinkedToSeriesError`` guard
+    (Issue #579) to keep an uninitialized series book from silently
+    "inheriting" a different book's rows via a ``book_num`` collision — but
+    that guard only closes the ``series_number: 0`` scaffold-default window.
+    Two related collision paths are NOT closed by it and affect
+    ``list_rules()``/``update_rule()`` identically, guard or no guard:
+    ``add_book_to_series()`` performs no uniqueness check on ``number``, so
+    two books in one series can end up sharing a ``book_num`` via a
+    duplicate/typo'd call; and a book with ``series`` set but no
+    ``series_number`` key at all (never written) still defaults to 1,
+    same as the pre-existing Issue #558 case. Both are tracked in a
+    follow-up (see Issue #579's own suggested fix: key ``book_rules`` by
+    ``book_slug`` directly, mirroring the ``cover_images`` fix from #558) —
+    removing this guard here does not make either worse, since
+    ``list_rules()`` was already equally exposed since #573 shipped.
     """
     _validate_args(rule_index, rule_match, new_text, delete)
-
-    path = resolve_claudemd_path(config, book_slug)
-    if not path.exists():
-        raise FileNotFoundError(f"CLAUDE.md not found for book '{book_slug}'")
 
     rules = list_rules(config, book_slug)
 

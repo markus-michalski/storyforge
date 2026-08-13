@@ -370,13 +370,45 @@ class TestFileNotModified:
 
 
 class TestEdgeCases:
-    def test_update_raises_if_claudemd_missing(self, book_config):
-        # No init_claudemd — CLAUDE.md does not exist.
-        with pytest.raises(FileNotFoundError):
-            update_rule(
-                book_config, "my-book",
-                rule_index=0, new_text="x",
-            )
+    def test_update_degrades_gracefully_if_claudemd_missing(self, book_config):
+        """Issue #580: no init_claudemd — CLAUDE.md does not exist, but the
+        book itself does. list_rules() (Issue #573) already returns []
+        gracefully for this state instead of raising; update_rule() must
+        not raise ahead of that call either — there are no rules to find,
+        so this is a plain found: False, not an error."""
+        result = update_rule(
+            book_config, "my-book",
+            rule_index=0, new_text="x",
+        )
+        assert result["found"] is False
+        assert result["changed"] is False
+
+    def test_update_succeeds_without_claudemd_when_rules_exist(self, book_config):
+        """The capability this fix actually adds: editing a real rule while
+        CLAUDE.md is absent — not just the trivially-safe empty-DB case
+        above. Seeds a row directly via insert_rule(), bypassing
+        _append_entry()'s CLAUDE.md-exists guard, the same way an
+        unlinked-series-book collision (pre-#579) or a duplicate
+        series_number (still open, see rules_editor.update_rule's
+        docstring) could leave a book with DB rows but no CLAUDE.md."""
+        from tools.claudemd.manager import _open_book_db
+        from tools.db.book_rules import insert_rule
+
+        conn, book_num = _open_book_db(book_config, "my-book")
+        try:
+            insert_rule(conn, book_num=book_num, rule_type="rule", text="**R** — avoid `x`")
+        finally:
+            conn.close()
+
+        result = update_rule(
+            book_config, "my-book",
+            rule_index=0, new_text="**R** — avoid `y`",
+        )
+
+        assert result["found"] is True
+        assert result["changed"] is True
+        rules = list_rules(book_config, "my-book")
+        assert rules[0].raw_text == "**R** — avoid `y`"
 
     def test_multiline_rule_body_preserved(self, book_config):
         """A rule with embedded newlines is stored and retrieved intact."""
