@@ -281,7 +281,7 @@ Books can combine 1-3 genres.
 
 ## Craft Knowledge Base
 
-- `{plugin_root}/reference/craft/` — 22 universal/fiction-craft reference documents
+- `{plugin_root}/reference/craft/` — 32 universal/fiction-craft reference documents
 - `{plugin_root}/reference/genre/` — genre-specific craft guides
 - `{plugin_root}/book_categories/memoir/craft/` — 6 memoir-specific craft documents (structure types, scene vs. summary, emotional truth, real-people ethics, memoir anti-AI patterns, theme development)
 
@@ -301,8 +301,8 @@ Skills MUST load relevant craft references before generating creative content. U
 - `world-builder` → loads: world-building (memoir typically skips this skill — real settings are documented in `world/setting.md` via research, not invention)
 - `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`; runs Dimension 8 memoir-specific AI-tells: reflective platitude, "looking back" hinges, tidy lesson endings, hedging-as-humility, therapeutic reframe, explanation-after-image — Issue #62)
 - `author-check` → loads: author profile (style_principles Writing Discoveries + quantitative targets) via `get_author()`; reads chapter draft directly; optionally reads existing `review.md` for constraint violation count (balance warning). No craft references needed — checks positive presence, not craft quality.
-- `manuscript-checker` (fiction-only since #138) → base checks only (book-rule violations, plot holes, clichés, filter words, adverb density, cross-chapter repetition). Refuses memoir books and routes to `manuscript-checker-memoir`.
-- `manuscript-checker-memoir` (memoir-only, split out in #138) → base checks plus five memoir-specific passes: anonymization leaks, tidy-lesson endings, reflective platitudes, timeline ambiguity, real-people name-form consistency (Phase 3 #61)
+- `manuscript-checker` (fiction-only since #138) → base checks only (book-rule violations, plot holes, clichés, filter words, adverb density, cross-chapter repetition). Refuses memoir books and routes to `manuscript-checker-memoir`. Loads `reference/craft/book-rule-pattern-extraction.md`, `reference/craft/repetition-category-rules.md`, and `reference/craft/question-as-statement-handling.md` on demand during Step 5's interactive fix mode (Issue #574 split, shared with the memoir variant below).
+- `manuscript-checker-memoir` (memoir-only, split out in #138) → base checks plus five memoir-specific passes: anonymization leaks, tidy-lesson endings, reflective platitudes, timeline ambiguity, real-people name-form consistency (Phase 3 #61). Same on-demand reference loads as `manuscript-checker` above.
 - `promo-writer` → loads: genre README(s) for blurb tone guidance, `reference/promo/platforms.md` for platform characteristics
 
 ## Important Rules
