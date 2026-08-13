@@ -10,6 +10,13 @@ from collections import defaultdict
 from typing import Any
 
 CATEGORY_LABELS = {
+    # Meta-warnings (Issue #579/#584): the DB couldn't be queried at all
+    # (e.g. an unlinked series book) — the corresponding real category
+    # below (book_rule_violation / callback_dropped+deferred) was never
+    # actually checked, not verified clean. Listed first so a reader sees
+    # "results below may be incomplete" before anything else.
+    "book_rules_unreadable": "Book Rules Unreadable (checking failed, not verified clean)",
+    "callbacks_unreadable": "Callback Register Unreadable (checking failed, not verified clean)",
     "book_rule_violation": "Book Rule Violations",
     # Author-scoped bans surfaced from the resolved author profile (#210).
     # `author_rule_violation` is the ``### Don'ts`` subsection,
@@ -51,6 +58,8 @@ CATEGORY_LABELS = {
 }
 
 CATEGORY_ORDER = [
+    "book_rules_unreadable",
+    "callbacks_unreadable",
     "book_rule_violation",
     # Author-level findings render immediately after book-level rules and
     # before the privacy/plot/cliché tier. All four user-authored.
@@ -336,6 +345,17 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             "across chapters. Pick the canonical form (the pseudonym, or the first-name "
             "only, or the full pseudonym) and apply it consistently throughout. "
             "Inconsistency confuses readers and can partially undermine anonymization."
+        )
+    if cat in ("book_rules_unreadable", "callbacks_unreadable"):
+        # Synthetic meta-finding (Issue #579/#584) — not manuscript text, so
+        # there is nothing here to cut or rewrite. `source_rule` carries the
+        # BookNotLinkedToSeriesError message with the actual fix command.
+        return (
+            "_Recommendation:_ This category was never checked — the finding "
+            "above is not a prose issue. Run `add_book_to_series(...)` (or "
+            "otherwise fix the DB read failure named above) and re-run the "
+            "scan. Do not treat the absence of other findings in this "
+            "category as verified-clean."
         )
     return f"_Recommendation:_ Decide which occurrence is most necessary; cut or rewrite the other {count - 1}."
 

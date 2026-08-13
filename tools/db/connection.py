@@ -10,12 +10,15 @@ All tables are created lazily via ensure_schema() / ensure_authors_schema().
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 from pathlib import Path
 
 from tools.shared.config import CACHE_DIR
 from tools.shared.paths import _validate_slug
+
+logger = logging.getLogger(__name__)
 
 # Override with STORYFORGE_DB_DIR to redirect DB lookups (used in subprocess tests).
 # Validated to prevent null-byte and path-traversal tricks (Issue #329).
@@ -257,12 +260,39 @@ def _read_book_meta(book_root: Path) -> dict:
         return {}
 
 
+def _normalize_series_value(raw: object) -> str:
+    """Coerce a frontmatter ``series`` value to a slug string.
+
+    A YAML-null ``series:`` key (present but no value) parses to Python
+    ``None`` — ``str(None)`` would silently produce the *literal string*
+    ``"None"``, which is truthy and resolves to a real (bogus)
+    ``~/.storyforge/db/None.db`` file in ``get_db_slug_for_book()``. Treated
+    the same as an absent/empty ``series`` here (Issue #584).
+
+    A malformed ``series: [a, b]`` (YAML parses this to a ``list``, not a
+    scalar) has the same problem one level up: ``str([...])`` produces
+    ``"['a', 'b']"``, which is non-empty and would still pass
+    ``_validate_slug()``, creating a bogus DB file for a value that was
+    never a valid series slug to begin with. Only a genuine string is a
+    plausible series slug — anything else non-``None`` is treated the same
+    as absent (Issue #584 L6), but logged since it's the user's own
+    malformed data (unlike a bare ``series:`` key, which is common and
+    expected).
+    """
+    if raw is None:
+        return ""
+    if not isinstance(raw, str):
+        logger.warning("ignoring non-string series value %r", raw)
+        return ""
+    return raw.strip()
+
+
 def get_book_series_slug(book_root: Path) -> str:
     """Read the series slug from a book's README.md frontmatter.
 
     Returns empty string if the book has no series or the file can't be read.
     """
-    return str(_read_book_meta(book_root).get("series", "")).strip()
+    return _normalize_series_value(_read_book_meta(book_root).get("series", ""))
 
 
 class BookNotLinkedToSeriesError(ValueError):
@@ -297,7 +327,7 @@ def get_book_num(book_root: Path) -> int:
     case and still defaults to 1, same as a missing/unparseable README.
     """
     meta = _read_book_meta(book_root)
-    series = str(meta.get("series", "")).strip()
+    series = _normalize_series_value(meta.get("series", ""))
     raw = meta.get("series_number", 1)
     try:
         num = int(raw) if raw is not None else 1

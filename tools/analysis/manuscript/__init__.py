@@ -21,6 +21,10 @@ Detection categories
   but ends with a period instead of a question mark.
 - **sentence_repetition / snapshot / callback_dropped / callback_deferred** —
   Structural pattern checks.
+- **book_rules_unreadable / callbacks_unreadable** — Meta-finding (Issue
+  #579/#584): the book_rules/callback DB itself couldn't be read (e.g. a
+  series book not yet linked via ``add_book_to_series()``), so this category
+  was never actually checked — not a prose finding, no ``occurrences``.
 - Memoir-specific (``book_category: memoir``):
   **anonymization_leak / tidy_lesson_ending / reflective_platitude /
   timeline_ambiguity / real_people_consistency**.

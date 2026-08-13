@@ -69,3 +69,30 @@ class TestRenderReport:
         # Every label in CATEGORY_ORDER must have a matching display label.
         for cat in CATEGORY_ORDER:
             assert cat in CATEGORY_LABELS, f"missing label for {cat}"
+
+    def test_unreadable_meta_findings_get_an_actionable_recommendation(self) -> None:
+        """Issue #584 code review MEDIUM-2: book_rules_unreadable/
+        callbacks_unreadable are synthetic meta-findings with no real prose
+        occurrences — count=1, occurrences=[]. Falling through to the
+        generic repetition-fallback text ("cut or rewrite the other 0")
+        told the author to edit prose for a problem that isn't a prose
+        problem at all. Must instead point at add_book_to_series()."""
+        report = render_report(
+            {
+                "findings": [
+                    {
+                        "phrase": "callbacks_unreadable",
+                        "category": "callbacks_unreadable",
+                        "severity": "high",
+                        "count": 1,
+                        "occurrences": [],
+                        "source_rule": "Book 'b2' has series='saga' but series_number=0 — "
+                        "call add_book_to_series(...) first.",
+                    },
+                ],
+                "chapters_scanned": 4,
+                "summary": {"callbacks_unreadable": {"high": 1, "medium": 0}},
+            }
+        )
+        assert "add_book_to_series" in report
+        assert "cut or rewrite the other" not in report

@@ -111,9 +111,11 @@ def _read_book_rules(book_path: Path) -> list[str]:
     caller (:func:`_scan_book_rules`) turns this into a WARN-level finding
     instead of a false gate PASS.
     """
+    from tools.db.connection import BookNotLinkedToSeriesError
+
     try:
         from tools.db.book_rules import list_rules as _db_list_rules
-        from tools.db.connection import BookNotLinkedToSeriesError, get_book_num, get_db_slug_for_book, open_canon_db
+        from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
 
         db_slug = get_db_slug_for_book(book_path)
         book_num = get_book_num(book_path)

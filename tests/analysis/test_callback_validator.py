@@ -410,9 +410,10 @@ class TestVerifyCallbacks:
 class TestReadBookCallbacks:
     def test_reads_plain_text_from_db(self, tmp_path: Path, patch_db_dir: Path) -> None:
         _seed_callbacks(patch_db_dir, tmp_path.name, ["Gary the cat"])
-        entries = _read_book_callbacks(tmp_path)
+        entries, unreadable = _read_book_callbacks(tmp_path)
         assert len(entries) == 1
         assert entries[0].name == "Gary the cat"
+        assert unreadable is False
 
     def test_reads_annotated_text_from_db(self, tmp_path: Path, patch_db_dir: Path) -> None:
         _seed_callbacks(
@@ -420,18 +421,132 @@ class TestReadBookCallbacks:
             tmp_path.name,
             ["Theo's vampire history book — expected return by Ch 18. _(must not be forgotten)_"],
         )
-        entries = _read_book_callbacks(tmp_path)
+        entries, unreadable = _read_book_callbacks(tmp_path)
         assert len(entries) == 1
         assert entries[0].expected_return_ch == 18
         assert entries[0].must_not_forget is True
+        assert unreadable is False
 
     def test_no_db_returns_empty(self, tmp_path: Path, patch_db_dir: Path) -> None:
-        assert _read_book_callbacks(tmp_path) == []
+        entries, unreadable = _read_book_callbacks(tmp_path)
+        assert entries == []
+        assert unreadable is False
 
     def test_bold_name_in_db_text_parsed(self, tmp_path: Path, patch_db_dir: Path) -> None:
         _seed_callbacks(patch_db_dir, tmp_path.name, ["**French press**"])
-        entries = _read_book_callbacks(tmp_path)
+        entries, _unreadable = _read_book_callbacks(tmp_path)
         assert entries[0].name == "French press"
+
+    def test_raises_for_unlinked_series_book(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        """Issue #584: get_book_num() (Issue #579) raises
+        BookNotLinkedToSeriesError for a book with series set but
+        series_number=0. _read_book_callbacks() re-raises it rather than
+        swallowing it into the generic unreadable=True — the caller
+        (verify_callbacks()) catches it specifically to build an actionable
+        reason from the exception's own message, mirroring
+        _read_book_rules()/_scan_book_rules()."""
+        from tools.db.connection import BookNotLinkedToSeriesError
+
+        (tmp_path / "README.md").write_text(
+            '---\ntitle: "T"\nseries: "my-series"\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        with pytest.raises(BookNotLinkedToSeriesError, match="my-series"):
+            _read_book_callbacks(tmp_path)
+
+    def test_unreadable_true_for_other_db_failures(self, tmp_path: Path, patch_db_dir: Path, monkeypatch) -> None:
+        """A non-#579 DB failure (sqlite corruption, permissions, ...) must
+        still degrade to unreadable=True, not raise past this function —
+        only the specific #579 case gets re-raised for its own message."""
+        import tools.db.connection as _conn_mod
+
+        def _boom(_book_root):
+            raise RuntimeError("simulated sqlite corruption")
+
+        monkeypatch.setattr(_conn_mod, "get_db_slug_for_book", _boom)
+
+        entries, unreadable = _read_book_callbacks(tmp_path)
+        assert entries == []
+        assert unreadable is True
+
+    def test_degrades_gracefully_when_a_dependency_import_fails(
+        self, tmp_path: Path, patch_db_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Issue #584 code review MEDIUM-1: BookNotLinkedToSeriesError was
+        imported *inside* the try block, alongside the other DB imports. If
+        one of those sibling imports fails (e.g. tools.db.book_rules), the
+        `except BookNotLinkedToSeriesError:` clause below evaluated a name
+        that was never bound — raising UnboundLocalError while handling the
+        original exception, so `except Exception: return [], True` never
+        ran. Must degrade to ([], True) like any other unexpected failure,
+        not escalate a transient import problem into a crash that reaches
+        scan_manuscript's caller unguarded."""
+        real_import = __import__
+
+        def broken_import(name, *args, **kwargs):
+            if name == "tools.db.book_rules":
+                raise ImportError("simulated broken import")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.__import__", broken_import)
+        entries, unreadable = _read_book_callbacks(tmp_path)
+        assert entries == []
+        assert unreadable is True
+
+
+class TestVerifyCallbacksUnreadable:
+    """Issue #584: verify_callbacks()'s top-level catch for the specific
+    #579 exception, converting it into unreadable=True with an actionable
+    reason instead of a generic one."""
+
+    def test_unreadable_true_with_specific_reason_for_unlinked_series_book(
+        self, tmp_path: Path, patch_db_dir: Path
+    ) -> None:
+        book = tmp_path / "my-book"
+        book.mkdir()
+        (book / "README.md").write_text(
+            '---\ntitle: "T"\nseries: "my-series"\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        (book / "chapters").mkdir()
+
+        result = verify_callbacks(book)
+
+        assert result["unreadable"] is True
+        assert result["callbacks_checked"] == 0
+        assert "my-series" in result["unreadable_reason"]
+        assert result["satisfied"] == []
+        assert result["deferred"] == []
+        assert result["potentially_dropped"] == []
+
+    def test_unreadable_true_does_not_imply_empty_buckets_with_legacy_markers(
+        self, tmp_path: Path, patch_db_dir: Path
+    ) -> None:
+        """Issue #584 code review MEDIUM-3: an unlinked series book that
+        ALSO has pre-migration <!-- CALLBACKS:START --> markers still gets
+        those legacy entries checked against drafted chapters — unreadable
+        only means the DB-sourced entries are missing, not that nothing at
+        all was checked. callbacks_checked/satisfied/deferred can all be
+        nonzero here; callers must key off `unreadable`, not a zero count."""
+        book = tmp_path / "my-book"
+        book.mkdir()
+        (book / "README.md").write_text(
+            '---\ntitle: "T"\nseries: "my-series"\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        chapters_dir = book / "chapters"
+        chapters_dir.mkdir()
+        ch_dir = chapters_dir / "01-opening"
+        ch_dir.mkdir()
+        (ch_dir / "draft.md").write_text("Gary the cat sat by the window.", encoding="utf-8")
+
+        result = verify_callbacks(book, CALLBACKS_PLAIN)
+
+        assert result["unreadable"] is True
+        assert "my-series" in result["unreadable_reason"]
+        assert result["callbacks_checked"] > 0
+        assert len(result["satisfied"]) == 1
+        assert result["satisfied"][0]["name"] == "Gary the cat"
 
 
 class TestVerifyCallbacksReadsFromDb:

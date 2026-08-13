@@ -196,6 +196,29 @@ class TestReadBookRules:
         _seed_book_rules(patch_db_dir, "book", [])
         assert _read_book_rules(book) == []
 
+    def test_degrades_gracefully_when_a_dependency_import_fails(
+        self, tmp_path: Path, patch_db_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Issue #584 code review MEDIUM-1: BookNotLinkedToSeriesError is
+        imported *inside* the try block, alongside the other DB imports. If
+        one of those sibling imports fails (e.g. tools.db.book_rules), the
+        `except BookNotLinkedToSeriesError:` clause below evaluates a name
+        that was never bound — raising UnboundLocalError while handling the
+        original exception, so the `except Exception: return []` fallback
+        never runs. Must degrade to [] like any other unexpected failure,
+        not escalate a transient import problem into a crash."""
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
+
+        real_import = __import__
+
+        def broken_import(name, *args, **kwargs):
+            if name == "tools.db.book_rules":
+                raise ImportError("simulated broken import")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.__import__", broken_import)
+        assert _read_book_rules(book) == []
+
     def test_strips_leading_bullet_marker(self, tmp_path: Path, patch_db_dir: Path) -> None:
         book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {})
         _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
@@ -1269,6 +1292,33 @@ class TestScanCallbacksIntegration:
     def test_no_callbacks_markers_returns_empty(self, tmp_path: Path) -> None:
         book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {"01": "Some text."})
         assert _scan_callbacks(book) == []
+
+    def test_unlinked_series_book_emits_unreadable_finding_not_empty(
+        self, tmp_path: Path, patch_db_dir: Path
+    ) -> None:
+        """Issue #584: without this, an unlinked series book's callback
+        register (unreadable, Issue #579) and a book with a genuinely
+        empty register both return [] here — indistinguishable to the
+        overall gate, which would then PASS on callbacks that were never
+        actually checked. Mirrors book_rules_unreadable
+        (tools/analysis/manuscript/rules.py's _scan_book_rules(), same
+        Issue #579 root cause on the sibling book-rules path)."""
+        book = tmp_path / "book"
+        book.mkdir()
+        (book / "README.md").write_text(
+            '---\ntitle: "T"\nseries: "my-series"\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        (book / "chapters").mkdir()
+
+        findings = _scan_callbacks(book)
+
+        assert len(findings) == 1
+        assert findings[0].category == "callbacks_unreadable"
+        assert findings[0].category != "callback_dropped"
+        assert findings[0].category != "callback_deferred"
+        assert findings[0].promotable is False
+        assert "my-series" in findings[0].source_rule
 
     def test_overdue_expected_return_legacy_marker_only_is_medium_severity(self, tmp_path: Path) -> None:
         """_CLAUDEMD_WITH_CALLBACKS is legacy-marker-only (no DB row) — the

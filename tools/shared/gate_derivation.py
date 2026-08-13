@@ -165,6 +165,12 @@ def derive_from_callback_verification(result: Mapping[str, Any]) -> GateResult:
     """Derive a gate from verify_callbacks output.
 
     Status logic:
+    - WARN when ``unreadable`` is True — the callback DB couldn't be read
+      at all (e.g. an unlinked series book, Issue #579), so
+      ``callbacks_checked: 0`` means "couldn't check", not "verified:
+      nothing registered". A bare PASS here would be the same false
+      clean-bill-of-health risk Issue #579's ``book_rules_unreadable``
+      finding was fixed to prevent for ``scan_manuscript`` (Issue #584).
     - PASS when no callbacks registered, or all satisfied.
     - WARN when only ``deferred`` items exist.
     - FAIL when ``potentially_dropped`` items exist (overdue or silent
@@ -173,13 +179,35 @@ def derive_from_callback_verification(result: Mapping[str, Any]) -> GateResult:
     satisfied = list(result.get("satisfied") or [])
     deferred = list(result.get("deferred") or [])
     dropped = list(result.get("potentially_dropped") or [])
+    unreadable = bool(result.get("unreadable", False))
 
     metadata = {
         "callbacks_checked": result.get("callbacks_checked", 0),
         "satisfied": len(satisfied),
         "deferred": len(deferred),
         "potentially_dropped": len(dropped),
+        "unreadable": unreadable,
     }
+
+    if unreadable:
+        # Checking `unreadable` before `dropped` relies on an invariant this
+        # function doesn't itself enforce: when the DB read fails, every
+        # entry the caller can still see comes from the legacy CLAUDE.md
+        # marker fallback, and callback_validator.py's capping rule caps all
+        # non-DB entries at `deferred` — `dropped` (FAIL) is unreachable
+        # while unreadable. If that capping rule ever changes, this ordering
+        # needs to check `dropped` first to keep FAIL > WARN precedence
+        # (Issue #584 code review, LOW-2).
+        reason_detail = result.get("unreadable_reason") or ""
+        reason = (
+            f"Callback register could not be read — {reason_detail}"
+            if reason_detail
+            else "Callback register could not be read. Verify manually."
+        )
+        return GateResult.warned(
+            reasons=[reason],
+            metadata=metadata,
+        )
 
     if not (deferred or dropped):
         return GateResult.passed(

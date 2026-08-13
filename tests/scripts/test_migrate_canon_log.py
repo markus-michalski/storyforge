@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+import scripts.migrate_canon_log_to_db as migrate_canon_log_to_db
 import tools.db.connection as _db_conn
 from tools.db.canon_facts import insert_fact, query_facts
 from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
@@ -23,16 +24,20 @@ from tools.state.loaders.canon_log_extractor import extract_all_facts
 # ---------------------------------------------------------------------------
 
 
-def _book(tmp_path: Path, slug: str = "my-book", *, category: str = "fiction") -> Path:
-    root = tmp_path / slug
-    (root / "chapters").mkdir(parents=True)
-    (root / "plot").mkdir()
-    (root / "characters").mkdir()
+def _book_at(root: Path, *, category: str = "fiction") -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "chapters").mkdir(exist_ok=True)
+    (root / "plot").mkdir(exist_ok=True)
+    (root / "characters").mkdir(exist_ok=True)
     (root / "README.md").write_text(
-        f"---\ntitle: {slug}\nslug: {slug}\nbook_category: {category}\n---\n",
+        f"---\ntitle: {root.name}\nslug: {root.name}\nbook_category: {category}\n---\n",
         encoding="utf-8",
     )
     return root
+
+
+def _book(tmp_path: Path, slug: str = "my-book", *, category: str = "fiction") -> Path:
+    return _book_at(tmp_path / slug, category=category)
 
 
 def _write_log(book_root: Path, content: str, *, memoir: bool = False) -> None:
@@ -414,3 +419,51 @@ class TestMigrateToDb:
         assert len(current) == 5
         assert len(revisions) == 1
         assert revisions[0]["old_value"] == "Theo fears Kael"
+
+
+class TestMainSkipsUnlinkedSeriesBooks:
+    """Issue #584: get_book_num() (Issue #579) now raises
+    BookNotLinkedToSeriesError for a book with series set but
+    series_number=0. Without a catch in main()'s per-book loop, the whole
+    migration run used to die on the first such book — books processed
+    before it stayed committed, books after it were silently never
+    attempted, no summary of what didn't run."""
+
+    def test_main_skips_and_continues_past_unlinked_book(self, tmp_path, _patch_db, monkeypatch, capsys):
+        content_root = tmp_path / "content"
+        projects_dir = content_root / "projects"
+        projects_dir.mkdir(parents=True)
+
+        good_book = projects_dir / "good-book"
+        _write_log(
+            _book_at(good_book),
+            "## Chapter 01 — Setup\n\n### Theo: traits\n- Theo likes coffee.\n",
+        )
+
+        unlinked_book = projects_dir / "unlinked-book"
+        unlinked_book.mkdir(parents=True)
+        (unlinked_book / "plot").mkdir()
+        (unlinked_book / "chapters").mkdir()
+        (unlinked_book / "characters").mkdir()
+        (unlinked_book / "README.md").write_text(
+            '---\ntitle: unlinked-book\nslug: unlinked-book\nbook_category: fiction\n'
+            'series: "my-series"\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        _write_log(
+            unlinked_book,
+            "## Chapter 01 — Setup\n\n### X: traits\n- Should not crash the run.\n",
+        )
+
+        monkeypatch.setattr(
+            migrate_canon_log_to_db, "load_config", lambda: {"paths": {"content_root": str(content_root)}}
+        )
+
+        migrate_canon_log_to_db.main()
+
+        out = capsys.readouterr().out
+        assert "SKIP: unlinked-book" in out
+        assert "my-series" in out
+        # The good book must still have been processed despite the other
+        # book's failure — not silently dropped by an aborted loop.
+        assert "good-book" in out

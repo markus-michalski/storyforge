@@ -168,6 +168,15 @@ def verify_callbacks(book_slug: str) -> str:
     - ``potentially_dropped`` — expected-return deadline passed without appearance,
                                 OR must-not-forget callback silent for >10 chapters
 
+    If the callback register's DB portion could not be read (Issue #584 —
+    e.g. a series book not yet linked via ``add_book_to_series()``), the
+    response carries ``unreadable: true`` with ``unreadable_reason``
+    explaining why — the DB-sourced callbacks are missing, though any
+    legacy CLAUDE.md markers are still checked, so the three buckets can
+    still be nonzero. The ``gate`` envelope maps ``unreadable`` to WARN, not
+    PASS — a low or zero count here is not the same as a verified-clean
+    register.
+
     Args:
         book_slug: The book project slug.
     """
@@ -497,6 +506,10 @@ def run_quality_gates(book_slug: str) -> str:
 
     Per-checker results are preserved in ``results[<name>]`` so callers
     can still drill into individual findings.
+
+    The ``callbacks`` sub-gate WARNs (rather than passing) when the
+    callback register itself couldn't be read — see ``verify_callbacks``'s
+    ``unreadable``/``unreadable_reason`` fields (Issue #584).
 
     Args:
         book_slug: The book project slug.

@@ -157,6 +157,25 @@ class TestCallbackVerification:
         )
         assert gate.status == "WARN"
 
+    def test_unreadable_warns_not_passes(self):
+        """Issue #584: verify_callbacks() reports unreadable=True (e.g. an
+        unlinked series book, Issue #579's BookNotLinkedToSeriesError) with
+        callbacks_checked: 0 and all lists empty — the same shape as "zero
+        callbacks, all satisfied". Must not PASS on that shape; PASS would
+        be the same false clean-bill-of-health risk Issue #579 fixed for
+        scan_manuscript's book_rule_violation checking."""
+        gate = derive_from_callback_verification(
+            {
+                "callbacks_checked": 0,
+                "satisfied": [],
+                "deferred": [],
+                "potentially_dropped": [],
+                "unreadable": True,
+            }
+        )
+        assert gate.status == "WARN"
+        assert gate.status != "PASS"
+
 
 class TestConsentCheck:
     def test_overall_pass(self):
