@@ -85,7 +85,12 @@ PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
     "backfill-promises": {"p", "u", "un", "total", "d"},  # d: register_chapter_promises' `deduped` count field (#498)
     "backfill-style-principles": {"total_new", "total_skipped"},
     "bootstrap-book-from-series": {"n_accepted", "n_edited", "n_new", "n_skipped", "n_with_prior"},
-    "chapter-fixer": {"category"},  # finding's category label in the report template, self-evident from "[N] **{category}** — Sc N, ~line M"
+    "chapter-fixer": {
+        "category",  # finding's category label in the report template, self-evident from "[N] **{category}** — Sc N, ~line M"
+        "baseline",  # Step 5 item 2's count_words baseline, self-evident from "Word count: {baseline} → {new}"
+        "delta",  # Step 5 item 2's word-count delta, self-evident from "Word count: {baseline} → {new} ({delta}, reconciled)"
+        "test",  # Step 5 item 3's spot-check rule name, self-evident from "Spot-check [{n}] {category} — {test}: {PASS/FAIL}"
+    },
     "chapter-proofreader": {"count"},
     "continuity-checker": {"date"},
     "emotional-truth-prompt": {"chapter-path"},  # slug-in-file-path, self-evident from "{chapter-path}/draft.md"

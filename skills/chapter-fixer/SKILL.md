@@ -114,8 +114,15 @@ justifies the current text, assess whether "fixing" it would break continuity or
 motif. If the finding looks wrong, say so and propose leaving the text as-is instead of patching
 it blind.
 
-Present the surviving findings as a numbered list, same shape as chapter-humanizer's Scan Report
-(cap ≤ 20 per batch — present the next batch after this one is resolved if there are more):
+**Batch size cap — hard limit, check before writing the list, not after:** the 20-hit cap applies
+to the total count of numbered hits this batch would produce, **including unresolved ones** — not
+just verified survivors. Before truncating, sort `anonymization_leak` and `book_rule_violation`
+hits to the top (see the precedence order in the carve-out below) so truncation can never push a
+blocker into a later batch. If the sorted list has more than 20 numbered hits, present only the
+first 20 and say explicitly how many remain for a follow-up batch (e.g. "Showing 20 of 23. 3 more
+after this batch is resolved."). Never present more than 20 numbered hits in one message.
+
+Present the surviving findings as a numbered list, same shape as chapter-humanizer's Scan Report:
 
 ```
 ## Fixer Batch — {book-slug} / {chapter-slug}
@@ -136,7 +143,8 @@ Instructions: reply with hit numbers to apply as-is, numbers for a different alt
 
 ### User Response Formats
 
-- `apply all` — apply every proposed fix as-is.
+- `apply all` — apply every proposed fix as-is, **except** `anonymization_leak` /
+  `book_rule_violation` hits — see the carve-out below.
 - `apply N, M, ...` — apply specific hit numbers as-is.
 - `skip N, M, ...` — leave those unchanged.
 - `N: [instruction]` — rework hit N with the given instruction before applying; present the
@@ -144,12 +152,18 @@ Instructions: reply with hit numbers to apply as-is, numbers for a different alt
 - Mixed responses are fine (`apply 1, 4 / skip 2 / 3: shorter`) — resolve any pending reworks
   first, THEN apply the full approved batch together (see Step 4).
 
-**`anonymization_leak` and `book_rule_violation` findings are excluded from `apply all` / bulk
-`apply N, M, ...`.** Both require their own individual apply/skip response, even inside a batch
-that also has a plain bulk approval — same standard manuscript-checker applies to
+**Carve-out — `anonymization_leak` and `book_rule_violation` are excluded from `apply all` / bulk
+`apply N, M, ...`.** Both require their own individual apply/skip response, even inside a
+batch that also has a plain bulk approval — same standard manuscript-checker applies to
 `anonymization_leak`, extended here to `book_rule_violation` since Rules (below) treats it as the
-highest-priority finding in any batch. If the user says `skip` on an `anonymization_leak`, push
-back once — quote the person's `consent_status`/anonymization decision and ask for explicit
+highest-priority finding in any batch. **Numbered-list precedence when both appear in the same
+batch:** `anonymization_leak` (a consent/legal pre-publication blocker) goes first, then
+`book_rule_violation` (an author style rule) second, then everything else — a consent blocker
+always outranks a style rule. If a user's `apply all` (or a bulk `apply N, M, ...` that
+happens to include one of these hit numbers) is the ONLY response covering one of these findings,
+that finding is NOT resolved yet — explicitly ask for its own apply/skip decision before touching
+it, do not fold it into the bulk batch silently. If the user says `skip` on an `anonymization_leak`,
+push back once — quote the person's `consent_status`/anonymization decision and ask for explicit
 confirmation that leaving the real name in is intentional.
 
 ## Step 4 — Apply (Single Write Pass)
@@ -175,32 +189,68 @@ confirmation that leaving the real name in is intentional.
    report below as an existing issue outside this batch's scope, for a future chapter-fixer round.
 5. Report every applied fix as an explicit `old → new` pair (not just a summary count) — this is
    the only revert record; no separate backup is written. To revert one later, issue a fresh
-   `Edit` with the pair swapped. Close with: *"Applied N fixes. Skipped M. Unresolved: K."*
-   (adjust N/M/K if step 3's partial-failure path was hit — report what actually landed, not what
-   was planned).
+   `Edit` with the pair swapped. These pairs are the first line of the Closing Report Template
+   below; fill in the rest of the template as Step 5 completes.
+
+### Closing Report Template
+
+Every fixer batch ends with this report — the individual Step 4/5/6 items below say *what* feeds
+each line, this template is the single place that says *where* it goes. Emit all lines that apply
+(omit a line only if its step says it's optional and wasn't triggered):
+
+```
+Applied N fixes. Skipped M. Unresolved: K.
+{old → new} — one pair per applied fix (Step 4 item 5)
+validate_chapter: {diff result, even if empty} (Step 5 item 1)
+Word count: {baseline} → {new} ({delta}, reconciled) (Step 5 item 2)
+Spot-check [{n}] {category} — {test}: {PASS/FAIL} — one line per finding in a category
+  `validate_chapter` doesn't cover (Step 5 item 3)
+Re-run recommended: {yes, with trigger / no} (Step 5 item 4, only when triggered)
+Fixer round N/3 complete. (Step 6)
+```
+
+(Adjust N/M/K if Step 4 item 3's partial-failure path was hit — report what actually landed, not
+what was planned.)
 
 ## Step 5 — Re-Validate
 
-1. Call MCP `validate_chapter(book_slug, chapter_slug)` again and diff its findings against the
-   Prerequisites 6 baseline — this covers banlist, author vocabulary, POV-knowledge boundary,
-   time-anchor phrases, meta-narrative leakage, AI-tells, and sentence-variance. **Only a finding
-   absent from the baseline counts as a regression** — a finding already present pre-edit is a
-   pre-existing issue outside this batch's scope (see Step 4 item 4), not something this pass
-   broke. Any genuinely new hit: surface it immediately and offer to revert that specific edit
-   (using the `old → new` pair recorded in Step 4) or refix it.
+1. Call MCP `validate_chapter(book_slug, chapter_slug)` again and diff its findings **explicitly,
+   one by one, against the Prerequisites 6 baseline list** (not a mental impression of it) — this
+   covers banlist, author vocabulary, POV-knowledge boundary, time-anchor phrases, meta-narrative
+   leakage, AI-tells, sentence-variance, book rule violations, and global shape violations (the
+   full set `chapter_validator.py` emits). **Only a finding absent from the baseline counts as a
+   regression** — a finding already present pre-edit is a pre-existing issue outside this batch's
+   scope (see Step 4 item 4), not something this pass broke. **State the diff result on the
+   `validate_chapter:` line of the Closing Report Template above, even when it's empty** — e.g.
+   "validate_chapter: 1 pre-existing WARN (unchanged from baseline), 0 new findings" — never
+   silently fold a post-edit finding into the success summary without first naming whether it was
+   in the baseline. Any genuinely new hit: surface it immediately and offer to revert that specific
+   edit (using the `old → new` pair recorded in Step 4) or refix it.
 2. Call MCP `count_words(book_slug, chapter_slug)` and compare its total against the Prerequisites
    6 baseline. The delta should roughly match the net length change of Step 4's applied
    replacements — a much larger unexplained drop signals a lost passage (e.g. an `old_string` that
    swallowed more surrounding text than intended), not a clean patch. Investigate before reporting
-   success if the delta doesn't reconcile.
+   success if the delta doesn't reconcile. If investigation confirms real content is missing (not
+   just an expected trim), treat it exactly like item 1's regression path: surface it immediately
+   and offer to revert the specific edit (using its `old → new` pair) or refix it — do not report
+   the batch as a clean success with an unexplained word-count gap still open.
 3. For finding categories `validate_chapter` doesn't cover (dialogue punctuation, simile,
-   continuity, plot logic, phrase echo, structure, cross-chapter repetition) — spot-check each
-   *fixed* passage against the same rule the source checker used for that category (e.g. re-apply
-   the 9b question-mark scan, or the two-question simile test from `simile-discipline.md`) to
-   confirm the specific finding is actually resolved, not just reworded.
-4. If the batch was large or touched many categories, recommend re-running the original checker
-   (`chapter-reviewer` / `manuscript-checker`) for a full confirmation instead of trusting the
-   spot-check alone.
+   continuity, plot logic, phrase echo, structure, cross-chapter repetition — `book_rule_violation`
+   and `global_shape_violation` ARE covered by item 1 above, no separate spot-check needed for
+   those) — spot-check each *fixed* passage against the same rule the source checker used for that
+   category (e.g. re-apply the 9b question-mark scan, or the two-question simile test from
+   `simile-discipline.md`) to confirm the specific finding is actually resolved, not just reworded.
+   **Emit one `Spot-check` line per such finding on the Closing Report Template above** (e.g.
+   "Spot-check [3] simile — two-question test: PASS") — this is mandatory chat output, not an
+   internal check whose result stays unstated.
+4. **Recommend re-running the original checker** (`chapter-reviewer` / `chapter-reviewer-memoir` /
+   `manuscript-checker`) for a full confirmation, instead of trusting the spot-check alone, whenever
+   **this fixer round's cumulative total** — summed across every batch applied so far in the
+   current gather→apply→validate cycle (Step 6), not just this batch — exceeds 10 fixes OR touches
+   more than 2 distinct finding categories. Concrete triggers, not a vague "if it feels large"
+   judgment call. Track the running per-round fix count and category set alongside the round
+   counter from Step 6. State this recommendation on the `Re-run recommended:` line of the Closing
+   Report Template when triggered; below both thresholds, omit the line (it's optional).
 
 ## Step 5.5 — Record Revision Summary
 
@@ -215,7 +265,10 @@ were applied.
 After reporting results: *"Nochmal `/storyforge:chapter-reviewer` laufen lassen, um FAIL→PASS/WARN
 zu bestätigen?"* If the user agrees and the checker still returns findings, chapter-fixer can
 process that new list in another round. Track **fixer rounds** in this session (a round = one
-gather→apply→validate cycle, regardless of how many ≤20-hit batches it took). **Hard cap: 3 rounds
+gather→apply→validate cycle, regardless of how many ≤20-hit batches it took) — **state the current
+round number on the `Fixer round N/3 complete.` line of the Closing Report Template** (see Step 4)
+so the count stays visible and auditable across a long session instead of being tracked silently.
+**Hard cap: 3 rounds
 per session** — one higher than chapter-humanizer's 2-pass cap, since a fixer round can span
 findings from multiple independent checkers (reviewer + manuscript-checker) rather than a single
 self-contained scan type. If a 4th round is requested, decline and redirect: *"Drei Fixer-Runden sind das
