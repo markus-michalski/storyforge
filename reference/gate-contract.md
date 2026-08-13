@@ -52,7 +52,7 @@ multiple gates returns the worst observed status.
 |---|---|
 | `scan_manuscript` | FAIL on any `book_rule_violation`; WARN on other findings; PASS otherwise. |
 | `validate_timeline_consistency` | FAIL on any drift finding; WARN if anchors missing only; PASS when clean. |
-| `verify_callbacks` | FAIL on `potentially_dropped`; WARN on `deferred`; PASS otherwise. |
+| `verify_callbacks` | FAIL on `potentially_dropped`; WARN on `deferred`; WARN when the callback register itself is unreadable (`unreadable: true` — Issue #584, e.g. an unlinked series book); PASS otherwise. |
 | `check_memoir_consent` | Mirrors `overall` — FAIL > WARN > PASS across all people. |
 | `verify_tactical_setup` | WARN when warnings exist; PASS when clean. |
 | `validate_book_structure` | FAIL when any required check fails; WARN on optional warnings; PASS otherwise. |

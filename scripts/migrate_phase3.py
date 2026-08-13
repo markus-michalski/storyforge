@@ -35,6 +35,7 @@ from tools.db.connection import (
     open_canon_db,
     open_db,
 )
+from tools.shared.paths import find_projects
 from tools.state.parsers import parse_frontmatter
 
 
@@ -232,21 +233,38 @@ def _parse_chapter_num(as_of: str) -> int:
 
 def migrate_character_snapshots(content_root: Path, dry_run: bool) -> None:
     print(f"\n[character_snapshots] Scanning {content_root} ...")
-    projects_dir = content_root / "projects"
-    if not projects_dir.is_dir():
-        print("  projects/ not found — skipping.")
+    # find_projects() covers both the legacy projects/ tree and books
+    # nested under series/ (Issue #279) — a manual projects/-only scan
+    # silently misses every series book, which is exactly the population
+    # create_book_structure(series_slug=...) writes series_number: 0 for
+    # (Issue #579/#584): the books most likely to need the
+    # BookNotLinkedToSeriesError skip below were never reached by the old
+    # projects/-only loop in the first place. Side effect: find_projects()
+    # also filters to dirs containing a README.md, unlike the old bare
+    # iterdir() loop — a malformed book dir with no README is now silently
+    # skipped instead of processed with the default book_num=1.
+    book_dirs = find_projects({"paths": {"content_root": str(content_root)}})
+    if not book_dirs:
+        print("  No book projects found — skipping.")
         return
 
     total_inserted = 0
 
-    for book_dir in sorted(projects_dir.iterdir()):
-        if not book_dir.is_dir():
+    for book_dir in book_dirs:
+        # get_db_slug_for_book() is a pure string derivation and can't fail,
+        # but open_canon_db() below validates that string as a slug and
+        # raises SlugValidationError for a malformed series value (e.g.
+        # containing "/" or ".."). Kept in the same try as get_book_num()'s
+        # BookNotLinkedToSeriesError so either failure mode skips-and-
+        # continues instead of aborting the whole run — both subclass
+        # ValueError (Issue #523/#579 precedent).
+        try:
+            db_slug = get_db_slug_for_book(book_dir)
+            book_num = get_book_num(book_dir)
+            conn = open_canon_db(db_slug) if not dry_run else None
+        except ValueError as exc:
+            print(f"  SKIP: {book_dir.name} — {exc}")
             continue
-
-        db_slug = get_db_slug_for_book(book_dir)
-        book_num = get_book_num(book_dir)
-
-        conn = open_canon_db(db_slug) if not dry_run else None
         try:
             for subdir in ("characters", "people"):
                 chars_dir = book_dir / subdir

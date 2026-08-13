@@ -527,10 +527,38 @@ def _scan_snapshots(
 
 
 def _scan_callbacks(book_path: Path) -> list[Finding]:
-    """Surface broken callback promises as manuscript findings."""
+    """Surface broken callback promises as manuscript findings.
+
+    A ``callbacks_unreadable`` finding (Issue #584) stands in for the normal
+    ``callback_dropped``/``callback_deferred`` findings when
+    ``verify_callbacks()`` couldn't read the register at all (e.g. an
+    unlinked series book, Issue #579) — without it, an unreadable register
+    and a genuinely empty one both look like "nothing to report" here,
+    letting the overall gate PASS on callbacks that were never actually
+    checked. Mirrors ``tools.analysis.manuscript.rules._scan_book_rules()``'s
+    ``book_rules_unreadable`` finding for the sibling book-rules path.
+    """
     claudemd_path = book_path / "CLAUDE.md"
     claudemd_text = claudemd_path.read_text(encoding="utf-8") if claudemd_path.exists() else ""
     result = _verify_callbacks(book_path, claudemd_text)
+
+    # Checked before potentially_dropped/deferred below on the assumption
+    # that potentially_dropped is empty whenever unreadable is True — see
+    # tools/shared/gate_derivation.py::derive_from_callback_verification()
+    # for why that currently holds (Issue #584 code review, LOW-2).
+    if result.get("unreadable"):
+        reason = result.get("unreadable_reason") or "callback register could not be read"
+        return [
+            Finding(
+                phrase="callbacks_unreadable",
+                category="callbacks_unreadable",
+                severity="high",
+                count=1,
+                occurrences=[],
+                source_rule=reason,
+                promotable=False,
+            )
+        ]
 
     findings: list[Finding] = []
 

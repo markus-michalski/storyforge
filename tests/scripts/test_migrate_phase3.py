@@ -1,0 +1,146 @@
+"""Tests for scripts/migrate_phase3.py — Issue #584."""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+from pathlib import Path
+
+import scripts.migrate_phase3 as migrate_phase3
+
+# DB_DIR isolation comes from tests/conftest.py's autouse _isolate_db_dir
+# fixture — no local fixture needed here.
+
+
+def _book(root_dir: Path, slug: str, *, series: str = "", series_number: object = None) -> Path:
+    root = root_dir / slug
+    (root / "characters").mkdir(parents=True)
+    lines = ["---", f"title: {slug}", f"slug: {slug}"]
+    if series:
+        lines.append(f'series: "{series}"')
+    if series_number is not None:
+        lines.append(f"series_number: {series_number}")
+    lines.append("---\n")
+    (root / "README.md").write_text("\n".join(lines), encoding="utf-8")
+    return root
+
+
+def _write_char_snapshot(book_root: Path, char_slug: str, *, inventory: list[str]) -> None:
+    char_file = book_root / "characters" / f"{char_slug}.md"
+    inv = ", ".join(f'"{i}"' for i in inventory)
+    char_file.write_text(
+        f"---\nname: {char_slug}\ncurrent_inventory: [{inv}]\nas_of_chapter: \"02-test\"\n---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+
+class TestMigrateCharacterSnapshotsSkipsUnlinkedSeriesBooks:
+    """Issue #584: get_book_num() (Issue #579) now raises
+    BookNotLinkedToSeriesError for a book with series set but
+    series_number=0. Without a catch, the per-book loop died on the first
+    such book — books before it stayed committed, books after it were
+    silently never attempted."""
+
+    def test_skips_and_continues_past_unlinked_book(self, tmp_path, capsys):
+        content_root = tmp_path / "content"
+        projects_dir = content_root / "projects"
+        projects_dir.mkdir(parents=True)
+
+        good_book = _book(projects_dir, "aaa-good-book")
+        _write_char_snapshot(good_book, "theo", inventory=["compass"])
+
+        unlinked_book = _book(projects_dir, "unlinked-book", series="my-series", series_number=0)
+        _write_char_snapshot(unlinked_book, "kael", inventory=["should-not-crash-the-run"])
+
+        # Sorts after "unlinked-book" — proves the loop resumes past a
+        # failure, not just that it doesn't crash on books seen before it.
+        later_book = _book(projects_dir, "zzz-later-book")
+        _write_char_snapshot(later_book, "mira", inventory=["lantern"])
+
+        migrate_phase3.migrate_character_snapshots(content_root, dry_run=True)
+
+        out = capsys.readouterr().out
+        assert "SKIP: unlinked-book" in out
+        assert "my-series" in out
+        assert "theo" in out
+        # The book scheduled AFTER the failure must also have been reached.
+        assert "mira" in out
+
+    def test_reaches_books_nested_under_series_tree(self, tmp_path, capsys):
+        """Issue #584 (HIGH-1 of the code review): the pre-fix loop only
+        ever scanned content_root/projects/ directly. But a book created
+        via create_book_structure(series_slug=...) — the population that
+        actually gets series_number: 0, i.e. the one this whole fix exists
+        for — is scaffolded under content_root/series/{slug}/{book}/, not
+        projects/ (servers/storyforge-server/routers/creation.py). A
+        projects/-only scan would never reach the books most likely to
+        need the skip-and-continue behavior at all. find_projects() covers
+        both trees (Issue #279)."""
+        content_root = tmp_path / "content"
+        series_dir = content_root / "series" / "my-series"
+        series_dir.mkdir(parents=True)
+
+        # Properly linked series book (series_number != 0) — must be reached.
+        linked_book = _book(series_dir, "book-one", series="my-series", series_number=1)
+        _write_char_snapshot(linked_book, "elena", inventory=["map"])
+
+        # Freshly scaffolded, not yet linked — must be skipped, not crash the run.
+        unlinked_book = _book(series_dir, "book-two", series="my-series", series_number=0)
+        _write_char_snapshot(unlinked_book, "dax", inventory=["should-not-appear"])
+
+        migrate_phase3.migrate_character_snapshots(content_root, dry_run=True)
+
+        out = capsys.readouterr().out
+        assert "elena" in out
+        assert "SKIP: book-two" in out
+
+    def test_dry_run_false_does_not_leak_prior_book_num_into_next_book(
+        self, tmp_path, capsys
+    ):
+        """Issue #584 (MEDIUM-2 of the code review): the skip must actually
+        `continue` the loop. Without it, in execute mode, the next book's
+        upsert_snapshot() call would run with `book_num` still holding the
+        PREVIOUS iteration's value (a bare Python loop variable, not
+        reset) — silently writing that book's snapshot under someone
+        else's book_num. Real data corruption, not just a crash."""
+        content_root = tmp_path / "content"
+        projects_dir = content_root / "projects"
+        projects_dir.mkdir(parents=True)
+
+        # book_num=7 so a leak is unambiguous (not confusable with the
+        # default book_num=1 a missing/absent series would also produce).
+        leaky_source = _book(projects_dir, "aaa-book-num-7", series="shared-series", series_number=7)
+        _write_char_snapshot(leaky_source, "shared-char", inventory=["should-not-leak"])
+
+        unlinked_book = _book(projects_dir, "mmm-unlinked-book", series="shared-series", series_number=0)
+        _write_char_snapshot(unlinked_book, "kael", inventory=["irrelevant"])
+
+        victim = _book(projects_dir, "zzz-victim-book", series="shared-series", series_number=2)
+        _write_char_snapshot(victim, "shared-char", inventory=["victims-real-inventory"])
+
+        migrate_phase3.migrate_character_snapshots(content_root, dry_run=False)
+
+        out = capsys.readouterr().out
+        assert "SKIP: mmm-unlinked-book" in out
+
+        conn = sqlite3.connect(str(tmp_path / "db" / "shared-series.db"))
+        conn.row_factory = sqlite3.Row
+        rows = [
+            (r["char_slug"], r["book_num"], json.loads(r["inventory"]))
+            for r in conn.execute("SELECT char_slug, book_num, inventory FROM character_snapshots")
+        ]
+        conn.close()
+
+        # Both real books' own rows must be exactly as written — proves the
+        # skip didn't also corrupt or drop unrelated, successfully-processed
+        # books sharing the same char_slug ("shared-char") in different
+        # books_num.
+        assert ("shared-char", 7, ["should-not-leak"]) in rows
+        assert ("shared-char", 2, ["victims-real-inventory"]) in rows
+        # The skipped book's own character ("kael") must never be written
+        # at all — not under its own book_num (unresolvable, that's why it
+        # was skipped) and not under a stale book_num carried over from the
+        # PREVIOUS successful iteration (book_num=7, a bare Python loop
+        # variable that survives past a `continue`-less exception handler).
+        kael_rows = [r for r in rows if r[0] == "kael"]
+        assert kael_rows == [], f"unlinked book's character was written under a leaked book_num: {kael_rows}"

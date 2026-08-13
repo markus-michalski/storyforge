@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.db.connection import BookNotLinkedToSeriesError, get_book_num
+from tools.db.connection import BookNotLinkedToSeriesError, get_book_num, get_book_series_slug
 
 
 def _write_readme(book_root: Path, *, series: str = "", series_number: object = 1) -> None:
@@ -113,3 +113,65 @@ class TestGetBookNum:
         )
         with pytest.raises(BookNotLinkedToSeriesError):
             get_book_num(book_root)
+
+    def test_null_series_value_treated_as_no_series(self, tmp_path: Path) -> None:
+        """Issue #584: `series:` with no value (YAML null, parses to Python
+        None) must not coerce to the literal string "None" — that string is
+        truthy and would (a) make this function's own `if series and num <
+        1` guard fire incorrectly, and (b) make get_db_slug_for_book()
+        resolve to a real ~/.storyforge/db/None.db file elsewhere."""
+        book_root = tmp_path / "null-series-book"
+        book_root.mkdir(parents=True)
+        (book_root / "README.md").write_text(
+            '---\ntitle: "Test"\nseries:\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        assert get_book_num(book_root) == 1
+
+    def test_list_series_value_treated_as_no_series(self, tmp_path: Path) -> None:
+        """Issue #584 (L6): a malformed `series: [a, b]` (YAML list, not a
+        scalar) must not stringify to "['a', 'b']" and be treated as a real
+        series — that would both dodge this function's unlinked-book guard
+        and create a bogus DB file keyed on the stringified list elsewhere."""
+        book_root = tmp_path / "list-series-book"
+        book_root.mkdir(parents=True)
+        (book_root / "README.md").write_text(
+            '---\ntitle: "Test"\nseries: [a, b]\nseries_number: 0\n---\n',
+            encoding="utf-8",
+        )
+        assert get_book_num(book_root) == 1
+
+
+class TestGetBookSeriesSlug:
+    def test_normal_series_returned(self, tmp_path: Path) -> None:
+        book_root = tmp_path / "book"
+        _write_readme(book_root, series="my-series", series_number=1)
+        assert get_book_series_slug(book_root) == "my-series"
+
+    def test_no_series_returns_empty_string(self, tmp_path: Path) -> None:
+        book_root = tmp_path / "book"
+        _write_readme(book_root, series="", series_number=1)
+        assert get_book_series_slug(book_root) == ""
+
+    def test_null_series_returns_empty_string_not_literal_none(self, tmp_path: Path) -> None:
+        """Issue #584: `series:` with no value must not coerce to "None"."""
+        book_root = tmp_path / "book"
+        book_root.mkdir(parents=True)
+        (book_root / "README.md").write_text(
+            '---\ntitle: "Test"\nseries:\n---\n',
+            encoding="utf-8",
+        )
+        assert get_book_series_slug(book_root) == ""
+
+    def test_list_series_returns_empty_string_not_stringified_list(self, tmp_path: Path) -> None:
+        """Issue #584 (L6): a malformed `series: [a, b]` parses to a Python
+        list, not a scalar. str([...]) would produce "['a', 'b']" — non-empty,
+        passes slug validation, and creates a bogus DB file for a value that
+        was never a real series slug."""
+        book_root = tmp_path / "book"
+        book_root.mkdir(parents=True)
+        (book_root / "README.md").write_text(
+            '---\ntitle: "Test"\nseries: [a, b]\n---\n',
+            encoding="utf-8",
+        )
+        assert get_book_series_slug(book_root) == ""

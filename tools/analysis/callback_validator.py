@@ -221,13 +221,25 @@ def parse_callback_register(claudemd_text: str) -> list[CallbackEntry]:
     return entries
 
 
-def _read_book_callbacks(book_path: Path) -> list[CallbackEntry]:
-    """Return parsed callback entries for a book — reads the book_rules DB
-    (sole source since the Phase 4 migration, Issue #282), mirroring
-    ``tools/analysis/manuscript/rules.py``'s ``_read_book_rules()``.
+def _read_book_callbacks(book_path: Path) -> tuple[list[CallbackEntry], bool]:
+    """Return (parsed callback entries, unreadable) for a book — reads the
+    book_rules DB (sole source since the Phase 4 migration, Issue #282),
+    mirroring ``tools/analysis/manuscript/rules.py``'s ``_read_book_rules()``.
 
-    Returns an empty list when no callbacks exist or the DB is unavailable.
+    Returns ``([], False)`` when the book genuinely has no callbacks
+    registered. Returns ``([], True)`` when the DB couldn't be read for an
+    unexpected reason (sqlite corruption, permissions, ...) — the caller
+    must not treat that the same as "zero callbacks, all accounted for"
+    (Issue #584).
+
+    Raises :class:`~tools.db.connection.BookNotLinkedToSeriesError` (Issue
+    #579) rather than swallowing it into the generic ``True`` above — the
+    caller (:func:`verify_callbacks`) catches it specifically to build an
+    actionable reason from the exception's own message, same pattern as
+    ``_read_book_rules()``/``_scan_book_rules()``.
     """
+    from tools.db.connection import BookNotLinkedToSeriesError
+
     try:
         from tools.db.book_rules import list_rules as _db_list_rules
         from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db
@@ -239,9 +251,11 @@ def _read_book_callbacks(book_path: Path) -> list[CallbackEntry]:
             rows = _db_list_rules(conn, book_num=book_num, rule_type="callback")
         finally:
             conn.close()
+    except BookNotLinkedToSeriesError:
+        raise
     except Exception:
         logger.warning("callback DB read failed for %s", book_path.name, exc_info=True)
-        return []
+        return [], True
 
     entries: list[CallbackEntry] = []
     for row in rows:
@@ -249,7 +263,7 @@ def _read_book_callbacks(book_path: Path) -> list[CallbackEntry]:
         entry = _parse_callback_body(text, has_bullet_prefix=False, raw_line=text, from_db=True)
         if entry is not None:
             entries.append(entry)
-    return entries
+    return entries, False
 
 
 def _chapter_number_from_path(chapter_dir: Path) -> int | None:
@@ -319,9 +333,28 @@ def verify_callbacks(book_path: Path, claudemd_text: str = "") -> dict:
 
     Returns:
         dict with keys: book_slug, callbacks_checked, satisfied,
-        deferred, potentially_dropped.
+        deferred, potentially_dropped, unreadable, unreadable_reason.
+        ``unreadable: True`` (Issue #584) means the DB read itself failed
+        (e.g. an unlinked series book, Issue #579's
+        ``BookNotLinkedToSeriesError``, whose message lands in
+        ``unreadable_reason``; other causes leave it empty) — the DB-sourced
+        entries are missing in that case, but this function still falls back
+        to any legacy ``<!-- CALLBACKS:START -->`` markers in
+        ``claudemd_text`` (pre-migration books), so ``callbacks_checked`` and
+        the three buckets can still be nonzero. ``unreadable: True`` means
+        "the DB portion couldn't be verified", not "nothing was checked at
+        all" — callers must not read a low/zero count here as a clean bill
+        of health.
     """
-    db_entries = _read_book_callbacks(book_path)
+    from tools.db.connection import BookNotLinkedToSeriesError
+
+    unreadable_reason = ""
+    try:
+        db_entries, callbacks_unreadable = _read_book_callbacks(book_path)
+    except BookNotLinkedToSeriesError as exc:
+        db_entries = []
+        callbacks_unreadable = True
+        unreadable_reason = str(exc)
     known_names = {e.name.lower() for e in db_entries}
     legacy_entries = (
         [e for e in parse_callback_register(claudemd_text) if e.name.lower() not in known_names]
@@ -423,4 +456,6 @@ def verify_callbacks(book_path: Path, claudemd_text: str = "") -> dict:
         "satisfied": satisfied,
         "deferred": deferred,
         "potentially_dropped": potentially_dropped,
+        "unreadable": callbacks_unreadable,
+        "unreadable_reason": unreadable_reason,
     }

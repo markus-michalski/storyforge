@@ -84,6 +84,7 @@ during Step 5's interactive fix mode.
 | `snapshot` | ≥5 consecutive descriptive sentences, no action, no dialog | always medium |
 | `callback_dropped` | Callback past deadline or must-not-forget + >10 ch silence | always high |
 | `callback_deferred` | Callback not seen in >10 drafted chapters | always medium |
+| `book_rules_unreadable` / `callbacks_unreadable` | Meta-finding (Issue #579/#584): the book_rules/callback DB couldn't be read (e.g. a series book not yet linked via `add_book_to_series()`) — this category was never actually checked, not verified clean. `occurrences` is empty; `source_rule` carries the underlying error with the fix command. Not a prose finding — see Step 5's handling note below. | always high |
 | `simile` / `character_tell` / `blocking_tic` / `sensory` / `structural` / `signature_phrase` | Cross-chapter n-gram repetition | high if ≥4 hits |
 | `character_tell` (paraphrased) | Same body-part tell reworded each time, e.g. "shoulders came down" vs. "shoulders had dropped" — a second, additive `character_tell` source alongside the n-gram one above. `phrase` reads `"<body part> (varied phrasing)"`, a synthetic label, not manuscript text | medium ≥5 hits, high ≥10 hits |
 
@@ -217,6 +218,8 @@ If the user says yes (or passes `--interactive`):
 **Process ONE finding at a time. Wait for user response (keep / accept / skip / quit) before showing the next finding.**
 
 **After presenting all findings for a category, STOP and wait for the user to respond before moving to the next category — unless that response is `quit`.** The user's keep/accept/skip answer to the *last finding in a category* resolves that finding only — it is NOT implicit consent to start the next category. Ask explicitly (e.g. "Ready to move on to `question_as_statement`?") and wait for that separate answer before showing the first finding of the next category. **`quit` is the one exception:** it ends the entire walkthrough immediately, whether given mid-category or on a category's last finding — never follow a `quit` with a "ready to move on?" prompt.
+
+**`book_rules_unreadable` / `callbacks_unreadable` findings are not part of this walkthrough.** They carry no `occurrences` and no prose to rewrite — surface `source_rule` (the fix command) to the user once when summarizing the scan, then skip them entirely in interactive fix mode rather than presenting them as a category to step through.
 
 Process findings in **category priority order**:
 

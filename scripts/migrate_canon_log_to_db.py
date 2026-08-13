@@ -26,7 +26,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.db.canon_facts import insert_fact  # noqa: E402
-from tools.db.connection import get_book_num, get_db_slug_for_book, open_canon_db  # noqa: E402
+from tools.db.connection import (  # noqa: E402
+    get_book_num,
+    get_db_slug_for_book,
+    open_canon_db,
+)
 from tools.shared.config import load_config  # noqa: E402
 from tools.shared.paths import find_projects  # noqa: E402
 from tools.state.loaders.canon_log_extractor import extract_all_facts  # noqa: E402
@@ -136,7 +140,15 @@ def main() -> None:
 
     total = 0
     for book_root in books:
-        total += migrate_book(book_root)
+        try:
+            total += migrate_book(book_root)
+        except ValueError as exc:
+            # Covers BookNotLinkedToSeriesError (Issue #579) and
+            # SlugValidationError (Issue #523) — both raised deeper inside
+            # migrate_book() via get_book_num()/open_canon_db(), and both
+            # subclass ValueError so either failure mode skips-and-continues
+            # instead of aborting the whole run.
+            print(f"  SKIP: {book_root.name} — {exc}")
 
     print(f"\n{'=' * 60}")
     if DRY_RUN:
