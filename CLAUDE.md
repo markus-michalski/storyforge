@@ -89,6 +89,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Ethics check" / "Consent check" / "Einwilligungen prüfen" / "Personen prüfen" | `/storyforge:memoir-ethics-checker` (memoir only) |
 | "Emotional truth" / "Deepen scene" / "Memoir scene check" / "Felt sense" / "Emotionale Wahrheit" / "Szene vertiefen" / "Erinnerung prüfen" | `/storyforge:emotional-truth-prompt` (memoir only) |
 | "Export" / "EPUB" / "PDF" / "MOBI" | `/storyforge:export-engineer` |
+| "Create/generate an ARC" / "Advance Reader Copy" / "uncorrected proof" | `/storyforge:export-engineer --arc` (producing feedback on an ARC that came back → `/storyforge:beta-feedback` instead) |
 | "Übersetzen" / "Translate" | `/storyforge:translator` |
 | "Cover" / "Buchcover" | `/storyforge:cover-artist` |
 | "Cover-Typografie" / "Cover typography" / "Typography mockup" / "Titel-Schriftzug" / "Titel aufs Cover" | `/storyforge:cover-typography-mockup` |
@@ -150,11 +151,11 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 10b. `/storyforge:chapter-humanizer` — Targeted AI-construction scan; identifies Section 11 elegant-abstraction shapes and flagged vocabulary; proposes human alternatives interactively; runs AFTER chapter-reviewer craft fixes
 10c. `/storyforge:chapter-proofreader` — Language correctness per chapter: spelling, grammar, punctuation — runs AFTER humanizer pass; explanations in author's native_language
 10d. `/storyforge:manuscript-checker` — (At drafting → revision transition) Scan the whole manuscript for book-rule violations, clichés, dialogue punctuation, filter words, adverb density, and cross-chapter repetition
-10e. `/storyforge:beta-feedback` — (After eBook/ARC stage) Process curated beta-reader feedback, triage, revision plan
+10e. `/storyforge:beta-feedback` — (After eBook/ARC stage — produce the ARC itself via `/storyforge:export-engineer --arc`, step 13 below) Process curated beta-reader feedback, triage, revision plan
 11. `/storyforge:voice-checker` — (Optional) Holistic AI-authenticity score (0–100) across 7 dimensions; use when you want a scorecard rather than targeted fixes; not a required step in the standard workflow
 12. `/storyforge:cover-artist` — Generate cover prompts
 12a. `/storyforge:cover-typography-mockup` — (After the text-free cover is imported) HTML mockup Artifact for adding title/author typography, tool-specific guidance (Canva/GIMP/Photoshop)
-13. `/storyforge:export-engineer` — EPUB/PDF/MOBI via Pandoc
+13. `/storyforge:export-engineer` — EPUB/PDF/MOBI via Pandoc (`--arc` for an uncorrected-proof copy, e.g. for step 10e's beta-reader platforms — can run before chapters are Final)
 14. `/storyforge:promo-writer` — Social media campaign (FB, Instagram, TikTok, X, Bluesky, Newsletter)
 15. `/storyforge:translator` — Translate to other languages
 
@@ -207,7 +208,7 @@ Books live at `{content_root}/projects/{slug}/`:
 │       ├── README.md   # Chapter metadata + outline
 │       └── draft.md    # The actual prose
 ├── cover/              # brief.md, prompts.md, art/
-├── export/             # front-matter.md, back-matter.md, output/
+├── export/             # front-matter.md, back-matter.md, back-matter-arc.md (opt-in, hand-created), output/
 └── translations/       # {lang}/ with glossary.md + chapters/
 ```
 

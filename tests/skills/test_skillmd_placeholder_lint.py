@@ -94,7 +94,12 @@ PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
     "chapter-proofreader": {"count"},
     "continuity-checker": {"date"},
     "emotional-truth-prompt": {"chapter-path"},  # slug-in-file-path, self-evident from "{chapter-path}/draft.md"
-    "export-engineer": {"graphicx", "titlepage"},  # LaTeX \usepackage{}/\begin{}/\end{} syntax in a fenced ```latex block, not a book-workflow placeholder
+    "export-engineer": {
+        "graphicx", "titlepage",  # LaTeX \usepackage{}/\begin{}/\end{} syntax in a fenced ```latex block, not a book-workflow placeholder
+        "author_name", "year",  # ARC mode: templates/arc-front-matter-disclaimer.md's own placeholders, filled from get_book_full() per Step 2.1
+        "ext",  # ARC mode Step 5: output file extension (epub/pdf/mobi), self-evident from Step 3's format-specific pandoc/ebook-convert commands
+        "slugs",  # ARC mode Step 1: run_pre_export_gates()'s "All chapters Final" gate detail field format, literally "Not final: {slugs}" (gates.py)
+    },
     "harvest-author-rules": {"idx"},
     "harvest-character-evolution": {
         "n_accepted",
