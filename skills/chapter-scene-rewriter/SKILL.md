@@ -53,6 +53,17 @@ dieser Skill für Fiction löst."* Do not continue in this skill.
 Same standard chapter-writer applies for new prose — a rewritten scene is new prose and
 carries the same continuity risk as one that was never drafted.
 
+**Check this first, before any load below.** Resolve `resolve_path(book_slug, "chapters",
+"{chapter_slug}/draft.md")`. If it doesn't exist: distinguish two causes before reporting —
+`resolve_path` only joins and stats the path, it does not validate that `chapter_slug` itself
+is a real chapter. If `chapter_slug` is not a key in `chapters_data` (Step 0), stop and tell
+the user "chapter '{chapter_slug}' not found in this book" — check the slug (typo, wrong
+book). Otherwise the chapter exists but has no draft yet: stop, tell the user chapter-writer
+must draft the chapter first — there is no existing scene to replace. The loads below are
+pointless without a draft to rewrite, so this check comes before them, not after (item 11
+below only covers the follow-up read of `draft.md` + `README.md` once existence is already
+confirmed).
+
 1. **Chapter writing brief** — MCP `get_chapter_writing_brief(book_slug, chapter_slug)`.
    Load and honor every populated field exactly as chapter-writer's Prerequisite 1 does;
    `pov_character_inventory` / `pov_character_state` warnings → surface, do not invent.
@@ -76,17 +87,25 @@ carries the same continuity risk as one that was never drafted.
    read. Missing → skip silently.
 9. **Book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. **Why:** CLAUDE.md Rule 17
    requires this before writing or reviewing a chapter — feeds the Style Suppressions check
-   above and Pre-Logic Audit 4.5. If this returns an `error` key (no CLAUDE.md yet), treat it
-   as "no additional rules/suppressions" and continue.
+   above and Pre-Logic Audit 4.5. A book with no CLAUDE.md file yet returns whatever
+   DB-rendered Rules/Callbacks/Workflows exist, or empty content, instead of an error
+   (storyforge#573) — treat genuinely empty content (`content` is `""`, or has no
+   Rules/Callbacks/Workflows entries) as "no additional rules/suppressions" and continue. An
+   `error` key still happens for two distinct causes, and neither means "no rules": the book
+   project itself doesn't exist (already handled by Step 0, so this branch should not occur
+   here in practice), or the book's `series:` frontmatter names a series it isn't registered
+   in (`BookNotLinkedToSeriesError` — a real, reachable state for a book that DOES exist; see
+   the `book_rules_unreadable` report category, storyforge#579/#584). On an `error` key here:
+   stop and surface it to the user verbatim — "book rules could not be read, cannot verify
+   Style Suppressions or Pre-Logic Audit 4.5 cleanly" — rather than silently treating the
+   check as passed. The user decides whether to fix the series link first or proceed anyway.
 10. **Shared procedures** — MCP `get_craft_reference("chapter-writing-shared")`. This skill
     reuses `§ Pre-Logic Audit`, `§ EA-Scan Protocol`, `§ User Feedback Handling`, and
     `§ Fact Recording Gate` by name below — do not re-derive them inline.
-11. **Chapter draft + outline** — Resolve and read `resolve_path(book_slug, "chapters",
-    "{chapter_slug}/draft.md")` and the chapter's `README.md`. If `draft.md` doesn't exist:
-    stop, tell the user chapter-writer must draft the chapter first — there is no existing
-    scene to replace. Check `README.md` for a `## Scene Plan` section — if absent, this
-    chapter was drafted in chapter-writer's Mode B (Full Chapter); see Step 1 item 2 for the
-    fallback.
+11. **Chapter draft + outline** — Read the `draft.md` whose existence was already confirmed
+    above, plus the chapter's `README.md`. Check `README.md` for a `## Scene Plan` section —
+    if absent, this chapter was drafted in chapter-writer's Mode B (Full Chapter); see Step 1
+    item 2 for the fallback.
 12. **Regression baseline** — MCP `validate_chapter(book_slug, chapter_slug)` and
     `count_words(book_slug, chapter_slug)` *before* any edit. Step 6 diffs against this.
 
@@ -161,9 +180,14 @@ Before drafting the replacement, establish what the rewrite must not break:
   Step 1 item 2). Unless the user explicitly wants the scene's plot function to change too,
   the replacement must still deliver the same beats — a rewrite changes *how* the scene lands
   them, not *whether* it does.
-- **Promises.** If `research/manuscript-report.md` or `analyze_plot_logic` output shows a
-  Chekhov's-gun element was planted specifically in this scene, note it — the replacement
-  must still plant it, or the removal needs explicit user sign-off (it's a continuity break
+- **Promises.** Actively check, don't wait for it to surface on its own: call
+  `get_chapter_promises(book_slug, chapter_slug)` — same chapter-scoped source Step 7 uses —
+  and match each entry's `description` against the confirmed scene span from Step 1. Promises
+  are stored per chapter, not per scene, and `analyze_plot_logic`'s `chekhov_gun` detector
+  reports missing *payoffs*, not plant locations, so neither tells you which scene a promise
+  was planted in on its own — the description match against this scene's text is what does.
+  If a promise's plant point falls inside the confirmed span, note it — the replacement must
+  still plant it, or the removal needs explicit user sign-off (it's a continuity break
   otherwise).
 - **§ Pre-Logic Audit** (chapter-writing-shared.md) — run it for this scene exactly as
   chapter-writer's Step A1b does. Emit the bulleted block to chat before any prose. Any gap
@@ -194,7 +218,10 @@ Step 1; this approval is specifically for the replacement *content*. Approval ha
 **before** the write, not after:
 
 1. Show the full replacement scene in chat alongside a one-line diff summary (word count
-   old → new, what changed and why).
+   old → new, what changed and why). Word count is a Richtwert (Step 4's ±20% target), not a
+   gate — if the draft lands outside that band, say so explicitly in the summary (e.g. "850 →
+   620 words, -27%") instead of silently padding or trimming the prose before this point, and
+   let the user judge whether the deviation serves the rewrite.
 2. Wait for explicit approval. Silence is not approval — same standard chapter-writer's WAIT
    GATE applies.
 3. On approval: Read the full `draft.md` again immediately before writing (GH#27 — the copy
@@ -206,6 +233,13 @@ Step 1; this approval is specifically for the replacement *content*. Approval ha
    force a stale match.
 
 ## Step 6 — Re-Validate
+
+**Skip this step entirely if Step 5 did not land an `Edit`** — same condition as Step 6.5
+below, and broader than just a declined approval: it also covers approval granted but the
+`Edit` itself failing and re-location being abandoned (Step 5 item 4). In either case nothing
+changed, so there is nothing to re-validate — running `validate_chapter` / `count_words`
+against an unchanged file would reconcile to a zero delta and read as a false "clean pass" on
+a rewrite that never landed.
 
 1. `validate_chapter(book_slug, chapter_slug)` — diff explicitly against the Prerequisites 12
    baseline, same as chapter-fixer Step 5 item 1. State the result even when empty.
@@ -222,8 +256,7 @@ If Step 5 landed an `Edit`, call `add_canon_fact(book_slug, chapter_num=<this ch
 number, from Step 0>, subject="chapter-scene-rewriter-pass", fact="Scene {scene_number}
 rewritten: <one-line reason>", domain="revision")` — same pattern chapter-fixer Step 5.5 and
 manuscript-checker §6 use. This is the only persistent record of the swap once the session
-ends. **Skip entirely if the user declined approval at Step 5** — nothing changed, nothing to
-record.
+ends. **Skip entirely if Step 5 did not land an `Edit`** — nothing changed, nothing to record.
 
 ## Step 7 — Promise Re-Check
 
@@ -253,8 +286,13 @@ instead of replacing it. Skip silently if neither applies.
   there is no post-hoc revision loop the way chapter-writer's append mode has, because the
   original text is gone once the swap lands.
 - **No auto-trigger of downstream checkers.** Recommend re-running chapter-reviewer (Step 6);
-  do not invoke it, chapter-humanizer, or chapter-proofreader automatically. The author
-  decides when.
+  do not invoke it, chapter-humanizer, or chapter-proofreader automatically as part of this
+  skill's own execution — the destructive swap should be inspected on its own before more
+  automated passes touch the chapter. This does not mean ignoring the request: if the user
+  asked for the whole chain up front in the same request that triggered this skill, complete
+  the swap, then say the chain isn't auto-started from here and ask whether to proceed with it
+  now — never silently drop the second half of what the user asked for (CLAUDE.md Rule 14 —
+  pushback opens a discussion, it doesn't decide unilaterally). The author gives the final go.
 - **Abstain from invention.** Same standard as chapter-writer: if a concrete detail isn't
   sourced from the brief, `world/setting.md`, `characters/*.md`, `plot/timeline.md`, or a
   neighboring chapter's draft, surface the gap and ask instead of inventing it.
@@ -264,6 +302,9 @@ instead of replacing it. Skip silently if neither applies.
 ## Error Handling
 
 - No `draft.md` for this chapter → stop, tell the user `chapter-writer` must draft it first.
+- `chapter_slug` not found in `chapters_data` → stop, tell the user the chapter slug wasn't
+  found in this book (check for a typo or the wrong book) — distinct from the no-draft case
+  above (Prerequisites pre-check).
 - Target scene not locatable or ambiguous → ask (Step 1 item 5), never guess-edit.
 - Step 2 verification finds the complaint doesn't hold up → report that explicitly, propose
   no change, stop.
