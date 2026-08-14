@@ -103,8 +103,11 @@ def get_book_claudemd(book_slug: str) -> str:
 
     A book that exists but hasn't run init_book_claudemd() yet has no prose
     section — returns whatever DB-rendered Rules/Callbacks/Workflows exist
-    (or "" if none) instead of an error. ``error`` is only returned if the
-    book project itself doesn't exist (Issue #573).
+    (or "" if none) instead of an error (Issue #573). ``error`` is returned
+    for two distinct causes instead: the book project itself doesn't exist,
+    or the book's ``series:`` frontmatter names a series it isn't registered
+    in (``BookNotLinkedToSeriesError`` — reachable for a book that DOES
+    exist; see storyforge#579/#584).
     """
     config = _app.load_config()
     try:

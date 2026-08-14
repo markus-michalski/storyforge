@@ -50,8 +50,18 @@ checker is normally re-run to confirm the fix landed.
 3. **Book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. **Why:** CLAUDE.md Rule 17 requires
    this before writing or reviewing a chapter — a `book_rule_violation` finding can't be verified
    against the actual rule text without it, and a proposed replacement could unknowingly break a
-   *different* book rule. If this returns an `error` key (no CLAUDE.md yet — a real,
-   non-exceptional response), treat it as "no additional rules" and continue.
+   *different* book rule. A book with no CLAUDE.md file yet returns whatever DB-rendered
+   Rules/Callbacks/Workflows exist, or empty content, instead of an error (storyforge#573) —
+   treat genuinely empty content (`content` is `""`, or has no Rules/Callbacks/Workflows entries)
+   as "no additional rules" and continue. An `error` key still happens for two distinct causes,
+   and neither means "no rules": the book project itself doesn't exist (already handled by
+   Prerequisite 0, so this branch should not occur here in practice), or the book's `series:`
+   frontmatter names a series it isn't registered in (`BookNotLinkedToSeriesError` — a real,
+   reachable state for a book that DOES exist; see the `book_rules_unreadable` report category,
+   storyforge#579/#584). On an `error` key here: stop and surface it to the user verbatim — "book
+   rules could not be read, cannot verify this finding against the actual rule text" — rather than
+   silently treating the check as passed. The user decides whether to fix the series link first or
+   proceed anyway.
 4. **Anti-AI patterns** — MCP `get_craft_reference("anti-ai-patterns")`. **Why:** every proposed
    replacement is new prose — it must be verified free of Section 11 elegant-abstraction shapes
    and flagged vocabulary before being presented, same requirement chapter-humanizer applies to
