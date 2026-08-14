@@ -2,14 +2,17 @@
 name: chapter-fixer
 description: |
   Apply targeted, line-level fixes to an already-drafted chapter from chapter-reviewer or
-  manuscript-checker findings (chapter+line+snippet anchored). Surgical Edit-tool patches only —
-  never appends, never rewrites a scene wholesale, never re-runs chapter-writer's Scene Plan flow.
+  manuscript-checker findings (chapter+line+snippet anchored), or from the author's own
+  ad-hoc read — no formal checker run required. Surgical Edit-tool patches only — never
+  appends, never rewrites a scene wholesale, never re-runs chapter-writer's Scene Plan flow.
   Use when: (1) User says "chapter fixer", "Findings fixen", "Review-Findings umsetzen",
   "fix reviewer findings", (2) chapter-reviewer / chapter-reviewer-memoir returned FAIL or WARN
   with findings that need correction without a rewrite, (3) manuscript-checker flagged a
   `book_rule_violation` or other chapter-anchored issue for one chapter outside its
   full-manuscript loop, (4) the user points at a passage that violates a rule surfaced via
-  rules-audit.
+  rules-audit, (5) the user just noticed a sentence or two that reads oddly while re-reading a
+  chapter and wants it fixed, with no reviewer run involved. For reconstructing a whole scene
+  instead of a sentence or two, use `/storyforge:chapter-scene-rewriter`.
 model: claude-opus-5
 user-invocable: true
 argument-hint: "<book-slug> <chapter-slug>"
@@ -34,7 +37,8 @@ checker is normally re-run to confirm the fix landed.
 0. **Resolve book context** — Call MCP `get_book_full(book_slug)`. If it returns an `error` key,
    stop and tell the user the book wasn't found at the expected path. Otherwise extract `author`
    (→ `author_slug`), `book_category`, and this chapter's integer `number` from
-   `chapters[chapter_slug].number` (needed for Step 5.5).
+   `chapters_data[chapter_slug].number` (needed for Step 5.5) — `get_book_full`'s raw book
+   dict keys the chapter map as `chapters_data`, not `chapters`.
 1. **Draft** — Call `resolve_path(book_slug, "chapters", "{chapter_slug}/draft.md")` (MCP), then
    read the returned `path`. If missing (`exists: false`), stop and tell the user: "Kein draft.md
    für dieses Kapitel gefunden — chapter-writer muss zuerst laufen."
@@ -78,6 +82,12 @@ Findings come from one of two sources — never invented by this skill itself:
 - **(C) User-identified rule violation.** If the user points at a specific passage they believe
   violates a rule from `rules-audit`/`list_book_rules`, treat their pointer + the rule text as one
   manual finding — `rules-audit` itself never produces the chapter+line anchor.
+- **(D) Ad-hoc author observation.** The user doesn't need a formal checker run to flag something —
+  "these two sentences read weird" while re-reading a chapter is a valid finding on its own. Treat
+  the user's own pointer + description as one manual finding, same shape as (C): category is
+  whatever they describe (or `prose_quality` if unstated), severity defaults to Recommended unless
+  they say otherwise. Still goes through Step 3 verification like every other finding — an author's
+  gut read is a candidate, not an automatic pass.
 
 Normalize each finding to: **category** (e.g. `9b dialog punctuation`, `simile`, `book_rule_violation`),
 **severity**, **location** (scene/chapter hint or quoted text), **issue**, **suggested fix** (if the
@@ -274,7 +284,8 @@ findings from multiple independent checkers (reviewer + manuscript-checker) rath
 self-contained scan type. If a 4th round is requested, decline and redirect: *"Drei Fixer-Runden sind das
 Limit für diese Session. Für weitere Änderungen: neue Session starten oder manuell anpassen —
 oder, falls die Findings so dicht sind, dass Einzel-Fixes nicht mehr greifen, eine
-Szenen-Überarbeitung über chapter-writer erwägen."*
+Szenen-Überarbeitung erwägen"* — via `chapter-scene-rewriter` for fiction, or manually for
+memoir (no in-place scene rewriter exists for memoir yet, see Surgical Mode rule 6).
 
 ## Surgical Mode — Core Constraints
 
@@ -290,10 +301,16 @@ Szenen-Überarbeitung über chapter-writer erwägen."*
    and vocabulary. A grammatically-fixed line that sounds like a different author is a regression.
 5. **Read the full file before writing.** GH#27 — see Step 4, item 1.
 6. **No wholesale rewrites.** If findings are so dense or overlapping that individual patches
-   would require reconstructing a scene, stop and ask: *"Szene [N] hat [X] überlappende Findings —
-   eine gezielte Überarbeitung der ganzen Szene über chapter-writer wäre effizienter als
-   Einzelfixes. Soll ich das stattdessen vorschlagen?"* Wait for explicit confirmation before
-   proceeding either way.
+   would require reconstructing a scene, stop and ask. **Fiction** (`book_category` from
+   Prerequisites 0): *"Szene [N] hat [X] überlappende Findings — eine gezielte Überarbeitung
+   der ganzen Szene über chapter-scene-rewriter wäre effizienter als Einzelfixes. Soll ich das
+   stattdessen vorschlagen?"* **Memoir:** *"Szene [N] hat [X] überlappende Findings — für
+   Memoir gibt es noch keinen sicheren Ganze-Szene-Rewriter (chapter-writer-memoir ist
+   append-only und würde den Draft beschädigen). Vorschlag: die Findings in kleineren
+   Fixer-Runden abarbeiten, oder die Szene manuell direkt in draft.md überarbeiten."* Wait for
+   explicit confirmation before proceeding either way. `chapter-writer` /
+   `chapter-writer-memoir` are never the right destination for this — both are append-only and
+   would corrupt the existing draft rather than replace one scene in it.
 
 ## Error Handling
 

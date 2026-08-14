@@ -278,12 +278,15 @@ Report memoir AI-tells in their own labeled section, separate from universal Ant
 VERDICT: PASS | WARN | FAIL
 
 ### Suggested Next Step
-[/storyforge:chapter-fixer for targeted line-level fixes (most FAIL/WARN cases) | /storyforge:chapter-writer-memoir only if the findings require reconstructing a whole scene | move to next chapter]
+[/storyforge:chapter-fixer for targeted line-level fixes (most FAIL/WARN cases) | for findings dense enough to need a whole-scene reconstruction: smaller chapter-fixer rounds or a manual edit — no in-place scene rewriter exists for memoir yet | move to next chapter]
 ```
 
 `chapter-fixer` is category-agnostic (it consumes findings, it doesn't generate memoir-vs-fiction
-logic itself) — route FAIL/WARN there the same way as the fiction reviewer; only fall back to
-`chapter-writer-memoir` when patches would require reconstructing a scene.
+logic itself) — route FAIL/WARN there the same way as the fiction reviewer. **Never** fall back to
+`chapter-writer-memoir` for a whole-scene reconstruction — it's append-only (same as
+`chapter-writer`) and would corrupt an already-drafted `draft.md` rather than fix it. Fiction books
+have `/storyforge:chapter-scene-rewriter` for this case (see `chapter-fixer`'s Surgical Mode rule
+6); memoir does not yet — stay in smaller `chapter-fixer` rounds or edit the scene manually.
 
 Verdict mapping:
 - **PASS** — no Critical issues, no AI-tell banlist hits, all load-bearing first-chapter rows clear.

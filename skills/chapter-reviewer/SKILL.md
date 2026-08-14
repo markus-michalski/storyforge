@@ -265,7 +265,7 @@ Load `analyze_plot_logic(book_slug, scope="chapter", chapter_slug=...)` once bef
 VERDICT: PASS | WARN | FAIL
 
 ### Suggested Next Step
-[/storyforge:chapter-fixer for targeted line-level fixes (most FAIL/WARN cases) | /storyforge:chapter-writer only if the findings require reconstructing a whole scene | move to next chapter]
+[/storyforge:chapter-fixer for targeted line-level fixes (most FAIL/WARN cases) | /storyforge:chapter-scene-rewriter only if the findings require reconstructing a whole scene | move to next chapter]
 ```
 
 ## Step 4 — Record pass completion (Issue #479)
@@ -282,8 +282,8 @@ progress instead of asking the user:
 run*, not the verdict — a FAIL still needs revision, but the pass itself is done. Revision means
 `chapter-fixer` applying these findings as targeted patches (the normal path), not `chapter-writer`
 — that skill is append-only and would duplicate/corrupt the existing draft rather than fix it. Only
-route to `chapter-writer` when the findings are so dense that individual patches would require
-reconstructing a scene (see chapter-fixer's Surgical Mode rule 5).
+route to `chapter-scene-rewriter` when the findings are so dense that individual patches would
+require reconstructing a scene (see chapter-fixer's Surgical Mode rule 6).
 
 Verdict mapping:
 - **PASS** ↔ no Critical issues, no AI-tell banlist hits, all load-bearing first-chapter rows clear.
