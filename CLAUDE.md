@@ -211,7 +211,8 @@ Books live at `{content_root}/projects/{slug}/`:
 │       ├── README.md   # Chapter metadata + outline
 │       └── draft.md    # The actual prose
 ├── cover/              # brief.md, prompts.md, art/
-├── export/             # front-matter.md, back-matter.md, back-matter-arc.md (opt-in, hand-created), output/
+├── promo/              # (created on demand) {platform}.md, quotes.md, hashtags.md, calendar.md, beta/{...}.md
+├── export/             # front-matter.md, back-matter.md, back-matter-arc.md (opt-in, hand-created), blurb.md, output/
 └── translations/       # {lang}/ with glossary.md + chapters/
 ```
 
