@@ -81,15 +81,22 @@ means. Any other blocking gate (e.g. `"Has chapters"`) still hard-stops regardle
 override applies to that one specific gate only.
 
 When the override applies:
-1. Call MCP `get_book_progress(book_slug)` and cross-reference its per-chapter statuses against the
+1. Call MCP `get_book_progress(book_slug)` and cross-reference its per-chapter data against the
    non-final chapter slugs listed in the gate's `"detail"` field (`"Not final: {slugs}"`). Split them
-   into two groups: chapters at `"Outline"` status (essentially undrafted — `create_chapter()`
-   scaffolds these as just a bare `# Chapter N: Title` heading with no prose) vs. everything else
-   (drafted but not yet finalized — the normal, expected ARC state).
-2. Show both groups to the user. If any chapter is at `"Outline"` status, say so explicitly and
-   plainly — e.g. "Chapters 8–10 are still empty outlines, not drafted prose. Exporting now will
-   include them as near-blank chapters in the ARC." Don't soften or bury this; a beta-reader ARC
-   with blank chapters reads as broken, not "unpolished."
+   into two groups using each chapter's `words` count from that same response — **not** its `status`
+   field, which can lag behind real content (e.g. a `draft.md` written directly, bypassing the normal
+   status-transition flow, can sit at `"Outline"` with substantial prose already in it). A bare,
+   never-drafted scaffold (`create_chapter()`'s `# Chapter N: Title` heading, nothing else) reports
+   roughly 3–8 words, not 0 — treat anything in that range as an empty scaffold; anything clearly
+   above it is drafted but not yet finalized (the normal, expected ARC state), regardless of `status`.
+   If a chapter's word count sits ambiguously near that boundary and it matters for the message
+   you're about to show, `Read` its `draft.md` directly rather than guessing from the number alone.
+2. Show both groups to the user. If any chapter falls in the empty-scaffold range, say so explicitly
+   and plainly — e.g. "Chapters 8–10 contain only their title heading — no drafted prose yet.
+   Exporting now will include them as near-blank chapters in the ARC." Don't soften or bury this; a
+   beta-reader ARC with blank chapters reads as broken, not "unpolished." Don't call a chapter
+   "empty" or "blank" on `status` alone — an `"Outline"`-status chapter with a real word count above
+   the scaffold range already has real prose and belongs in the other group.
 3. Ask for one explicit confirmation covering the whole picture — this replaces the "If WARN-only"
    confirmation below for this run, it does not stack with it. If other gates (Word count target,
    Synopsis written) are also WARN, fold their warnings into the same single confirmation prompt
