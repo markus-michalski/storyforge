@@ -79,6 +79,7 @@ they are invocable strings, not prose.
 |---------|-------------|
 | `/storyforge:export-engineer` | Generate EPUB/PDF/MOBI |
 | `/storyforge:promo-writer` | Social media promo (FB, Instagram, TikTok, X, Bluesky, Newsletter) |
+| `/storyforge:beta-promo-writer` | Recruit beta readers / ARC team (StoryOrigin campaign, platform posts) |
 | `/storyforge:translator` | Translate chapter by chapter |
 | `/storyforge:cover-artist` | Generate cover art prompts |
 | `/storyforge:cover-typography-mockup` | HTML mockup for adding title/author text to a cover image |
