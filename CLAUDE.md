@@ -75,6 +75,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Author check" / "Style check" / "Positive check" / "Banter fehlt" / "Sarcasm fehlt" / "Stil prüfen" / "Positive Marker" | `/storyforge:author-check` |
 | "Manuscript check" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" (fiction) | `/storyforge:manuscript-checker` |
 | "Manuscript check (memoir)" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" (memoir) | `/storyforge:manuscript-checker-memoir` |
+| "Beta-Leser gewinnen" / "ARC-Team aufbauen" / "Beta Promo" / "Beta reader recruitment" / "StoryOrigin Kampagne" | `/storyforge:beta-promo-writer` |
 | "Beta feedback" / "ARC feedback" / "Reader feedback" / "Beta-Feedback verarbeiten" | `/storyforge:beta-feedback` |
 | "problem:" / "recurring issue:" / "report issue" / "regel melden" / "Regel eintragen" | `/storyforge:report-issue` |
 | "promote rule" / "rule global machen" / "Regel hochstufen" / "promote to author" / "promote to global" | `/storyforge:promote-rule` |
@@ -151,7 +152,8 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 10b. `/storyforge:chapter-humanizer` — Targeted AI-construction scan; identifies Section 11 elegant-abstraction shapes and flagged vocabulary; proposes human alternatives interactively; runs AFTER chapter-reviewer craft fixes
 10c. `/storyforge:chapter-proofreader` — Language correctness per chapter: spelling, grammar, punctuation — runs AFTER humanizer pass; explanations in author's native_language
 10d. `/storyforge:manuscript-checker` — (At drafting → revision transition) Scan the whole manuscript for book-rule violations, clichés, dialogue punctuation, filter words, adverb density, and cross-chapter repetition
-10e. `/storyforge:beta-feedback` — (After eBook/ARC stage — produce the ARC itself via `/storyforge:export-engineer --arc`, step 13 below) Process curated beta-reader feedback, triage, revision plan
+10e. `/storyforge:beta-promo-writer` — (Once status is Revision or later) Recruit beta readers/ARC reviewers: StoryOrigin campaign setup (screening + feedback-form questions) and platform recruitment posts. Precedes both the ARC file itself (step 13, `export-engineer --arc`) and the feedback that comes back
+10f. `/storyforge:beta-feedback` — (After eBook/ARC stage — produce the ARC itself via `/storyforge:export-engineer --arc`, step 13 below) Process curated beta-reader feedback, triage, revision plan
 11. `/storyforge:voice-checker` — (Optional) Holistic AI-authenticity score (0–100) across 7 dimensions; use when you want a scorecard rather than targeted fixes; not a required step in the standard workflow
 12. `/storyforge:cover-artist` — Generate cover prompts
 12a. `/storyforge:cover-typography-mockup` — (After the text-free cover is imported) HTML mockup Artifact for adding title/author typography, tool-specific guidance (Canva/GIMP/Photoshop)
@@ -190,6 +192,7 @@ All memoir skill phases are now wired (Phases 1–4). Memoir books flow through 
 - `/storyforge:chapter-reviewer` (memoir mode) — memoir anti-AI patterns (6-point dimension); consent gate flags; people-log continuity; dialog reconstruction honesty check
 - `/storyforge:cover-artist` (memoir mode) — photographic/typographic/portrait brief; period color palette; no AI-generated real-person likenesses
 - `/storyforge:promo-writer` (memoir mode) — 4-element memoir blurb (hook / personal stake / universal theme / tone signal); memoir quote card guidance
+- `/storyforge:beta-promo-writer` (memoir mode) — feedback-form questions swap character-surprise for resonance/anonymization-authenticity questions; anonymization aliases enforced in all public recruitment text
 - `/storyforge:study-author` (memoir mode) — voice excavation from personal writing (journals, letters, diaries); privacy-safe analysis; no Phase 2.5 gate for memoir
 
 ## Project Structure
@@ -305,6 +308,7 @@ Skills MUST load relevant craft references before generating creative content. U
 - `manuscript-checker` (fiction-only since #138) → base checks only (book-rule violations, plot holes, clichés, filter words, adverb density, cross-chapter repetition). Refuses memoir books and routes to `manuscript-checker-memoir`. Loads `reference/craft/book-rule-pattern-extraction.md`, `reference/craft/repetition-category-rules.md`, and `reference/craft/question-as-statement-handling.md` on demand during Step 5's interactive fix mode (Issue #574 split, shared with the memoir variant below).
 - `manuscript-checker-memoir` (memoir-only, split out in #138) → base checks plus five memoir-specific passes: anonymization leaks, tidy-lesson endings, reflective platitudes, timeline ambiguity, real-people name-form consistency (Phase 3 #61). Same on-demand reference loads as `manuscript-checker` above.
 - `promo-writer` → loads: genre README(s) for blurb tone guidance, `reference/promo/platforms.md` for platform characteristics
+- `beta-promo-writer` → loads: genre README(s) for content-warning/community-fit guidance, `reference/promo/beta-platforms.md` for recruitment-framed platform characteristics and the screening-question/feedback-form banks (distinct from `platforms.md` — sales framing vs. recruitment framing)
 
 ## Important Rules
 
