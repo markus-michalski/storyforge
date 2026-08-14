@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [3.5.0] - 2026-08-14
+
+### Added
+- add beta-reader/ARC recruitment skill (#593)
+- add ARC mode, fix author (#592)
+
 ## [3.4.2] - 2026-08-13
 
 ### Changed
@@ -751,3 +757,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.4.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.4.0
 [3.4.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.4.1
 [3.4.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.4.2
+[3.5.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.5.0
