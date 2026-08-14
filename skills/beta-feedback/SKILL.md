@@ -21,7 +21,8 @@ Process curated beta-reader feedback through structured triage:
 3. Cross-reference against the book's canon, timeline, tone, and arcs
 4. Deliver a verdict per item (with evidence when disagreeing)
 5. Produce a prioritized revision plan
-6. Optionally execute revisions via chapter-writer
+6. Optionally execute revisions via chapter-fixer (targeted) or chapter-scene-rewriter
+   (whole-scene, fiction) — see Phase 6
 
 Beta-reader feedback is qualitatively different from inline review comments:
 - It covers the **entire manuscript**, not single scenes
@@ -197,9 +198,15 @@ Output format (keep each task to 1-3 lines; cascade notes are 1 line each):
 
 **Wait for explicit user approval before executing any revision.** This phase rewrites prose — auto-execution corrupts drafts.
 
-For each approved revision task:
-- **Prose/pacing fixes:** Use `/storyforge:chapter-writer` in rewrite mode for the affected scene
-- **Continuity fixes:** Call `add_canon_fact()` to update DB first (Issue #297), then rewrite the affected passage
+For each approved revision task — `chapter-writer` is never the right tool here: it's
+append-only and would corrupt an already-drafted `draft.md` rather than revise it:
+- **Prose/pacing fixes confined to a sentence or two:** Use `/storyforge:chapter-fixer`,
+  passing the beta-reader finding as its ad-hoc source (chapter-fixer Step 1 source D).
+- **Prose/pacing fixes that require reconstructing a whole scene:** Fiction books use
+  `/storyforge:chapter-scene-rewriter`. Memoir has no in-place scene rewriter yet — fall back
+  to smaller `chapter-fixer` rounds or a manual edit.
+- **Continuity fixes:** Call `add_canon_fact()` to update DB first (Issue #297), then apply via
+  `chapter-fixer` or `chapter-scene-rewriter` per the scope above.
 - **Character fixes:** Re-read the character file and `plot/arcs.md`, assess if the arc doc needs updating, then rewrite
 - **After all revisions:** Update `resolve_path(book_slug, "research", "beta-feedback.md")` with resolution status per item
 
@@ -225,7 +232,8 @@ Written at the end of Phase 5, after the user acknowledges the plan (see Phase 5
 
 | Skill | Connection |
 |-------|-----------|
-| `chapter-writer` | Rewrites triggered by actionable items (Phase 6) |
+| `chapter-fixer` | Targeted, line-level revisions triggered by actionable items (Phase 6) |
+| `chapter-scene-rewriter` | Whole-scene revisions triggered by actionable items (Phase 6, fiction only) |
 | `chapter-reviewer` | Post-rewrite quality gate |
 | `manuscript-checker` | If prose feedback mentions repetitive patterns, clichés, or punctuation issues |
 | `continuity-checker` | If feedback mentions timeline/spatial errors |
