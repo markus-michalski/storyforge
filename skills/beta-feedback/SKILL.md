@@ -34,13 +34,24 @@ Beta-reader feedback is qualitatively different from inline review comments:
 
 1. Resolve book slug from argument or session via MCP `get_session()`
    **Why:** All subsequent MCP calls require the book slug; wrong slug silently loads the wrong book's data.
-2. Load book data via MCP `get_book_full(slug)`
+2. Load book data via MCP `get_book_full(slug)`. If it returns an `error` key, stop and tell the
+   user the book wasn't found at the expected path.
    **Why:** Provides chapter list, character index, and metadata needed to validate `Affected:` chapter references in the feedback file.
 3. Resolve book path via MCP `resolve_path(slug)`
    **Why:** The absolute project root is required to read feedback file, draft chapters, and cross-reference docs — relative paths break across content-root configurations. (Omitting the component argument returns the book root directly; `"book"` is not a valid component and resolves to a non-existent subdirectory.)
 4. Load per-book CLAUDE.md via MCP `get_book_claudemd(slug)` — Rules, Callbacks, Workflow
    **Why:** Carries persisted Rules, Callbacks, and Workflow overrides that govern triage verdicts — without this, deliberate authorial choices are misread as errors.
-   If the book has no CLAUDE.md yet, the call returns an error (not an empty Rules/Callbacks/Workflow object) — but by this point the slug is already validated (Prerequisites 1-2 would have failed first on a bad slug), so treat the error here as "no persisted overrides exist yet" and proceed rather than as a prerequisite-load failure.
+   A book with no CLAUDE.md file yet returns whatever DB-rendered Rules/Callbacks/Workflows exist,
+   or empty content, instead of an error (storyforge#573) — treat genuinely empty content
+   (`content` is `""`, or has no Rules/Callbacks/Workflows entries) as "no persisted overrides
+   exist yet" and proceed. An `error` key still happens for two distinct causes, and neither means
+   "no overrides": the book project itself doesn't exist (already handled by Prerequisite 2, so
+   this branch should not occur here in practice), or the book's `series:` frontmatter names a
+   series it isn't registered in (`BookNotLinkedToSeriesError` — a real, reachable state for a book
+   that DOES exist; see the `book_rules_unreadable` report category, storyforge#579/#584). On an
+   `error` key here: stop and surface it to the user verbatim — "book rules could not be read,
+   cannot verify persisted triage overrides" — rather than silently treating the check as passed.
+   The user decides whether to fix the series link first or proceed anyway.
 5. Read the feedback file:
    - Default: resolve via `resolve_path(book_slug, "research", "beta-feedback.md")` (MCP) — handles series books.
    - Custom: path from `--file` argument

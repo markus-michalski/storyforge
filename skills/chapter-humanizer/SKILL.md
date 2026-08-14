@@ -22,11 +22,25 @@ The chapter-humanizer is a surgical pass — not a rewrite. Its job is to find A
 
 Before scanning a single line:
 
-0. **Resolve book context** — Call MCP `get_book_full(book_slug)` and extract `author` (→ `author_slug`, needed for step 3 and Pass 2's writing-discoveries lookup).
+0. **Resolve book context** — Call MCP `get_book_full(book_slug)`. If it returns an `error` key,
+   stop and tell the user the book wasn't found at the expected path. Otherwise extract `author`
+   (→ `author_slug`, needed for step 3 and Pass 2's writing-discoveries lookup).
 1. **Draft** — Call `resolve_path(book_slug, "chapters", "{chapter}/draft.md")` (MCP) to get the correct path (handles series-nested vs. standalone layout), then read `draft.md` at the returned path. If missing (`exists: false`), stop and tell the user: "Kein draft.md für dieses Kapitel gefunden — chapter-writer muss zuerst laufen."
 2. **Anti-AI patterns** — MCP `get_craft_reference("anti-ai-patterns")`. **Why:** Section 11 contains the shape catalog with banned-shape descriptions and examples. Section 1 contains the flagged-vocabulary list. Both are the scan targets.
 3. **Author profile** — MCP `get_author(author_slug)`. **Why:** Alternatives must be written in the author's documented voice (tone, rhythm, vocabulary). A proposed fix that doesn't match the author's profile is not a fix — it's a different kind of AI output.
-4. **Book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. **Why:** Book-level rules may contain additional banned shapes or construction constraints specific to this book. **If this call returns an `error` key** (no CLAUDE.md exists yet for this book — a real, non-exceptional response, not a failure), treat it as "no additional book-level rules" and continue; do not stop or block on it.
+4. **Book CLAUDE.md** — MCP `get_book_claudemd(book_slug)`. **Why:** Book-level rules may contain
+   additional banned shapes or construction constraints specific to this book. A book with no
+   CLAUDE.md file yet returns whatever DB-rendered Rules/Callbacks/Workflows exist, or empty
+   content, instead of an error (storyforge#573) — treat genuinely empty content (`content` is
+   `""`, or has no Rules/Callbacks/Workflows entries) as "no additional book-level rules" and
+   continue; do not stop or block on it. An `error` key still happens for two distinct causes, and
+   neither means "no rules": the book project itself doesn't exist (already handled by
+   Prerequisite 0), or the book's `series:` frontmatter names a series it isn't registered in
+   (`BookNotLinkedToSeriesError` — a real, reachable state for a book that DOES exist; see the
+   `book_rules_unreadable` report category, storyforge#579/#584). On an `error` key here: stop and
+   surface it to the user — "book rules could not be read, cannot verify banned-shape or
+   construction constraints for this book" — rather than silently treating the check as passed.
+   The user decides whether to fix the series link first or proceed anyway.
 
 All five loads are mandatory on every run — including load 4, even for a book you suspect has no extra rules. The only way to know is to actually call the tool; skipping it because it "probably" has nothing is not a valid shortcut.
 
