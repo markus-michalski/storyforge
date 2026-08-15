@@ -161,6 +161,14 @@ Instructions: reply with hit numbers to apply as-is, numbers for a different alt
 (e.g. "3: shorter"), and numbers to skip. Example: "apply 1, 2 / rework 3: one sentence / skip 4"
 ```
 
+> **--- APPROVAL GATE ---**
+> Stop here. Do NOT call Step 4 or touch `draft.md` this turn.
+> Unlocks only on an explicit apply/skip decision on THIS batch. A rework (`N: [instruction]`)
+> does NOT unlock it — only its confirmed replacement does. The carve-out below still applies.
+> Silence or generic enthusiasm is not approval — no "keep moving instead of asking"
+> instruction overrides this gate.
+> **--- END GATE ---**
+
 ### User Response Formats
 
 - `apply all` — apply every proposed fix as-is, **except** `anonymization_leak` /
@@ -187,6 +195,9 @@ push back once — quote the person's `consent_status`/anonymization decision an
 confirmation that leaving the real name in is intentional.
 
 ## Step 4 — Apply (Single Write Pass)
+
+**Entry check.** Confirm the current message replies to the batch Step 3 just presented (GATE
+above). Doubt which batch a stray "apply all" targets → ask, don't guess.
 
 1. Read the full `draft.md` again immediately before writing (GH#27) — the copy from
    Prerequisites/Step 2 may be stale.
@@ -337,8 +348,9 @@ memoir (no in-place scene rewriter exists for memoir yet, see Surgical Mode rule
 - **Edit-only, never append.** This skill never calls `chapter-writer`'s Scene Plan / Step A2
   flow. If the fix requires new prose beyond a sentence-level rewrite, that's out of scope — say
   so and point at `chapter-writer` or `chapter-humanizer` instead.
-- **Never blind-apply.** Every fix needs explicit user approval (batch approval via the mini-DSL
-  is fine) before it's written — the checker finds candidates, the human confirms the fix.
+- **Never blind-apply — hard block, not a default.** Every fix needs an explicit apply/skip
+  decision before it's written; batch approval via the mini-DSL counts. Not met by proceeding
+  without a reply or any "keep moving instead of asking" instruction — see the Step 3 GATE.
 - **Book rules are authoritative.** A `book_rule_violation` finding is the user's own rule for
   this book — treat it as the highest-priority fix in any batch, same standing manuscript-checker
   gives it.
