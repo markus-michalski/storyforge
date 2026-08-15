@@ -76,7 +76,9 @@ Also check the author profile's `writing_discoveries.donts` — these are book/a
 
 ## Output: Scan Report
 
-After both passes, present the findings as a numbered list. All changes are held until the user's approval response below. **Hard cap: ≤ 20 hits per batch.** Before writing the report, count total hits — if there are more than 20, present only the first 20 now, apply those per the user's response, then present the next batch (do not dump all hits in one report).
+After both passes, present the findings as a numbered list. No change is written to `draft.md`
+until the user gives an explicit apply/skip decision on this exact batch — see the GATE below
+the report template. **Hard cap: ≤ 20 hits per batch.** Before writing the report, count total hits — if there are more than 20, present only the first 20 now, apply those per the user's response, then present the next batch (do not dump all hits in one report).
 
 ```
 ## Humanizer Scan — {book-slug} / {chapter-slug}
@@ -110,6 +112,15 @@ Proposed fix: *"...the tension between them, which neither named..."*
 **Instructions:** Reply with the hit numbers you want to apply as-is, numbers you want a different alternative for (e.g. "3: shorter"), and numbers you want to skip. Example: "apply 1, 2, 4 / rework 3: make it one sentence / skip none"
 ```
 
+> **--- APPROVAL GATE ---**
+> Stop here. Do NOT proceed to Applying Changes or touch `draft.md` this turn.
+> Unlocks only on an explicit apply/skip decision on THIS batch. A reply containing ANY rework
+> holds the ENTIRE batch — plain-apply hits included — until that rework's replacement is
+> confirmed (see Rework below).
+> Silence or generic enthusiasm is not approval — no "keep moving instead of asking"
+> instruction overrides this gate.
+> **--- END GATE ---**
+
 ## Interaction Loop
 
 ### User Response Formats
@@ -134,6 +145,10 @@ Present the rework for confirmation before applying: *"Rework for [N]: '[revised
 If the user's response mixes a rework with plain apply/skip instructions (e.g. `apply 1, 4 / skip 2 / 3: shorter`), do NOT write any of the batch yet — even the plain-apply hits. Resolve the rework's confirmation first, THEN apply the full batch (plain-applies + confirmed reworks, minus skips) together in the single write pass described below.
 
 ### Applying Changes
+
+**Entry check.** Confirm the current message replies to the batch just presented (GATE above),
+and that every pending rework has been confirmed. Doubt which batch a stray "apply all" targets
+→ ask, don't guess.
 
 After the user approves (or applies with reworks confirmed):
 
@@ -171,6 +186,10 @@ All fixes in this skill operate under the following four rules:
 
 ## Rules
 
+- **Never blind-apply — hard block, not a default.** Every hit needs an explicit apply/skip
+  decision before it's written; batch approval via the User Response Formats above counts. Not
+  met by proceeding without a reply or any "keep moving instead of asking" instruction — see the
+  Scan Report GATE.
 - **Surgical only.** Apply Surgical Mode above. The chapter-reviewer already handled craft.
 - **No wholesale rewrites.** If a passage has so many Section 11 shapes that individual fixes would require reconstructing the scene, stop and tell the user: *"Szene [N] hat [X] overlapping shapes — eine gezielte Überarbeitung der ganzen Szene wäre effizienter als Einzelfixes. Soll ich Vorschläge für die ganze Szene machen?"* Then wait for explicit confirmation before proceeding.
 - **voice-checker is optional after humanizing.** If the user wants a holistic score after this pass, suggest `/storyforge:voice-checker`. But the humanizer's targeted pass is more actionable for the patterns it covers.
