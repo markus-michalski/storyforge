@@ -278,7 +278,7 @@ The book status sequence is **identical** for `book_category: memoir`. Several s
 
 Authors live at `~/.storyforge/authors/{slug}/`:
 - `profile.md` — Style, voice, techniques (YAML frontmatter)
-- `vocabulary.md` — Preferred/banned words, signature phrases
+- `vocabulary.md` — Preferred-word notes and signature phrases (read-only reference; banned words/Don'ts enforcement reads the `author_discoveries` DB, not this file — Issue #604)
 - `studied-works/` — Analysis files from PDF imports
 - `examples/` — Sample texts
 

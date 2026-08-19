@@ -226,29 +226,6 @@ def _write_book_with_author(tmp_path: Path, *, author_slug: str = "ethan-cole") 
     return book
 
 
-def _write_author_profile_with_discoveries(
-    home: Path, slug: str, discoveries_body: str
-) -> None:
-    """Create ``~/.storyforge/authors/{slug}/profile.md`` with a ## Writing
-    Discoveries section."""
-    profile_dir = home / "authors" / slug
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "profile.md").write_text(
-        '---\nname: "Ethan Cole"\nslug: "ethan-cole"\n---\n\n'
-        "# Ethan Cole\n\n"
-        "## Writing Discoveries\n\n"
-        f"{discoveries_body}",
-        encoding="utf-8",
-    )
-
-
-def _write_author_vocabulary(home: Path, slug: str, body: str) -> None:
-    """Create ``~/.storyforge/authors/{slug}/vocabulary.md`` for the vocab path."""
-    profile_dir = home / "authors" / slug
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "vocabulary.md").write_text(body, encoding="utf-8")
-
-
 class TestAuthorBanlistEnforcesWritingDiscoveries:
     """Issue #172: phrases promoted to ``## Writing Discoveries`` must trigger
     the strict-mode hard-block at draft save time, just like phrases in
@@ -284,29 +261,20 @@ class TestAuthorBanlistEnforcesWritingDiscoveries:
         assert result.will_block
 
     def test_writing_discovery_dedups_with_vocabulary(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ) -> None:
-        """Same phrase in vocabulary.md and profile.md ``## Writing Discoveries``
-        must yield exactly ONE finding (vocabulary wins on dedup)."""
+        """Same phrase as a flat donts row (author-vocab) and as a
+        recurring_tics row (Writing Discoveries) must yield exactly ONE
+        finding (vocabulary wins on dedup)."""
         book = _write_book_with_author(tmp_path)
-        # Vocabulary.md banlist ('thing' in the AI-tells subsection).
-        _write_author_vocabulary(
-            patch_storyforge_home,
-            "ethan-cole",
-            (
-                "## Banned Words\n\n"
-                "### Forbidden Hedging Phrases\n\n"
-                "- thing\n"
-            ),
-        )
+        # Flat literal-phrase donts row ('thing') — the author-vocab source.
+        seed_author_discoveries(patch_storyforge_home, "ethan-cole", "donts", ["thing"])
         # Same phrase also promoted as a Writing Discoveries tic.
-        _write_author_profile_with_discoveries(
+        seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
-            (
-                '### Recurring Tics\n\n'
-                '- **Vague-noun "thing" als Fallback** — concretize on sight.\n'
-            ),
+            "recurring_tics",
+            ['**Vague-noun "thing" als Fallback** — concretize on sight.'],
         )
         prose = "He was doing a thing again, deliberate-feeling. " * 30
         draft = _write_draft(book, prose)
@@ -321,20 +289,12 @@ class TestAuthorBanlistEnforcesWritingDiscoveries:
         assert "vocab" in author_findings[0].message.lower()
 
     def test_vocabulary_only_path_unchanged(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ) -> None:
-        """Books whose author has no Writing Discoveries section keep blocking
-        on vocabulary.md exactly as before."""
+        """Books whose author has no Writing Discoveries rows keep blocking
+        on the flat donts (author-vocab) rows exactly as before."""
         book = _write_book_with_author(tmp_path)
-        _write_author_vocabulary(
-            patch_storyforge_home,
-            "ethan-cole",
-            (
-                "## Banned Words\n\n"
-                "### Absolutely Forbidden\n\n"
-                "- delve\n"
-            ),
-        )
+        seed_author_discoveries(patch_storyforge_home, "ethan-cole", "donts", ["delve"])
         prose = "He had to delve into the question one more time today. " * 30
         draft = _write_draft(book, prose)
 
@@ -404,16 +364,12 @@ class TestAuthorBanlistEnforcesDonts:
         assert result.will_block
 
     def test_dont_without_violation_does_not_block(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ) -> None:
         book = _write_book_with_author(tmp_path)
-        _write_author_profile_with_discoveries(
-            patch_storyforge_home,
-            "ethan-cole",
-            (
-                "### Don'ts\n\n"
-                "- **Never use rooms** — *The room received it.*\n"
-            ),
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts",
+            ["**Never use rooms** — *The room received it.*"],
         )
         prose = "Clean prose with no banned shapes at all whatsoever. " * 30
         draft = _write_draft(book, prose)
@@ -441,18 +397,10 @@ class TestAuthorBanlistCategorySplit:
     """
 
     def test_vocabulary_hit_emits_author_vocab_violation(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ) -> None:
         book = _write_book_with_author(tmp_path)
-        _write_author_vocabulary(
-            patch_storyforge_home,
-            "ethan-cole",
-            (
-                "## Banned Words\n\n"
-                "### Absolutely Forbidden\n\n"
-                "- delve\n"
-            ),
-        )
+        seed_author_discoveries(patch_storyforge_home, "ethan-cole", "donts", ["delve"])
         prose = "He had to delve into the question one more time today. " * 30
         draft = _write_draft(book, prose)
         result = validate_chapter_path(str(draft))
@@ -508,15 +456,7 @@ class TestAuthorBanlistCategorySplit:
         """All three sources present + distinct phrases in the draft —
         the hook emits one finding per source under its dedicated category."""
         book = _write_book_with_author(tmp_path)
-        _write_author_vocabulary(
-            patch_storyforge_home,
-            "ethan-cole",
-            (
-                "## Banned Words\n\n"
-                "### Absolutely Forbidden\n\n"
-                "- delve\n"
-            ),
-        )
+        seed_author_discoveries(patch_storyforge_home, "ethan-cole", "donts", ["delve"])
         seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
@@ -542,29 +482,19 @@ class TestAuthorBanlistCategorySplit:
         assert "author_rule_violation" in categories
 
     def test_dedup_preserves_winning_source_category(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ) -> None:
         """The dedup precedence (vocabulary > tics > don'ts) is unchanged.
         When the same phrase appears in multiple sources, only the winning
         source's category surfaces — and the winner is vocabulary.
         """
         book = _write_book_with_author(tmp_path)
-        _write_author_vocabulary(
+        seed_author_discoveries(patch_storyforge_home, "ethan-cole", "donts", ["thing"])
+        seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
-            (
-                "## Banned Words\n\n"
-                "### Forbidden Hedging Phrases\n\n"
-                "- thing\n"
-            ),
-        )
-        _write_author_profile_with_discoveries(
-            patch_storyforge_home,
-            "ethan-cole",
-            (
-                '### Recurring Tics\n\n'
-                '- **Vague-noun "thing" als Fallback** — concretize.\n'
-            ),
+            "recurring_tics",
+            ['**Vague-noun "thing" als Fallback** — concretize.'],
         )
         prose = "He was doing a thing again, deliberate-feeling. " * 30
         draft = _write_draft(book, prose)
@@ -605,17 +535,15 @@ class TestAuthorBanlistCategorySplit:
         assert not result.will_block
 
     def test_chapter_limit_allows_hits_under_cap(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ) -> None:
         """A tic with 'Max 2 per chapter' does not fire when hits <= cap."""
         book = _write_book_with_author(tmp_path)
-        _write_author_profile_with_discoveries(
+        seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
-            (
-                '### Recurring Tics\n\n'
-                '- **"the way" Vergleichs-Tic** — Max 2 per chapter.\n'
-            ),
+            "recurring_tics",
+            ['**"the way" Vergleichs-Tic** — Max 2 per chapter.'],
         )
         # Use ~3 000 words so _scaled_scene_limit does not reduce cap below 2.
         filler = "This sentence is unrelated filler content for test validation purposes. " * 200
@@ -658,17 +586,15 @@ class TestAuthorBanlistCategorySplit:
         assert "3" in tic_findings[0].message
 
     def test_german_limit_syntax_parsed(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ) -> None:
         """German 'Max. 2–3 pro Kapitel' phrasing is parsed as chapter_limit=3."""
         book = _write_book_with_author(tmp_path)
-        _write_author_profile_with_discoveries(
+        seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
-            (
-                '### Recurring Tics\n\n'
-                '- **"count" Zeitmarker-Tic** — Max. 2–3 pro Kapitel.\n'
-            ),
+            "recurring_tics",
+            ['**"count" Zeitmarker-Tic** — Max. 2–3 pro Kapitel.'],
         )
         filler = "This sentence is unrelated filler content for test validation purposes. " * 200
         # 3 hits of bare "count" at cap 3 — must pass.

@@ -18,12 +18,14 @@ CATEGORY_LABELS = {
     "book_rules_unreadable": "Book Rules Unreadable (checking failed, not verified clean)",
     "callbacks_unreadable": "Callback Register Unreadable (checking failed, not verified clean)",
     "book_rule_violation": "Book Rule Violations",
-    # Author-scoped bans surfaced from the resolved author profile (#210).
-    # `author_rule_violation` is the ``### Don'ts`` subsection,
-    # `author_vocab_violation` is ``vocabulary.md ### Forbidden ...``, and
-    # `writing_discovery_violation` is ``### Recurring Tics`` (#151 follow-up
-    # — the category was emitted by the scanner but never wired into the
-    # report until #210 made the gap visible).
+    # Author-scoped bans surfaced from the resolved author's discoveries DB
+    # (#210; DB-backed since #604 — all three used to read profile.md/
+    # vocabulary.md directly). `author_rule_violation` is bold-titled/
+    # backtick ``donts`` rows, `author_vocab_violation` is flat
+    # literal-phrase ``donts`` rows, and `writing_discovery_violation` is
+    # ``recurring_tics`` rows (#151 follow-up — the category was emitted by
+    # the scanner but never wired into the report until #210 made the gap
+    # visible).
     "author_rule_violation": "Author Profile Don'ts",
     "author_vocab_violation": "Author Vocabulary Bans",
     "writing_discovery_violation": "Author Writing Discoveries (Recurring Tics)",
@@ -170,10 +172,11 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
         )
     if cat == "author_vocab_violation":
         return (
-            f"_Recommendation:_ '{finding['phrase']}' is banned at author scope in "
-            f"``vocabulary.md``. Replace all {count} "
+            f"_Recommendation:_ '{finding['phrase']}' is banned at author scope "
+            f"(author vocabulary). Replace all {count} "
             f"occurrence{'s' if count != 1 else ''} with voice-aligned alternatives "
-            f"(see the author profile)."
+            f"(see the author profile). To lift the ban, use "
+            f"``delete_discovery`` with ``discovery_type=\"donts\"``."
         )
     if cat == "writing_discovery_violation":
         return (
@@ -190,7 +193,8 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             f"Advisory by default — review all {count} "
             f"occurrence{'s' if count != 1 else ''} and decide per case. To "
             f"hard-block this shape for this author across all future books, "
-            f"add the same regex to `profile.md ### Don'ts`."
+            f"add the same regex via ``write_author_banned_phrase`` (or "
+            f"``write_author_discovery`` with ``section=\"donts\"``)."
         )
     if cat == "ai_tell_violation":
         return (
@@ -198,9 +202,11 @@ def _recommendation_for(finding: dict[str, Any]) -> str:
             f"AI-tell vocabulary entry from `anti-ai-patterns.md` Section 1. "
             f"Advisory by default — review all {count} "
             f"occurrence{'s' if count != 1 else ''} and decide per case. To "
-            f"hard-block this word for the author, add it to "
-            f"`vocabulary.md ### Absolutely Forbidden` (block + inflection "
-            f"matching)."
+            f"hard-block this word for the author, add it via "
+            f"``add_vocabulary_entry(entry_type=\"banned\", text=\"{finding['phrase']}\")`` "
+            f"as a bare phrase — no backticks or bold markup, or it will be "
+            f"read as an exact-literal Don't instead of an inflection-matched "
+            f"vocabulary ban."
         )
     if cat == "cliche":
         return (

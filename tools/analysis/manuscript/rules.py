@@ -21,15 +21,6 @@ from tools.analysis.manuscript.text_utils import (
 from tools.analysis.manuscript.types import Finding, Occurrence
 from tools.analysis.manuscript.vocabularies import STOP_WORDS
 
-# Match a markdown list item that spans until the next blank line, next list
-# item, or section end. Used by _resolve_donts_section() for author-profile
-# Don'ts parsing — not for CLAUDE.md ## Rules (those come from the DB via
-# _read_book_rules()).
-_RULE_BULLET_RE = re.compile(
-    r"^-\s+(?P<body>.+?)(?=^-\s+|^\s*$|^<!--|\Z)",
-    re.MULTILINE | re.DOTALL,
-)
-
 # Backtick-wrapped content. We split on these to distinguish regex hints from
 # plain-literal tokens.
 _BACKTICK_CONTENT_RE = re.compile(r"`([^`\n]+)`")
@@ -82,19 +73,6 @@ _RECOMMENDATION_MARKER_RE = re.compile(
     r"|→"
     r")",
     re.IGNORECASE,
-)
-
-# Heading + section markers for the author-profile ``## Writing Discoveries
-# / ### Don'ts`` subsection. Apostrophe variants (ASCII, curly, fancy) are
-# all accepted so the harvest helper's slightly different output never
-# silently drops bullets.
-_DISCOVERIES_SECTION_RE = re.compile(
-    r"^##\s+Writing\s+Discoveries\s*$(?P<body>.*?)(?=^##\s|\Z)",
-    re.MULTILINE | re.DOTALL | re.IGNORECASE,
-)
-_DONTS_HEADER_RE = re.compile(
-    r"^###\s+Don[’'’ʼ]?ts\s*$",
-    re.MULTILINE | re.IGNORECASE,
 )
 
 
@@ -273,7 +251,7 @@ def _scan_writing_discoveries(book_path: Path) -> list[Finding]:
     """Scan chapter drafts for violations of the author's Writing Discoveries.
 
     Mirrors :func:`_scan_book_rules` but loads patterns from
-    ``profile.md ## Writing Discoveries / ### Recurring Tics`` via
+    ``recurring_tics``-type ``author_discoveries`` DB rows via
     :func:`tools.banlist_loader.load_author_writing_discoveries`. Findings are
     emitted with ``category='writing_discovery_violation'`` so the report can
     distinguish them from book-rule violations.
@@ -414,70 +392,43 @@ def _extract_patterns_from_author_dont(rule: str) -> list[tuple[str, re.Pattern[
     return patterns
 
 
-def _resolve_donts_section(profile_path: Path) -> str | None:
-    """Return the Markdown body of the author profile's ``### Don'ts``
-    subsection, or ``None`` when it does not exist."""
-    if not profile_path.is_file():
-        return None
-    try:
-        text = profile_path.read_text(encoding="utf-8")
-    except OSError:
-        return None
-
-    section = _DISCOVERIES_SECTION_RE.search(text)
-    if not section:
-        return None
-    body = section.group("body")
-
-    header = _DONTS_HEADER_RE.search(body)
-    if not header:
-        return None
-    donts_body = body[header.end():]
-    # Stop at the next ### subsection (Recurring Tics, Style Principles, ...).
-    next_sub = re.search(r"^###\s+\S", donts_body, re.MULTILINE)
-    if next_sub:
-        donts_body = donts_body[: next_sub.start()]
-    return donts_body
-
-
 def _read_author_rules(book_path: Path) -> list[str]:
-    """Extract Don't-bullet text from the book's resolved author profile.
+    """Extract Don't-bullet text from the resolved author's discoveries DB.
 
-    Returns one string per bullet item found under
-    ``profile.md ## Writing Discoveries / ### Don'ts``. Bullet bodies are
-    folded to single-line strings for downstream regex extraction.
+    Returns one string per ``donts``-type row in the ``author_discoveries``
+    SQLite table for the book's author (Issue #604). Previously read
+    ``profile.md ## Writing Discoveries / ### Don'ts`` directly from the
+    file — which went stale the moment a Don't was added/edited/removed
+    via MCP (``write_author_discovery``, ``delete_discovery``, ...), since
+    those writes target the DB only. Reading the file also silently missed
+    any *second* ``### Don'ts (...)`` subsection whose header text didn't
+    match the exact ``### Don'ts`` anchor (a book can legitimately have
+    more than one, e.g. ``### Don'ts`` plus a later
+    ``### Don'ts (beyond banned phrases)`` promoted from a different
+    book) — the DB has no such per-subsection blind spot, since every row
+    is just ``discovery_type='donts'`` regardless of which subsection it
+    was originally promoted under.
 
-    Returns an empty list when the book has no resolvable author, the
-    profile is missing, or the Don'ts subsection is absent / empty.
+    Returns an empty list when the book has no resolvable author or the
+    author has no ``donts`` entries.
     """
     # Lazy import: keeps the manuscript module patchable from tests and
     # avoids a top-level import of the slug resolver.
-    from tools.banlist_loader import author_slug_from_book
+    from tools.banlist_loader import _query_author_discoveries, author_slug_from_book
 
     slug = author_slug_from_book(book_path)
     if not slug:
         return []
 
-    profile_path = Path.home() / ".storyforge" / "authors" / slug / "profile.md"
-    body = _resolve_donts_section(profile_path)
-    if not body:
-        return []
-
-    rules: list[str] = []
-    for m in _RULE_BULLET_RE.finditer(body):
-        body_text = m.group("body").strip()
-        body_text = re.sub(r"\s+", " ", body_text)
-        if body_text:
-            rules.append(body_text)
-    return rules
+    return _query_author_discoveries(slug, "donts") or []
 
 
 def _scan_author_rules(book_path: Path) -> list[Finding]:
     """Scan chapter drafts for violations of the author profile's ``### Don'ts``.
 
-    Mirrors :func:`_scan_book_rules` but reads patterns from
-    ``profile.md ## Writing Discoveries / ### Don'ts`` via
-    :func:`_read_author_rules` + :func:`_extract_patterns_from_author_dont`.
+    Mirrors :func:`_scan_book_rules` but reads patterns from ``donts``-type
+    ``author_discoveries`` DB rows via :func:`_read_author_rules` +
+    :func:`_extract_patterns_from_author_dont`.
     Findings are emitted with ``category='author_rule_violation'`` so the
     report can distinguish them from book-rule and Recurring-Tic violations.
 
@@ -542,9 +493,9 @@ def _scan_author_rules(book_path: Path) -> list[Finding]:
 
 
 def _scan_author_vocab(book_path: Path) -> list[Finding]:
-    """Scan chapter drafts for violations of the author's ``vocabulary.md``.
+    """Scan chapter drafts for violations of the author's flat vocabulary bans.
 
-    Loads patterns from ``vocabulary.md ### Forbidden ...`` via
+    Loads patterns from ``donts``-type DB rows via
     :func:`tools.banlist_loader.load_author_vocab` — the canonical
     author-scoped phrase store that the PostToolUse hook already enforces.
     Surfacing the same bans in the manuscript-checker closes the gap when
@@ -615,9 +566,10 @@ def _scan_global_shape_bans(
     ``severity='medium'`` — advisory, not user-asserted. The hook surfaces
     the same patterns at warn-severity at write time.
 
-    Dedup with author-level bans: if the author profile's ``### Don'ts`` or
-    ``vocabulary.md`` already match a phrase at the same chapter+line, the
-    global-shape finding is suppressed to avoid double-flagging the same hit.
+    Dedup with author-level bans: if the author's ``### Don'ts`` or
+    flat-vocabulary ``donts`` rows already match a phrase at the same
+    chapter+line, the global-shape finding is suppressed to avoid
+    double-flagging the same hit.
     """
     from tools.banlist_loader import (
         author_slug_from_book,
@@ -723,9 +675,9 @@ def _scan_global_ai_tells(
     surfaces the same patterns at warn-severity at write time; this scanner
     closes the gap for the post-draft manuscript sweep.
 
-    Dedup with author-level bans: if the author profile's ``vocabulary.md``,
-    ``### Don'ts``, or ``### Recurring Tics`` already match a phrase at the
-    same chapter+line, the catalog finding is suppressed.
+    Dedup with author-level bans: if the author's flat-vocabulary ``donts``
+    rows, ``### Don'ts``, or ``### Recurring Tics`` already match a phrase
+    at the same chapter+line, the catalog finding is suppressed.
     """
     from tools.banlist_loader import (
         author_slug_from_book,

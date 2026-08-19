@@ -30,7 +30,7 @@ from routers.claudemd import init_book_claudemd, append_book_rule
 
 
 @pytest.fixture
-def book_with_rules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
+def book_with_rules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, seed_author_discoveries) -> dict:
     """Set up a book + author + content_root and patch load_config."""
     import tools.db.connection as _conn
     monkeypatch.setattr(_conn, "DB_DIR", tmp_path / "db")
@@ -65,10 +65,9 @@ def book_with_rules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
         "### Don'ts (beyond banned phrases)\n\n_Frei._\n",
         encoding="utf-8",
     )
-    (authors_dir / "vocabulary.md").write_text(
-        "# Ethan Cole — Vocabulary\n\n## Banned Words\n\n### Absolutely Forbidden\n\n- delve\n",
-        encoding="utf-8",
-    )
+    # Dedup source for harvest_book_rules is the author_discoveries DB
+    # (Issue #604), not vocabulary.md.
+    seed_author_discoveries(author_home, "ethan-cole", "donts", ["delve"])
 
     config = {
         "paths": {
@@ -161,6 +160,27 @@ class TestAuthorDedup:
         append_book_rule("firelight", "Avoid `delve` — generic AI tell.")
         result = json.loads(harvest_book_rules("firelight", author_slug="someone-else"))
         # someone-else doesn't exist → no dedup possible → candidate kept.
+        values = [c["value"] for c in result["candidates"]]
+        assert "delve" in values
+
+    def test_deleted_vocab_entry_is_re_proposed(self, book_with_rules, monkeypatch):
+        """Issue #604: dedup reads the live donts DB, not a frozen
+        vocabulary.md snapshot — deleting an entry must make it eligible
+        for re-promotion again on the very next harvest."""
+        import tools.db.connection as _db_conn
+        from tools.db.author_discoveries import remove_discovery
+        from tools.db.connection import open_authors_db
+
+        author_home = book_with_rules["author_dir"].parent.parent
+        monkeypatch.setattr(_db_conn, "DB_DIR", author_home / "db")
+        conn = open_authors_db()
+        try:
+            remove_discovery(conn, author_slug="ethan-cole", discovery_type="donts", text="delve")
+        finally:
+            conn.close()
+
+        append_book_rule("firelight", "Avoid `delve` — generic AI tell.")
+        result = json.loads(harvest_book_rules("firelight"))
         values = [c["value"] for c in result["candidates"]]
         assert "delve" in values
 

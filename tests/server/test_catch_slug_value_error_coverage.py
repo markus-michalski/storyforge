@@ -707,14 +707,6 @@ _TOOLS_PATHS_MODULE = TOOLS_DIR / "shared" / "paths.py"
 # line numbers — all 7 entries below are module-level functions, so their
 # qualified name equals their bare name (empty prefix).
 TOOLS_SLUG_JOIN_KNOWN_EXEMPT: dict[tuple[str, str], str] = {
-    # author_slug reaches every load_author_vocab() call site exclusively via
-    # author_slug_from_book(), which slugify()s a name parsed from CLAUDE.md —
-    # same structural argument as the ("authors", "create_author")
-    # KNOWN_EXEMPT entry above: the regex strips every character
-    # _validate_slug() rejects, so this call can never raise. Verified
-    # against all 4 real call sites (chapter_validator.py,
-    # loaders/banlist.py, analysis/manuscript/rules.py x2).
-    ("banlist_loader.py", "_author_vocab_path"): "author_slug is always author_slug_from_book()-derived (slugify)",
     # tools/rule_writer.py as a whole has no importer anywhere in
     # servers/ or tools/ (confirmed via repo-wide grep) besides its own
     # module and tests — unreachable from any MCP tool or skill. This

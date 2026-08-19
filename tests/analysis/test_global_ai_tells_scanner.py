@@ -151,18 +151,13 @@ class TestScanGlobalAITellsDedupesWithAuthorLayers:
     suppressed — same dedup contract as the global shape scanner."""
 
     def test_dedup_with_author_vocab(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ):
         plugin_root = tmp_path / "plugin"
         plugin_root.mkdir()
         _write_catalog(plugin_root, _MINIMAL_CATALOG)
-        # Author also bans "delve" in vocabulary.md
-        author_dir = patch_storyforge_home / "authors" / "ethan-cole"
-        author_dir.mkdir(parents=True)
-        (author_dir / "vocabulary.md").write_text(
-            "## Banned Words\n\n### Absolutely Forbidden\n\n- delve\n",
-            encoding="utf-8",
-        )
+        # Author also bans "delve" as a flat donts row (author-vocab source).
+        seed_author_discoveries(patch_storyforge_home, "ethan-cole", "donts", ["delve"])
         book = _write_book(
             tmp_path,
             chapters={"01": "# Ch\n\nShe paused to delve into the report.\n"},
@@ -220,7 +215,7 @@ class TestScanGlobalAITellsDedupesWithAuthorLayers:
         assert not delve_findings
 
     def test_other_catalog_phrases_still_surface(
-        self, tmp_path: Path, patch_storyforge_home: Path
+        self, tmp_path: Path, patch_storyforge_home: Path, seed_author_discoveries
     ):
         """Author bans only "delve"; "tapestry" on a separate line still
         surfaces as a catalog tell.
@@ -234,12 +229,7 @@ class TestScanGlobalAITellsDedupesWithAuthorLayers:
         plugin_root = tmp_path / "plugin"
         plugin_root.mkdir()
         _write_catalog(plugin_root, _MINIMAL_CATALOG)
-        author_dir = patch_storyforge_home / "authors" / "ethan-cole"
-        author_dir.mkdir(parents=True)
-        (author_dir / "vocabulary.md").write_text(
-            "## Banned Words\n\n### Absolutely Forbidden\n\n- delve\n",
-            encoding="utf-8",
-        )
+        seed_author_discoveries(patch_storyforge_home, "ethan-cole", "donts", ["delve"])
         book = _write_book(
             tmp_path,
             chapters={

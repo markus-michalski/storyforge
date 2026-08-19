@@ -69,15 +69,23 @@ def _seed_book_rules(db_dir: Path, book_slug: str, rules: list[str], book_num: i
 
 
 def _install_author_vocab(tmp_path: Path, author_slug: str, banned_words: list[str]) -> Path:
-    """Place a fake ~/.storyforge/authors/{slug}/vocabulary.md and patch
-    the loader to read from this temp home for the duration of the test."""
+    """Seed a fake ~/.storyforge/db/authors.db with flat ``donts`` rows —
+    load_author_vocab() reads the discoveries DB, not vocabulary.md, since
+    Issue #604. Returns the fake storyforge home root."""
+    from tools.db.connection import ensure_authors_schema
+
     home = tmp_path / "_storyforge_home"
-    vocab_dir = home / "authors" / author_slug
-    vocab_dir.mkdir(parents=True)
-    body = "## Banned Words\n\n### Absolutely Forbidden\n"
-    for w in banned_words:
-        body += f"- {w}\n"
-    (vocab_dir / "vocabulary.md").write_text(body, encoding="utf-8")
+    db_dir = home / "db"
+    db_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_dir / "authors.db"))
+    ensure_authors_schema(conn)
+    for word in banned_words:
+        conn.execute(
+            "INSERT OR IGNORE INTO author_discoveries (author_slug, discovery_type, text) VALUES (?, ?, ?)",
+            (author_slug, "donts", word),
+        )
+    conn.commit()
+    conn.close()
     return home
 
 
@@ -397,15 +405,15 @@ class TestValidateChapter:
 
 
 class TestAuthorVocabBanlist:
-    """Verify that words listed in ~/.storyforge/authors/{slug}/vocabulary.md
-    block writes when found in prose."""
+    """Verify that flat literal-phrase ``donts`` rows in the
+    author_discoveries DB block writes when found in prose."""
 
     def _patch_storyforge_home(self, monkeypatch, fake_home: Path) -> None:
-        """Patch Path.home() so the loader reads from fake_home."""
+        """Patch the loader's DB path resolution to read from fake_home."""
         monkeypatch.setattr(
             banlist_loader,
-            "_author_vocab_path",
-            lambda slug, storyforge_home=None: fake_home / "authors" / slug / "vocabulary.md",
+            "_author_db_path",
+            lambda storyforge_home=None: fake_home / "db" / "authors.db",
         )
 
     def test_author_vocab_word_blocks_write(self, tmp_path, monkeypatch):
@@ -497,7 +505,7 @@ class TestAuthorVocabBanlist:
         assert author_blocks
         assert "author voice" in author_blocks[0].message.lower()
         assert "author-vocab" in author_blocks[0].message.lower()
-        assert "absolutely forbidden" in author_blocks[0].message.lower()
+        assert "donts" in author_blocks[0].message.lower()
 
 
 # ---------------------------------------------------------------------------

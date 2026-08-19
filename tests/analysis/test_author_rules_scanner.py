@@ -1,8 +1,11 @@
 """Tests for the manuscript-checker author-profile rule scanner (Issue #210).
 
-The scanner mirrors ``_scan_book_rules`` but reads rules from the book's
-resolved author profile (``~/.storyforge/authors/{slug}/profile.md``
-``## Writing Discoveries / ### Don'ts``) instead of the book's ``CLAUDE.md``.
+The scanner mirrors ``_scan_book_rules`` but reads Don't-rules from the
+resolved author's ``donts``-type rows in the ``author_discoveries`` SQLite
+table (Issue #604 — previously read directly from
+``~/.storyforge/authors/{slug}/profile.md ## Writing Discoveries /
+### Don'ts``, which went stale relative to the DB) instead of the book's
+``CLAUDE.md``.
 
 Without this scanner, banned shapes declared at author scope (e.g. the
 elegant-abstraction register patterns from PR #209) had to be duplicated
@@ -60,18 +63,6 @@ def _write_book(
         d.mkdir()
         (d / "draft.md").write_text(content, encoding="utf-8")
     return book
-
-
-def _write_profile(home: Path, slug: str, discoveries_body: str) -> None:
-    profile_dir = home / "authors" / slug
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "profile.md").write_text(
-        '---\nname: "Ethan Cole"\nslug: "ethan-cole"\n---\n\n'
-        "# Ethan Cole\n\n"
-        "## Writing Discoveries\n\n"
-        f"{discoveries_body}",
-        encoding="utf-8",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -254,92 +245,88 @@ class TestRecommendationMarkerBoundary:
 
 
 # ---------------------------------------------------------------------------
-# _read_author_rules
+# _read_author_rules — DB-backed since Issue #604 (was: profile.md file)
 # ---------------------------------------------------------------------------
 
 
 class TestReadAuthorRules:
-    def test_reads_donts_bullets(self, tmp_path, patch_storyforge_home):
+    def test_reads_donts_rows(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(tmp_path, chapters={"01": "# Ch\n\nbody\n"})
-        _write_profile(
+        seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
-            (
-                "### Don'ts\n\n"
-                "- **Never use word-count meta-commentary** — *Two words.* "
-                "narrator must not count.\n"
-                "- **Never personify rooms** — `\\bthe (room|silence) "
-                "(received|held)\\b`\n"
-            ),
+            "donts",
+            [
+                "**Never use word-count meta-commentary** — *Two words.* "
+                "narrator must not count.",
+                "**Never personify rooms** — `\\bthe (room|silence) "
+                "(received|held)\\b`",
+            ],
         )
         rules = _read_author_rules(book)
         assert len(rules) == 2
-        assert "word-count meta-commentary" in rules[0]
-        assert "personify rooms" in rules[1]
+        assert any("word-count meta-commentary" in r for r in rules)
+        assert any("personify rooms" in r for r in rules)
 
-    def test_empty_when_no_author(self, tmp_path, patch_storyforge_home):
+    def test_empty_when_no_author(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             author_line="- **Genre:** test",
             chapters={"01": "# Ch\n\nbody\n"},
         )
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            "### Don'ts\n\n- **Never** — *forbidden phrase.*\n",
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts", ["**Never** — *forbidden phrase.*"],
         )
         assert _read_author_rules(book) == []
 
-    def test_empty_when_profile_missing(self, tmp_path, patch_storyforge_home):
+    def test_empty_when_no_discoveries_db(self, tmp_path, patch_storyforge_home):
         book = _write_book(tmp_path, chapters={"01": "# Ch\n\nbody\n"})
-        # No profile written.
+        # No DB seeded at all.
         assert _read_author_rules(book) == []
 
-    def test_empty_when_no_donts_section(self, tmp_path, patch_storyforge_home):
+    def test_empty_when_no_donts_rows(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(tmp_path, chapters={"01": "# Ch\n\nbody\n"})
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            "### Recurring Tics\n\n- **Vague-noun** — concretize.\n",
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "recurring_tics", ["**Vague-noun** — concretize."],
         )
-        # Profile has Writing Discoveries but no Don'ts subsection.
+        # Author has recurring_tics but no donts rows.
         assert _read_author_rules(book) == []
 
-    def test_does_not_leak_recurring_tics_into_donts(self, tmp_path, patch_storyforge_home):
-        """Both subsections coexist; reader must only pick up Don'ts bullets."""
+    def test_does_not_leak_recurring_tics_into_donts(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
+        """Both discovery types coexist; reader must only pick up donts rows."""
         book = _write_book(tmp_path, chapters={"01": "# Ch\n\nbody\n"})
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            (
-                "### Recurring Tics\n\n"
-                "- **\"thing\" als Fallback** — concretize.\n\n"
-                "### Don'ts\n\n"
-                "- **Never use rooms as receivers** — *The room received it.*\n"
-            ),
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "recurring_tics",
+            ["**\"thing\" als Fallback** — concretize."],
+        )
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts",
+            ["**Never use rooms as receivers** — *The room received it.*"],
         )
         rules = _read_author_rules(book)
-        # Only the Don'ts bullet must be returned.
+        # Only the donts row must be returned.
         assert len(rules) == 1
         assert "rooms as receivers" in rules[0]
         assert "thing" not in rules[0]
 
-    def test_stops_at_next_top_level_section(self, tmp_path, patch_storyforge_home):
-        """Don'ts subsection must terminate at the next ## heading."""
+    def test_reads_rows_from_a_second_promotion_batch(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
+        """Regression for a bug the file-based reader had: a book with two
+        Don'ts entries promoted separately (e.g. under differently-worded
+        profile.md subsections, like a later '### Don'ts (beyond banned
+        phrases)') both surface — the DB has no per-subsection blind spot
+        since every row is just discovery_type='donts' (Issue #604)."""
         book = _write_book(tmp_path, chapters={"01": "# Ch\n\nbody\n"})
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            (
-                "### Don'ts\n\n"
-                "- **Never use rooms** — *The room received it.*\n\n"
-                "## Dialog Voice\n\n"
-                "- **NOT a Don't bullet** — this is a different section\n"
-            ),
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts",
+            [
+                "**Never use rooms** — *The room received it.*",
+                "**Never announce the armor cracking** — *he realized he meant it.*",
+            ],
         )
         rules = _read_author_rules(book)
-        assert len(rules) == 1
-        assert "rooms" in rules[0]
+        assert len(rules) == 2
+        assert any("rooms" in r for r in rules)
+        assert any("armor cracking" in r for r in rules)
 
 
 # ---------------------------------------------------------------------------
@@ -348,70 +335,62 @@ class TestReadAuthorRules:
 
 
 class TestScanAuthorRules:
-    def test_finds_italic_pattern_violation(self, tmp_path, patch_storyforge_home):
+    def test_finds_italic_pattern_violation(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             chapters={
                 "01-open": "# Chapter 1\n\nThe room received it without complaint.\n",
             },
         )
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            (
-                "### Don'ts\n\n"
-                "- **Never use rooms as receivers** — *The room received it.*\n"
-            ),
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts",
+            ["**Never use rooms as receivers** — *The room received it.*"],
         )
         findings = _scan_author_rules(book)
         assert findings, "expected violation for 'the room received it'"
         assert all(f.category == "author_rule_violation" for f in findings)
 
-    def test_finds_backtick_regex_violation(self, tmp_path, patch_storyforge_home):
+    def test_finds_backtick_regex_violation(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             chapters={
                 "01-open": "# Chapter 1\n\nThe silence received the line.\n",
             },
         )
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            (
-                "### Don'ts\n\n"
-                "- **Never personify rooms** — `\\bthe (room|silence) "
-                "(received|held)\\b`\n"
-            ),
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts",
+            [
+                "**Never personify rooms** — `\\bthe (room|silence) "
+                "(received|held)\\b`",
+            ],
         )
         findings = _scan_author_rules(book)
         assert findings
         assert all(f.category == "author_rule_violation" for f in findings)
 
-    def test_severity_high(self, tmp_path, patch_storyforge_home):
+    def test_severity_high(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             chapters={
                 "01-open": "# Chapter 1\n\nThe room received it.\n",
             },
         )
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            "### Don'ts\n\n- **Never use rooms** — *The room received it.*\n",
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts",
+            ["**Never use rooms** — *The room received it.*"],
         )
         findings = _scan_author_rules(book)
         assert findings
         assert all(f.severity == "high" for f in findings)
 
-    def test_source_rule_attributes_to_author_profile(self, tmp_path, patch_storyforge_home):
+    def test_source_rule_attributes_to_author_profile(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             chapters={"01": "# Ch\n\nThe room received it.\n"},
         )
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            "### Don'ts\n\n- **Never use rooms** — *The room received it.*\n",
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts",
+            ["**Never use rooms** — *The room received it.*"],
         )
         findings = _scan_author_rules(book)
         assert findings
@@ -420,49 +399,46 @@ class TestScanAuthorRules:
         assert "don't" in source.lower() or "donts" in source.lower()
         assert "ethan-cole" in source.lower()
 
-    def test_no_violations_returns_empty(self, tmp_path, patch_storyforge_home):
+    def test_no_violations_returns_empty(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             chapters={"01": "# Ch\n\nClean prose with no banned shapes.\n"},
         )
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            "### Don'ts\n\n- **Never use rooms** — *The room received it.*\n",
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts",
+            ["**Never use rooms** — *The room received it.*"],
         )
         assert _scan_author_rules(book) == []
 
-    def test_no_author_returns_empty(self, tmp_path, patch_storyforge_home):
+    def test_no_author_returns_empty(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             author_line="- **Genre:** test",
             chapters={"01": "# Ch\n\nThe room received it.\n"},
         )
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            "### Don'ts\n\n- **Never use rooms** — *The room received it.*\n",
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts",
+            ["**Never use rooms** — *The room received it.*"],
         )
         assert _scan_author_rules(book) == []
 
-    def test_profile_missing_donts_returns_empty(self, tmp_path, patch_storyforge_home):
+    def test_no_donts_rows_returns_empty(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
         book = _write_book(
             tmp_path,
             chapters={"01": "# Ch\n\nThe room received it.\n"},
         )
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            "### Recurring Tics\n\n- **\"thing\"** — concretize.\n",
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "recurring_tics", ["**\"thing\"** — concretize."],
         )
         assert _scan_author_rules(book) == []
 
     def test_both_donts_and_recurring_tics_yield_independent_findings(
         self, tmp_path, patch_storyforge_home, seed_author_discoveries
     ):
-        """When both subsections are populated, author_rules picks up the
-        Don'ts; the existing _scan_writing_discoveries handles Recurring Tics.
-        This test verifies the two scanners do not double-count or interfere.
+        """When both discovery types are populated, author_rules picks up
+        the donts rows; the existing _scan_writing_discoveries handles
+        recurring_tics. This test verifies the two scanners do not
+        double-count or interfere.
         """
         from tools.analysis.manuscript.rules import _scan_writing_discoveries
 
@@ -475,13 +451,10 @@ class TestScanAuthorRules:
                 ),
             },
         )
-        # _scan_author_rules reads Don'ts from profile.md (still file-based).
-        _write_profile(
-            patch_storyforge_home,
-            "ethan-cole",
-            "### Don'ts\n\n- **Never use rooms** — *The room received it.*\n",
+        seed_author_discoveries(
+            patch_storyforge_home, "ethan-cole", "donts",
+            ["**Never use rooms** — *The room received it.*"],
         )
-        # _scan_writing_discoveries reads Recurring Tics from DB.
         seed_author_discoveries(
             patch_storyforge_home,
             "ethan-cole",
@@ -495,3 +468,30 @@ class TestScanAuthorRules:
         assert tic_findings
         assert all(f.category == "author_rule_violation" for f in dont_findings)
         assert all(f.category == "writing_discovery_violation" for f in tic_findings)
+
+    def test_deleted_donts_row_no_longer_flagged(
+        self, tmp_path, patch_storyforge_home, seed_author_discoveries, monkeypatch
+    ):
+        """Issue #604's core regression, at the scanner level: once a donts
+        row is removed from the DB, the very next scan must not flag it —
+        no stale profile.md snapshot left enforcing it."""
+        import tools.db.connection as _db_conn
+        from tools.db.author_discoveries import remove_discovery
+        from tools.db.connection import open_authors_db
+
+        book = _write_book(
+            tmp_path,
+            chapters={"01": "# Ch\n\nThe room received it.\n"},
+        )
+        text = "**Never use rooms** — *The room received it.*"
+        seed_author_discoveries(patch_storyforge_home, "ethan-cole", "donts", [text])
+        assert _scan_author_rules(book), "sanity check: must be flagged before deletion"
+
+        monkeypatch.setattr(_db_conn, "DB_DIR", patch_storyforge_home / "db")
+        conn = open_authors_db()
+        try:
+            remove_discovery(conn, author_slug="ethan-cole", discovery_type="donts", text=text)
+        finally:
+            conn.close()
+
+        assert _scan_author_rules(book) == []

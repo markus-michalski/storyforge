@@ -26,7 +26,7 @@ Three places hold rules. Each has a distinct lifecycle and decay rate:
 | Tier | Where | Lifecycle | Example |
 |------|-------|-----------|---------|
 | **Book** | `{book}/CLAUDE.md ## Rules` | Lives with the book — exported, archived together. | "Lykos sense fire affinity by scent" — magic-system canon. |
-| **Author** | `~/.storyforge/authors/{slug}/profile.md ## Writing Discoveries` + `vocabulary.md` | Lives with the author across books. Grows over time. | `"math"` as analytical metaphor — Theo-style POV tic. |
+| **Author** | `author_discoveries` SQLite table (`recurring_tics` / `style_principles` / `donts`) — Issue #604 | Lives with the author across books. Grows over time. | `"math"` as analytical metaphor — Theo-style POV tic. |
 | **Global** | `reference/craft/anti-ai-patterns.md` | Lives with the plugin. Applies to every author. | `delve`, `tapestry`, `nuanced` — generic AI tells. |
 
 The hierarchy is **strict**: a finding starts at the book level (where it was
@@ -38,23 +38,32 @@ proves cross-cutting.
 
 ## What lives where in the author profile
 
-### `vocabulary.md`
+Author-level bans and discoveries live in the ``author_discoveries`` SQLite
+table (Issue #604 — ``profile.md``/``vocabulary.md`` are no longer read by
+any enforcement path; both files are frozen archives of whatever they held
+before the #281/#293 migration and are not kept in sync with the DB).
+Write via ``add_vocabulary_entry`` / ``write_author_banned_phrase`` /
+``write_author_discovery``; read via ``get_author()`` or the
+``tools.banlist_loader`` functions.
 
-Single-word and short-phrase bans. Format: bullets under
-`### Absolutely Forbidden`. The manuscript-checker scanner reads this as
-literal patterns.
+### Vocabulary (`donts`-type rows, flat literal phrases)
+
+Single-word and short-phrase bans. Added via ``add_vocabulary_entry`` or
+``write_author_banned_phrase``. The manuscript-checker and hook scanners
+read these as literal patterns (with inflection matching for single words).
 
 ```markdown
-### Absolutely Forbidden
+### Absolutely Forbidden   (historical vocabulary.md shape — informational only, not read)
 
 - delve
 - math
 - clocked
 ```
 
-### `profile.md ## Writing Discoveries`
+### Writing Discoveries (`recurring_tics` / `style_principles` / `donts` rows)
 
-Structural / pattern findings. Three sub-sections:
+Structural / pattern findings, written via ``write_author_discovery``.
+Three ``section`` values:
 
 - **`### Recurring Tics`** — habitual word/metaphor/structure tics. Bold the
   pattern, dash, short rationale, origin tag.
@@ -125,7 +134,7 @@ hard rule."
 2. Book status reaches `Revision`.
 3. /storyforge:harvest-author-rules
    → Walk each candidate, decide promote / keep / discard / edit+promote.
-   → Promoted entries land in vocabulary.md or profile.md ## Writing Discoveries.
+   → Promoted entries land in the author_discoveries DB (donts / recurring_tics / style_principles).
    → Original rules optionally removed from book CLAUDE.md.
 4. Start next book.
    → chapter-writer loads `writing_discoveries` automatically via get_author().
