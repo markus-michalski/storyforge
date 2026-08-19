@@ -195,11 +195,14 @@ def build_continuity_brief(
                                 when not truncated)
         travel_matrix        — parsed world/setting.md Travel Matrix rows
         canon_log_facts      — established facts from the canon DB, size-bounded
-                                the same way as get_review_brief but earliest-
-                                chapter-first and at a quarter of the budget
-                                (Issue #500/#501/#504) — see the ``canon_log_facts,
-                                size-capped`` code comment below for the full
-                                ranking rationale, and canon_log_facts_truncated/
+                                the same way as get_review_brief but at a quarter
+                                of the budget (Issue #500/#501/#504). Ranking when
+                                capped is fact-kind-dependent, not one uniform
+                                direction (Issue #506) — see
+                                brief_common.cap_canon_facts's own docstring for
+                                the authoritative rule (also referenced by the
+                                ``canon_log_facts, size-capped`` code comment
+                                below), and canon_log_facts_truncated/
                                 _total_count below
         canon_log_facts_truncated — True if canon_log_facts was capped for size
         canon_log_facts_total_count — untruncated fact count (== len(canon_log_facts)
@@ -287,11 +290,15 @@ def build_continuity_brief(
     # "current chapter" to rank around — it covers the whole manuscript — so
     # the newest-chapter-first fallback would systematically drop the
     # earliest, most foundational canon (the facts late chapters are most
-    # likely to accidentally contradict). Applies to BOTH priority tiers,
-    # including CHANGED facts: for a whole-manuscript scan, an earlier
-    # revision has had more subsequent chapters to go stale in than a recent
-    # one, so oldest-first serves the stale-reference check too, not only the
-    # ACTIVE facts.
+    # likely to accidentally contradict). Applies to ACTIVE facts only.
+    #
+    # CHANGED facts and chapter-unattributed facts are both exceptions to
+    # this flag, for different reasons — see brief_common.cap_canon_facts's
+    # own docstring for the current, authoritative behavior of each rather
+    # than re-deriving it here (Issue #506 code review: an earlier version
+    # of this comment claimed oldest_first still applied to the
+    # chapter-unattributed subset, which drifted out of sync with the code
+    # once CHANGED facts got their own rank direction — don't repeat that).
     #
     # current_book_num ranking (inherited from #500) is applied ABOVE
     # oldest_first in the sort order — deliberately: in a series, this book's

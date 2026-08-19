@@ -277,13 +277,16 @@ def test_cap_canon_facts_changed_group_is_also_bounded():
     assert len(kept) < 500
 
 
-def test_cap_canon_facts_oldest_first_applies_to_changed_group_too():
-    """Issue #501 test-gap: oldest_first must invert ranking within the
-    CHANGED-facts priority tier, not just the ACTIVE rest tier — continuity_brief
-    relies on this (a whole-manuscript scan wants early revisions, which have
-    had more subsequent chapters to go stale in, protected the same way it
-    wants early ACTIVE facts protected). This was documented in
-    continuity_brief.py's code comment but had no direct test."""
+def test_cap_canon_facts_oldest_first_does_not_apply_to_changed_group():
+    """Issue #506: superseded the #501 test-gap fix this test used to
+    assert. oldest_first was originally extended to the CHANGED-facts
+    priority tier too (early revisions protected the same way early ACTIVE
+    facts are), on the theory that an earlier revision has had more
+    subsequent chapters to go stale against. A real Firelight scan showed
+    the opposite failure in practice: the newest revision in a same-chapter
+    cluster — including an explicit supersession notice — got evicted in
+    favor of older ones. CHANGED facts now always rank newest-first,
+    regardless of oldest_first."""
     changed = [_fact(i, status="CHANGED") for i in range(1, 11)]
     one_entry_size = len(json.dumps(changed[0])) + 1
 
@@ -292,8 +295,8 @@ def test_cap_canon_facts_oldest_first_applies_to_changed_group_too():
     )
 
     kept_chapters = {_chapter_num_from_fact(f) for f in kept}
-    assert 1 in kept_chapters
-    assert 10 not in kept_chapters
+    assert 10 in kept_chapters, "newest CHANGED chapter must survive, not the oldest"
+    assert 1 not in kept_chapters
     assert truncated is True
     assert total == 10
 

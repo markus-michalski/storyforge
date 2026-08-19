@@ -148,12 +148,30 @@ def cap_canon_facts(
     rules) that late chapters are most likely to accidentally contradict.
     Pass True for that case. Has no effect on ``current_book_num`` ranking.
 
+    CHANGED-status facts are exempt from ``oldest_first`` (Issue #506): a
+    revision's whole point is that it superseded something, so under a
+    tight budget the NEWEST revision is the one most likely to still need
+    author/tool attention — the opposite of the foundational-canon
+    rationale ``oldest_first`` exists for on ACTIVE facts. CHANGED facts
+    always rank newest-chapter-first, then highest-``id``-first (DB
+    insertion order — see ``tools/db/brief_helpers.py::_db_row_to_legacy_fact``
+    for why ``id`` and not ``created_at``) as a same-chapter tiebreak
+    (missing/non-numeric ``id`` sorts last within a tie, never crashes),
+    regardless of what ``oldest_first`` is set to. Chapter-unattributed
+    facts (``chapter_num=0``) are ranked separately from this — they keep
+    first claim on the priority-tier budget regardless of ``oldest_first``
+    or CHANGED status, so the CHANGED-tier's rank-direction flip can't
+    starve them (code review finding on #506: chapter 0's rank of ``-0 ==
+    0`` used to tie/lose against the flipped CHANGED ranks).
+
     On a 34-chapter book (Firelight), the unbounded fact list was 932 entries
     / 285K chars and blew the MCP tool output limit outright (Issue #500).
     This bounds that to a fixed ceiling and reports what happened via the
     returned ``truncated`` flag, instead of silently degrading.
 
-    Returns (capped_facts, truncated, total_count).
+    Returns (capped_facts, truncated, total_count). The returned facts are
+    shallow copies of the input dicts (id-stripping requires copying), not
+    the same objects — mutating a returned fact does not affect the input.
     """
     if char_budget is None:
         char_budget = CANON_FACTS_CHAR_BUDGET
@@ -162,12 +180,37 @@ def cap_canon_facts(
     if not facts:
         return [], False, total_count
 
-    def _sort_key(fact: dict[str, Any]) -> tuple[bool, bool, int]:
+    def _sort_key(fact: dict[str, Any]) -> tuple[bool, bool, bool, int, int]:
         is_current_book = current_book_num is None or fact.get("book_num") == current_book_num
         chapter = chapter_num(fact)
         at_or_before_current = current_chapter_num is None or chapter <= current_chapter_num
-        chapter_rank = -chapter if oldest_first else chapter
-        return (is_current_book, at_or_before_current, chapter_rank)
+        # Chapter-unattributed facts (chapter_num=0) keep first claim on the
+        # priority tier as their own rank dimension, independent of
+        # oldest_first/CHANGED-direction below (code review finding on
+        # #506) — without this, chapter 0's rank collapses to -0 == 0 and
+        # silently competes with (and can lose to) the CHANGED tier's
+        # newest-first ranks instead of always winning.
+        is_unattributed = chapter == 0
+        if fact.get("status") == "CHANGED":
+            # Issue #506: oldest_first's rationale (protect early
+            # foundational canon under truncation) is built for ACTIVE
+            # facts and actively backfires on CHANGED facts — a revision's
+            # whole point is that it superseded something, so the NEWEST
+            # one is the one still needing author/tool attention (real
+            # case: a supersession notice on the newest of four same-
+            # chapter revisions was evicted in favor of the three older
+            # ones). CHANGED facts therefore always rank newest-chapter-
+            # first, then highest-id-first (DB insertion order) as a
+            # same-chapter tiebreak, regardless of oldest_first.
+            chapter_rank = chapter
+            try:
+                fact_id = int(fact.get("id") or 0)
+            except (TypeError, ValueError):
+                fact_id = 0
+        else:
+            chapter_rank = -chapter if oldest_first else chapter
+            fact_id = 0
+        return (is_current_book, at_or_before_current, is_unattributed, chapter_rank, fact_id)
 
     priority = [
         f for f in facts
@@ -180,6 +223,17 @@ def cap_canon_facts(
 
     priority_sorted = sorted(priority, key=_sort_key, reverse=True)
     rest_sorted = sorted(rest, key=_sort_key, reverse=True)
+
+    # id is sort-only (Issue #506's same-chapter CHANGED tiebreak) — never
+    # part of the documented output schema and never wire-measured.
+    # Stripped here, after sorting but before cap_group's size accounting,
+    # so a fact carrying it doesn't cost more budget than an identical fact
+    # that doesn't (and doesn't leak an undocumented field to callers).
+    # Must happen before cap_group, not after: measuring the inflated dict
+    # and stripping afterward would make cap_group drop more facts than
+    # actually fit.
+    priority_sorted = [{k: v for k, v in f.items() if k != "id"} for f in priority_sorted]
+    rest_sorted = [{k: v for k, v in f.items() if k != "id"} for f in rest_sorted]
 
     kept_priority, priority_truncated = cap_group(priority_sorted, char_budget)
     kept_rest, rest_truncated = cap_group(rest_sorted, char_budget)

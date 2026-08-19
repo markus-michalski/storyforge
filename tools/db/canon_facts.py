@@ -43,7 +43,7 @@ def query_facts(
     """
     rows = conn.execute(
         """
-        SELECT book_num, chapter_num, subject, fact, domain,
+        SELECT id, book_num, chapter_num, subject, fact, domain,
                is_revision, old_value, revision_impacts, created_at
         FROM canon_facts
         WHERE (book_num < ?)
