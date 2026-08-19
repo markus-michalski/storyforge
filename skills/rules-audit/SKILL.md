@@ -102,8 +102,12 @@ other definitions just because they exist in this list.
   combined with a ban cue. Scanner ignores italics, examples are silently
   invisible.
 - **`mixed_positive_negative_quotes`** — Multiple `"..."` phrases with
-  a ban cue. Scanner extracts every quoted phrase as a ban, so positive
-  rewrite examples get flagged too.
+  a ban cue. Scanner extracts any quoted phrase that shares a sentence with
+  the ban cue as a ban (Issue #612 — cue and quote must be in the same
+  sentence, or the rule's bold title, to count), so a positive rewrite
+  example in that same sentence gets flagged too. Put the cue and its
+  banned phrase in the same sentence, or use backticks instead (always
+  extracted regardless of sentence position).
 - **`bracket_placeholder`** — Backtick body contains `[noun]`/`[verb]`
   style placeholders that read as character classes, not as `\w+`.
 - **`scanner_extracts_nothing`** — Ban cue without backticks or quoted

@@ -44,6 +44,12 @@ class Finding:
     # tells tools.author.rule_harvester not to promote it into an
     # author-level scan pattern that could never match anything (#511).
     promotable: bool = True
+    # True when category == "book_rule_violation" and the source rule's own
+    # text documents a quality exception (e.g. "only when X does real
+    # character work") — the regex match can't tell whether this specific
+    # occurrence satisfies that exception, so the gate treats it as WARN
+    # rather than a hard FAIL (Issue #608).
+    has_quality_exception: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +95,55 @@ def _classify(phrase: str, occurrences: list[Occurrence]) -> str:
     return "signature_phrase"
 
 
+def _collapse_overlapping_findings(findings: list[Finding]) -> list[Finding]:
+    """Collapse n-gram findings that are just a shorter/shifted window of an
+    already-accepted longer finding over the same duplicate (Issue #613).
+
+    Overlapping sliding-window n-grams over the same duplicated sentence
+    produce one "finding" per window length/offset otherwise — a single
+    repeated sentence can inflate into a dozen+ near-identical findings
+    that all point at the same underlying duplicate. Processing
+    longest-phrase-first, a finding is dropped only when BOTH hold against
+    an already-accepted finding:
+
+    - its (chapter, line) occurrence set is a subset of the accepted
+      finding's occurrence set (the same duplicate instances, not a
+      coincidence of two unrelated phrases sharing a line — a scanner
+      "line" is a full paragraph and can legitimately hold more than one
+      independently-repeated phrase), and
+    - either its phrase is a substring of the accepted phrase (the same
+      window, just shorter), or the two share a category (covers two
+      same-length windows shifted by one token, which share no substring
+      relationship at all but are still the same duplicate — this only
+      needs to hold within one category, since a same-length shift can't
+      jump from e.g. a body-part token into an unrelated phrase).
+
+    Location-subset alone is not enough on its own (code review H-2): two
+    *different*, unrelated findings — a simile and a character_tell from a
+    different phrase entirely — can share an occurrence-location set by
+    coincidence (the same two paragraphs happen to carry both tics), and
+    must not be merged into one just because they co-occur.
+    """
+
+    def _locations(f: Finding) -> frozenset[tuple[str, int]]:
+        return frozenset((o.chapter, o.line) for o in f.occurrences)
+
+    # Longest phrase first; among equal lengths, higher occurrence count
+    # first so a real tie-break prefers the better-evidenced finding over
+    # alphabetical order.
+    ordered = sorted(findings, key=lambda f: (-len(f.phrase.split()), -f.count, f.phrase))
+    kept: list[Finding] = []
+    for f in ordered:
+        locs = _locations(f)
+        if locs and any(
+            locs <= _locations(existing) and (f.phrase in existing.phrase or existing.category == f.category)
+            for existing in kept
+        ):
+            continue
+        kept.append(f)
+    return kept
+
+
 def _looks_structural(tokens: list[str]) -> bool:
     """Heuristic for repeated structural patterns."""
     if not tokens:
@@ -102,4 +157,4 @@ def _looks_structural(tokens: list[str]) -> bool:
     return False
 
 
-__all__ = ["Finding", "Occurrence", "_classify", "_looks_structural"]
+__all__ = ["Finding", "Occurrence", "_classify", "_collapse_overlapping_findings", "_looks_structural"]

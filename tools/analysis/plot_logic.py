@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from tools.analysis.timeline_validator import parse_plot_timeline
+from tools.shared.paths import SlugValidationError, _validate_slug
 from tools.state.parsers import parse_book_readme
 from tools.state.promises import collect_book_promises
 from tools.state.review_brief import _parse_canon_log_facts
@@ -372,6 +373,11 @@ def detect_chekhov_guns(book_path: Path, idx: dict[str, Any]) -> list[Finding]:
     if not chapters_dir.is_dir():
         return []
     slug_dirs = sorted(p.name for p in chapters_dir.iterdir() if p.is_dir())
+    # Shared across every promise in this scan (code review M-6) — the
+    # broadened per-target search below re-reads the same later chapters
+    # for each active promise; without memoizing, that's an O(promises x
+    # chapters) file-read fan-out on every scan_manuscript call.
+    draft_cache: dict[str, str] = {}
 
     findings: list[Finding] = []
     for p in promises:
@@ -385,7 +391,7 @@ def detect_chekhov_guns(book_path: Path, idx: dict[str, Any]) -> list[Finding]:
         if target.lower() == "unfired":
             # Scan all later chapters (after source) for any reference.
             later_slugs = [s for s in slug_dirs if s > p["source_chapter"]]
-            if _any_chapter_references(book_path, later_slugs, keyword):
+            if _any_chapter_references(book_path, later_slugs, keyword, draft_cache=draft_cache):
                 continue
             findings.append(
                 Finding(
@@ -406,20 +412,29 @@ def detect_chekhov_guns(book_path: Path, idx: dict[str, Any]) -> list[Finding]:
             )
             continue
 
-        # Target is a specific chapter — resolve to slug if needed.
+        # Target is a specific chapter. The declared target is frequently
+        # wrong or aspirational metadata (Issue #609) — checking only that
+        # one chapter produces false positives when the real payoff landed
+        # in a *different* later chapter. Search every chapter drafted
+        # after the promise's source chapter instead of just the declared
+        # target, same as the "unfired" branch above.
+        #
+        # But the target itself must still have been reached before this
+        # counts as dropped: a promise targeting a chapter that hasn't been
+        # drafted yet still has legitimate runway (code review H-1) — the
+        # broadened search must not turn "target is still ahead" into a
+        # false "dropped promise" just because *some* other later chapter
+        # happens to already be drafted.
         target_slug = _resolve_to_slug(target, slug_dirs) or target
-        if target_slug not in slug_dirs:
-            # Target chapter doesn't exist (yet) — defer, no finding.
-            continue
         target_draft = book_path / "chapters" / target_slug / "draft.md"
-        if not target_draft.is_file():
-            # Chapter not yet drafted → deferred, no finding.
+        if target_slug not in slug_dirs or not target_draft.is_file():
+            # Declared target not drafted yet — deferred, no finding.
             continue
-        try:
-            target_text = target_draft.read_text(encoding="utf-8")
-        except OSError:
+        later_slugs = [s for s in slug_dirs if s > p["source_chapter"]]
+        if not later_slugs:
+            # Nothing drafted after the source chapter yet — deferred.
             continue
-        if _has_keyword(target_text, keyword):
+        if _any_chapter_references(book_path, later_slugs, keyword, draft_cache=draft_cache):
             continue
         findings.append(
             Finding(
@@ -430,10 +445,11 @@ def detect_chekhov_guns(book_path: Path, idx: dict[str, Any]) -> list[Finding]:
                 snippet=p["description"],
                 evidence=(
                     f"Promise placed in {p['source_chapter']} with target {target_slug}; "
-                    f"the target chapter draft does not reference {keyword!r}."
+                    f"no chapter drafted after {p['source_chapter']} references {keyword!r}."
                 ),
                 suggested_fix=(
-                    f"Land the payoff in {target_slug}, retarget the promise, or set its status to retired."
+                    f"Land the payoff in {target_slug} or a later chapter, retarget the promise, "
+                    "or set its status to retired."
                 ),
             )
         )
@@ -458,14 +474,51 @@ def _has_keyword(text: str, keyword: str) -> bool:
     return bool(re.search(rf"\b{re.escape(keyword)}\w*\b", text, re.IGNORECASE))
 
 
-def _any_chapter_references(book_path: Path, slugs: list[str], keyword: str) -> bool:
-    for slug in slugs:
-        draft = book_path / "chapters" / slug / "draft.md"
-        if not draft.is_file():
-            continue
+def _read_draft_cached(book_path: Path, slug: str, cache: dict[str, str]) -> str:
+    """Read a chapter draft, memoized per book scan (code review M-6).
+
+    detect_chekhov_guns's broadened later-chapter search (#609) re-checks
+    the same later chapters against every active promise — without a
+    cache that's an O(promises x chapters) file-read fan-out on every
+    scan_manuscript call. Empty string stands in for "missing/unreadable"
+    so callers can treat a cache hit and a cold miss identically.
+
+    An unsafe-looking directory name (e.g. a stray ``.DS_Store``,
+    ``.ipynb_checkpoints``, or ``.bak`` entry under ``chapters/``) is
+    treated the same as "missing" rather than raising: these slugs come
+    from ``chapters_dir.iterdir()`` — real filesystem entries, not
+    untrusted input crossing an API boundary — so the appropriate response
+    is "not a chapter, skip it," not a crash. Letting SlugValidationError
+    escape here would propagate up through analyze_plot_logic into
+    _scan_plot_holes' broad except-and-log, silently dropping every
+    plot_hole finding for the whole scan over one unrelated stray
+    directory (code review dependency-analysis finding 2.4).
+    """
+    if slug not in cache:
         try:
-            text = draft.read_text(encoding="utf-8")
+            _validate_slug(slug, "slug")
+        except SlugValidationError:
+            cache[slug] = ""
+            return cache[slug]
+        draft = book_path / "chapters" / slug / "draft.md"
+        try:
+            cache[slug] = draft.read_text(encoding="utf-8") if draft.is_file() else ""
         except OSError:
+            cache[slug] = ""
+    return cache[slug]
+
+
+def _any_chapter_references(
+    book_path: Path,
+    slugs: list[str],
+    keyword: str,
+    *,
+    draft_cache: dict[str, str] | None = None,
+) -> bool:
+    cache = draft_cache if draft_cache is not None else {}
+    for slug in slugs:
+        text = _read_draft_cached(book_path, slug, cache)
+        if not text:
             continue
         if _has_keyword(text, keyword):
             return True

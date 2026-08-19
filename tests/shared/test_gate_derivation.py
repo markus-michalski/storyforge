@@ -40,6 +40,87 @@ class TestManuscriptScan:
         assert gate.findings[0].code == "BOOK_RULE_VIOLATION"
         assert gate.findings[0].location["chapter"] == "01"
 
+    def test_book_rule_violation_with_quality_exception_warns_not_fails(self):
+        """Issue #608: a rule that documents its own quality exception
+        (e.g. "only when the comparison does real character work") can
+        never be more than advisory — a regex match can't judge whether a
+        specific occurrence satisfies the exception, so it must not hard-
+        FAIL the gate."""
+        gate = derive_from_manuscript_scan(
+            {
+                "chapters_scanned": 3,
+                "findings": [
+                    {
+                        "phrase": "specific kind of X that Y",
+                        "category": "book_rule_violation",
+                        "severity": "high",
+                        "occurrences": [{"chapter": "01", "line": 12}],
+                        "has_quality_exception": True,
+                    },
+                ],
+            }
+        )
+        assert gate.status == "WARN"
+        assert gate.findings[0].severity == "WARN"
+
+    def test_mixed_rule_violations_fails_on_hard_ones_only(self):
+        """A hard (non-exception) book_rule_violation must still FAIL the
+        gate even when another quality-exception violation is present."""
+        gate = derive_from_manuscript_scan(
+            {
+                "chapters_scanned": 3,
+                "findings": [
+                    {
+                        "phrase": "specific kind of X that Y",
+                        "category": "book_rule_violation",
+                        "severity": "high",
+                        "occurrences": [{"chapter": "01", "line": 12}],
+                        "has_quality_exception": True,
+                    },
+                    {
+                        "phrase": "synergy",
+                        "category": "book_rule_violation",
+                        "severity": "high",
+                        "occurrences": [{"chapter": "02", "line": 3}],
+                        "has_quality_exception": False,
+                    },
+                ],
+            }
+        )
+        assert gate.status == "FAIL"
+        assert gate.metadata["rule_violations"] == 2
+
+    def test_metadata_distinguishes_hard_from_total_rule_violations(self):
+        """Dependency-analysis finding 2.3: metadata['rule_violations']
+        kept its pre-#608 meaning (all book_rule_violation findings) while
+        gate.status and reasons[0] now reflect only hard ones — without a
+        separate field a consumer sees status=WARN next to
+        rule_violations=2 and reasons[0] saying "1 violation", an apparent
+        self-contradiction. hard_rule_violations disambiguates."""
+        gate = derive_from_manuscript_scan(
+            {
+                "chapters_scanned": 3,
+                "findings": [
+                    {
+                        "phrase": "specific kind of X that Y",
+                        "category": "book_rule_violation",
+                        "severity": "high",
+                        "occurrences": [{"chapter": "01", "line": 12}],
+                        "has_quality_exception": True,
+                    },
+                    {
+                        "phrase": "synergy",
+                        "category": "book_rule_violation",
+                        "severity": "high",
+                        "occurrences": [{"chapter": "02", "line": 3}],
+                        "has_quality_exception": False,
+                    },
+                ],
+            }
+        )
+        assert gate.metadata["rule_violations"] == 2
+        assert gate.metadata["hard_rule_violations"] == 1
+
     def test_other_findings_warn(self):
         gate = derive_from_manuscript_scan(
             {

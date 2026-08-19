@@ -94,6 +94,7 @@ from tools.analysis.manuscript.types import (
     Finding,
     Occurrence,
     _classify,
+    _collapse_overlapping_findings,
     _looks_structural,
 )
 from tools.analysis.manuscript.vocabularies import (
@@ -160,12 +161,12 @@ def scan_repetitions(
         7: max(min_occurrences, 2),
     }
 
-    # Build findings, dropping sub-phrases that a longer accepted phrase
-    # already explains. Tolerance of 1 catches the case where the shorter
-    # phrase appears once outside the longer match.
+    # Build findings. Sub-phrases that a longer accepted phrase already
+    # explains are dropped below via _collapse_overlapping_findings, which
+    # compares actual occurrence locations rather than a fragile
+    # string-containment + count-tolerance heuristic (Issue #613).
     findings: list[Finding] = []
     sorted_phrases = sorted(index.keys(), key=lambda p: (-len(p.split()), p))
-    seen_long: list[tuple[str, int]] = []  # (phrase, count) of accepted longer phrases
 
     for phrase in sorted_phrases:
         occs = index[phrase]
@@ -173,11 +174,21 @@ def scan_repetitions(
         threshold = length_thresholds.get(size, min_occurrences)
         if len(occs) < threshold:
             continue
-        # Skip if a longer accepted phrase fully contains this one with a
-        # comparable occurrence count (within +/- 1).
-        if any(phrase in longer and abs(len(occs) - longer_count) <= 1 for longer, longer_count in seen_long):
-            continue
         category = _classify(phrase, occs)
+        if category == "signature_phrase" and size < 5:
+            # Issue #610: 4-word n-grams that fall through to the
+            # signature_phrase catch-all were, on the reported real-book
+            # scan, overwhelmingly generic English connective tissue ("he
+            # looked at the", "for a long time") — even at raw counts up
+            # to 20, which rules out a higher occurrence threshold as a
+            # fix (code review M-3): the noise wasn't rare, it was just
+            # short. This is a deliberate precision-over-recall trade, not
+            # a claim that no genuine 4-word signature phrase can exist —
+            # a real one is simply unreportable by this category at any
+            # count. If that turns out to matter in practice, revisit with
+            # a corpus-frequency or content-word-ratio filter instead of a
+            # hard length cutoff.
+            continue
         severity = "high" if len(occs) >= 4 else "medium"
         findings.append(
             Finding(
@@ -188,7 +199,8 @@ def scan_repetitions(
                 occurrences=sorted(occs, key=lambda o: (o.chapter, o.line)),
             )
         )
-        seen_long.append((phrase, len(occs)))
+
+    findings = _collapse_overlapping_findings(findings)
 
     # Issue #511: the n-gram pass above only catches character_tell when a
     # body-language tic repeats with identical wording. Paraphrased

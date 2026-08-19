@@ -74,6 +74,43 @@ class TestExtractPatternsFromRule:
         patterns = _extract_patterns_from_rule("Note `a` is too short to ban.")
         assert patterns == []
 
+    def test_quoted_word_far_from_ban_cue_not_extracted(self) -> None:
+        """Issue #612: a rule's bold title can carry a ban cue ("Never")
+        that has nothing to do with an unrelated word quoted much later in
+        the rule's own explanatory prose — quoting "break" here only
+        illustrates a different concept (comedy-as-relief), it isn't the
+        banned literal. The cue and the quote must sit close together to
+        count."""
+        rule = (
+            "**Never treat comedy as a timeout from tension** — When stakes are "
+            'highest, do not pause for a scene of pure levity to give the reader a '
+            '"break." Instead, embed the comedy inside the tension itself.'
+        )
+        patterns = _extract_patterns_from_rule(rule)
+        assert not any(label.lower() == "break" for label, _ in patterns)
+        # A genuine unrelated use of the word must not be flagged either.
+        assert not any(p.search("The link did not break. It opened.") for _, p in patterns)
+
+    def test_quoted_word_next_to_ban_cue_still_extracted(self) -> None:
+        """The proximity fix must not regress the direct-adjacency case —
+        a cue immediately followed by its quoted target is still a real
+        ban (Issue #612 fix must be surgical, not a blanket single-word
+        skip)."""
+        rule = 'Do not use "clocked" as a verb for noticing.'
+        patterns = _extract_patterns_from_rule(rule)
+        assert any(label.lower() == "clocked" for label, _ in patterns)
+
+    def test_multiple_cues_one_far_one_close_only_close_one_extracted(self) -> None:
+        rule = (
+            'Never overuse metaphor. Elsewhere in unrelated prose someone might say '
+            'a character felt a "shiver" down their spine, which is just an example. '
+            'Separately: banned: "purple prose"'
+        )
+        patterns = _extract_patterns_from_rule(rule)
+        labels = {label.lower() for label, _ in patterns}
+        assert "purple prose" in labels
+        assert "shiver" not in labels
+
 
 class TestRuleLabel:
     def test_extracts_bold_title(self) -> None:
@@ -162,3 +199,30 @@ class TestScanBookRules:
         assert findings[0].category != "book_rule_violation"
         assert findings[0].promotable is False
         assert "my-series" in findings[0].source_rule
+
+    def test_rule_with_quality_exception_flags_finding(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        """Issue #608: a rule documenting its own quality exception (e.g.
+        "only when the comparison does real character work") can't be
+        evaluated by a regex match — the finding must be tagged so the
+        gate treats it as advisory, not a hard FAIL."""
+        book = self._build_book(
+            tmp_path, "It was the specific kind of X that Y people knew.\n"
+        )
+        _seed_rules(
+            patch_db_dir,
+            "demo",
+            [
+                'Limit the `specific kind of X that Y` construction — max 2-3 per '
+                "chapter, and only when the comparison does real voice/character work."
+            ],
+        )
+        findings = _scan_book_rules(book)
+        assert len(findings) == 1
+        assert findings[0].has_quality_exception is True
+
+    def test_rule_without_quality_exception_not_flagged(self, tmp_path: Path, patch_db_dir: Path) -> None:
+        book = self._build_book(tmp_path, "The synergy of the team was unmatched.\n")
+        _seed_rules(patch_db_dir, "demo", ["Avoid `synergy` in narration."])
+        findings = _scan_book_rules(book)
+        assert len(findings) == 1
+        assert findings[0].has_quality_exception is False

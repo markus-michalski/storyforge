@@ -35,6 +35,7 @@ from tools.analysis.manuscript_checker import (
     _strip_dialogue,
     scan_repetitions,
 )
+from tools.shared.gate_derivation import derive_from_manuscript_scan
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -422,6 +423,80 @@ class TestScanRepetitionsIntegration:
         _seed_book_rules(patch_db_dir, "book", _BOOK_RULES)
         result = scan_repetitions(book)
         assert "book_rule_violation" in result["summary"]
+
+    def test_generic_four_word_connective_not_reported_as_signature_phrase(self, tmp_path: Path) -> None:
+        """Issue #610: short, generic English connective fragments recur
+        many times in any long manuscript purely by chance and are not a
+        distinctive authorial habit — they must not surface as
+        signature_phrase findings."""
+        lines = ['"Fine," ' + "he looked at the door and said nothing at all." for _ in range(20)]
+        chapters = {"01-open": "# Chapter 1\n\n" + "\n".join(lines) + "\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+
+        result = scan_repetitions(book)
+
+        signature_findings = [f for f in result["findings"] if f["category"] == "signature_phrase"]
+        assert not any(f["phrase"] == "he looked at the" for f in signature_findings)
+
+    def test_overlapping_ngram_windows_collapse_to_longest(self, tmp_path: Path) -> None:
+        """Issue #613: the main n-gram pass (not just _scan_sentence_repetitions)
+        must collapse overlapping-window duplicates of the same underlying
+        repeated phrase down to the longest/most-specific window. Scoped to
+        the n-gram-derived categories only — the separate slot-based
+        body-tells detector (Issue #511) can legitimately also fire on the
+        same lines and is not part of this invariant."""
+        lines = ["He set a hand on the back of his neck and waited." for _ in range(3)]
+        chapters = {"01-open": "# Chapter 1\n\n" + "\n".join(lines) + "\n"}
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+
+        result = scan_repetitions(book)
+
+        ngram_categories = {
+            "signature_phrase",
+            "character_tell",
+            "simile",
+            "blocking_tic",
+            "sensory",
+            "structural",
+        }
+        ngram_findings = [f for f in result["findings"] if f["category"] in ngram_categories]
+        for a in ngram_findings:
+            for b in ngram_findings:
+                if a is b:
+                    continue
+                locs_a = {(o["chapter"], o["line"]) for o in a["occurrences"]}
+                locs_b = {(o["chapter"], o["line"]) for o in b["occurrences"]}
+                if a["phrase"] in b["phrase"] and locs_a <= locs_b:
+                    pytest.fail(f"{a['phrase']!r} should have collapsed into {b['phrase']!r}")
+
+    def test_quality_exception_rule_warns_end_to_end_through_real_gate(
+        self, tmp_path: Path, patch_db_dir: Path
+    ) -> None:
+        """Test-report gap: the #608 fix's two halves (rules.py's
+        has_quality_exception extraction, gate_derivation.py's WARN
+        downgrade) are each unit-tested in isolation, but nothing drives
+        the field through the real serialization path (Finding ->
+        dataclasses.asdict() -> scan_repetitions()'s raw findings dict ->
+        derive_from_manuscript_scan()). Runs the actual public
+        scan_repetitions() entry point end-to-end instead of hand-building
+        the intermediate dict."""
+        chapters = {
+            "01-open": "# Chapter 1\n\nIt was the specific kind of X that Y people knew.\n",
+        }
+        book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, chapters)
+        _seed_book_rules(
+            patch_db_dir,
+            "book",
+            [
+                'Limit the `specific kind of X that Y` construction — max 2-3 per '
+                "chapter, and only when the comparison does real voice/character work."
+            ],
+        )
+        result = scan_repetitions(book)
+        gate = derive_from_manuscript_scan(result)
+        assert gate.status == "WARN"
+        assert gate.metadata["rule_violations"] == 1
+        assert gate.metadata["hard_rule_violations"] == 0
 
     def test_paraphrased_character_tell_surfaces(self, tmp_path: Path) -> None:
         # Issue #511 repro: a body-language tic repeated with varied

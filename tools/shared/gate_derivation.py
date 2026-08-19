@@ -33,19 +33,33 @@ def derive_from_manuscript_scan(result: Mapping[str, Any]) -> GateResult:
     """Derive a gate from the manuscript_checker.scan_repetitions output.
 
     Status logic:
-    - FAIL when any finding has category ``book_rule_violation`` (CLAUDE.md
+    - FAIL when any finding has category ``book_rule_violation`` and its
+      source rule does NOT document its own quality exception (CLAUDE.md
       rule explicitly broken — highest severity by design).
-    - WARN when other findings exist.
+    - WARN when other findings exist, including ``book_rule_violation``
+      findings whose rule documents a quality exception (e.g. "only when
+      the comparison does real character work") — a regex match can't
+      evaluate whether a specific occurrence satisfies that exception, so
+      it can never be more than an advisory signal (Issue #608).
     - PASS when no findings.
     """
     findings_raw = list(result.get("findings") or [])
 
     rule_violations = [f for f in findings_raw if f.get("category") == "book_rule_violation"]
+    hard_rule_violations = [f for f in rule_violations if not f.get("has_quality_exception")]
 
     metadata = {
         "chapters_scanned": result.get("chapters_scanned", 0),
         "findings_count": len(findings_raw),
+        # "rule_violations" keeps its pre-#608 meaning (every
+        # book_rule_violation finding, hard or quality-exception) for
+        # backward compatibility. "hard_rule_violations" is the new count
+        # that actually drives gate.status below — a consumer reading
+        # status=WARN alongside rule_violations=3 without this second field
+        # would see an apparent contradiction with reasons[0]'s count
+        # (dependency-analysis finding 2.3).
         "rule_violations": len(rule_violations),
+        "hard_rule_violations": len(hard_rule_violations),
     }
 
     if not findings_raw:
@@ -58,7 +72,7 @@ def derive_from_manuscript_scan(result: Mapping[str, Any]) -> GateResult:
     for raw in findings_raw[:50]:  # cap to keep envelope reasonable
         category = raw.get("category", "manuscript_finding")
         severity_raw = raw.get("severity")
-        if category == "book_rule_violation":
+        if category == "book_rule_violation" and not raw.get("has_quality_exception"):
             severity = "FAIL"
         elif severity_raw == "high":
             severity = "WARN"
@@ -82,11 +96,11 @@ def derive_from_manuscript_scan(result: Mapping[str, Any]) -> GateResult:
             )
         )
 
-    if rule_violations:
+    if hard_rule_violations:
         return GateResult.failed(
             reasons=[
-                f"{len(rule_violations)} CLAUDE.md rule violation(s) found.",
-                f"{len(findings_raw) - len(rule_violations)} other prose finding(s).",
+                f"{len(hard_rule_violations)} CLAUDE.md rule violation(s) found.",
+                f"{len(findings_raw) - len(hard_rule_violations)} other prose finding(s).",
             ],
             findings=findings,
             metadata=metadata,
