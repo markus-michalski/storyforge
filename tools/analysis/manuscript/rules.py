@@ -10,6 +10,7 @@ toolkit (backticks vs quoted phrases, ban cues, regex hint chars):
 
 from __future__ import annotations
 
+import bisect
 import re
 from pathlib import Path
 
@@ -43,12 +44,74 @@ _BAN_CUE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Segment boundaries for cue/quote scoping (#612): a sentence end — optionally
+# followed by a closing quote/curly-quote character, covering the "period
+# inside closing quote" (US English) convention this codebase's own dialogue
+# rules use — then whitespace. A plain character-distance window was tried
+# first and rejected: it breaks on any rule phrased as a cue followed by a
+# list of quoted items ("Avoid: "a", "b", "c""), since items past the first
+# fall outside a fixed window. Scoping by sentence keeps an entire list-style
+# ban sentence together while still separating a cue in the rule's own bold
+# title from an unrelated quoted example several sentences later in the body.
+_SEGMENT_BOUNDARY_RE = re.compile(r'[.!?]["”’]?\s+')
+
+# A rule's leading **bold title** is always its own segment, distinct from
+# the sentence(s) that follow — even when the title and the first body
+# sentence run together with no intervening period (e.g. "**Never treat X**
+# — When Y, do Z."). Without this, a cue word used rhetorically in the title
+# ("**Never** treat comedy as a timeout...") would share a segment with an
+# unrelated quoted example anywhere in that same first sentence.
+_BOLD_TITLE_RE = re.compile(r"^\*\*[^*]+\*\*")
+
+
+def _rule_segment_boundaries(rule: str) -> list[int]:
+    """Offsets carving `rule` into cue/quote scoping segments (#612)."""
+    bold = _BOLD_TITLE_RE.match(rule)
+    start = bold.end() if bold else 0
+    boundaries = [0, start] if bold else [0]
+    boundaries.extend(m.end() for m in _SEGMENT_BOUNDARY_RE.finditer(rule, start))
+    boundaries.append(len(rule))
+    return sorted(set(boundaries))
+
+
+def _segment_index(offset: int, boundaries: list[int]) -> int:
+    """Index of the segment (between consecutive boundaries) containing offset."""
+    return bisect.bisect_right(boundaries, offset) - 1
+
 # Italic-wrapped content (single asterisks). The negative look-arounds keep
 # this from matching the inner content of **bold** spans. Minimum 3 chars of
 # content avoids noise from single-letter emphasis. Used only by the author-
 # profile Don't extractor (#210) — book CLAUDE.md rules continue to treat
 # italics as narrative examples, not bannable patterns.
 _ITALIC_CONTENT_RE = re.compile(r"(?<![\*\w])\*([^*\n]{3,})\*(?![\*\w])")
+
+# Quality-exception cue (#608) — phrasing that marks a rule as documenting
+# its own "sometimes fine, sometimes not" carve-out, which a regex match
+# cannot evaluate (it requires human/LLM judgment of whether a specific
+# occurrence does the work the exception describes). Rules matching this cue
+# get their violations flagged as WARN rather than a hard FAIL at the gate
+# level — see tools/shared/gate_derivation.py::derive_from_manuscript_scan.
+#
+# A bare conjunction ("unless", "as long as") is not enough on its own
+# (code review M-1) — "Don't let pacing sag unless the scene demands
+# stillness" is an ordinary conditional, not a quality carve-out for the
+# banned construction itself. Require the conjunction to be followed
+# (within the same clause, not crossing a sentence boundary) by a verb that
+# actually judges quality/craft — matching :data:`_QUALITY_JUDGMENT_VERBS`.
+# Covers German equivalents (``nur wenn``, ``es sei denn``, ``sofern``,
+# ``solange``) alongside :data:`_BAN_CUE_RE`'s existing German coverage —
+# a German-language rule with a real quality exception must not be exempt
+# from this check just because the pattern was English-only.
+_QUALITY_JUDGMENT_VERBS = (
+    r"does|serves|works|earns|characterizes|carries|justifies|"
+    r"tut|dient|funktioniert|rechtfertigt|tr[aä]gt"
+)
+_QUALITY_EXCEPTION_RE = re.compile(
+    r"\b(?:only when|except when|unless|provided that|as long as|"
+    r"nur wenn|es sei denn|sofern|solange)\b[^.!?]{0,60}\b(?:" + _QUALITY_JUDGMENT_VERBS + r")\b"
+    r"|\bwhen it (?:actually |really )?(?:does|serves|works|characterizes)\b",
+    re.IGNORECASE,
+)
 
 # Recommendation markers (#217) — words/symbols that signal "what follows is
 # the recommended replacement, not the banned example". The author-Don't
@@ -119,9 +182,19 @@ def _extract_patterns_from_rule(rule: str) -> list[tuple[str, re.Pattern[str]]]:
        regex metacharacters it's compiled as a regex, otherwise as a literal
        substring. Whitespace inside the backticks is preserved so the user
        can encode word-boundary intent (e.g. `` ` thing ` ``).
-    2. Double-quoted phrases are extracted *only* when the rule contains a
-       ban cue (``banned``, ``avoid``, ``never``, ``don't use``, ``do not
-       use``, ``ban``, ``limit``, ``no X``).
+    2. Double-quoted phrases are extracted *only* when a ban cue (``banned``,
+       ``avoid``, ``never``, ``don't use``, ``do not use``, ``ban``,
+       ``limit``, ``no X``) appears in the *same scoping segment* as the
+       quote (see :func:`_rule_segment_boundaries`) — not merely anywhere in
+       the rule text. A rule's bold title routinely uses a cue word (e.g.
+       "**Never** treat comedy as a timeout...") that has nothing to do with
+       an unrelated quoted example several sentences later in the same
+       rule's prose (e.g. "...give the reader a \"break\"", quoted only to
+       illustrate a *different* concept). A whole-rule presence check for
+       the cue can't tell those apart and mines the illustrative word as a
+       banned literal; scoping the cue to the sentence (or bold title) it
+       actually sits in ties the two together the way a human reading the
+       rule would (Issue #612).
     3. Italics (``*foo*``) are intentionally ignored — they're used for
        narrative examples, not scannable bans.
     4. Malformed regex strings are skipped rather than raising.
@@ -149,10 +222,17 @@ def _extract_patterns_from_rule(rule: str) -> list[tuple[str, re.Pattern[str]]]:
         else:
             _add(inner, re.compile(re.escape(raw), re.IGNORECASE))
 
-    if _BAN_CUE_RE.search(rule):
+    boundaries = _rule_segment_boundaries(rule)
+    cue_segments = {_segment_index(m.start(), boundaries) for m in _BAN_CUE_RE.finditer(rule)}
+    if cue_segments:
         for m in _QUOTED_CONTENT_RE.finditer(rule):
             raw = m.group(1).strip()
             if len(raw) < 6 or raw.lower() in STOP_WORDS:
+                continue
+            if _segment_index(m.start(), boundaries) not in cue_segments:
+                # No ban cue shares this quote's sentence (or bold title) —
+                # it's an illustrative example elsewhere in the rule's
+                # prose, not the thing the cue is actually banning (#612).
                 continue
             _add(raw, re.compile(re.escape(raw), re.IGNORECASE))
 
@@ -242,6 +322,7 @@ def _scan_book_rules(book_path: Path) -> list[Finding]:
                 count=len(occurrences),
                 occurrences=sorted(occurrences, key=lambda o: (o.chapter, o.line)),
                 source_rule=rule_label,
+                has_quality_exception=bool(_QUALITY_EXCEPTION_RE.search(rule)),
             )
         )
     return findings

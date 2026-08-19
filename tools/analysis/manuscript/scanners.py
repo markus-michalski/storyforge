@@ -26,7 +26,7 @@ from tools.analysis.manuscript.text_utils import (
     _strip_markdown,
     _tokenise,
 )
-from tools.analysis.manuscript.types import Finding, Occurrence
+from tools.analysis.manuscript.types import Finding, Occurrence, _collapse_overlapping_findings
 from tools.analysis.manuscript.vocabularies import (
     ACTION_VERBS_FALLBACK,
     ADVERB_HIGH_PER_1K,
@@ -36,7 +36,9 @@ from tools.analysis.manuscript.vocabularies import (
     FILTER_WORD_HIGH_PER_1K,
     FILTER_WORD_MEDIUM_PER_1K,
     LY_EXCLUSIONS,
+    QUESTION_OPENER_AUX_VERBS,
     QUESTION_OPENER_CONTRACTIONS,
+    QUESTION_OPENER_WH_WORDS,
     QUESTION_OPENERS,
 )
 
@@ -313,17 +315,48 @@ def _scan_question_as_statement(book_path: Path) -> list[Finding]:
                 dialogue = (m.group(1) or m.group(2) or "").strip()
                 if len(dialogue) < 2:
                     continue
-                last = dialogue[-1]
-                if last != ".":
-                    continue
-                if dialogue.endswith(("..", "…")):
-                    continue
-                first_tokens = _tokenise(dialogue)
-                if not first_tokens:
-                    continue
-                first = first_tokens[0]
-                if first in QUESTION_OPENERS or first in QUESTION_OPENER_CONTRACTIONS:
-                    snippet = _make_snippet(stripped, m.group(0).lower())
+                # Issue #611: a single quoted dialogue span can contain more
+                # than one sentence ("When was the last time you did
+                # something outside? ... Actual outside."). Checking the
+                # whole span's first token against its last character
+                # compares one sentence's opening word to a different,
+                # later sentence's closing punctuation. Split into
+                # sentences and evaluate each one against its own
+                # boundary instead.
+                for sentence in _SENTENCE_SPLIT_RE.split(dialogue):
+                    sentence = sentence.strip()
+                    if len(sentence) < 2:
+                        continue
+                    last = sentence[-1]
+                    if last != ".":
+                        continue
+                    if sentence.endswith(("..", "…")):
+                        continue
+                    first_tokens = _tokenise(sentence)
+                    if not first_tokens:
+                        continue
+                    first = first_tokens[0]
+                    if first not in QUESTION_OPENERS and first not in QUESTION_OPENER_CONTRACTIONS:
+                        continue
+                    if first in QUESTION_OPENER_WH_WORDS and len(first_tokens) > 1:
+                        # Code review H-3: splitting into sentences (#611)
+                        # made every non-initial sentence a candidate, which
+                        # surfaces free relative / subordinate clauses that
+                        # happen to open on a wh-word ("What he does next is
+                        # his problem.") — grammatically declarative, not a
+                        # mis-punctuated question. A genuine wh-question
+                        # inverts subject and aux immediately after the
+                        # wh-word ("What ARE you doing."); a free relative
+                        # puts a subject there instead. Require that
+                        # inversion before flagging — but only when there IS
+                        # a second token to check: a bare one-word fragment
+                        # ("Who.", "What.") can't be a free relative at all,
+                        # and is the pre-existing elliptical-fragment shape
+                        # this detector already flags.
+                        second = first_tokens[1]
+                        if second not in QUESTION_OPENER_AUX_VERBS:
+                            continue
+                    snippet = _make_snippet(stripped, sentence.lower())
                     occurrences.append(
                         Occurrence(
                             chapter=chapter_slug,
@@ -403,7 +436,10 @@ def _scan_sentence_repetitions(
             )
         )
 
-    return findings
+    # Issue #613: every sliding-window length/offset over the same
+    # duplicated sentence lands here as a separate finding otherwise —
+    # collapse to the longest window per duplicate occurrence cluster.
+    return _collapse_overlapping_findings(findings)
 
 
 # ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from tools.analysis.plot_logic import (
+    _read_draft_cached,
     analyze_plot_logic,
     build_knowledge_index,
     detect_causality_inversion,
@@ -370,6 +371,126 @@ class TestDetectChekhovGuns:
         assert findings[0].severity == "high"
         assert "camera" in findings[0].snippet.lower()
 
+    def test_payoff_in_different_later_chapter_than_wrong_target_not_flagged(self, tmp_path: Path):
+        """Issue #609: the declared target chapter is frequently wrong or
+        aspirational metadata. Checking only that one chapter produces a
+        false positive when the real payoff landed in a *different*,
+        later chapter — the detector must search every chapter drafted
+        after the promise's source chapter, not just the declared
+        target."""
+        readme1 = textwrap.dedent(
+            """\
+            # Ch 1
+
+            ## Promises
+
+            | Promise | Target | Status |
+            |---|---|---|
+
+            | Amulet sketch on palace stationery | 02-the-bet | active |
+            """
+        )
+        book = _make_book(
+            tmp_path,
+            chapters=[
+                {"slug": "01-opening", "readme": readme1, "draft": "Setup.\n"},
+                # Declared (wrong) target — never mentions the payoff.
+                {"slug": "02-the-bet", "readme": "# Ch 2\n", "draft": "They make a bet.\n"},
+                # The real payoff landed here instead, several chapters later.
+                {
+                    "slug": "05-reveal",
+                    "readme": "# Ch 5\n",
+                    "draft": "She finally found the stationery with the amulet sketch.\n",
+                },
+            ],
+        )
+        idx = build_knowledge_index(book)
+        findings = detect_chekhov_guns(book, idx)
+        assert findings == []
+
+    def test_target_not_yet_drafted_defers_not_flags(self, tmp_path: Path):
+        """Code review H-1: the broadened later-chapter search (#609) must
+        not turn "the declared target hasn't been reached yet" into a
+        false-positive dropped promise — a promise whose target chapter is
+        legitimately still ahead still has runway, regardless of what
+        other later chapters happen to already be drafted."""
+        readme1 = textwrap.dedent(
+            """\
+            # Ch 1
+
+            ## Promises
+
+            | Promise | Target | Status |
+            |---|---|---|
+            | Amulet sketch on palace stationery | 20-finale | active |
+            """
+        )
+        book = _make_book(
+            tmp_path,
+            chapters=[
+                {"slug": "01-opening", "readme": readme1, "draft": "Setup.\n"},
+                {"slug": "02-rising", "readme": "# Ch 2\n", "draft": "Nothing about it here.\n"},
+                {"slug": "03-twist", "readme": "# Ch 3\n", "draft": "Still nothing.\n"},
+                # 20-finale intentionally has no draft.md — book isn't there yet.
+            ],
+        )
+        idx = build_knowledge_index(book)
+        findings = detect_chekhov_guns(book, idx)
+        assert findings == []
+
+    def test_target_chapter_exists_but_not_yet_drafted_defers(self, tmp_path: Path):
+        """Same as above but the target chapter directory already exists
+        (e.g. scaffolded/outlined) with only a README.md — no draft.md yet.
+        Must still defer, not flag."""
+        readme1 = textwrap.dedent(
+            """\
+            # Ch 1
+
+            ## Promises
+
+            | Promise | Target | Status |
+            |---|---|---|
+            | Amulet sketch on palace stationery | 05-reveal | active |
+            """
+        )
+        book = _make_book(
+            tmp_path,
+            chapters=[
+                {"slug": "01-opening", "readme": readme1, "draft": "Setup.\n"},
+                {"slug": "02-rising", "readme": "# Ch 2\n", "draft": "Nothing about it here.\n"},
+                # Scaffolded but not drafted yet — README only, no draft.md.
+                {"slug": "05-reveal", "readme": "# Ch 5\n"},
+            ],
+        )
+        idx = build_knowledge_index(book)
+        findings = detect_chekhov_guns(book, idx)
+        assert findings == []
+
+    def test_payoff_missing_from_every_later_chapter_still_flags(self, tmp_path: Path):
+        readme1 = textwrap.dedent(
+            """\
+            # Ch 1
+
+            ## Promises
+
+            | Promise | Target | Status |
+            |---|---|---|
+            | Amulet sketch on palace stationery | 02-the-bet | active |
+            """
+        )
+        book = _make_book(
+            tmp_path,
+            chapters=[
+                {"slug": "01-opening", "readme": readme1, "draft": "Setup.\n"},
+                {"slug": "02-the-bet", "readme": "# Ch 2\n", "draft": "They make a bet.\n"},
+                {"slug": "05-reveal", "readme": "# Ch 5\n", "draft": "Nothing about that here either.\n"},
+            ],
+        )
+        idx = build_knowledge_index(book)
+        findings = detect_chekhov_guns(book, idx)
+        assert len(findings) == 1
+        assert findings[0].category == "chekhov_gun"
+
     def test_retired_promise_is_ignored(self, tmp_path: Path):
         readme1 = textwrap.dedent(
             """\
@@ -396,6 +517,83 @@ class TestDetectChekhovGuns:
 # ---------------------------------------------------------------------------
 # analyze_plot_logic — top-level wrapper
 # ---------------------------------------------------------------------------
+
+
+class TestReadDraftCached:
+    def test_unsafe_slug_treated_as_missing_not_raised(self, tmp_path: Path):
+        """Dependency-analysis finding 2.4: slugs reaching this helper come
+        from chapters_dir.iterdir() — real filesystem entries (a stray
+        .DS_Store, .ipynb_checkpoints, or similar non-chapter directory
+        that legitimately ends up under chapters/), not untrusted input
+        crossing an API boundary. An unsafe-looking one (leading dot, path
+        separator, ...) must be treated as "not a chapter, skip it," not
+        raise — letting SlugValidationError escape here propagates into
+        analyze_plot_logic's caller and, via _scan_plot_holes' broad
+        except-and-log, silently wipes every plot_hole finding for the
+        whole scan over one unrelated stray directory."""
+        book = tmp_path / "book"
+        (book / "chapters").mkdir(parents=True)
+        cache: dict[str, str] = {}
+        assert _read_draft_cached(book, ".ipynb_checkpoints", cache) == ""
+        assert cache[".ipynb_checkpoints"] == ""
+
+    def test_valid_slug_still_reads_and_caches(self, tmp_path: Path):
+        book = tmp_path / "book"
+        chapter_dir = book / "chapters" / "01-opening"
+        chapter_dir.mkdir(parents=True)
+        (chapter_dir / "draft.md").write_text("Hello world.\n", encoding="utf-8")
+        cache: dict[str, str] = {}
+        assert _read_draft_cached(book, "01-opening", cache) == "Hello world.\n"
+        assert cache == {"01-opening": "Hello world.\n"}
+
+    def test_draft_cache_shared_across_promises_in_one_scan(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test-report gap: the M-6 perf fix's actual point is that
+        draft_cache is shared across every promise's later-chapter search
+        within one detect_chekhov_guns() call, turning an O(promises x
+        chapters) read fan-out into O(chapters). Every other test uses one
+        promise, so none proves reuse — count real Path.read_text calls on
+        draft.md files to verify each chapter is read exactly once despite
+        two promises both searching the same later-chapter range."""
+        readme1 = textwrap.dedent(
+            """\
+            # Ch 1
+
+            ## Promises
+
+            | Promise | Target | Status |
+            |---|---|---|
+            | Amulet sketch on palace stationery | unfired | active |
+            | Hidden letter from Marcus | unfired | active |
+            """
+        )
+        book = _make_book(
+            tmp_path,
+            chapters=[
+                {"slug": "01-opening", "readme": readme1, "draft": "Setup.\n"},
+                {"slug": "02-rising", "readme": "# Ch 2\n", "draft": "Nothing here.\n"},
+                {"slug": "03-twist", "readme": "# Ch 3\n", "draft": "Still nothing.\n"},
+            ],
+        )
+        idx = build_knowledge_index(book)
+
+        read_calls: list[Path] = []
+        original_read_text = Path.read_text
+
+        def counting_read_text(self: Path, *args, **kwargs):
+            if self.name == "draft.md":
+                read_calls.append(self)
+            return original_read_text(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", counting_read_text)
+        findings = detect_chekhov_guns(book, idx)
+
+        assert len(findings) == 2  # both promises unresolved, correctly flagged
+        # 2 promises x 2 later chapters (02-rising, 03-twist) would be 4 reads
+        # without a shared cache — the fix's whole point is that it's 2.
+        assert len(read_calls) == 2
+        assert len(set(read_calls)) == 2
 
 
 class TestAnalyzePlotLogic:

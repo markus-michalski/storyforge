@@ -15,9 +15,10 @@ Warning codes:
   containing quoted phrases. Italics are ignored by the scanner; the
   examples are silently invisible.
 - ``mixed_positive_negative_quotes`` — rule has a ban cue and *multiple*
-  quoted phrases. The scanner extracts every quoted phrase as a banned
-  pattern, so positive rewrite examples (``replace with "X"``) get
-  flagged as bans too.
+  quoted phrases. The scanner extracts every quoted phrase that shares a
+  sentence with a ban cue as a banned pattern (Issue #612) — a positive
+  rewrite example (``replace with "X"``) in the same sentence as the cue
+  still gets flagged as a ban.
 - ``scanner_extracts_nothing`` — rule has a ban cue but no extractable
   pattern (no backticks, no quoted phrases). The scanner sees nothing.
 """
@@ -97,9 +98,10 @@ def lint_rule_text(rule_text: str) -> dict[str, Any]:
                     "code": LINT_MIXED_POSITIVE_NEGATIVE_QUOTES,
                     "message": (
                         "Multiple double-quoted phrases combined with a ban "
-                        "cue: every quoted phrase is extracted as a banned "
-                        "pattern, so positive rewrite examples will be "
-                        "wrongly flagged as bans."
+                        "cue: any quoted phrase sharing a sentence with the "
+                        "cue is extracted as a banned pattern, so a positive "
+                        "rewrite example in that same sentence will be "
+                        "wrongly flagged as a ban."
                     ),
                     "hint": (
                         "Put banned phrases in backticks and positive "

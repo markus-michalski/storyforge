@@ -487,11 +487,13 @@ ACTION_VERBS_FALLBACK = frozenset(
 # Question-as-statement detector
 # ---------------------------------------------------------------------------
 
-# Interrogative openers. First token of the dialogue. Covers wh-questions and
-# yes/no aux-verb questions.
-QUESTION_OPENERS = frozenset(
+# Wh-question words. Split out from the aux-verb set (below) so a detector
+# can tell "What ARE you doing" (subject-aux inversion, a real question)
+# apart from "What he does next is his problem" (a free relative / subordinate
+# clause acting as a noun phrase, not a question) — the wh-word alone doesn't
+# distinguish them, but whether an aux verb immediately follows it does.
+QUESTION_OPENER_WH_WORDS = frozenset(
     {
-        # wh-questions
         "who",
         "what",
         "where",
@@ -500,7 +502,14 @@ QUESTION_OPENERS = frozenset(
         "how",
         "which",
         "whose",
-        # aux-verb yes/no questions
+    }
+)
+
+# Aux/modal verbs that open a yes/no question ("Was he there?") and that a
+# genuine wh-question inverts to immediately after its wh-word ("What ARE
+# you doing?").
+QUESTION_OPENER_AUX_VERBS = frozenset(
+    {
         "do",
         "does",
         "did",
@@ -523,6 +532,10 @@ QUESTION_OPENERS = frozenset(
         "had",
     }
 )
+
+# Interrogative openers. First token of the dialogue. Covers wh-questions and
+# yes/no aux-verb questions.
+QUESTION_OPENERS = QUESTION_OPENER_WH_WORDS | QUESTION_OPENER_AUX_VERBS
 
 # Contraction forms tokenised as the leading aux verb (e.g. "don't" → "don").
 QUESTION_OPENER_CONTRACTIONS = frozenset(
@@ -632,7 +645,9 @@ __all__ = [
     "LY_EXCLUSIONS",
     "PLATITUDE_HIGH_THRESHOLD",
     "PLATITUDE_MEDIUM_THRESHOLD",
+    "QUESTION_OPENER_AUX_VERBS",
     "QUESTION_OPENER_CONTRACTIONS",
+    "QUESTION_OPENER_WH_WORDS",
     "QUESTION_OPENERS",
     "SENSORY_TOKENS",
     "SNAPSHOT_THRESHOLD_DEFAULT",

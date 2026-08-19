@@ -185,21 +185,37 @@ The tool returns:
     "simile": {"high": 6, "medium": 14}
   },
   "report_path": ".../research/manuscript-report.md",
-  "findings": [ { phrase, category, severity, count, occurrences: [...] } ],
+  "findings": [ { phrase, category, severity, count, occurrences: [...], has_quality_exception } ],
   "gate": {
     "status": "PASS | WARN | FAIL",
     "reasons": ["..."],
     "findings": [ { code, message, severity, location } ],
-    "metadata": { "chapters_scanned": 34, "findings_count": 120, "rule_violations": 3 }
+    "metadata": {
+      "chapters_scanned": 34, "findings_count": 120,
+      "rule_violations": 3, "hard_rule_violations": 2
+    }
   }
 }
 ```
 
+`has_quality_exception` (category `book_rule_violation` only, default `false`) marks a finding whose
+source rule documents its own "sometimes fine" carve-out (e.g. "only when the comparison does real
+character work" — Issue #608) — a regex match can't tell whether *this* occurrence satisfies it, so
+treat it as needing human judgment, not a reflex fix. `gate.metadata.rule_violations` counts every
+`book_rule_violation` finding (hard or quality-exception); `hard_rule_violations` counts only the
+ones that actually drove `gate.status` — read the second field when explaining why status is WARN
+despite rule violations being present.
+
 The `gate` envelope is the canonical verdict (see `reference/gate-contract.md`):
 
-- **FAIL** when any `book_rule_violation` finding exists — the user's own rules
-  outrank everything else.
-- **WARN** when other findings exist but no rule violations. **Caveat:**
+- **FAIL** when any `book_rule_violation` finding exists whose source rule does
+  NOT document its own quality exception — the user's own rules outrank
+  everything else.
+- **WARN** when other findings exist, including `book_rule_violation` findings
+  whose rule documents a quality exception (e.g. "only when the comparison
+  does real character work" — Issue #608; a regex match can't judge whether a
+  specific occurrence satisfies that exception, so it's advisory, not a hard
+  block). **Caveat:**
   `anonymization_leak` also maps to WARN, not FAIL — a memoir manuscript
   whose only issues are `anonymization_leak` findings will show `Gate:
   WARN`. Do not let that read as "nothing urgent"; annotate the headline

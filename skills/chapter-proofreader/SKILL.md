@@ -118,7 +118,10 @@ flag something; that inverts what the field means.
   ranges, hyphen for compound words
 - Oxford comma: flag if inconsistently applied within the chapter (pick one style, keep it)
 - Dialogue punctuation: comma before closing quote when followed by dialogue tag
-  ("Hello," she said — not "Hello." she said); period inside closing quote (US English)
+  ("Hello," she said — not "Hello." she said); period inside closing quote (US English).
+  Exception: retain `?`/`!` where the quoted sentence is interrogative or exclamatory — these
+  replace the comma, they are not replaced by it ("Who did this?" he asked. — not "Who did
+  this," he asked.)
 - Ellipsis: three dots only (…), not two or four, no space before
 - Apostrophe errors: it's/its, possessives, contractions
 
