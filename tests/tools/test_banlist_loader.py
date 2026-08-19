@@ -110,17 +110,17 @@ class TestAuthorSlugFromBook:
 
 
 # ---------------------------------------------------------------------------
-# load_author_vocab
+# load_author_vocab — DB-backed since Issue #604 (was: vocabulary.md file)
 # ---------------------------------------------------------------------------
 
 
-def _make_vocab(storyforge_home: Path, author_slug: str, body: str) -> Path:
-    """Write a vocabulary.md under a fake storyforge home."""
-    vocab_dir = storyforge_home / "authors" / author_slug
-    vocab_dir.mkdir(parents=True, exist_ok=True)
-    vocab_path = vocab_dir / "vocabulary.md"
-    vocab_path.write_text(body, encoding="utf-8")
-    return vocab_path
+def _seed_donts(storyforge_home: Path, author_slug: str, texts: list[str]) -> None:
+    """Seed flat literal-phrase ``donts`` rows via the shared DB helper."""
+    _make_authors_db(
+        storyforge_home,
+        author_slug,
+        [{"discovery_type": "donts", "text": t} for t in texts],
+    )
 
 
 class TestLoadAuthorVocab:
@@ -128,16 +128,12 @@ class TestLoadAuthorVocab:
         patterns = load_author_vocab("nonexistent", storyforge_home=tmp_path)
         assert patterns == []
 
-    def test_parses_absolutely_forbidden(self, tmp_path):
-        body = (
-            "# Vocabulary Profile\n\n"
-            "## Banned Words — AI Tells\n\n"
-            "### Absolutely Forbidden\n"
-            "- delve\n"
-            "- tapestry\n"
-            "- vibrant\n"
-        )
-        _make_vocab(tmp_path, "alice", body)
+    def test_empty_db_returns_empty(self, tmp_path):
+        _make_authors_db(tmp_path, "alice", [])
+        assert load_author_vocab("alice", storyforge_home=tmp_path) == []
+
+    def test_parses_flat_donts_entries(self, tmp_path):
+        _seed_donts(tmp_path, "alice", ["delve", "tapestry", "vibrant"])
         patterns = load_author_vocab("alice", storyforge_home=tmp_path)
         labels = [p.label for p in patterns]
         assert "delve" in labels
@@ -147,8 +143,7 @@ class TestLoadAuthorVocab:
         assert all("author-vocab" in p.source for p in patterns)
 
     def test_splits_aliases_on_slash(self, tmp_path):
-        body = "## Banned Words\n\n### Absolutely Forbidden\n- delve / delve into\n- embark / embark on\n"
-        _make_vocab(tmp_path, "bob", body)
+        _seed_donts(tmp_path, "bob", ["delve / delve into", "embark / embark on"])
         patterns = load_author_vocab("bob", storyforge_home=tmp_path)
         labels = [p.label for p in patterns]
         assert "delve" in labels
@@ -157,8 +152,7 @@ class TestLoadAuthorVocab:
         assert "embark on" in labels
 
     def test_strips_parenthetical_clarifications(self, tmp_path):
-        body = "## Banned Words\n\n### Absolutely Forbidden\n- tapestry (metaphorical)\n- landscape (metaphorical)\n"
-        _make_vocab(tmp_path, "carol", body)
+        _seed_donts(tmp_path, "carol", ["tapestry (metaphorical)", "landscape (metaphorical)"])
         patterns = load_author_vocab("carol", storyforge_home=tmp_path)
         labels = [p.label for p in patterns]
         assert "tapestry" in labels
@@ -166,15 +160,11 @@ class TestLoadAuthorVocab:
         # Original parenthetical not present
         assert not any("metaphorical" in label for label in labels)
 
-    def test_loads_all_four_forbidden_sections(self, tmp_path):
-        body = (
-            "## Banned\n\n"
-            "### Absolutely Forbidden\n- delve\n\n"
-            "### Forbidden Hedging Phrases\n- it's worth noting that\n\n"
-            "### Forbidden Emotional Tells\n- her heart raced\n\n"
-            "### Forbidden Structural Patterns\n- in essence\n"
+    def test_loads_multiple_entries(self, tmp_path):
+        _seed_donts(
+            tmp_path, "dora",
+            ["delve", "it's worth noting that", "her heart raced", "in essence"],
         )
-        _make_vocab(tmp_path, "dora", body)
         patterns = load_author_vocab("dora", storyforge_home=tmp_path)
         labels = [p.label for p in patterns]
         assert "delve" in labels
@@ -182,24 +172,24 @@ class TestLoadAuthorVocab:
         assert "her heart raced" in labels
         assert "in essence" in labels
 
-    def test_dedupes_across_sections(self, tmp_path):
-        body = "## Banned\n\n### Absolutely Forbidden\n- delve\n\n### Forbidden Hedging Phrases\n- delve\n"
-        _make_vocab(tmp_path, "eve", body)
+    def test_dedupes_entries_that_normalize_to_the_same_label(self, tmp_path):
+        # Two distinct DB rows ("delve" and "delve (informal)") both strip
+        # to the same cleaned label — the loader's own seen-set must dedupe
+        # them, same as it used to across two vocabulary.md sub-sections.
+        _seed_donts(tmp_path, "eve", ["delve", "delve (informal)"])
         patterns = load_author_vocab("eve", storyforge_home=tmp_path)
         delves = [p for p in patterns if p.label == "delve"]
         assert len(delves) == 1
 
     def test_skips_short_entries(self, tmp_path):
-        body = "## Banned\n\n### Absolutely Forbidden\n- a\n- delve\n"
-        _make_vocab(tmp_path, "frank", body)
+        _seed_donts(tmp_path, "frank", ["a", "delve"])
         patterns = load_author_vocab("frank", storyforge_home=tmp_path)
         labels = [p.label for p in patterns]
         assert "delve" in labels
         assert "a" not in labels
 
     def test_pattern_catches_inflections_for_single_word(self, tmp_path):
-        body = "## Banned\n\n### Absolutely Forbidden\n- delve\n"
-        _make_vocab(tmp_path, "gina", body)
+        _seed_donts(tmp_path, "gina", ["delve"])
         patterns = load_author_vocab("gina", storyforge_home=tmp_path)
         delve = next(p for p in patterns if p.label == "delve")
         # Catches inflections (delved, delves, delving)
@@ -216,24 +206,69 @@ class TestLoadAuthorVocab:
         assert delve.pattern.search("the deliverer arrived") is None
 
     def test_multi_word_phrase_uses_full_boundary(self, tmp_path):
-        body = "## Banned\n\n### Forbidden Hedging Phrases\n- it's worth noting that\n"
-        _make_vocab(tmp_path, "henrietta", body)
+        _seed_donts(tmp_path, "henrietta", ["it's worth noting that"])
         patterns = load_author_vocab("henrietta", storyforge_home=tmp_path)
         phrase = next(p for p in patterns if p.label == "it's worth noting that")
         assert phrase.pattern.search("Now it's worth noting that we tried.") is not None
         # Same phrase mid-sentence still works
         assert phrase.pattern.search("Look — it's worth noting that this fails.") is not None
 
-    def test_higher_heading_terminates_section(self, tmp_path):
-        """A `##`-level heading after a `###` Forbidden block stops parsing."""
-        body = "## Banned Words\n\n### Absolutely Forbidden\n- delve\n\n## Preferred Vocabulary\n\n- said\n- went\n"
-        _make_vocab(tmp_path, "henry", body)
+    def test_other_discovery_types_do_not_leak_in(self, tmp_path):
+        """Only ``donts`` rows are read — a ``style_principles`` entry for
+        the same author must not surface as a vocab ban (mirrors the old
+        vocabulary.md test's section-isolation guarantee)."""
+        _make_authors_db(
+            tmp_path, "henry",
+            [
+                {"discovery_type": "donts", "text": "delve"},
+                {"discovery_type": "style_principles", "text": "said"},
+            ],
+        )
         patterns = load_author_vocab("henry", storyforge_home=tmp_path)
         labels = [p.label for p in patterns]
         assert "delve" in labels
-        # 'said' / 'went' must NOT be banned — they live under Preferred Vocabulary.
         assert "said" not in labels
-        assert "went" not in labels
+
+    def test_skips_backtick_wrapped_donts_entries(self, tmp_path):
+        """Backtick-wrapped rows (written by write_author_banned_phrase) are
+        already extracted by load_author_dont_rules() — this loader must
+        skip them, not double-report the same DB row under a different
+        category with a mangled label (Issue #604 review)."""
+        _make_authors_db(
+            tmp_path, "ivan",
+            [{"discovery_type": "donts", "text": "`math` — too on the nose"}],
+        )
+        patterns = load_author_vocab("ivan", storyforge_home=tmp_path)
+        assert patterns == []
+
+    def test_skips_bold_titled_donts_entries(self, tmp_path):
+        """Bold-titled harvest-author-rules rows are already extracted by
+        load_author_dont_rules() via italic+ban-cue extraction."""
+        _make_authors_db(
+            tmp_path, "jane",
+            [{"discovery_type": "donts", "text": "**Never use rooms** — *The room received it.*"}],
+        )
+        patterns = load_author_vocab("jane", storyforge_home=tmp_path)
+        assert patterns == []
+
+    def test_deleted_entry_immediately_disappears(self, tmp_path, monkeypatch):
+        """Issue #604's core regression: a delete_discovery() removal must
+        be reflected on the very next read — no frozen file to go stale."""
+        import tools.db.connection as _db_conn
+        from tools.db.author_discoveries import remove_discovery
+        from tools.db.connection import open_authors_db
+
+        _seed_donts(tmp_path, "kate", ["delve"])
+        assert any(p.label == "delve" for p in load_author_vocab("kate", storyforge_home=tmp_path))
+
+        monkeypatch.setattr(_db_conn, "DB_DIR", tmp_path / "db")
+        conn = open_authors_db()
+        try:
+            remove_discovery(conn, author_slug="kate", discovery_type="donts", text="delve")
+        finally:
+            conn.close()
+
+        assert load_author_vocab("kate", storyforge_home=tmp_path) == []
 
 
 # ---------------------------------------------------------------------------

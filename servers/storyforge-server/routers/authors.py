@@ -418,7 +418,18 @@ def harvest_book_rules(book_slug: str, author_slug: str = "") -> str:
 
 
 def _load_author_for_dedup(config: dict, author_slug: str) -> tuple[dict | None, str]:
-    """Load author profile + vocabulary text for dedup. Missing files return defaults."""
+    """Load author profile + vocabulary text for dedup. Missing files/DB return defaults.
+
+    ``vocab_text`` used to be ``vocabulary.md``'s raw content. Issue #604
+    made that file provably stale (deletes/adds via MCP tools only ever
+    touch the DB), so a candidate the user had already deleted from
+    ``donts`` would still silently suppress re-promotion here, and a
+    candidate added since would get proposed again as a duplicate. Reading
+    the live ``donts`` rows instead (joined into one blob so the existing
+    substring-containment check in
+    :func:`tools.author.rule_harvester.deduplicate_against_author` keeps
+    working unchanged) closes that gap.
+    """
     if not author_slug:
         return None, ""
     try:
@@ -429,8 +440,15 @@ def _load_author_for_dedup(config: dict, author_slug: str) -> tuple[dict | None,
     profile_path = author_dir / "profile.md"
     profile = parse_author_profile(profile_path) if profile_path.is_file() else None
 
-    vocab_path = author_dir / "vocabulary.md"
-    vocab_text = vocab_path.read_text(encoding="utf-8") if vocab_path.is_file() else ""
+    from tools.banlist_loader import _query_author_discoveries
+
+    # authors_root is always {storyforge_home}/authors — derive explicitly
+    # rather than relying on _query_author_discoveries' Path.home() default,
+    # which would silently diverge from `config` in any test (or install)
+    # that points authors_root somewhere other than ~/.storyforge/authors.
+    storyforge_home = author_dir.parent.parent
+    donts_texts = _query_author_discoveries(author_slug, "donts", storyforge_home) or []
+    vocab_text = "\n".join(donts_texts)
 
     return profile, vocab_text
 

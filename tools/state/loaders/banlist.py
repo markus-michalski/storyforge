@@ -5,8 +5,10 @@ sources, in priority order:
 
 1. Book CLAUDE.md ``## Rules`` — ban-cued backticked phrases are block severity,
    watch/watch-for phrased rules are advisory (via ``classify_rule``).
-2. Author ``vocabulary.md`` (block severity).
-3. Author ``profile.md`` ``## Writing Discoveries / ### Recurring Tics``
+2. Author vocabulary — flat literal-phrase ``donts`` rows in the
+   ``author_discoveries`` SQLite table (block severity; Issue #604 —
+   previously read from ``vocabulary.md`` directly).
+3. Author Writing Discoveries — ``recurring_tics`` rows in the same table
    (block severity) — phrases promoted via ``/storyforge:harvest-author-rules``
    (Issue #151 follow-up).
 4. Global anti-AI tells from ``reference/craft/anti-ai-patterns.md``
@@ -84,7 +86,7 @@ def collect_banned_phrases(
             out.append(
                 {
                     "phrase": p.label,
-                    "source": "author vocabulary.md",
+                    "source": "author vocabulary (donts, DB)",
                     "severity": p.severity,
                 }
             )

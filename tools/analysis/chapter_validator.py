@@ -544,7 +544,8 @@ def _scan_global_shapes(text: str) -> list[Finding]:
                 message=(
                     f"Catalog shape '{banned.label}' matched — Section 11 of "
                     f"anti-ai-patterns.md. Promote to hard-block per author "
-                    f"by copying the regex into `profile.md ### Don'ts`."
+                    f"via `write_author_banned_phrase` (or "
+                    f"`write_author_discovery` with `section=\"donts\"`)."
                 ),
                 line=line_num,
             )
@@ -724,14 +725,14 @@ def _scan_author_banlist(
 ) -> list[Finding]:
     """Block on phrases banned at author scope.
 
-    Aggregates three author-scoped sources, mirroring the brief's
-    ``collect_banned_phrases``:
+    Aggregates three author-scoped sources from the ``author_discoveries``
+    DB (Issue #604 — all three used to be read from ``vocabulary.md``/
+    ``profile.md`` directly), mirroring the brief's ``collect_banned_phrases``:
 
-    - ``vocabulary.md`` ``### Forbidden ...`` sections (canonical phrase store)
-    - ``profile.md`` ``## Writing Discoveries / ### Recurring Tics`` (Issue #151
-      promoted findings)
-    - ``profile.md`` ``## Writing Discoveries / ### Don'ts`` (Issue #210,
-      elegant-abstraction register patterns from PR #209)
+    - flat literal-phrase ``donts`` rows (canonical phrase store)
+    - ``recurring_tics`` rows (Issue #151 promoted findings)
+    - bold-titled/backtick ``donts`` rows (Issue #210, elegant-abstraction
+      register patterns from PR #209)
 
     Without these sources, phrases promoted via
     ``/storyforge:harvest-author-rules`` or shipped in PR #209's Section 11

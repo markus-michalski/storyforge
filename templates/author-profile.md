@@ -82,6 +82,6 @@ _Frei._
 
 ### Don'ts (beyond banned phrases)
 
-*Author-level don'ts that aren't single banned phrases (those live in `vocabulary.md`).*
+*Author-level don'ts that aren't single banned phrases (those are added via `add_vocabulary_entry` / `write_author_banned_phrase`, not this file).*
 
 _Frei._

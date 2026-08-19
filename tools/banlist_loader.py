@@ -3,9 +3,11 @@
 The PostToolUse hook (#70) needs to enforce three independent banlists:
 
 1. **Book-scoped** rules from the active book's ``CLAUDE.md`` (#70).
-2. **Author-scoped** banned-vocabulary from
-   ``~/.storyforge/authors/{slug}/vocabulary.md``. Surfaces an explicit
-   "this author never uses these words" list maintained per voice.
+2. **Author-scoped** banned-vocabulary from the ``author_discoveries``
+   SQLite table (``donts`` type — Issue #604; originally read from
+   ``~/.storyforge/authors/{slug}/vocabulary.md`` directly, which went
+   stale relative to the DB). Surfaces an explicit "this author never
+   uses these words" list maintained per voice.
 3. **Globally curated** AI-tells from
    ``reference/craft/anti-ai-patterns.md``. Default warn-severity so
    merging this on top of an existing book does not break drafts.
@@ -46,14 +48,6 @@ class BannedPattern:
 # ---------------------------------------------------------------------------
 # Author-vocabulary loader
 # ---------------------------------------------------------------------------
-
-# Section markers the loader treats as banned-phrase sources. Each is a
-# subsection (### heading) inside the ``## Banned Words`` block.
-_AUTHOR_BANNED_SECTION_RE = re.compile(
-    r"^###\s+(Absolutely\s+Forbidden|Forbidden\s+Hedging\s+Phrases|"
-    r"Forbidden\s+Emotional\s+Tells|Forbidden\s+Structural\s+Patterns)\s*$",
-    re.MULTILINE | re.IGNORECASE,
-)
 
 _BOOK_AUTHOR_LINE_RE = re.compile(
     r"^\s*-\s*\*\*Author:\*\*\s*(?P<name>[^\n(]+?)(?:\s*\(.*\))?\s*$",
@@ -99,70 +93,82 @@ def _strip_parenthetical(text: str) -> str:
     return re.sub(r"\s*\([^)]+\)\s*", " ", text).strip()
 
 
-def _author_vocab_path(author_slug: str, storyforge_home: Path | None = None) -> Path:
-    home = storyforge_home or (Path.home() / ".storyforge")
-    return home / "authors" / author_slug / "vocabulary.md"
-
-
 def load_author_vocab(
     author_slug: str,
     *,
     storyforge_home: Path | None = None,
 ) -> list[BannedPattern]:
-    """Load forbidden-word patterns from an author's ``vocabulary.md``.
+    """Load forbidden-word patterns for an author from the discoveries DB.
 
-    Parses the four ``### Forbidden ...`` subsections, splits aliases on
-    `` / ``, strips parentheticals, and emits one ``BannedPattern`` per
-    unique cleaned phrase. Severity is always ``block`` — author-scoped
-    bans express the user's voice intent and are non-negotiable.
+    Issue #604: this used to parse an author's ``vocabulary.md`` file
+    directly. That file stopped being the write target once
+    ``write_author_banned_phrase``/``add_vocabulary_entry`` (Issue #281)
+    and the ``scripts/migrate_vocabulary_to_db.py`` migration (Issue #293)
+    landed — all of it, plus anything added/removed since, now lives in
+    the ``author_discoveries`` SQLite table (``donts`` type). Reading the
+    frozen file meant a deleted phrase stayed enforced forever and a newly
+    added one was invisible; this now reads the same live table
+    :func:`load_author_dont_rules` does.
+
+    Only rows that look like a *flat* literal-phrase bullet — no backtick
+    or bold ``**Title**`` marker — are parsed here. Those are exactly the
+    historical ``vocabulary.md ## Banned Words`` entries (migrated
+    verbatim) and any plain phrase added via ``add_vocabulary_entry``.
+    Backtick-wrapped (``write_author_banned_phrase``) rows and bold-titled
+    rows containing an italic example after a ban cue (harvest-author-rules'
+    usual shape) are already extracted by :func:`load_author_dont_rules` —
+    skipping every bold/backtick row here keeps the two loaders' output
+    from reporting the same DB row twice under different categories, and
+    avoids mis-parsing e.g. `` `math` — too on the nose`` as a literal
+    phrase containing backtick characters. A bold-titled row that does
+    *not* match either extractor's shape (e.g. a bare
+    ``**word** (parenthetical)`` bullet with no italic/backtick pattern) is
+    a pre-existing gap: it was equally unenforced by the pre-#604
+    file-based parser (which also produced an unmatchable literal
+    containing the ``**`` markers), so this is not a regression, just not
+    newly fixed either — see Issue #604's review discussion.
+
+    ``donts`` rows also include free-form text from
+    ``add_vocabulary_entry(entry_type="banned", ...)``, which stores
+    caller-supplied text verbatim with no format contract. A caller that
+    passes a full sentence rather than a short phrase gets a literal
+    (and effectively unenforceable) sentence-length ``BannedPattern``
+    rather than an error — this loader does not attempt to guess intent
+    out of free text.
+
+    Splits aliases on `` / ``, strips parentheticals, and emits one
+    ``BannedPattern`` per unique cleaned phrase. Severity is always
+    ``block`` — author-scoped bans express the user's voice intent and are
+    non-negotiable.
     """
-    vocab_path = _author_vocab_path(author_slug, storyforge_home)
-    if not vocab_path.is_file():
-        return []
-    try:
-        text = vocab_path.read_text(encoding="utf-8")
-    except OSError:
+    texts = _query_author_discoveries(author_slug, "donts", storyforge_home)
+    if not texts:
         return []
 
     patterns: list[BannedPattern] = []
     seen: set[str] = set()
 
-    sections = list(_AUTHOR_BANNED_SECTION_RE.finditer(text))
-    for index, match in enumerate(sections):
-        section_name = re.sub(r"\s+", " ", match.group(1)).strip().title()
-        body_start = match.end()
-        body_end = sections[index + 1].start() if index + 1 < len(sections) else len(text)
-        # Stop early if we hit a higher-level (## or # only) heading.
-        higher_heading = re.search(r"^##\s+\S", text[body_start:body_end], re.MULTILINE)
-        if higher_heading:
-            body_end = body_start + higher_heading.start()
-
-        body = text[body_start:body_end]
-        for line in body.splitlines():
-            stripped = line.strip()
-            if not stripped.startswith("- "):
+    for entry in texts:
+        if "`" in entry or "**" in entry:
+            continue
+        for raw_alias in entry.split(" / "):
+            cleaned = _strip_parenthetical(raw_alias).strip()
+            if len(cleaned) < 2:
                 continue
-            entry = stripped[2:].strip()
-            if not entry:
+            key = cleaned.lower()
+            if key in seen:
                 continue
-            for raw_alias in entry.split(" / "):
-                cleaned = _strip_parenthetical(raw_alias).strip()
-                if len(cleaned) < 2:
-                    continue
-                key = cleaned.lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-                pattern = _build_inflection_pattern(cleaned)
-                patterns.append(
-                    BannedPattern(
-                        label=cleaned,
-                        pattern=pattern,
-                        severity=SEVERITY_BLOCK,
-                        source=f"author-vocab ({section_name})",
-                        reason="banned for this author voice",
-                    )
+            seen.add(key)
+            pattern = _build_inflection_pattern(cleaned)
+            patterns.append(
+                BannedPattern(
+                    label=cleaned,
+                    pattern=pattern,
+                    severity=SEVERITY_BLOCK,
+                    source="author-vocab (donts, DB)",
+                    reason="banned for this author voice",
                 )
+            )
     return patterns
 
 
@@ -251,15 +257,6 @@ def _extract_discovery_limit(text: str) -> int:
         return 0
 
 
-_DISCOVERIES_SECTION_RE = re.compile(
-    r"^##\s+Writing\s+Discoveries\s*$(?P<body>.*?)(?=^##\s|\Z)",
-    re.MULTILINE | re.DOTALL | re.IGNORECASE,
-)
-_RECURRING_TICS_HEADER_RE = re.compile(
-    r"^###\s+Recurring\s+Tics\s*$",
-    re.MULTILINE | re.IGNORECASE,
-)
-_BOLD_TITLE_BULLET_RE = re.compile(r"^-\s+(\*\*[^*]+\*\*)", re.MULTILINE)
 _DOUBLE_QUOTE_RE = re.compile(r'[“„”"]([^“„”"]{2,})[”"]')
 
 # Recurring-Tic bullet with separately-captured title + body (#212). Body
@@ -414,11 +411,22 @@ def _query_author_discoveries(
     Returns ``None`` (not an empty list) when the DB does not exist — callers
     treat ``None`` as "no data available" and return ``[]``.  An empty list
     means the DB exists but the author has no entries of this type.
+
+    A query failure against an *existing* DB file (locked, corrupt, schema
+    drift) also returns ``None`` — same as "no data" — but is distinct
+    enough (author-scoped enforcement going silently blind rather than an
+    author genuinely having no bans yet) to warrant a stderr note; this is
+    now the sole read path for all three author-scoped loaders (Issue
+    #604), so a swallowed failure here silently disables far more than it
+    used to.
     """
     import sqlite3  # stdlib — keeps the module dependency-free for hook use
+    import sys
+
     db_path = _author_db_path(storyforge_home)
     if not db_path.is_file():
         return None
+    conn = None
     try:
         conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row
@@ -427,10 +435,17 @@ def _query_author_discoveries(
             " WHERE author_slug=? AND discovery_type=? ORDER BY id",
             (author_slug, discovery_type),
         ).fetchall()
-        conn.close()
         return [r["text"] for r in rows]
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover
+        print(
+            f"[banlist_loader] could not read author_discoveries for "
+            f"'{author_slug}' [{discovery_type}]: {exc}",
+            file=sys.stderr,
+        )
         return None
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def _build_patterns_from_tic_db_texts(texts: list[str]) -> list[BannedPattern]:

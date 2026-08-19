@@ -35,53 +35,42 @@ def _make_author_home(
     tmp_path: Path,
     *,
     slug: str = "ethan-cole",
-    vocab_body: str = "",
+    vocab_words: list[str] | None = None,
     tic_texts: list[str] | None = None,
 ) -> Path:
-    """Create a fake ~/.storyforge tree with vocabulary.md and DB tic rows."""
+    """Create a fake ~/.storyforge tree with DB donts (vocab) and tic rows.
+
+    ``vocab_words`` seeds flat literal-phrase ``donts`` rows — the same
+    source ``load_author_vocab()`` reads since Issue #604 (previously a
+    ``vocabulary.md`` file write). Defaults to ``["delve"]`` to preserve
+    every existing caller's incidental non-empty vocab source.
+    """
     import sqlite3
+
+    from tools.db.connection import ensure_authors_schema
+
     home = tmp_path / ".storyforge"
     author_dir = home / "authors" / slug
     author_dir.mkdir(parents=True)
 
-    if vocab_body:
-        (author_dir / "vocabulary.md").write_text(vocab_body, encoding="utf-8")
-    else:
-        (author_dir / "vocabulary.md").write_text(
-            "# Vocab\n\n## Banned Words\n\n### Absolutely Forbidden\n\n- delve\n",
-            encoding="utf-8",
-        )
-
-    if tic_texts:
-        db_dir = home / "db"
-        db_dir.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(db_dir / "authors.db"))
+    db_dir = home / "db"
+    db_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_dir / "authors.db"))
+    ensure_authors_schema(conn)
+    for word in (vocab_words if vocab_words is not None else ["delve"]):
         conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS author_discoveries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                author_slug TEXT NOT NULL,
-                discovery_type TEXT NOT NULL,
-                text TEXT NOT NULL,
-                book_slug TEXT DEFAULT '',
-                source_genres TEXT DEFAULT '',
-                universal BOOLEAN DEFAULT FALSE,
-                example TEXT DEFAULT '',
-                date_added TEXT DEFAULT '',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(author_slug, discovery_type, text)
-            )
-            """
+            "INSERT OR IGNORE INTO author_discoveries "
+            "(author_slug, discovery_type, text) VALUES (?, ?, ?)",
+            (slug, "donts", word),
         )
-        for text in tic_texts:
-            conn.execute(
-                "INSERT OR IGNORE INTO author_discoveries "
-                "(author_slug, discovery_type, text) VALUES (?, ?, ?)",
-                (slug, "recurring_tics", text),
-            )
-        conn.commit()
-        conn.close()
+    for text in (tic_texts or []):
+        conn.execute(
+            "INSERT OR IGNORE INTO author_discoveries "
+            "(author_slug, discovery_type, text) VALUES (?, ?, ?)",
+            (slug, "recurring_tics", text),
+        )
+    conn.commit()
+    conn.close()
 
     return home
 
@@ -182,11 +171,12 @@ class TestWritingDiscoveriesSource:
 
     def test_dedups_against_author_vocabulary(self, tmp_path, patch_storyforge_home):
         """Vocabulary entries also win over Writing Discoveries (same author,
-        different file — vocabulary is the canonical phrase store)."""
+        different DB discovery_type — vocabulary is the canonical phrase
+        store)."""
         book = _make_book(tmp_path)
         _make_author_home(
             tmp_path,
-            vocab_body="# Vocab\n\n## Banned Words\n\n### Absolutely Forbidden\n\n- thing\n",
+            vocab_words=["thing"],
             tic_texts=['**"thing"** — concretize.'],
         )
         result = collect_banned_phrases(book, PLUGIN_ROOT)
