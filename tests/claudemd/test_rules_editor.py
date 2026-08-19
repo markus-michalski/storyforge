@@ -11,10 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from tools.claudemd.manager import append_rule, init_claudemd, resolve_claudemd_path
+from tools.claudemd.manager import append_callback, append_rule, init_claudemd, resolve_claudemd_path
 from tools.claudemd.rules_editor import (
     AmbiguousMatchError,
     DisagreeingResolutionError,
+    _list_rules_by_type,
     list_rules,
     update_rule,
 )
@@ -309,6 +310,180 @@ class TestDeleteRule:
             rule_match="ghost", delete=True,
         )
         assert result["found"] is False
+
+
+# ---------------------------------------------------------------------------
+# update_rule / list_rules — reaching callback entries (Issue #605)
+# ---------------------------------------------------------------------------
+
+
+class TestReachesCallbacks:
+    def test_list_rules_does_not_include_callbacks(self, book_config):
+        """Baseline: list_rules() stays rule-only — callbacks must not leak
+        into the plain rules listing/index space."""
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(book_config, "my-book", "**R1** — first")
+        append_callback(book_config, "my-book", "Ch 5 fixer note — bet timeline is canon-broken")
+
+        rules = list_rules(book_config, "my-book")
+        assert len(rules) == 1
+        assert rules[0].title == "R1"
+
+    def test_default_ignores_callbacks_even_on_no_rule_match(self, book_config):
+        """Regression guard: without include_callbacks=True, a rule_match
+        that only exists in callback prose must stay a safe found:False
+        no-op — the exact behavior promote-rule and rules-audit already
+        depend on (SKILL.md instructs update_book_rule(rule_match=phrase,
+        delete=True) as a documented, known-safe fallback when a phrase
+        isn't a rule). Making the callback search implicit would turn
+        those callers' no-ops into silent, undocumented deletions of
+        unrelated callback prose that happens to contain the phrase as a
+        substring (Issue #605 review)."""
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_callback(book_config, "my-book", "Ch 5 fixer note — bet timeline is canon-broken")
+
+        result = update_rule(
+            book_config, "my-book",
+            rule_match="bet timeline is canon-broken", delete=True,
+        )
+        assert result["found"] is False
+        assert result["rule_type"] is None
+
+        # Untouched.
+        assert len(_list_rules_by_type(book_config, "my-book", "callback")) == 1
+
+    def test_update_by_match_deletes_callback(self, book_config):
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(book_config, "my-book", "**R1** — first")
+        append_callback(
+            book_config, "my-book",
+            "Ch 5 fixer note — bet timeline is canon-broken, and the chapter misses its own best beat.",
+        )
+
+        result = update_rule(
+            book_config, "my-book",
+            rule_match="bet timeline is canon-broken", delete=True,
+            include_callbacks=True,
+        )
+        assert result["found"] is True
+        assert result["changed"] is True
+        assert result["rule_type"] == "callback"
+        # Not a usable rule-list index — must not be replayable as rule_index.
+        assert result["rule_index"] == -1
+
+        # The callback row is actually gone from the DB, not just absent
+        # from list_rules() (which never contained it in the first place).
+        assert _list_rules_by_type(book_config, "my-book", "callback") == []
+        # The unrelated rule survives untouched.
+        rules = list_rules(book_config, "my-book")
+        assert len(rules) == 1
+        assert rules[0].title == "R1"
+
+    def test_update_by_match_replaces_callback_text_preserving_newlines(self, book_config):
+        # callback_validator parses multi-line callback bodies structurally
+        # (Issue #605 review) — a whitespace-collapsing normalize would
+        # corrupt that, unlike single-line rule bodies.
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_callback(
+            book_config, "my-book",
+            "Ch 5 fixer note — stale, already resolved\nkeep for context",
+        )
+
+        result = update_rule(
+            book_config, "my-book",
+            rule_match="stale, already resolved",
+            new_text="Ch 5 fixer note — resolved on-page in Ch 07\nkeep for context",
+            include_callbacks=True,
+        )
+        assert result["found"] is True
+        assert result["changed"] is True
+        assert result["rule_type"] == "callback"
+
+        stored = _list_rules_by_type(book_config, "my-book", "callback")
+        assert len(stored) == 1
+        assert stored[0].raw_text == "Ch 5 fixer note — resolved on-page in Ch 07\nkeep for context"
+
+    def test_update_by_match_skips_lint_for_callback_text(self, book_config):
+        # This exact text carries a ban cue ("Never") with no backtick/quoted
+        # pattern — under the *rule* lint contract that triggers a
+        # scanner_extracts_nothing warning (tools/claudemd/rules_lint.py).
+        # Proves the callback path actually suppresses the lint rather than
+        # the text just happening to lint clean either way.
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        lint_triggering_text = "Never use vague filler words in this note."
+        append_callback(book_config, "my-book", "placeholder")
+
+        result = update_rule(
+            book_config, "my-book",
+            rule_match="placeholder",
+            new_text=lint_triggering_text,
+            include_callbacks=True,
+        )
+        assert result["found"] is True
+        assert result["rule_type"] == "callback"
+        assert result["warnings"] == []
+        assert result["extracted_patterns"] == []
+
+        from tools.claudemd.rules_lint import lint_rule_text
+        assert lint_rule_text(lint_triggering_text)["warnings"], (
+            "fixture text must actually trigger a rule-contract lint warning "
+            "for this test to prove anything"
+        )
+
+    def test_no_match_in_rules_or_callbacks_returns_found_false(self, book_config):
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(book_config, "my-book", "**R1** — first")
+        append_callback(book_config, "my-book", "some callback note")
+
+        result = update_rule(
+            book_config, "my-book",
+            rule_match="nonexistent-phrase", delete=True,
+            include_callbacks=True,
+        )
+        assert result["found"] is False
+
+    def test_ambiguous_callback_match_error_mentions_callbacks(self, book_config):
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_callback(book_config, "my-book", "Ch 3 callback — shared phrase one")
+        append_callback(book_config, "my-book", "Ch 7 callback — shared phrase two")
+
+        with pytest.raises(AmbiguousMatchError) as exc:
+            update_rule(
+                book_config, "my-book",
+                rule_match="shared phrase", delete=True,
+                include_callbacks=True,
+            )
+        assert "callbacks:" in str(exc.value)
+
+    def test_rule_index_present_never_falls_back_to_callbacks(self, book_config):
+        """A rule_index that happens to resolve within the rule list wins
+        outright — pre-existing _resolve_target_index semantics (a lone
+        by_index match needs no by_match agreement). The callback fallback
+        must not additionally kick in here: rule_index being set at all
+        keeps resolution inside the rule list, so a rule_match that only
+        matches a callback is correctly ignored rather than accidentally
+        reaching into the callback list (Issue #605 review)."""
+        init_claudemd(book_config, PLUGIN_ROOT, "my-book")
+        append_rule(book_config, "my-book", "**R1** — keep me")
+        append_callback(book_config, "my-book", "Ch 3 callback — CB-A")
+
+        result = update_rule(
+            book_config, "my-book",
+            rule_index=0, rule_match="CB-A", delete=True,
+            include_callbacks=True,
+        )
+        assert result["found"] is True
+        assert result["rule_type"] == "rule"
+        assert result["old_text"] == "**R1** — keep me"
+
+        # The callback the rule_match text names is untouched.
+        callbacks = _list_rules_by_type(book_config, "my-book", "callback")
+        assert len(callbacks) == 1
+        assert "CB-A" in callbacks[0].raw_text
+
+    def test_list_rules_by_type_raises_if_book_missing(self, book_config):
+        with pytest.raises(FileNotFoundError):
+            _list_rules_by_type(book_config, "does-not-exist", "callback")
 
 
 # ---------------------------------------------------------------------------

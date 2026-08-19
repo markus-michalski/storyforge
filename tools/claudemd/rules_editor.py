@@ -131,6 +131,11 @@ def list_rules(config: dict[str, Any], book_slug: str) -> list[ParsedRule]:
     the book_rules DB table independent of the CLAUDE.md file (Phase 4
     migration, Issue #282; graceful-degradation fix Issue #573). Raises
     FileNotFoundError only if the book project itself doesn't exist.
+
+    Only ``rule_type="rule"`` rows — callbacks and workflow instructions are
+    a separate index space (see ``update_rule()``'s callback fallback,
+    Issue #605) and are intentionally excluded here so this list and its
+    indices stay stable for existing ``rule_index``-based callers.
     """
     book_root = resolve_project_path(config, book_slug)
     if not book_root.is_dir():
@@ -139,6 +144,28 @@ def list_rules(config: dict[str, Any], book_slug: str) -> list[ParsedRule]:
     conn, book_num = _open_book_db(config, book_slug)
     try:
         rows = _db_list_rules(conn, book_num=book_num, rule_type="rule")
+    finally:
+        conn.close()
+
+    return [_build_parsed_rule(i, row) for i, row in enumerate(rows)]
+
+
+def _list_rules_by_type(config: dict[str, Any], book_slug: str, rule_type: str) -> list[ParsedRule]:
+    """Same as :func:`list_rules` but for an arbitrary ``rule_type``.
+
+    Indices are local to this ``rule_type``'s own rows — not comparable
+    across types. Used by :func:`update_rule`'s callback fallback (#605).
+    Same book-existence guard as :func:`list_rules` — raises
+    ``FileNotFoundError`` rather than silently returning ``[]`` for a
+    nonexistent book.
+    """
+    book_root = resolve_project_path(config, book_slug)
+    if not book_root.is_dir():
+        raise FileNotFoundError(f"Book '{book_slug}' not found: {book_root}")
+
+    conn, book_num = _open_book_db(config, book_slug)
+    try:
+        rows = _db_list_rules(conn, book_num=book_num, rule_type=rule_type)
     finally:
         conn.close()
 
@@ -159,6 +186,7 @@ def update_rule(
     new_text: str | None = None,
     delete: bool = False,
     validate: bool = True,
+    include_callbacks: bool = False,
 ) -> dict[str, Any]:
     """Replace or remove a rule in the book_rules DB.
 
@@ -187,25 +215,96 @@ def update_rule(
     ``book_slug`` directly, mirroring the ``cover_images`` fix from #558) —
     removing this guard here does not make either worse, since
     ``list_rules()`` was already equally exposed since #573 shipped.
+
+    Issue #605: ``list_rules()`` only ever sees ``rule_type="rule"`` rows,
+    so a ``rule_match`` naming a callback (written via ``append_callback()``)
+    could never be found or deleted/resolved. When ``include_callbacks=True``
+    and no match turns up among plain rules with a bare ``rule_match``
+    (``rule_index`` *not* set — see below), this falls back to searching the
+    book's callback rows by the same title/substring rules. A callback hit
+    is applied directly and reported with ``rule_index: -1`` and
+    ``rule_type: "callback"`` — never a real index — because the callback
+    list is a separate index space and a plain integer here would be
+    indistinguishable from (and could be replayed as) an index into the
+    rule list.
+
+    ``include_callbacks`` defaults to ``False`` and must be opted into
+    deliberately: existing callers (``promote-rule``, ``rules-audit``) call
+    ``update_rule(rule_match=..., delete=True)`` as a documented,
+    known-safe no-op when the phrase isn't a rule — a book's callback
+    prose is free text and can easily contain an unrelated short banned
+    phrase as a substring, so making the callback search implicit would
+    turn those callers' safe no-ops into silent, undocumented callback
+    deletions.
+
+    The callback fallback only runs when ``rule_index`` is unset (in
+    addition to ``include_callbacks=True``). If a caller passes
+    ``rule_index`` (e.g. reusing a previous callback result's index,
+    mistaking it for a rule index) and it happens to resolve inside the
+    *rule* list, that rule wins outright — ``_resolve_target_index``
+    already returns on a lone ``by_index`` match without requiring
+    ``rule_match`` to agree. Skipping the fallback whenever ``rule_index``
+    is present keeps that pre-existing single-sided resolution from ever
+    reaching into the callback list and mutating the wrong row.
     """
     _validate_args(rule_index, rule_match, new_text, delete)
 
     rules = list_rules(config, book_slug)
-
     target_index = _resolve_target_index(rules, rule_index, rule_match)
-    if target_index is None:
-        return {
-            "found": False,
-            "changed": False,
-            "rule_index": -1,
-            "old_text": "",
-            "new_text": "",
-            "warnings": [],
-            "extracted_patterns": [],
-        }
 
-    rule = rules[target_index]
+    if target_index is not None:
+        return _apply_mutation(
+            config, book_slug, rules[target_index], target_index,
+            new_text=new_text, delete=delete, validate=validate, rule_type="rule",
+        )
+
+    if include_callbacks and rule_index is None and rule_match is not None:
+        callbacks = _list_rules_by_type(config, book_slug, "callback")
+        try:
+            callback_index = _resolve_target_index(callbacks, None, rule_match)
+        except AmbiguousMatchError as exc:
+            raise AmbiguousMatchError(str(exc).replace("rules:", "callbacks:", 1)) from exc
+        if callback_index is not None:
+            return _apply_mutation(
+                config, book_slug, callbacks[callback_index], -1,
+                new_text=new_text, delete=delete, validate=validate, rule_type="callback",
+            )
+
+    return {
+        "found": False,
+        "changed": False,
+        "rule_index": -1,
+        "rule_type": None,
+        "old_text": "",
+        "new_text": "",
+        "warnings": [],
+        "extracted_patterns": [],
+    }
+
+
+def _apply_mutation(
+    config: dict[str, Any],
+    book_slug: str,
+    rule: ParsedRule,
+    target_index: int,
+    *,
+    new_text: str | None,
+    delete: bool,
+    validate: bool,
+    rule_type: str = "rule",
+) -> dict[str, Any]:
+    """Replace or remove ``rule`` in the DB and build the result envelope.
+
+    ``rule_type`` controls two rule-only behaviors that don't apply to
+    callbacks: whitespace normalization collapses a rule's body to a
+    single line (rules are single-line bullets), but callbacks may be
+    genuinely multi-line prose that ``callback_validator`` parses
+    structurally — collapsing it would corrupt the text it depends on.
+    Likewise the manuscript-checker pattern lint is meaningless for
+    callback prose and would just emit a confusing false warning.
+    """
     old_text = rule.raw_text
+    is_rule = rule_type == "rule"
 
     conn, _ = _open_book_db(config, book_slug)
     try:
@@ -214,16 +313,17 @@ def update_rule(
             result_new_text = ""
         else:
             assert new_text is not None
-            cleaned = _normalize_new_text(new_text)
+            cleaned = _normalize_new_text(new_text) if is_rule else new_text.strip()
             if cleaned == old_text:
                 return {
                     "found": True,
                     "changed": False,
                     "rule_index": target_index,
+                    "rule_type": rule_type,
                     "old_text": old_text,
                     "new_text": old_text,
-                    "warnings": _maybe_lint(old_text, validate),
-                    "extracted_patterns": _extracted_patterns_for(old_text),
+                    "warnings": _maybe_lint(old_text, validate) if is_rule else [],
+                    "extracted_patterns": _extracted_patterns_for(old_text) if is_rule else [],
                 }
             update_rule_text(conn, rule.rule_id, cleaned)
             result_new_text = cleaned
@@ -234,10 +334,11 @@ def update_rule(
         "found": True,
         "changed": True,
         "rule_index": target_index,
+        "rule_type": rule_type,
         "old_text": old_text,
         "new_text": result_new_text,
-        "warnings": _maybe_lint(result_new_text, validate) if not delete else [],
-        "extracted_patterns": _extracted_patterns_for(result_new_text) if not delete else [],
+        "warnings": _maybe_lint(result_new_text, validate) if (not delete and is_rule) else [],
+        "extracted_patterns": _extracted_patterns_for(result_new_text) if (not delete and is_rule) else [],
     }
 
 

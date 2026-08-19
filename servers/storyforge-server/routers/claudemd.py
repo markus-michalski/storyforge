@@ -334,31 +334,60 @@ def update_book_rule(
     new_text: str = "",
     delete: bool = False,
     validate: bool = True,
+    include_callbacks: bool = False,
 ) -> str:
-    """Replace or remove a rule in the book_rules DB.
+    """Replace or remove a rule — or, opt-in, a callback — in the book_rules DB.
 
     Resolution: ``rule_match`` is matched first against bold titles
     (``**Title**``), then against rule body substrings — case-insensitive.
     ``rule_index`` is the unambiguous fallback. When both are given they
     must agree on the same rule.
 
+    Callback fallback (Issue #605): pass ``include_callbacks=True`` to also
+    search the book's callback entries (written via ``append_book_callback``)
+    by the same match rules when ``rule_match`` (with no ``rule_index``)
+    matches nothing among plain rules. A callback hit is applied directly —
+    this is how a resolved/stale callback gets cleared, since callbacks have
+    no dedicated delete tool. ``include_callbacks`` defaults to ``False``:
+    other skills use a ``rule_match`` delete as a known-safe no-op when the
+    phrase isn't a rule, and callback prose is free text that can easily
+    contain an unrelated short phrase as a substring — leave it off unless
+    you specifically mean to reach into callbacks. Passing ``rule_index``
+    together with ``rule_match`` always resolves within the plain-rule list
+    only — it never falls back to callbacks even with
+    ``include_callbacks=True`` — because the two are separate index spaces
+    and letting the two mix could resolve to the wrong row.
+
     Args:
         book_slug: Book slug.
         rule_index: 0-based index among this book's DB rules. ``-1`` = unset.
-        rule_match: Substring to match against rule title or body. Empty
-            string = unset.
-        new_text: Replacement text for the rule body (without leading
-            ``- ``). Required unless ``delete=True``.
-        delete: If True, remove the matched rule. Mutually exclusive
-            with ``new_text``.
-        validate: If True, lint the new rule against the
-            manuscript-checker pattern contract and return warnings.
+        rule_match: Substring to match against rule (or, with
+            ``include_callbacks=True`` as a fallback, callback) title or
+            body. Empty string = unset.
+        new_text: Replacement text for the rule/callback body (without
+            leading ``- ``). Required unless ``delete=True``.
+        delete: If True, remove the matched rule/callback. Mutually
+            exclusive with ``new_text``.
+        validate: If True, lint the new *rule* text against the
+            manuscript-checker pattern contract and return warnings. Never
+            applies to callback matches — callback prose isn't a scannable
+            pattern rule, so no lint is attempted and ``warnings``/
+            ``extracted_patterns`` come back empty either way.
+        include_callbacks: If True, fall back to searching callback entries
+            when ``rule_match`` finds no plain rule (see above). Default
+            False preserves the exact rule-only behavior every existing
+            caller already depends on.
 
-    Returns: ``{found, changed, rule_index, old_text, new_text,
+    Returns: ``{found, changed, rule_index, rule_type, old_text, new_text,
     warnings, extracted_patterns}``. ``found=False`` means no matching rule
-    exists in the DB (including a book that hasn't run init_book_claudemd()
-    yet, Issue #580 — CLAUDE.md is not required). ``changed=False`` means
-    the new text matched the existing text (idempotent no-op).
+    (or, with ``include_callbacks=True``, callback) exists in the DB
+    (including a book that hasn't run init_book_claudemd() yet, Issue #580 —
+    CLAUDE.md is not required); ``rule_type`` is ``None`` in that case.
+    ``changed=False`` means the new text matched the existing text
+    (idempotent no-op). ``rule_type`` is otherwise ``"rule"`` or
+    ``"callback"``; for a callback hit ``rule_index`` is always ``-1`` (not
+    a usable index — the callback list has its own, unexposed index space,
+    so this value must not be fed back into a later call's ``rule_index``).
     """
     config = _app.load_config()
     resolved_index = rule_index if rule_index >= 0 else None
@@ -373,6 +402,7 @@ def update_book_rule(
             new_text=resolved_new_text,
             delete=delete,
             validate=validate,
+            include_callbacks=include_callbacks,
         )
     except (FileNotFoundError, BookNotLinkedToSeriesError) as exc:
         return json.dumps({"error": str(exc)})
