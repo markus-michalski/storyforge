@@ -25,6 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [3.6.3] - 2026-08-19
+
+### Changed
+- document comma-before-tag question-as-statement variant (#614)
+- bump the pip-all group with 2 updates (#601)
+
+### Fixed
+- resolve 7 manuscript-checker issues (gate exceptions, false positives, dedup) (#616)
+- point author-vocab/Don'ts enforcement at the discoveries DB instead of stale files (#607)
+- let update_book_rule resolve/delete callback entries (#606)
+
 ## [3.6.2] - 2026-08-15
 
 ### Fixed
@@ -784,3 +795,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.6.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.0
 [3.6.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.1
 [3.6.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.2
+[3.6.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.3
