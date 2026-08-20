@@ -2,7 +2,7 @@
 book_categories: [fiction, memoir]
 craft_topic: voice-and-truth
 status: stable
-last_reviewed: 2026-05-13
+last_reviewed: 2026-08-20
 ---
 
 # Anti-AI Patterns: A Writer's Guide to Authentic Fiction
@@ -26,7 +26,7 @@ The following terms appear with suspicious frequency in AI-generated fiction and
 5. **Landscape** (metaphorical) — "The technological landscape" or "political landscape." AI's favorite abstraction.
 6. **Embark** / **Embark on** — Overly formal and archaic. Humans say "start" or "begin."
 7. **Resonate** — "This idea resonates..." AI's go-to word when an emotional connection should be shown, not stated.
-8. **Pivotal** — Overused intensifier. Humans prefer "crucial," "turning point," or "critical."
+8. **Pivotal** — Overused intensifier. Humans prefer "turning point" or "critical" (not "crucial" — same AI-intensifier reflex, see #67).
 9. **Multifaceted** — Sounds sophisticated but is often meaningless filler.
 10. **Realm** — AI's preferred term for domains, fields, or areas. Humans use these simpler words.
 11. **Testament** — As in "a testament to..." Formal and generic.
@@ -81,6 +81,29 @@ The following terms appear with suspicious frequency in AI-generated fiction and
 60. **On the other hand** — AI's preferred hedge when presenting an alternative view. Vanishingly rare in authentic prose or speech.
 
 > **Note:** Entries 56–60 also appear in Section 2 (Too-Clean Transitions) as a pattern-level structural tell. Including them here makes them available for vocabulary-level scanning in chapter-humanizer Pass 2, so they are caught even when used in isolation.
+
+> **Bold-term contract:** every bolded term below becomes a literal, un-filtered regex via
+> `load_global_ai_tells` — no part-of-speech or literal/metaphorical check. Only bold a term when
+> its literal, everyday use in fiction prose is rare (see the `Key`/door-key incident this
+> catalog once shipped and had to revert). A word that's *usually* the tell but sometimes literal
+> belongs in prose only, unbolded, as a Pass-2 judgment note — not as an auto-matched term.
+
+61. Nestled in — "Nestled in the heart of..." Real-estate/travel-brochure filler for describing where a place sits. Not bolded: "nestled in" is also the ordinary preposition for legitimate concrete body-language prose ("nestled in her arms," "nestled in the crook of his neck," "nestled in the blanket") — narrowing from the bare verb doesn't remove the collision, only the geography sense (the sales-brochure "nestled in the heart of/valley of/hills of" pattern) is the tell.
+62. In the heart of — Sales-brochure geography ("nestled in the heart of the valley"). Not bolded: the same phrase describes literal geography or anatomy ("in the heart of the forest," "in the heart of the storm") too often to auto-match safely.
+63. Boasts (non-literal, as in "the town boasts...") — Advertising verb standing in for "has." Not bolded: a character literally boasting ("he boasts about his catch") is ordinary, legitimate dialogue-adjacent prose — judge by context in Pass 2.
+64. **Breathtaking** / **Stunning** — Empty superlatives for scenery or spectacle. Show what's striking about it instead of naming the reaction. (Same accepted advisory-risk profile as existing entries #4 "Vibrant" and #43 "Rich" — warn-severity, not a hard block.)
+65. **Renowned** — "The renowned..." Undercuts itself by asserting fame instead of demonstrating it.
+66. Valuable — Vague positive intensifier that rarely earns its weight. Not bolded: collides with the literal noun "valuables" (heist/theft/inheritance scenes) — same failure class as the `Key` incident.
+67. **Crucial** — Same reflex as "pivotal" (#8) — naming importance instead of dramatizing it. (Entry #8 was updated to stop recommending "crucial" as pivotal's replacement, so the two entries no longer contradict each other.)
+68. Key role / Key moment — Same tell as "pivotal": importance asserted, not shown. Not bolded: even with "key role"/"key moment" as the literal match text, the risk of colliding with ordinary sentences ("she found the key role players hard to reach" is contrived, but "a key" the object recurs constantly in genre fiction) makes this a Pass-2 judgment call rather than an auto-matched term.
+69. Quietly (as an intensifier before an adjective — "quietly determined," "quietly devastating") — Not bolded and not banned as a manner adverb: "she said quietly" is an ordinary, extremely common literal dialogue tag. Only the attributive-intensifier use is the tell; a scanner without part-of-speech awareness cannot tell the two apart, so this stays Pass-2-only.
+70. Garner (as in "garnered attention/support") — Stiff and formal; nobody says this aloud. Not bolded: "Garner" is a common English surname — a character or place named Garner would warn on every mention, the same failure class as the `Key` incident.
+71. Align with — Corporate-speak bleeding into narration ("align with her values"). Not bolded: exact-phrase matching misses every inflected form in narrative past tense ("aligned with," "aligns with"), and broadening to the bare stem risks catching literal alignment ("aligned the sights with the target").
+72. **Additionally** — A fourth flavor of the same mechanical connector as Furthermore/Moreover/In addition (#56–58).
+73. **In order to** — Humans say "to."
+74. **Due to the fact that** — Humans say "because."
+75. **At this point in time** — Humans say "now."
+76. X is the Y of Z — The formulaic-saying construction: "\_\_\_ is the language/currency/architecture of \_\_\_" (e.g. "Symmetry is the language of trust"). Turns an ordinary claim into a saying that sounds deep but adds no detail. Not bolded — this is a Pass-2 judgment call; "the architecture of the building" or "the language of the elves" used literally (worldbuilding, not metaphor) is fine and must not be flagged, and no fixed placeholder phrase can be auto-matched anyway.
 
 ### Why These Words Signal AI
 
@@ -331,7 +354,7 @@ This creates voice.
 
 ### Avoid the Flagged Words Entirely
 
-Go through your work and remove every instance of the 55 flagged words listed above. Replace them with:
+Go through your work and remove every instance of the flagged words and phrases listed above. Replace them with:
 
 - Active verbs
 - Concrete nouns
@@ -538,7 +561,9 @@ Real human writers render emotional weight through bodies, actions, and dialog. 
 - Same verb negated in a temporal-refusal clause
 - Same logical constraint repeated across two consecutive sentences
 
-Each of the eight sub-shapes below has been observed repeatedly in chapter drafts. Each is invisible to the standard banned-word lists. Each requires its own countermeasure.
+Each of the sub-shapes below has been observed repeatedly in chapter drafts. Each is invisible to the standard banned-word lists. Each requires its own countermeasure.
+
+Section 11.11–11.13 extend the catalog to a related family — verb substitution and mechanical repetition — that isn't "elegant abstraction" in the strict sense above, but shares the same underlying cause: the model reaching for a formal or varied surface instead of the plain, repeated word a human would actually use. Unlike 11.1–11.10, none of these three carry an automated regex — fiction's overwhelming past-tense narration and each shape's dependence on surrounding context (is the subject animate? is this the third renaming in a row, or a deliberate one-off?) make a reliable regex impractical without either missing most real instances or flagging ordinary literal prose. These three are Pass-1 judgment calls for chapter-humanizer's LLM-driven scan, not catalog-enforced hard patterns.
 
 ### 11.1 Count-and-Editorialise Fragment
 
@@ -723,6 +748,48 @@ The bad pattern: a paragraph where the narrator refuses to commit to a single di
 **Banned shape (density):** `\b(seemed|appeared to|as if|might have)\b` — count per scene; flag when the combined total reaches 3+ and the use is hedge rather than literal simile or direct comparison.
 
 **Diagnostic question:** Remove the hedge word and read the sentence without it. If it still makes sense, cut the hedge.
+
+### 11.11 Verb Substitution ("Avoiding Is/Are")
+
+A simple copula (*is*, *are*, *has*) is replaced with a longer, more formal verb — *serves as*, *stands as*, *marks*, *represents*, *boasts*, *features*, *offers*. The substitute verb adds no information; it only avoids the plain word.
+
+*AI Example:*
+> The workshop serves as her sanctuary. It boasts a wall of tools that represents twenty years of collecting.
+
+*Human Example:*
+> The workshop was her sanctuary. Twenty years of tools covered one wall.
+
+The bad pattern: a formal verb doing the job of *is/are/has* with no added meaning. Not every use of these verbs is a tell — most are ordinary literal action verbs: "he offers a hand," "she marks the page," "the scar marks a line from wrist to elbow," "he stands as she enters the room," "the cover features a woman in a corset." A regex cannot tell literal action from copula-substitution, and fiction's dominant past tense ("served as," not "serves as") means a present-tense-only pattern would miss almost every real instance anyway — this shape is judged by ear, not matched. Flag only when the sentence would lose nothing by substituting the plain copula, regardless of tense.
+
+**Detection:** no single regex; scan manually for a formal verb (*serves as, stands as, marks, represents, boasts, features, offers*, in any tense) standing in for a plain *is/are/has* with no added meaning.
+
+### 11.12 Synonym-Cycling (Renaming the Same Referent)
+
+The same character or object is renamed with a fresh synonym in each consecutive sentence instead of being named once and then referred to plainly (a pronoun, or the same noun repeated).
+
+*AI Example:*
+> The protagonist faces many challenges. The main character must overcome obstacles. The central figure eventually triumphs.
+
+*Human Example:*
+> The protagonist faces many challenges but eventually triumphs.
+
+The bad pattern: three or more distinct labels for one referent within a short span (a paragraph or scene-beat), each substituted to avoid literal repetition. Do not flag a single deliberate re-naming for clarity or effect (e.g. switching from a name to a title once, for emphasis) — the tell is the *cycling*, not any one synonym.
+
+**Detection:** no single regex; scan manually for 3+ distinct nouns/epithets referring to the same entity within ~5 sentences, where a plain pronoun or repeated noun would have worked.
+
+### 11.13 Repeated Sentence-Openings
+
+Three or more consecutive sentences open with the same subject (most often *He*, *She*, or a character's name), applied mechanically rather than for rhythm.
+
+*AI Example:*
+> She noted the door. She noted the lock on it. She checked the window. She filed it all away.
+
+*Human Example:*
+> She noted the door and its lock, checked the window, then filed it all away.
+
+The bad pattern: 3+ consecutive sentences sharing the same opening subject, with no rhetorical intent. Do **not** flag deliberate anaphora used for rhythm or escalation (e.g. "She came. She saw. She conquered.") — the tell is repetition applied *by rule*, not *by ear*. When in doubt, ask whether merging the sentences loses anything; if not, it's the tell.
+
+**Detection:** no single regex; scan manually for 3+ consecutive sentences sharing an opening subject within one paragraph.
 
 ### Why These Patterns Cluster
 

@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- `chapter-humanizer`: extended the anti-AI-patterns catalog with gaps found by comparing
+  against the external `blader/humanizer` skill — verb-substitution, synonym-cycling, and
+  repeated-sentence-opening shapes (Section 11.11–11.13), plus 16 new Section 1 vocabulary
+  and phrase entries. Added an explicit fact-preservation rule to chapter-humanizer's Surgical
+  Mode, hard-constraint for memoir books.
 
 ### Changed
 - Nothing yet

@@ -290,6 +290,48 @@ class TestLoadGlobalAITells:
         assert all(p.severity == SEVERITY_WARN for p in patterns)
         assert all(p.source == "global anti-ai" for p in patterns)
 
+    def test_loads_blader_comparison_additions(self):
+        """The Section 1 entries added by the blader/humanizer skill
+        comparison. Locks in current extraction so a future catalog edit
+        can't silently un-bold or typo one of these without a test failure.
+
+        Deliberately excludes every entry that was left unbolded during
+        review because its literal fiction use collided with common prose
+        (Nestled in, In the heart of, Boasts, Valuable, Key role/moment,
+        Quietly, Garner, Align with, X is the Y of Z) — those must NOT
+        appear here; if one does, the bold-term contract in
+        anti-ai-patterns.md was violated again.
+        """
+        patterns = load_global_ai_tells(PLUGIN_ROOT)
+        labels = {p.label.lower() for p in patterns}
+        for term in (
+            "breathtaking",
+            "stunning",
+            "renowned",
+            "crucial",
+            "additionally",
+            "in order to",
+            "due to the fact that",
+            "at this point in time",
+        ):
+            assert term in labels, f"expected new vocab term missing: {term!r}"
+        for risky_term in (
+            "nestled in",
+            "in the heart of",
+            "boasts",
+            "valuable",
+            "key role",
+            "key moment",
+            "quietly",
+            "garner",
+            "align with",
+        ):
+            assert risky_term not in labels, (
+                f"{risky_term!r} was deliberately left unbolded (literal-use "
+                "false-positive risk, same class as the Key/door-key "
+                "incident) — it must not be auto-matched"
+            )
+
     def test_missing_file_returns_empty(self, tmp_path):
         patterns = load_global_ai_tells(tmp_path)
         assert patterns == []
