@@ -170,3 +170,39 @@ class TestLoadGlobalShapeBans:
         )
         matches = [m.group(0) for m in shape_11_1.pattern.finditer(raw_chapter)]
         assert matches == ["Two words."], matches
+
+    def test_11_11_verb_substitution_has_no_automated_regex(self):
+        """11.11 (Verb Substitution / "Avoiding Is/Are") is documented as a
+        manual-judgment shape, not an automated regex — an earlier draft
+        shipped a `**Banned shape:**` regex for it that both missed the tell
+        in its dominant past-tense form ("served as") and flagged ordinary
+        literal action verbs ("he offers a hand", "the cover features a
+        woman in a corset"), verified against real manuscript prose during
+        review. It was demoted to manual judgment, matching 11.12/11.13.
+        This guards against silently re-adding a regex for it without
+        re-doing that false-positive analysis. Checks the whole verb-substitution
+        vocabulary, not just "serves as" — a narrower guard checking one verb
+        would pass a re-added regex spelled with a different subset (e.g.
+        `\b(stands as|marks|represents|boasts)\b`) while defeating the point.
+        """
+        plugin_root = Path(__file__).resolve().parent.parent.parent
+        patterns = load_global_shape_bans(plugin_root)
+        verb_substitution_terms = (
+            "serves as",
+            "stands as",
+            "marks a",
+            "marks the",
+            "represents a",
+            "represents the",
+            "boasts",
+            "features",
+            "offers",
+        )
+        for label in (p.label for p in patterns):
+            for term in verb_substitution_terms:
+                assert term not in label, (
+                    f"verb-substitution term {term!r} found in shape-ban label "
+                    f"{label!r} — 11.11 was demoted to manual judgment; re-adding "
+                    "a regex for it requires re-doing the false-positive analysis "
+                    "in reference/craft/anti-ai-patterns.md §11.11"
+                )

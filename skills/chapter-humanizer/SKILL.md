@@ -63,12 +63,15 @@ Scan every sentence for the following constructions. For each hit, record: line 
 | **11.8 Expository repeat** | Same noun-phrase or logical constraint appearing in two consecutive sentences — second sentence restates first to justify a narrative gap |
 | **11.9 Negation-as-assertion loop** | `It wasn't [X]. It was [Y].` or `Not [X]. [Y].` — flag on 2nd+ occurrence per scene |
 | **11.10 Hedge-word density** | `seemed`, `appeared to`, `as if` (non-simile use), `might have` — flag when 3+ combined instances per scene |
+| **11.11 Verb substitution** | `serves as`, `stands as`, `marks`, `represents`, `boasts`, `features`, `offers` (any tense) standing in for a plain *is/are/has* — no regex, judge by ear; most uses of these verbs are ordinary literal action ("he offers a hand"), flag only where the substitution adds no meaning |
+| **11.12 Synonym-cycling** | 3+ distinct nouns/epithets for the same referent within ~5 sentences (e.g. "the protagonist... the main character... the central figure...") — no regex, judge by ear; do NOT flag a single deliberate re-naming |
+| **11.13 Repeated sentence-openings** | 3+ consecutive sentences sharing the same opening subject, applied mechanically — no regex, judge by ear; do NOT flag deliberate anaphora ("She came. She saw. She conquered.") |
 
 **11.9 / 11.10 density rules:** Count instances per scene. 11.9: flag from the second negation-assertion per scene onward. 11.10: flag when *seemed* / *appeared to* / *as if* (non-simile) / *might have* reaches 3+ combined per scene — report the count and all instances.
 
 ### Pass 2: Flagged Vocabulary (Section 1)
 
-Scan for the 60 flagged words and phrases from Section 1 of anti-ai-patterns.md. Entries 1–55 include core AI-vocabulary (`delve`, `tapestry`, `nuanced`, `vibrant`, `landscape` (metaphorical), `embark`, `resonate`, `pivotal`, `realm`, `testament`, `intricate`, `myriad`, `unprecedented`, `foster`, `navigate` (metaphorical), etc.). Entries 56–60 are formal transition tells: `Furthermore`, `Moreover`, `In addition`, `Conversely`, `On the other hand`.
+Scan for the flagged words and phrases from Section 1 of anti-ai-patterns.md (count intentionally not repeated here — the catalog is the single source of truth; only bolded terms are auto-matched by `load_global_ai_tells`, unbolded Pass-2-judgment entries are not). Core AI-vocabulary includes `delve`, `tapestry`, `nuanced`, `vibrant`, `landscape` (metaphorical), `embark`, `resonate`, `pivotal`, `realm`, `testament`, `intricate`, `myriad`, `unprecedented`, `foster`, `navigate` (metaphorical), etc.; formal transition tells (`Furthermore`, `Moreover`, `In addition`, `Conversely`, `On the other hand`); sales-language scene-setting words (`nestled in`, `breathtaking`, `renowned`, etc.); and filler words/phrases (`Additionally`, `in order to`, `due to the fact that`, etc.).
 
 For each hit: record word, sentence, context. Flag only non-literal uses — words that are clearly literal or in-character dialect are excluded from the scan (e.g. flag "the tapestry of lies wove tighter" — metaphorical; do NOT flag "she folded the tapestry on the loom" — literal physical object).
 
@@ -177,12 +180,13 @@ explicitly ends the humanizer session), record that chapter-humanizer has run on
 
 ## Surgical Mode — Core Constraints
 
-All fixes in this skill operate under the following four rules:
+All fixes in this skill operate under the following five rules:
 
 1. **Touch only the flagged construction.** The replacement covers the hit and nothing else — surrounding prose, style, and content remain as the chapter-reviewer left them.
 2. **Verify alternatives before proposing.** Confirm that the proposed replacement is free of Section 11 shapes, flagged vocabulary, and other known AI-tells before presenting it.
 3. **Author voice is mandatory.** Every proposed alternative must match the author's documented tone, rhythm, and vocabulary. An alternative that sounds like a different author is a regression, not a fix.
 4. **Read the full file before writing.** GH#27 applies here — see Applying Changes, step 1, for the exact re-read requirement.
+5. **Preserve every fact.** Before presenting a proposed fix, check it does not add, remove, or alter any name, number, date, location, or established plot/canon detail from the original sentence — a humanizer pass rewrites construction, not content. For **memoir books**, treat this as a hard constraint, not a style preference: a rewrite that quietly shifts a real detail is not a style fix, it's a factual error about someone's actual life. If a proposed alternative cannot preserve every fact without reintroducing the flagged construction, say so and ask the user how to resolve the conflict instead of silently dropping the detail.
 
 ## Rules
 
