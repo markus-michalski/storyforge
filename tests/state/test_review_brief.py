@@ -277,13 +277,18 @@ def test_cap_canon_facts_changed_group_is_also_bounded():
     assert len(kept) < 500
 
 
-def test_cap_canon_facts_oldest_first_applies_to_changed_group_too():
-    """Issue #501 test-gap: oldest_first must invert ranking within the
-    CHANGED-facts priority tier, not just the ACTIVE rest tier — continuity_brief
-    relies on this (a whole-manuscript scan wants early revisions, which have
-    had more subsequent chapters to go stale in, protected the same way it
-    wants early ACTIVE facts protected). This was documented in
-    continuity_brief.py's code comment but had no direct test."""
+def test_cap_canon_facts_changed_group_always_newest_first_regardless_of_oldest_first():
+    """Issue #506 failure mode 1 (confirmed with real Firelight evidence in the
+    2026-08-19 recheck): the CHANGED-facts priority tier must always drop its
+    oldest revisions first, independent of oldest_first. oldest_first exists to
+    protect early, foundational ACTIVE canon on a whole-manuscript scan — but a
+    CHANGED fact is a revision audit trail, and the newest revision (often a
+    supersession notice invalidating an older one) is the one most likely to
+    need author/tool attention. Applying oldest_first to this tier too (the
+    #501 decision, superseded here) dropped exactly those newest revisions
+    first under a tight budget — confirmed against the real Firelight DB,
+    where a supersession notice was silently evicted in favor of the stale
+    record it superseded."""
     changed = [_fact(i, status="CHANGED") for i in range(1, 11)]
     one_entry_size = len(json.dumps(changed[0])) + 1
 
@@ -292,8 +297,8 @@ def test_cap_canon_facts_oldest_first_applies_to_changed_group_too():
     )
 
     kept_chapters = {_chapter_num_from_fact(f) for f in kept}
-    assert 1 in kept_chapters
-    assert 10 not in kept_chapters
+    assert 10 in kept_chapters
+    assert 1 not in kept_chapters
     assert truncated is True
     assert total == 10
 
@@ -391,6 +396,114 @@ def test_cap_canon_facts_keeps_chapter_unattributed_facts():
     kept, truncated, total = _cap_canon_facts(facts, char_budget=one_entry_size * 5)
 
     assert unattributed[0] in kept
+    assert truncated is True
+
+
+def test_cap_canon_facts_keeps_chapter_unattributed_facts_in_changed_tier_with_oldest_first():
+    """Issue #506 review finding: the CHANGED-tier newest-first fix above must
+    not come at the expense of chapter-unattributed facts (chapter_num=0)
+    sharing that same priority tier. Riding the sign of chapter_rank to force
+    newest-first for CHANGED facts also flips the *relative* position of
+    chapter-0 facts (whose own chapter_rank is 0 either way) from first in
+    the tier — the guarantee this fixture pins — to last, silently evicting
+    them under oldest_first=True (continuity_brief's whole-manuscript scan),
+    swapping one silent eviction (#506's supersession notice) for another."""
+    unattributed = [_fact(0, fact="Migrated global fact")]
+    changed = [_fact(i, status="CHANGED") for i in range(1, 11)]
+    facts = unattributed + changed
+    one_entry_size = len(json.dumps(changed[0])) + 1
+
+    kept, truncated, total = _cap_canon_facts(
+        facts, char_budget=one_entry_size * 5, oldest_first=True,
+    )
+
+    assert unattributed[0] in kept, "chapter-0 facts must survive first, ahead of CHANGED facts"
+    assert truncated is True
+
+
+def test_cap_canon_facts_changed_tier_ordering_vs_unattributed_unchanged_for_oldest_first_false():
+    """Issue #506 review finding (round 2): the chapter-0-first fix above must
+    be scoped to oldest_first=True (continuity_brief) only. review_brief's
+    default oldest_first=False call was never part of #506's failure mode and
+    already ranked chapter-0 facts LAST within the CHANGED/unattributed
+    priority tier before this fix existed (CHANGED facts already sorted
+    newest-first there, chapter-0's own rank of 0 loses to any positive
+    chapter). Pinning that this stays byte-for-byte unchanged — broadening
+    the chapter-0-always-first guarantee to this path too would be an
+    undocumented, untested scope expansion beyond what #506 asked for."""
+    unattributed = [_fact(0, fact="Migrated global fact")]
+    changed = [_fact(i, status="CHANGED") for i in range(1, 11)]
+    facts = unattributed + changed
+    one_entry_size = len(json.dumps(changed[0])) + 1
+
+    kept, truncated, total = _cap_canon_facts(
+        facts, char_budget=one_entry_size * 5, oldest_first=False,
+    )
+
+    assert unattributed[0] not in kept, "chapter-0 must still lose to CHANGED facts here, as before #506"
+    kept_chapters = {_chapter_num_from_fact(f) for f in kept if f["status"] == "CHANGED"}
+    assert 10 in kept_chapters, "newest CHANGED facts still win the budget"
+    assert truncated is True
+
+
+def test_cap_canon_facts_changed_and_chapter_zero_on_same_fact():
+    """Issue #506 review finding: the priority tier's membership condition is
+    an OR (``status == "CHANGED" or chapter_num(f) == 0``), so a fact can be
+    BOTH — a chapter-0 revision. force_newest_first makes its chapter_rank 0
+    (same as any chapter-0 fact; CHANGED status adds no separate rank
+    component), and unattributed_first = oldest_first and True = oldest_first
+    — so it gets the same "always in scope" treatment as a plain chapter-0
+    ACTIVE fact, under both oldest_first values, rather than being silently
+    dropped or double-counted by the OR."""
+    changed_and_unattributed = [_fact(0, status="CHANGED", fact="Migrated revision, no chapter")]
+    changed = [_fact(i, status="CHANGED") for i in range(1, 11)]
+
+    for oldest_first in (True, False):
+        facts = changed_and_unattributed + changed
+        one_entry_size = len(json.dumps(changed[0])) + 1
+
+        kept, truncated, total = _cap_canon_facts(
+            facts, char_budget=one_entry_size * 5, oldest_first=oldest_first,
+        )
+
+        if oldest_first:
+            assert changed_and_unattributed[0] in kept, (
+                "chapter-0 revision must rank first, same as any chapter-0 fact, when oldest_first=True"
+            )
+        else:
+            assert changed_and_unattributed[0] not in kept, (
+                "chapter-0 revision loses to newer CHANGED facts when oldest_first=False, "
+                "same as any chapter-0 fact — unchanged from pre-#506 behavior"
+            )
+        assert truncated is True
+
+
+def test_cap_canon_facts_priority_and_rest_tiers_diverge_within_one_call():
+    """Issue #506: the priority tier (CHANGED facts) must ignore oldest_first
+    and always keep the newest chapters, while the rest tier (ACTIVE facts)
+    must keep respecting oldest_first in the SAME call — proving the two
+    tiers' ranking is genuinely decoupled, not just individually correct in
+    isolation (the single-tier tests above could both pass with the flag
+    still applying uniformly, if the fixtures happened not to overlap)."""
+    changed = [_fact(i, status="CHANGED") for i in range(1, 11)]  # ch 1..10
+    active = [_fact(i) for i in range(11, 31)]  # ch 11..30
+    facts = changed + active
+    one_entry_size = len(json.dumps(changed[0])) + 1
+
+    kept, truncated, total = _cap_canon_facts(
+        facts, char_budget=one_entry_size * 5, oldest_first=True,
+    )
+
+    kept_changed_chapters = {
+        _chapter_num_from_fact(f) for f in kept if f["status"] == "CHANGED"
+    }
+    kept_active_chapters = {
+        _chapter_num_from_fact(f) for f in kept if f["status"] != "CHANGED"
+    }
+    assert 10 in kept_changed_chapters, "priority tier: newest CHANGED chapter survives"
+    assert 1 not in kept_changed_chapters, "priority tier: oldest_first must not apply here"
+    assert 11 in kept_active_chapters, "rest tier: oldest_first keeps the earliest chapter"
+    assert 30 not in kept_active_chapters, "rest tier: oldest_first must still apply here"
     assert truncated is True
 
 

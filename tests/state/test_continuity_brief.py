@@ -484,6 +484,51 @@ def test_build_continuity_brief_truncates_when_over_budget(tmp_path, monkeypatch
     assert len(result["canon_log_facts"]) < 20
 
 
+def test_build_continuity_brief_changed_facts_rank_newest_first_end_to_end(tmp_path, monkeypatch):
+    """Issue #506 failure mode 1, end-to-end through the DB -> assembler ->
+    cap_canon_facts path — not just the unit-level _cap_canon_facts tests
+    against hand-built dict fixtures. build_continuity_brief hardcodes
+    oldest_first=True at its call site (protecting early ACTIVE canon on a
+    whole-manuscript scan); this pins that CHANGED-status revisions still
+    survive newest-first through that same call, guarding against a future
+    caller-side wiring regression (e.g. someone flipping or dropping the
+    oldest_first=True kwarg) that the internal unit tests structurally
+    cannot catch."""
+    import tools.db.connection as _db_conn
+    from tools.db.canon_facts import insert_fact
+    from tools.db.connection import get_db_slug_for_book, open_canon_db
+    import tools.state.brief_common as brief_common_module
+
+    # 800, not a smaller value: continuity_brief's divisor is 4, so
+    # 800 // 4 = 200 per group — enough for ~5 of these small entries,
+    # matching the per-group budget other tests in this file rely on.
+    monkeypatch.setattr(brief_common_module, "CANON_FACTS_CHAR_BUDGET", 800)
+
+    db_dir = tmp_path / "db"
+    db_dir.mkdir()
+    monkeypatch.setattr(_db_conn, "DB_DIR", db_dir)
+
+    book, slug = _make_book(tmp_path)
+
+    db_slug = get_db_slug_for_book(book)
+    conn = open_canon_db(db_slug)
+    for i in range(1, 11):
+        insert_fact(
+            conn, book_num=1, chapter_num=i, subject=f"revision-{i}",
+            fact=f"Revised fact from chapter {i}", domain="", is_revision=True,
+        )
+    conn.close()
+
+    result = build_continuity_brief(book_root=book, book_slug=slug)
+
+    assert result["canon_log_facts_truncated"] is True
+    kept_chapters = {
+        int(f["established_in"].split()[1]) for f in result["canon_log_facts"]
+    }
+    assert 10 in kept_chapters, "newest revision must survive truncation end-to-end"
+    assert 1 not in kept_chapters, "oldest revision must be dropped first, not kept"
+
+
 # ---------------------------------------------------------------------------
 # chapter_timelines size cap (Issue #504)
 # ---------------------------------------------------------------------------

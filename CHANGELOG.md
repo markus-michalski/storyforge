@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Nothing yet
+- rank CHANGED canon facts newest-first in the continuity-brief whole-manuscript scan, regardless of the oldest_first flag (#506)
 
 ### Security
 - Nothing yet

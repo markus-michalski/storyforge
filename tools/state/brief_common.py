@@ -148,6 +148,16 @@ def cap_canon_facts(
     rules) that late chapters are most likely to accidentally contradict.
     Pass True for that case. Has no effect on ``current_book_num`` ranking.
 
+    oldest_first never affects the CHANGED-facts ranking within the priority
+    tier (Issue #506 failure mode 1) — a CHANGED fact is a revision audit
+    trail, and the newest revision (often a supersession notice invalidating
+    an older one) is the one most likely to need author/tool attention,
+    regardless of whether the caller is protecting early ACTIVE canon.
+    CHANGED facts always rank newest-chapter-first within their tier. The
+    chapter-unattributed facts sharing that tier keep their pre-existing,
+    oldest_first-dependent position relative to CHANGED facts (first when
+    oldest_first=True, last when oldest_first=False) — unaffected by this.
+
     On a 34-chapter book (Firelight), the unbounded fact list was 932 entries
     / 285K chars and blew the MCP tool output limit outright (Issue #500).
     This bounds that to a fixed ceiling and reports what happened via the
@@ -162,12 +172,28 @@ def cap_canon_facts(
     if not facts:
         return [], False, total_count
 
-    def _sort_key(fact: dict[str, Any]) -> tuple[bool, bool, int]:
+    def _sort_key(
+        fact: dict[str, Any], *, force_newest_first: bool = False,
+    ) -> tuple[bool, bool, bool, int]:
         is_current_book = current_book_num is None or fact.get("book_num") == current_book_num
         chapter = chapter_num(fact)
         at_or_before_current = current_chapter_num is None or chapter <= current_chapter_num
-        chapter_rank = -chapter if oldest_first else chapter
-        return (is_current_book, at_or_before_current, chapter_rank)
+        # chapter 0 = heuristically migrated, no chapter attribution. Under
+        # oldest_first=True (continuity_brief), the sign trick already put
+        # these facts first before this fix existed — chapter_rank=0 is the
+        # largest of the negated per-chapter values. force_newest_first=True
+        # (this tier's Issue #506 fix) flips CHANGED facts' chapter_rank to
+        # positive, which would flip chapter-0 to LAST instead (0 is now the
+        # smallest), silently evicting the "always in scope" facts. Restored
+        # explicitly here, scoped to oldest_first=True only — oldest_first=
+        # False (review_brief) already ranked chapter-0 last in this tier
+        # before force_newest_first existed and stays byte-for-byte
+        # unchanged; broadening this to fire for oldest_first=False too
+        # would be an undocumented, untested scope expansion beyond #506.
+        unattributed_first = oldest_first and chapter == 0
+        use_oldest_first = oldest_first and not force_newest_first
+        chapter_rank = -chapter if use_oldest_first else chapter
+        return (is_current_book, at_or_before_current, unattributed_first, chapter_rank)
 
     priority = [
         f for f in facts
@@ -178,7 +204,9 @@ def cap_canon_facts(
         if f.get("status") != "CHANGED" and chapter_num(f) != 0
     ]
 
-    priority_sorted = sorted(priority, key=_sort_key, reverse=True)
+    priority_sorted = sorted(
+        priority, key=lambda f: _sort_key(f, force_newest_first=True), reverse=True,
+    )
     rest_sorted = sorted(rest, key=_sort_key, reverse=True)
 
     kept_priority, priority_truncated = cap_group(priority_sorted, char_budget)

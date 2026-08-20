@@ -287,11 +287,16 @@ def build_continuity_brief(
     # "current chapter" to rank around — it covers the whole manuscript — so
     # the newest-chapter-first fallback would systematically drop the
     # earliest, most foundational canon (the facts late chapters are most
-    # likely to accidentally contradict). Applies to BOTH priority tiers,
-    # including CHANGED facts: for a whole-manuscript scan, an earlier
-    # revision has had more subsequent chapters to go stale in than a recent
-    # one, so oldest-first serves the stale-reference check too, not only the
-    # ACTIVE facts.
+    # likely to accidentally contradict). Applies only to the ACTIVE/rest
+    # tier now (Issue #506 failure mode 1, superseding #501's "applies to
+    # BOTH priority tiers" decision): a CHANGED fact is a revision audit
+    # trail, and the newest revision — often a supersession notice
+    # invalidating an older one — is the one most likely to need author/tool
+    # attention. Under a tight budget, applying oldest_first there too
+    # dropped exactly those newest revisions first; confirmed against the
+    # real Firelight DB, where a supersession notice was silently evicted in
+    # favor of the stale record it superseded. The CHANGED-facts priority
+    # tier now always ranks newest-chapter-first, independent of this flag.
     #
     # current_book_num ranking (inherited from #500) is applied ABOVE
     # oldest_first in the sort order — deliberately: in a series, this book's
