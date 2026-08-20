@@ -8,11 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `chapter-humanizer`: extended the anti-AI-patterns catalog with gaps found by comparing
-  against the external `blader/humanizer` skill — verb-substitution, synonym-cycling, and
-  repeated-sentence-opening shapes (Section 11.11–11.13), plus 16 new Section 1 vocabulary
-  and phrase entries. Added an explicit fact-preservation rule to chapter-humanizer's Surgical
-  Mode, hard-constraint for memoir books.
+- Nothing yet
 
 ### Changed
 - Nothing yet
@@ -28,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Nothing yet
+
+## [3.6.4] - 2026-08-20
+
+### Added
+- extend anti-AI-patterns catalog from blader/humanizer comparison (#620)
+
+### Fixed
+- rank CHANGED canon facts newest-first under truncation (#506) (#618)
 
 ## [3.6.3] - 2026-08-19
 
@@ -800,3 +804,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.6.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.1
 [3.6.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.2
 [3.6.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.3
+[3.6.4]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.4
