@@ -78,7 +78,10 @@ class TestQueryFacts:
         results = query_facts(conn, book_num=1, up_to_chapter=1)
         assert len(results) == 1
         r = results[0]
-        assert {"subject", "fact", "book_num", "chapter_num", "domain"} <= r.keys()
+        # id (Issue #506): brief_common.cap_canon_facts's same-chapter
+        # CHANGED-fact tiebreak reads this — pin it directly here, not just
+        # indirectly through test_brief_helpers.py's round-trip assertion.
+        assert {"id", "subject", "fact", "book_num", "chapter_num", "domain"} <= r.keys()
 
     def test_ordered_by_book_then_chapter(self, conn):
         insert_fact(conn, book_num=1, chapter_num=5, subject="Late", fact="Late fact")

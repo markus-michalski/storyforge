@@ -334,9 +334,14 @@ def get_continuity_brief(book_slug: str) -> str:
         travel_matrix        — parsed world/setting.md Travel Matrix rows
         canon_log_facts      — established facts from the canon DB (add_canon_fact),
                                 size-bounded (Issue #501) — see canon_log_facts_truncated
-                                below. Ranked earliest-chapter-first when capped, unlike
-                                get_review_brief's newest-first — this brief covers the
-                                whole manuscript, not one chapter under review
+                                below. Ranking when capped is fact-kind-dependent, not one
+                                uniform direction (Issue #506): revision (CHANGED-status)
+                                facts and chapter-unattributed facts always keep first
+                                claim; among ACTIVE facts with a known chapter, earliest-
+                                chapter-first — unlike get_review_brief's newest-first-
+                                among-eligible — since this brief covers the whole
+                                manuscript, not one chapter under review. Authoritative
+                                rule: tools/state/brief_common.py::cap_canon_facts docstring
         canon_log_facts_truncated — true if canon_log_facts was capped for size
         canon_log_facts_total_count — untruncated fact count
         character_index      — all character files as flat list

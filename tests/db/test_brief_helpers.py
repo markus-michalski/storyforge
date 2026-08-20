@@ -16,6 +16,7 @@ from tools.db.book_rules import insert_rule
 from tools.db.canon_facts import insert_fact
 from tools.db.connection import open_canon_db
 import tools.db.connection as _db_conn
+from tools.state.brief_common import cap_canon_facts
 
 
 @pytest.fixture
@@ -58,6 +59,66 @@ class TestLoadCanonFactsForBrief:
         facts = load_canon_facts_for_brief(book_dir)
         subjects = {f["subject"] for f in facts}
         assert "Lucien" in subjects, "Book #2 facts must be visible when book_num=2"
+
+    def test_includes_id_for_cap_canon_facts_tiebreak(self, tmp_path: Path, db_dir: Path):
+        """Issue #506: brief_common.cap_canon_facts needs id (not
+        created_at — see brief_helpers._db_row_to_legacy_fact's docstring
+        for why: created_at has only second resolution and collides on
+        same-tool-call batch inserts) to break ties between CHANGED facts
+        sharing a chapter. id was queried from the DB but dropped in the
+        row->legacy-fact mapping before this fix."""
+        book_dir = _make_book(tmp_path, "standalone")
+
+        conn = open_canon_db("standalone")
+        insert_fact(conn, book_num=1, chapter_num=5, subject="s", fact="f")
+        conn.close()
+
+        facts = load_canon_facts_for_brief(book_dir)
+        assert len(facts) == 1
+        assert facts[0]["id"], "id must be present and non-zero"
+
+    def test_same_second_batch_revisions_resolve_by_id_not_lost_to_truncation(
+        self, tmp_path: Path, db_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """True end-to-end reproduction of the original #506/HIGH-1 bug: 4
+        real CHANGED facts inserted for the same chapter via back-to-back
+        insert_fact() calls (naturally same-second — CURRENT_TIMESTAMP has
+        no sub-second resolution, so a fast test run collides exactly like
+        the real same-tool-call-batch scenario) must still resolve
+        correctly through the full query_facts() -> _db_row_to_legacy_fact()
+        -> cap_canon_facts() pipeline via the id tiebreak, not silently fall
+        back to insertion order winning by luck."""
+        import tools.state.brief_common as brief_common_module
+
+        book_dir = _make_book(tmp_path, "standalone")
+        monkeypatch.setattr(brief_common_module, "CANON_FACTS_CHAR_BUDGET", 1)
+
+        conn = open_canon_db("standalone")
+        for label in ("oldest", "second", "third", "newest"):
+            insert_fact(
+                conn,
+                book_num=1,
+                chapter_num=31,
+                subject="s",
+                fact=f"revision-{label}",
+                is_revision=True,
+                old_value="prior value",
+            )
+        conn.close()
+
+        facts = load_canon_facts_for_brief(book_dir)
+        assert len(facts) == 4
+
+        # Budget for exactly one entry — forces the tiebreak to matter.
+        one_entry_size = len(str(facts[0])) + 1
+        kept, truncated, total = cap_canon_facts(facts, char_budget=one_entry_size)
+        assert truncated is True
+        assert total == 4
+        assert len(kept) == 1
+        assert kept[0]["fact"] == "revision-newest", (
+            "the most-recently-inserted same-chapter revision must survive, "
+            "not whichever one happened to be inserted first"
+        )
 
     def test_book1_facts_visible_when_writing_book2(self, tmp_path: Path, db_dir: Path):
         """cross-book: book 1 facts must appear in book 2 context."""

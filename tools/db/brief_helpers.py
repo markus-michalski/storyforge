@@ -94,7 +94,19 @@ def _db_row_to_legacy_fact(row: dict) -> dict:
     without a schema change — they still receive the same keys as before
     (fact, established_in, status, notes, domain), plus ``book_num`` (Issue
     #500) so series-aware callers (brief_common.cap_canon_facts) can tell
-    this book's own facts apart from a prior book's without re-querying.
+    this book's own facts apart from a prior book's without re-querying, and
+    ``id`` (Issue #506) so cap_canon_facts can break ties between CHANGED
+    facts sharing the same chapter by recency — chapter number alone can't
+    distinguish multiple revisions recorded for the same chapter, and
+    without this the newest one (arguably the one most likely to still need
+    attention) had no way to outrank an older sibling under truncation.
+
+    ``id`` (the table's AUTOINCREMENT primary key), not ``created_at``, is
+    the tiebreak: ``created_at`` is a ``TIMESTAMP DEFAULT CURRENT_TIMESTAMP``
+    with only *second* resolution, so multiple revisions written in the same
+    tool call — the exact same-chapter cluster #506 is about — routinely
+    collide on the same second and the tiebreak would silently do nothing.
+    ``id`` is strictly monotonic and collision-free by construction.
     """
     return {
         "fact": row["fact"],
@@ -104,6 +116,7 @@ def _db_row_to_legacy_fact(row: dict) -> dict:
         "notes": row.get("old_value") or "",
         "domain": row.get("domain") or "",
         "book_num": row.get("book_num", 0),
+        "id": row.get("id") or 0,
     }
 
 
