@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- `chapter-humanizer`: deterministic pre-scan and fix verification. New MCP tools `scan_chapter_ai_tells` (catalog shapes, flagged vocabulary, author bans, per-scene density rules for near-miss / negation-loop / hedge words, narration dash density, repeated sentence openers, invisible characters, rhythm metrics) and `check_replacement_text` (checks a proposed fix against the same patterns before it is shown). The skill now reports a before/after metric delta. Dashes in dialogue never count; an author can set `em_dash_per_1k_limit` in `profile.md` frontmatter. Defaults are provisional (no human-written reference corpus).
 
 ### Changed
 - Nothing yet

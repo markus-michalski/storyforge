@@ -171,6 +171,12 @@ AI overuses transitional phrases:
 
 These appear with mechanical frequency. Real writers transition through action, dialogue, or implicit connection. Sometimes they don't transition at all—they just move to the next scene.
 
+**Narration Dash Density**
+
+The em dash is one of the best-known AI tells, but only as a *density* problem: the aside-dash, the punchline-dash (`X — and Y`), the dash used as the default way to join two clauses. A single dash is ordinary punctuation, and dashes in dialogue (an abrupt interruption, see `dialog-craft.md`) are correct and never count.
+
+**Density rule:** count narration dashes (em dash, spaced en dash) per 1,000 narration words, dialogue excluded. Above the limit, rework the habit dashes — not the ones that carry rhythm or a hard cut. Enforced by `scan_chapter_ai_tells` (chapter-humanizer), not by a per-occurrence regex: a regex here would flag every dash the author writes. The default limit is provisional; set `em_dash_per_1k_limit` in the author's `profile.md` frontmatter to override it.
+
 ---
 
 ## 3. Known AI Tells — Content

@@ -99,6 +99,7 @@ from routers.gates import (
     validate_timeline_consistency,
     verify_callbacks,
 )
+from routers.humanizer import check_replacement_text, scan_chapter_ai_tells
 from routers.ideas import get_idea, promote_idea, update_idea
 from routers.memoir import create_person, set_memoir_structure_type
 from routers.scenes import create_scene_list, update_scene
@@ -136,6 +137,8 @@ DECORATED_FUNCTIONS = [
     validate_book_structure,
     run_quality_gates,
     run_pre_export_gates,
+    scan_chapter_ai_tells,
+    check_replacement_text,
     add_canon_fact,
     import_cover_image,
     create_scene_list,

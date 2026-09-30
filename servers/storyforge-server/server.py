@@ -92,6 +92,10 @@ from routers.gates import (  # noqa: E402, F401
     validate_timeline_consistency,
     verify_callbacks,
 )
+from routers.humanizer import (  # noqa: E402, F401
+    check_replacement_text,
+    scan_chapter_ai_tells,
+)
 from routers.ideas import (  # noqa: E402, F401
     create_idea,
     get_idea,
