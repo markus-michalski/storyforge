@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Changed
-- `chapter-humanizer`: dash-density rewrites must now vary. Replacement guidance by what the dash marks (apposition: comma or restructured clause; list: colon; real cut: full stop; or drop the aside), parentheses are never used as a replacement, at most about a third of a batch may be a full stop, and the report states the split so a drift back to full stops is visible. A live run had replaced almost every dash with a full stop.
+- Nothing yet
 
 ### Deprecated
 - Nothing yet
@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Nothing yet
+
+## [3.6.6] - 2026-09-30
+
+### Fixed
+- vary dash replacements, never use parentheses (#625)
 
 ## [3.6.5] - 2026-09-30
 
@@ -814,5 +819,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.6.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.2
 [3.6.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.3
 [3.6.4]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.4
-[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.6.5...HEAD
+[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.6.6...HEAD
 [3.6.5]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.5
+[3.6.6]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.6
