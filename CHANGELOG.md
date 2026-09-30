@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `chapter-humanizer`: deterministic pre-scan and fix verification. New MCP tools `scan_chapter_ai_tells` (catalog shapes, flagged vocabulary, author bans, per-scene density rules for near-miss / negation-loop / hedge words, narration dash density, repeated sentence openers, invisible characters, rhythm metrics) and `check_replacement_text` (checks a proposed fix against the same patterns before it is shown). The skill now reports a before/after metric delta. Dashes in dialogue never count; an author can set `em_dash_per_1k_limit` in `profile.md` frontmatter. Defaults are provisional (no human-written reference corpus).
+- Nothing yet
 
 ### Changed
 - Nothing yet
@@ -24,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Nothing yet
+
+## [3.6.5] - 2026-09-30
+
+### Added
+- deterministic pre-scan and fix verification (#624)
+
+### Changed
+- bump the pip-all group across 1 directory with 3 updates (#623)
+- bump the pip-all group with 3 updates (#621)
 
 ## [3.6.4] - 2026-08-20
 
@@ -805,3 +814,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.6.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.2
 [3.6.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.3
 [3.6.4]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.4
+[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.6.5...HEAD
+[3.6.5]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.5
