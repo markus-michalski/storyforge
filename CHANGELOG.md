@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Changed
-- Nothing yet
+- `chapter-humanizer`: dash-density rewrites must now vary. Replacement guidance by what the dash marks (apposition: comma or restructured clause; list: colon; real cut: full stop; or drop the aside), parentheses are never used as a replacement, at most about a third of a batch may be a full stop, and the report states the split so a drift back to full stops is visible. A live run had replaced almost every dash with a full stop.
 
 ### Deprecated
 - Nothing yet
