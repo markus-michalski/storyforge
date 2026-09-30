@@ -44,7 +44,15 @@ Before scanning a single line:
 
 All five loads are mandatory on every run — including load 4, even for a book you suspect has no extra rules. The only way to know is to actually call the tool; skipping it because it "probably" has nothing is not a valid shortcut.
 
+5. **Pre-scan** — MCP `scan_chapter_ai_tells(book_slug, chapter_slug, author_slug)` (after loads 0–4, so a failed load stops the run first). **Why:** the tool matches the catalog regexes, flagged vocabulary and the author's bans by machine, applies the per-scene density rules (11.5, 11.9, 11.10), and measures dash density, repeated sentence openers, invisible characters and rhythm — things reading by eye misses or miscounts. Keep the full result: `hits` (each with `line`, `segment`, `category`, `matched`, `snippet`, `in_dialogue`), `flags`, `counts`, `dash_limit`, and `metrics.chapter` (the **baseline** for the closing delta). An `error` key → stop and surface it. Also read `warnings` and `sources_loaded`: a non-empty `warnings` list means a pattern source came back empty (for example the author slug yielded no bans), so part of the scan did not run — tell the user, and never present an empty `hits` list as a clean chapter. The density rules (near-miss, negation loop, hedges) count narration only; quoted speech is excluded, and a speech span that runs across paragraphs is not recognised. The tool does not cover the judgement shapes (11.8, 11.11, 11.12), literal-vs-metaphorical vocabulary, or hits that need context — those remain yours.
+
 ## Scan — Two Passes
+
+Both passes start from the pre-scan `hits`, then add the judgement items below by reading the draft. The pre-scan is a candidate list, not a verdict: drop a hit that is literal or clearly in-character (`in_dialogue: true`), and never skip the read-through on the strength of an empty hit list. A hit that shares a sentence with another is still one numbered entry (see the overlap rule below).
+
+**Pre-scan categories → report:** `shape` and `near_miss` / `negation_loop` / `hedge_density` are Section 11 hits; `vocabulary` is Pass 2; `author_rule` is a Pass 2 author Don't (a `block` severity is a hard ban); `repeated_openers` is 11.13 (the pre-scan reports runs of 4+; shorter runs are ordinary prose, judge them by ear only when they read as mechanical) — confirm it is mechanical, not deliberate anaphora; `invisible_char` is always a real defect (propose plain removal). `uniform_rhythm` and `dash_density` arrive in `flags`, not `hits`, because they are chapter-level: name them in the report header. For `uniform_rhythm`, vary sentence length in the fixes you propose rather than adding a dedicated hit; for `dash_density`, see below.
+
+**Dash density.** Dashes in dialogue are interruptions and never count. Narration dashes are an AI tell only at density: a `dash_density` flag means the chapter is over `dash_limit`. Its `lines` has one entry per narration dash (a line number repeats once per dash on that line) and `excess` is how many to rework to get back under the limit. Rework at least `excess` of them: the flag fires while the chapter is above the limit, so a batch that removes fewer than `excess` dashes leaves the re-scan flagging it again (a bare "at the limit" is still over it). Choose the habit dashes (the aside-dash, the punchline-dash) and give each a normal numbered hit with a proposed rewrite; count the dashes each hit removes — a hit on a line with several dashes can remove several — and state the expected remaining total in the report. Keep any dash that carries rhythm or an abrupt cut. The goal is to get under the limit, not to reach zero; if fewer than `excess` can be reworked without losing rhythm, say so rather than forcing it. Vary the replacements (comma, colon, full stop): swapping every dash for "sentence. Fragment list." just trades one habit for another. The limit is a provisional default, not a measured human baseline; an author can set `em_dash_per_1k_limit` in `profile.md` frontmatter — never invent one.
 
 ### Pass 1: Section 11 Elegant Abstraction Shapes
 
@@ -89,6 +97,7 @@ the report template. **Hard cap: ≤ 20 hits per batch.** Before writing the rep
 **Section 11 shapes found: N**
 **Flagged vocabulary hits: M**
 **Near-miss count per scene: [Sc1: X, Sc2: Y, ...]**
+**Baseline: burstiness X, narration dashes Y/1k (limit Z), hedges H, opener runs R, invisible chars I** — values from `metrics.chapter` and `dash_limit`
 
 ---
 
@@ -157,7 +166,7 @@ After the user approves (or applies with reworks confirmed):
 
 1. Read the full `draft.md` again before writing (GH#27 — file may have changed if the session has been long). Do this even though you already have its content from the Prerequisites load or the scan pass — that copy may be stale, and reusing it instead of issuing a fresh Read is exactly the GH#27 failure mode.
 2. Apply ALL approved changes in a single write pass — one write, all changes together.
-3. Report: *"Applied N changes. Skipped M. Draft updated."*
+3. Re-run `scan_chapter_ai_tells` on the written draft and report the delta against the baseline: *"Applied N changes. Skipped M. Draft updated. Burstiness {before} → {after}, narration dashes {before} → {after}/1k, hedges {before} → {after}, opener runs {before} → {after}."* This verification scan is a tool call, not a review pass — it does not count toward the 2-pass cap below. List any hit still present that you did not skip, and any metric that got worse.
 4. If flagged vocabulary was accepted to stay, note it: *"[word] kept at your request."*
 
 ### Iteration
@@ -183,7 +192,7 @@ explicitly ends the humanizer session), record that chapter-humanizer has run on
 All fixes in this skill operate under the following five rules:
 
 1. **Touch only the flagged construction.** The replacement covers the hit and nothing else — surrounding prose, style, and content remain as the chapter-reviewer left them.
-2. **Verify alternatives before proposing.** Confirm that the proposed replacement is free of Section 11 shapes, flagged vocabulary, and other known AI-tells before presenting it.
+2. **Verify alternatives before proposing.** Run every proposed replacement through MCP `check_replacement_text(book_slug, text, author_slug)`. `clean: false` → revise and re-check; never present a fix that still carries a named hit. A non-empty `warnings` list means a pattern source was empty — `clean: true` then proves less; say so. `cautions` (hedge, near-miss, negation loop, dash) are not failures — weigh them against how dense that scene already is. The tool does not judge the shapes that need a human ear (11.8, 11.11, 11.12); check those yourself.
 3. **Author voice is mandatory.** Every proposed alternative must match the author's documented tone, rhythm, and vocabulary. An alternative that sounds like a different author is a regression, not a fix.
 4. **Read the full file before writing.** GH#27 applies here — see Applying Changes, step 1, for the exact re-read requirement.
 5. **Preserve every fact.** Before presenting a proposed fix, check it does not add, remove, or alter any name, number, date, location, or established plot/canon detail from the original sentence — a humanizer pass rewrites construction, not content. For **memoir books**, treat this as a hard constraint, not a style preference: a rewrite that quietly shifts a real detail is not a style fix, it's a factual error about someone's actual life. If a proposed alternative cannot preserve every fact without reintroducing the flagged construction, say so and ask the user how to resolve the conflict instead of silently dropping the detail.

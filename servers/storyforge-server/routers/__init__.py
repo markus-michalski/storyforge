@@ -18,6 +18,7 @@ from . import (  # noqa: F401
     cover,
     creation,
     gates,
+    humanizer,
     ideas,
     memoir,
     reference,
