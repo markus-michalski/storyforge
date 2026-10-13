@@ -1361,6 +1361,34 @@ class TestValidateCharacter:
         assert blocking == []
         assert warnings == []
 
+    def test_series_tracker_path_is_skipped_even_under_an_ancestor_named_series(self, tmp_path):
+        """content_root is user-configured and can itself live under a
+        directory that happens to be named ``series`` (e.g. a writer's
+        ``~/writing/series/book-projects/``). The tracker-detection must
+        anchor from the end of the path, not the first ``"series"`` match,
+        or an ancestor like this shifts the anchor and the real tracker
+        stops being recognized as one (Issue #634 code review).
+        """
+        content_root = tmp_path / "series" / "book-projects"
+        series_dir = content_root / "series" / "blood-and-binary" / "characters"
+        series_dir.mkdir(parents=True)
+        tracker = series_dir / "kael.md"
+        tracker.write_text(
+            "---\n"
+            'name: "Kael"\n'
+            'slug: "kael"\n'
+            'role: "love-interest"\n'
+            'status: "Profile"\n'
+            "recurs_in: [B1, B2, B3]\n"
+            "---\n\n"
+            "# Kael — Series Evolution\n\n"
+            "## Snapshot\n\nContent.\n",
+            encoding="utf-8",
+        )
+        blocking, warnings = validate_character(str(tracker))
+        assert blocking == []
+        assert warnings == []
+
     def test_series_tracker_skip_does_not_break_book_level_characters(self, tmp_path):
         """Regression guard: book-level ``characters/`` files (no ``/series/``
         in the path) must continue to validate fully."""
@@ -1374,6 +1402,30 @@ class TestValidateCharacter:
         )
         blocking, warnings = validate_character(str(char_file))
         # Book-level validation still runs: unknown role + missing sections.
+        assert blocking == []
+        assert any("'wizard'" in w for w in warnings)
+        assert any("Want vs. Need" in w for w in warnings)
+
+    def test_nested_series_book_character_is_validated(self, tmp_path):
+        """A book scaffolded with ``create_book_structure(series_slug=...)``
+        lives at ``series/{series}/{book}/``, one level deeper than a series
+        tracker (``series/{series}/characters/``). Its own
+        ``characters/*.md`` files are book-level character files, not
+        trackers, and must be validated like any other book — the earlier
+        ``"series" in path.parts`` check caught this path too and skipped it
+        entirely (Issue #634).
+        """
+        chars_dir = tmp_path / "series" / "blood-and-binary" / "book-two" / "characters"
+        chars_dir.mkdir(parents=True)
+        char_file = chars_dir / "alex.md"
+        char_file.write_text(
+            '---\nname: "Alex"\nrole: "wizard"\nstatus: "Concept"\n---\n\n'
+            "# Alex\n\nNo recommended sections.\n",
+            encoding="utf-8",
+        )
+        blocking, warnings = validate_character(str(char_file))
+        # Same assertions as the non-series book-level test above: this is
+        # an ordinary book-level character file, just nested under series/.
         assert blocking == []
         assert any("'wizard'" in w for w in warnings)
         assert any("Want vs. Need" in w for w in warnings)

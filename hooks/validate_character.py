@@ -42,11 +42,14 @@ WATCHED_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
 # "/" separator is always false on Windows, where Path str() uses "\").
 WATCHED_PATH_SEGMENTS = ("characters", "people")
 
-# Path segment for series-character-trackers. Files under
-# ``series/{slug}/characters/`` document evolution across books and follow a
-# different schema (Snapshot / Evolution per Band / Beziehungen / Updates Log)
-# with roles like ``love-interest`` that the book-level validator does not
-# recognize. They must be skipped to avoid false-positive warnings (Issue #192).
+# Path segment for series-character-trackers. Files directly under
+# ``series/{slug}/characters/`` (see `_is_series_tracker_path`) document
+# evolution across books and follow a different schema (Snapshot /
+# Evolution per Band / Beziehungen / Updates Log) with roles like
+# ``love-interest`` that the book-level validator does not recognize. They
+# must be skipped to avoid false-positive warnings (Issue #192) — but a book
+# nested one level deeper, at ``series/{slug}/{book_slug}/characters/``, is
+# NOT a tracker and must still be validated (Issue #634).
 SERIES_PATH_SEGMENT = "series"
 
 # Frontmatter — block on missing.
@@ -125,6 +128,28 @@ def _extract_file_path(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _is_series_tracker_path(path: Path) -> bool:
+    """True only for ``series/{slug}/characters/{file}.md`` — a series-level
+    character tracker, directly under the series directory.
+
+    A book scaffolded with ``create_book_structure(series_slug=...)`` lives
+    one level deeper, at ``series/{slug}/{book_slug}/characters/{file}.md``
+    — that is a book's own character file, not a tracker, and must NOT
+    match here. A bare ``"series" in path.parts`` test can't tell the two
+    apart; this checks that the trailing four segments are exactly
+    ``series / {slug} / {characters|people} / {file}`` (Issue #634).
+
+    Anchored from the END of the path, not the first ``"series"`` match —
+    content_root is user-configured and can itself live under a directory
+    that happens to be named ``series`` (e.g. ``~/writing/series/
+    book-projects/``). Anchoring from the start would find that ancestor
+    instead of the real series root and wrongly stop skipping genuine
+    trackers.
+    """
+    parts = path.parts
+    return len(parts) >= 4 and parts[-4] == SERIES_PATH_SEGMENT and parts[-2] in WATCHED_PATH_SEGMENTS
+
+
 def _is_character_or_people_file(path: Path) -> bool:
     """True for `characters/*.md` or `people/*.md` (excluding INDEX.md and
     series-character-trackers under ``series/{slug}/characters/``)."""
@@ -132,7 +157,7 @@ def _is_character_or_people_file(path: Path) -> bool:
         return False
     if path.name == "INDEX.md":
         return False
-    if SERIES_PATH_SEGMENT in path.parts:
+    if _is_series_tracker_path(path):
         return False
     return any(seg in path.parts for seg in WATCHED_PATH_SEGMENTS)
 
