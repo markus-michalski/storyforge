@@ -180,6 +180,57 @@ class TestUpdateAuthorListFieldCoercion:
 
 
 # ---------------------------------------------------------------------------
+# update_author — memoir author_writing_mode vocabulary normalization
+# (Issue #641): create-author's memoir branch collects Structured /
+# Accumulative / Discovery, but every downstream reader (book-conceptualizer,
+# chapter-writer-memoir, new-book, rolling-planner, configure,
+# effective_author_writing_mode) only recognises outliner / plantser /
+# discovery. Normalize at write time so one vocabulary reaches every reader
+# regardless of which term was collected.
+# ---------------------------------------------------------------------------
+
+
+class TestAuthorWritingModeMemoirVocabNormalization:
+    def test_structured_normalizes_to_outliner(self, server_module, author_dir: Path):
+        result = json.loads(
+            server_module.update_author("test-author", "author_writing_mode", "Structured")
+        )
+        assert result.get("success") is True
+        assert result["value"] == "outliner"
+
+    def test_accumulative_normalizes_to_plantser(self, server_module, author_dir: Path):
+        result = json.loads(
+            server_module.update_author("test-author", "author_writing_mode", "Accumulative")
+        )
+        assert result.get("success") is True
+        assert result["value"] == "plantser"
+
+    def test_discovery_memoir_term_normalizes_to_lowercase(self, server_module, author_dir: Path):
+        result = json.loads(
+            server_module.update_author("test-author", "author_writing_mode", "Discovery")
+        )
+        assert result.get("success") is True
+        assert result["value"] == "discovery"
+
+    def test_canonical_fiction_values_pass_through_unchanged(self, server_module, author_dir: Path):
+        result = json.loads(
+            server_module.update_author("test-author", "author_writing_mode", "plantser")
+        )
+        assert result.get("success") is True
+        assert result["value"] == "plantser"
+
+    def test_unrecognized_value_passes_through_unchanged(self, server_module, author_dir: Path):
+        """An unmapped value is left as-is so the skills' own
+        'Field missing or unrecognized value → ask the user' fallback still
+        triggers instead of being silently coerced to a wrong canonical term."""
+        result = json.loads(
+            server_module.update_author("test-author", "author_writing_mode", "freeform")
+        )
+        assert result.get("success") is True
+        assert result["value"] == "freeform"
+
+
+# ---------------------------------------------------------------------------
 # update_field — field name format validation (Issue #328)
 # ---------------------------------------------------------------------------
 

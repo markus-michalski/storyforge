@@ -88,12 +88,34 @@ _LIST_AUTHOR_FIELDS: frozenset[str] = frozenset({
 })
 
 
+# create-author's memoir branch collects Structured / Accumulative / Discovery
+# (skills/create-author/SKILL.md), but every downstream reader — book-conceptualizer,
+# chapter-writer-memoir, new-book, rolling-planner, configure, and
+# get_book_full()'s effective_author_writing_mode — only recognises the fiction
+# vocabulary outliner/plantser/discovery. Normalize at write time so one
+# vocabulary reaches every reader regardless of which term was collected
+# (Issue #641). Keys are matched case-insensitively; an unmapped value passes
+# through unchanged so the skills' own "unrecognized value" fallback still
+# triggers instead of being silently coerced to the wrong canonical term.
+_WRITING_MODE_ALIASES: dict[str, str] = {
+    "structured": "outliner",
+    "accumulative": "plantser",
+    "discovery": "discovery",
+    "outliner": "outliner",
+    "plantser": "plantser",
+}
+
+
 def _coerce_author_field_value(field: str, value: str) -> Any:
     """Normalize a raw update_author() string value for known list-typed fields.
 
     Non-list fields pass through unchanged. List fields accept a JSON array
     string or a comma-separated string; a blank value becomes an empty list.
     """
+    if field == "author_writing_mode":
+        normalized = _WRITING_MODE_ALIASES.get(value.strip().lower())
+        return normalized if normalized is not None else value
+
     if field not in _LIST_AUTHOR_FIELDS:
         return value
 
