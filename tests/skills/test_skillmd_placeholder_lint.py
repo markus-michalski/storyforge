@@ -85,6 +85,7 @@ PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
     "backfill-promises": {"p", "u", "un", "total", "d"},  # d: register_chapter_promises' `deduped` count field (#498)
     "backfill-style-principles": {"total_new", "total_skipped"},
     "bootstrap-book-from-series": {"n_accepted", "n_edited", "n_new", "n_skipped", "n_with_prior"},
+    "book-conceptualizer": {"genre"},  # per-genre loop placeholder in get_craft_reference("{genre}-craft") — genre is each item of the book's genres list, already established as a bare word by the get_genre() call it's appended to (Issue #643)
     "chapter-fixer": {
         "category",  # finding's category label in the report template, self-evident from "[N] **{category}** — Sc N, ~line M"
         "baseline",  # Step 5 item 2's count_words baseline, self-evident from "Word count: {baseline} → {new}"
@@ -114,6 +115,7 @@ PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
     },
     "ideas": {"logline", "title"},
     "new-book": {"prev", "tracker_slug"},
+    "plot-architect": {"genre"},  # same per-genre loop placeholder as book-conceptualizer, see that entry (Issue #643)
     "promote-rule": {"date", "from_scope", "source_file", "target_file", "to_scope"},
     "report-issue": {"book_title", "chapter_number"},
     "genre-creator": {"parent", "slug"},  # slug-in-file-path path examples: `genres/{parent}/README.md` and `genres/{slug}/README.md` illustrate subgenre vs. standalone paths

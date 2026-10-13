@@ -8,34 +8,55 @@ from __future__ import annotations
 from mcp.types import ToolAnnotations
 
 import json
+from pathlib import Path
 
 from . import _app
 from ._app import mcp
 
 
+def _genre_dirs_by_precedence() -> list[Path]:
+    """Return genre base dirs in lookup order: user genres first.
+
+    A user-created genre with the same name as a built-in shadows it
+    (Issue #643) — the user's own definition should win when they've
+    customized or forked a built-in genre.
+    """
+    return [_app.get_user_genres_dir(), _app.get_builtin_genres_dir()]
+
+
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_genres() -> str:
-    """List all available genres."""
-    genres_dir = _app.get_genres_dir()
-    if not genres_dir.exists():
-        return json.dumps({"genres": [], "count": 0})
+    """List all available genres (built-in plus user-created, Issue #643)."""
+    genres: dict[str, None] = {}
+    # Built-ins first, then user genres — dict insertion order determines
+    # nothing here since the result is sorted, but a user genre with the
+    # same slug as a built-in collapses to one entry either way.
+    for base_dir in reversed(_genre_dirs_by_precedence()):
+        if not base_dir.exists():
+            continue
+        for d in base_dir.iterdir():
+            if d.is_dir() and (d / "README.md").exists():
+                genres[d.name] = None
 
-    genres = sorted(d.name for d in genres_dir.iterdir() if d.is_dir() and (d / "README.md").exists())
-    return json.dumps({"genres": genres, "count": len(genres)})
+    names = sorted(genres)
+    return json.dumps({"genres": names, "count": len(names)})
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_genre(name: str) -> str:
-    """Get genre README content."""
+    """Get genre README content (user genres take precedence, Issue #643)."""
     if ".." in name or "/" in name or "\\" in name or "\x00" in name:
         return json.dumps({"error": f"Invalid genre name: '{name}'"})
-    genres_dir = _app.get_genres_dir().resolve()
-    genre_path = (genres_dir / name / "README.md").resolve()
-    if not genre_path.is_relative_to(genres_dir):
-        return json.dumps({"error": f"Invalid genre name: '{name}'"})
-    if not genre_path.exists():
-        return json.dumps({"error": f"Genre '{name}' not found"})
-    return genre_path.read_text(encoding="utf-8")
+
+    for base_dir in _genre_dirs_by_precedence():
+        base_dir = base_dir.resolve()
+        genre_path = (base_dir / name / "README.md").resolve()
+        if not genre_path.is_relative_to(base_dir):
+            return json.dumps({"error": f"Invalid genre name: '{name}'"})
+        if genre_path.exists():
+            return genre_path.read_text(encoding="utf-8")
+
+    return json.dumps({"error": f"Genre '{name}' not found"})
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))

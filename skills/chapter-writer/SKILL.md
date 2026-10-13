@@ -30,7 +30,7 @@ Before writing a single word:
 
 ### Fiction mode (`book_category == "fiction"`)
 
-4. **Genre README(s)** — MCP `get_genre()` for each genre. **Why:** Reader-expected conventions; violations need to be deliberate.
+4. **Genre README(s)** — MCP `get_genre()` for each genre. **Why:** Reader-expected conventions; violations need to be deliberate. Also try MCP `get_craft_reference("{genre}-craft")` for each genre (e.g. `fantasy-craft`, `horror-craft`) — genre-specific technique guidance the README doesn't cover. A "not found" error just means no craft guide exists for that genre yet; skip it silently, don't surface the error (Issue #643).
 5. **Craft references** — MCP `get_craft_reference()`:
    - `chapter-construction` — **Why:** Hooks, scene-sequel, endings — the structural skeleton of every chapter.
    - `dialog-craft` — **Why:** Subtext, beats, voice differentiation — the most common AI-tell is dialog where everyone sounds the same.
