@@ -125,8 +125,29 @@ def get_plugin_root() -> Path:
 
 
 def get_genres_dir() -> Path:
-    """Return the genres directory path."""
+    """Return the plugin's bundled genres directory.
+
+    Built-in genres only — this directory is replaced wholesale on every
+    plugin update. Custom genres belong in get_user_genres_dir() instead
+    (Issue #643); callers that need both should merge the two.
+    """
     return get_plugin_root() / "genres"
+
+
+def get_builtin_genres_dir() -> Path:
+    """Alias for get_genres_dir() — the plugin's bundled genres directory."""
+    return get_genres_dir()
+
+
+def get_user_genres_dir() -> Path:
+    """Return the user's custom genres directory.
+
+    Lives under ``~/.storyforge/`` (same home as AUTHORS_DIR/CACHE_DIR), not
+    under the plugin install, so genre-creator's output survives a plugin
+    update instead of being lost with the rest of CLAUDE_PLUGIN_ROOT
+    (Issue #643).
+    """
+    return Path.home() / ".storyforge" / "genres"
 
 
 def get_book_categories_dir() -> Path:

@@ -56,7 +56,13 @@ confirm direction before writing README. This gate applies even if the user asks
 — explain briefly why the check stays, then continue.
 
 ### Step 3: Create README
-Write `{plugin_root}/genres/{genre-name}/README.md` following the standard genre template:
+Write `~/.storyforge/genres/{genre-name}/README.md` (Windows:
+`$env:USERPROFILE\.storyforge\genres\{genre-name}\README.md`) — **not**
+`{plugin_root}/genres/`. The plugin directory is replaced wholesale on every
+plugin update, which silently deletes anything written there (Issue #643);
+`list_genres()`/`get_genre()` read both locations, with a user genre of the
+same slug taking precedence over a built-in one. Create the parent directory
+first if it doesn't exist yet. Follow the standard genre template:
 
 ```markdown
 # {Genre Name}

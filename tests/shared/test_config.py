@@ -15,6 +15,7 @@ from tools.shared.config import (
     get_book_categories_dir,
     get_content_root,
     get_genres_dir,
+    get_user_genres_dir,
     get_plugin_root,
     get_post_processing_tool,
     get_reference_dir,
@@ -226,6 +227,12 @@ class TestDirectoryHelpers:
     def test_get_genres_dir(self, monkeypatch):
         monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", "/plugin")
         assert get_genres_dir() == Path("/plugin/genres")
+
+    def test_get_user_genres_dir_survives_plugin_root(self, monkeypatch):
+        """Issue #643: custom genres must not live under CLAUDE_PLUGIN_ROOT,
+        which is replaced wholesale on every plugin update."""
+        monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", "/plugin")
+        assert get_user_genres_dir() == Path.home() / ".storyforge" / "genres"
 
     def test_get_book_categories_dir(self, monkeypatch):
         monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", "/plugin")

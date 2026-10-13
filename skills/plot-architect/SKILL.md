@@ -33,7 +33,7 @@ Before any other prerequisite load:
 
 - **Book data** via MCP `get_book_full()`. **Why:** Existing premise, theme, characters, writing-mode — Step 0b branches on `effective_author_writing_mode` and Step 1 builds on existing concept output.
 - **Author profile** via MCP `get_author()` if assigned. **Why:** The author profile may carry structural preferences (e.g. "always uses 5-act tragic arcs") that bias the recommendation in Step 2.
-- **Genre README(s)** via MCP `get_genre()`. **Why:** Genre dictates expected structures (romance = 3-Act + HEA, thriller = Fichtean) and beat conventions.
+- **Genre README(s)** via MCP `get_genre()`. **Why:** Genre dictates expected structures (romance = 3-Act + HEA, thriller = Fichtean) and beat conventions. Also try `get_craft_reference("{genre}-craft")` for each genre — a "not found" error just means no craft guide exists for that genre yet; skip it silently (Issue #643).
 - **Craft references** via MCP `get_craft_reference()`:
   - `story-structure` — **Why:** The structure catalog Step 2 picks from — without it, recommendations default to generic 3-Act.
   - `plot-craft` — **Why:** Beats, foreshadowing, cause-effect logic — Step 3 (beat mapping) and Step 5 (foreshadowing map) are built on this.

@@ -32,7 +32,7 @@ If `book_category == "memoir"`, also:
 ## Prerequisites — MANDATORY LOADS
 
 ### Fiction mode (`book_category == "fiction"`)
-- **Genre README(s)** via MCP `get_genre()` for each genre. **Why:** Genre conventions shape premise expectations (e.g. romance HEA, thriller ticking-clock) and structural recommendations in Phase 4.
+- **Genre README(s)** via MCP `get_genre()` for each genre. **Why:** Genre conventions shape premise expectations (e.g. romance HEA, thriller ticking-clock) and structural recommendations in Phase 4. Also try `get_craft_reference("{genre}-craft")` for each genre — a "not found" error just means no craft guide exists for that genre yet; skip it silently (Issue #643).
 - **Craft references** via MCP `get_craft_reference()`:
   - `story-structure` — **Why:** Phase 4 structure selection — different concepts fit different structures (3-act vs. 5-act vs. Save-the-Cat).
   - `plot-craft` — **Why:** Conflict-stakes-decision logic for Phase 3 conflict architecture.

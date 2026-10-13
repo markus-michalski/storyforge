@@ -14,11 +14,13 @@ from mcp.server.mcpserver import MCPServer
 from tools.shared.config import (
     POST_PROCESSING_TOOLS,
     get_book_categories_dir,
+    get_builtin_genres_dir,
     get_content_root,
     get_genres_dir,
     get_post_processing_tool,
     get_reference_dir,
     get_review_handle,
+    get_user_genres_dir,
     load_config,
 )
 from tools.state.indexer import StateCache
@@ -36,6 +38,8 @@ __all__ = [
     "load_config",
     "get_content_root",
     "get_genres_dir",
+    "get_builtin_genres_dir",
+    "get_user_genres_dir",
     "get_post_processing_tool",
     "get_reference_dir",
     "get_review_handle",
