@@ -110,6 +110,49 @@ from tools.analysis.manuscript.vocabularies import (
 # Plugin root: three levels up from tools/analysis/manuscript/
 _PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 
+# Sort order priority: the two meta-warnings first (results below may be
+# incomplete — the reader needs that before anything else), then
+# book_rule_violation (user-authored rules override everything), then
+# author-level bans (Don'ts, vocabulary, Recurring Tics — also
+# user-authored, scoped one level wider), then catalog-level advisory bans
+# (global_shape_violation, ai_tell_violation — every author inherits these),
+# then anonymization_leak (privacy-critical), then plot_hole (story-logic
+# breaks reader trust), then clichés, then everything else by severity.
+# Mirrors renderer.CATEGORY_ORDER's prefix up to "cliche" (see renderer.py).
+_CATEGORY_RANK = {
+    "book_rules_unreadable": 0,
+    "callbacks_unreadable": 1,
+    "book_rule_violation": 2,
+    "author_rule_violation": 3,
+    "author_vocab_violation": 4,
+    "writing_discovery_violation": 5,
+    "global_shape_violation": 6,
+    "ai_tell_violation": 7,
+    "anonymization_leak": 8,
+    "plot_hole": 9,
+    "cliche": 10,
+}
+_SEVERITY_RANK = {"high": 0, "medium": 1}
+
+
+def _sort_findings(findings: list[Finding]) -> list[Finding]:
+    """Sort findings into report order: category tier, then severity desc,
+    count desc, phrase asc within a tier.
+
+    Any category not in :data:`_CATEGORY_RANK` ranks after every explicitly
+    ranked tier — i.e. in "the rest by severity" per the comment above, never
+    tied with one of the explicit ranks above it.
+    """
+    return sorted(
+        findings,
+        key=lambda f: (
+            _CATEGORY_RANK.get(f.category, len(_CATEGORY_RANK)),
+            _SEVERITY_RANK[f.severity],
+            -f.count,
+            f.phrase,
+        ),
+    )
+
 
 def scan_repetitions(
     book_path: Path,
@@ -284,32 +327,7 @@ def scan_repetitions(
         findings.extend(_scan_timeline_ambiguity(book_path))
         findings.extend(_scan_real_people_consistency(book_path))
 
-    # Sort order priority: book_rule_violation first (user-authored rules
-    # override everything), then author-level bans (Don'ts, vocabulary,
-    # Recurring Tics — also user-authored, scoped one level wider), then
-    # anonymization_leak (privacy-critical), then plot_hole (story-logic
-    # breaks reader trust), then clichés, then the rest by severity.
-    # Within same bucket: severity desc, count desc, phrase asc.
-    category_rank = {
-        "book_rule_violation": 0,
-        "author_rule_violation": 1,
-        "author_vocab_violation": 2,
-        "writing_discovery_violation": 3,
-        "global_shape_violation": 4,
-        "ai_tell_violation": 5,
-        "anonymization_leak": 6,
-        "plot_hole": 7,
-        "cliche": 8,
-    }
-    severity_rank = {"high": 0, "medium": 1}
-    findings.sort(
-        key=lambda f: (
-            category_rank.get(f.category, 4),
-            severity_rank[f.severity],
-            -f.count,
-            f.phrase,
-        )
-    )
+    findings = _sort_findings(findings)
 
     if max_findings_per_category is not None:
         per_cat: dict[str, int] = defaultdict(int)
@@ -390,6 +408,8 @@ __all__ = [
     "_scan_snapshots",
     "_scan_tidy_lesson_endings",
     "_scan_timeline_ambiguity",
+    "_sort_findings",
+    "_CATEGORY_RANK",
     "_strip_dialogue",
     "_strip_markdown",
     "_tokenise",

@@ -35,9 +35,15 @@ class Finding:
     severity: str  # "high" | "medium"
     count: int
     occurrences: list[Occurrence] = field(default_factory=list)
-    # Populated only for category == "book_rule_violation": the verbatim rule
-    # from the book's CLAUDE.md that triggered the finding, so the user sees
-    # *why* a phrase was flagged.
+    # Populated for the rule/ban-backed categories (book_rule_violation,
+    # author_rule_violation, author_vocab_violation, writing_discovery_violation,
+    # global_shape_violation, ai_tell_violation, plot_hole): the verbatim rule
+    # or source that triggered the finding, so the user sees *why* a phrase
+    # was flagged. Also populated for the two meta-warning categories
+    # (book_rules_unreadable, callbacks_unreadable) with the underlying read
+    # error and its fix command, since those have no occurrences to show
+    # instead. None for the n-gram/craft scanners, which have no single
+    # authored rule to point back to.
     source_rule: str | None = None
     # False for findings whose ``phrase`` is a synthetic label rather than
     # manuscript text (e.g. body_tells.py's "shoulder (varied phrasing)") —

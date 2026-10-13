@@ -91,6 +91,11 @@ All memoir books get the base checks below plus five memoir-specific passes.
 | Category | What it catches | Severity logic |
 |---|---|---|
 | `book_rule_violation` | Patterns from book_rules DB (rendered in `<book>/CLAUDE.md ## Rules (from DB)`) | always high |
+| `author_rule_violation` | Author profile `### Don'ts` patterns (Issue #210) — same rule shape as `book_rule_violation`, scoped to the author instead of one book | always high |
+| `author_vocab_violation` | Author profile's flat vocabulary bans — the same phrase store the PostToolUse hook enforces at write time, surfaced again here in case the hook was bypassed (warn mode, edits that skip it) | always high |
+| `writing_discovery_violation` | Phrases promoted via `/storyforge:harvest-author-rules` into the author's Writing Discoveries (Issue #151 follow-up, `recurring_tics` rows) | always high |
+| `global_shape_violation` | Catalog-level AI-tell shape bans from `reference/craft/anti-ai-patterns.md` Section 11 (Issue #213) — advisory, not user-asserted. Suppressed for any paragraph where an author-level ban (Don'ts / vocabulary / Recurring Tics) also matches. | always medium |
+| `ai_tell_violation` | Catalog-level AI-tell vocabulary from `reference/craft/anti-ai-patterns.md` Section 1 (Issue #216) — advisory, parallel to `global_shape_violation`. Same author-level suppression. | always medium |
 | `plot_hole` | Causality inversions (Issue #150). Sub-category in phrase prefix (`[causality_inversion]`) — the `chekhov_gun` sub-category (unfired promises) is fiction-only and does not fire for memoir. | high — narrative-logic breaks reader trust |
 | `cliche` | Curated banlist of worn-out phrasings | always high |
 | `question_as_statement` | Dialogue starting with a Q-word but ending with `.` | high if ≥5 hits |
@@ -114,7 +119,7 @@ All memoir books get the base checks below plus five memoir-specific passes.
 | `timeline_ambiguity` | Density of temporal hand-waving per chapter ("at some point", "eventually", "years later") | high if >6/1k words, medium if >3/1k |
 | `real_people_consistency` | Same person's display name appearing in inconsistent capitalization or forms across chapters | always medium |
 
-Sort priority: `book_rule_violation` → `anonymization_leak` (privacy-critical) → `plot_hole` (narrative logic) → `cliche` → all others by severity.
+Sort priority: `book_rules_unreadable` / `callbacks_unreadable` (meta-findings — surfaced first so "results below may be incomplete" is seen before anything else) → `book_rule_violation` → `author_rule_violation` / `author_vocab_violation` / `writing_discovery_violation` (same user-asserted-ban family, different source) → `global_shape_violation` / `ai_tell_violation` (catalog-level, advisory — every author inherits these, sits before the privacy/plot/cliché tier) → `anonymization_leak` (privacy-critical) → `plot_hole` (narrative logic) → `cliche` → all others by severity. Finding order within a scan follows `tools/analysis/manuscript/__init__.py`'s `_CATEGORY_RANK`; the report's per-category section order follows `renderer.py`'s `CATEGORY_ORDER` — the two are independently maintained but describe the same intended tiering.
 
 ## Workflow
 
@@ -246,11 +251,9 @@ finding.
    pre-publication privacy blockers`.
 2. State chapters scanned + total findings + high-severity count by category.
 3. Show the top 5 highest-severity findings across *all* categories, in the
-   **sort priority order defined above**: `book_rule_violation` →
-   `anonymization_leak` → `plot_hole` → `cliche` → all others by severity. Label
-   `anonymization_leak` entries explicitly as **pre-publication blockers**,
-   same framing as Step 1b's presentation differences — not a generic craft
-   suggestion.
+   **sort priority order defined above**. Label `anonymization_leak`
+   entries explicitly as **pre-publication blockers**, same framing as Step
+   1b's presentation differences — not a generic craft suggestion.
 4. Tell the user the report path so they can open it.
 5. Offer the next step (see section 5).
 
@@ -288,14 +291,21 @@ If the user says yes (or passes `--interactive`):
 
 Process findings in **category priority order**:
 
-1. `book_rule_violation` (user explicitly wants these fixed)
-2. `anonymization_leak` (privacy blocker — fix before any other category)
-3. `cliche` (always worth fixing)
-4. `question_as_statement` (distinct fix pattern — see below)
-5. `filter_word`, `adverb_density` (per-chapter craft fixes)
-6. `tidy_lesson_ending`, `reflective_platitude`, `timeline_ambiguity`
-7. Repetition categories (`simile`, `character_tell`, etc.)
-8. `real_people_consistency` (last — name-form cleanup, no prose rewrite needed)
+1. `book_rule_violation`, `author_rule_violation`, `author_vocab_violation`,
+   `writing_discovery_violation` (user- or author-asserted bans — same fix
+   urgency regardless of source)
+2. `anonymization_leak` (privacy blocker — fix before any other category.
+   This walkthrough deliberately pulls it ahead of the report's sort
+   priority, which ranks it after the catalog tier below — privacy wins
+   over report order here, don't "fix" this back to match the sort line)
+3. `global_shape_violation`, `ai_tell_violation` (catalog-level, advisory —
+   same tier as the report's sort priority above)
+4. `cliche` (always worth fixing)
+5. `question_as_statement` (distinct fix pattern — see below)
+6. `filter_word`, `adverb_density` (per-chapter craft fixes)
+7. `tidy_lesson_ending`, `reflective_platitude`, `timeline_ambiguity`
+8. Repetition categories (`simile`, `character_tell`, etc.)
+9. `real_people_consistency` (last — name-form cleanup, no prose rewrite needed)
 
 **`anonymization_leak`, `tidy_lesson_ending`, `reflective_platitude`, and `timeline_ambiguity`
 do NOT use the generic snippet+recommendation format below on their own — apply Step 1b's

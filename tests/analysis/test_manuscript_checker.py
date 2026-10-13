@@ -17,6 +17,8 @@ import pytest
 from pathlib import Path
 
 from tools.analysis.manuscript_checker import (
+    Finding,
+    Occurrence,
     _extract_patterns_from_rule,
     _load_action_verbs,
     _load_cliche_banlist,
@@ -32,6 +34,8 @@ from tools.analysis.manuscript_checker import (
     _scan_question_as_statement,
     _scan_sentence_repetitions,
     _scan_snapshots,
+    _sort_findings,
+    _CATEGORY_RANK,
     _strip_dialogue,
     scan_repetitions,
 )
@@ -98,7 +102,7 @@ _BOOK_RULES = [
     "**Imperial units only** — Pacific Northwest setting, no metric.",
     '**Avoid vague-noun "thing" as a fallback** — banned: "doing a thing with his hand". How to apply: grep for ` thing ` in narration.',
     '**Do not use "clocked" as a verb for noticing** — alternatives: noticed, saw, registered.',
-    "**Limit \"specific kind of X that Y\" construction** — scan for `the (specific|particular|kind of|sort of) [a-z]+ (that|of)`.",
+    '**Limit "specific kind of X that Y" construction** — scan for `the (specific|particular|kind of|sort of) [a-z]+ (that|of)`.',
 ]
 
 
@@ -488,7 +492,7 @@ class TestScanRepetitionsIntegration:
             patch_db_dir,
             "book",
             [
-                'Limit the `specific kind of X that Y` construction — max 2-3 per '
+                "Limit the `specific kind of X that Y` construction — max 2-3 per "
                 "chapter, and only when the comparison does real voice/character work."
             ],
         )
@@ -536,9 +540,7 @@ class TestScanRepetitionsIntegration:
         result = scan_repetitions(book)
 
         shoulder_findings = [
-            f
-            for f in result["findings"]
-            if f["category"] == "character_tell" and "shoulder" in f["phrase"]
+            f for f in result["findings"] if f["category"] == "character_tell" and "shoulder" in f["phrase"]
         ]
         assert len(shoulder_findings) == 1
 
@@ -911,6 +913,114 @@ class TestScanManuscriptIntegration:
         result = scan_repetitions(book)
         assert result["findings"]
         assert result["findings"][0]["category"] == "cliche"
+
+
+class TestSortFindings:
+    """An unranked category must sort after every explicitly ranked tier,
+    never tied with one of the explicit ranks — see `_sort_findings`'s
+    docstring in `tools/analysis/manuscript/__init__.py`.
+    """
+
+    @staticmethod
+    def _finding(category: str, severity: str = "high", count: int = 1, phrase: str = "x") -> Finding:
+        return Finding(
+            phrase=phrase,
+            category=category,
+            severity=severity,
+            count=count,
+            occurrences=[Occurrence(chapter="01-open", line=1, snippet=phrase)],
+        )
+
+    def test_unranked_category_sorts_after_cliche_even_at_higher_severity(self) -> None:
+        # filter_word isn't in _CATEGORY_RANK, so it must rank below cliche
+        # regardless of severity/count — cliche is the higher-priority,
+        # always-high category per the documented tiering.
+        findings = [
+            self._finding("filter_word", severity="high", count=10),
+            self._finding("cliche", severity="high", count=1),
+        ]
+        sorted_findings = _sort_findings(findings)
+        assert [f.category for f in sorted_findings] == ["cliche", "filter_word"]
+
+    def test_unranked_category_sorts_after_plot_hole_and_anonymization_leak(self) -> None:
+        findings = [
+            self._finding("signature_phrase", severity="high", count=99),
+            self._finding("anonymization_leak", severity="medium", count=1),
+            self._finding("plot_hole", severity="medium", count=1),
+        ]
+        sorted_findings = _sort_findings(findings)
+        assert [f.category for f in sorted_findings] == [
+            "anonymization_leak",
+            "plot_hole",
+            "signature_phrase",
+        ]
+
+    def test_catalog_categories_rank_between_author_bans_and_anonymization_leak(self) -> None:
+        # Matches renderer.CATEGORY_ORDER's documented intent: catalog-level
+        # advisory categories sit after the user-asserted author-ban tier,
+        # before the privacy/plot/cliché tier.
+        findings = [
+            self._finding("cliche"),
+            self._finding("anonymization_leak"),
+            self._finding("ai_tell_violation", severity="medium"),
+            self._finding("writing_discovery_violation"),
+            self._finding("global_shape_violation", severity="medium"),
+            self._finding("book_rule_violation"),
+        ]
+        sorted_findings = _sort_findings(findings)
+        assert [f.category for f in sorted_findings] == [
+            "book_rule_violation",
+            "writing_discovery_violation",
+            "global_shape_violation",
+            "ai_tell_violation",
+            "anonymization_leak",
+            "cliche",
+        ]
+
+    def test_meta_warnings_rank_first(self) -> None:
+        # renderer.CATEGORY_ORDER puts book_rules_unreadable/callbacks_unreadable
+        # first — the reader needs "results below may be incomplete" before
+        # anything else, including book_rule_violation itself.
+        findings = [
+            self._finding("cliche"),
+            self._finding("book_rule_violation"),
+            self._finding("callbacks_unreadable"),
+            self._finding("book_rules_unreadable"),
+        ]
+        sorted_findings = _sort_findings(findings)
+        assert [f.category for f in sorted_findings] == [
+            "book_rules_unreadable",
+            "callbacks_unreadable",
+            "book_rule_violation",
+            "cliche",
+        ]
+
+    def test_category_rank_prefix_matches_renderer_category_order(self) -> None:
+        """`_CATEGORY_RANK` and `renderer.CATEGORY_ORDER` are two
+        independently maintained registries describing the same intended
+        tiering (sort order vs. report-section order). This pins their
+        agreement so one can't drift from the other silently — the failure
+        mode that put `global_shape_violation`/`ai_tell_violation` in the
+        wrong tier originally.
+        """
+        from tools.analysis.manuscript.renderer import CATEGORY_ORDER
+
+        ranked_categories = sorted(_CATEGORY_RANK, key=lambda c: _CATEGORY_RANK[c])
+        order_prefix = CATEGORY_ORDER[: len(ranked_categories)]
+        assert ranked_categories == order_prefix
+
+    def test_same_tier_breaks_tie_by_severity_then_count_then_phrase(self) -> None:
+        findings = [
+            self._finding("signature_phrase", severity="medium", count=5, phrase="b"),
+            self._finding("signature_phrase", severity="high", count=3, phrase="z"),
+            self._finding("signature_phrase", severity="high", count=10, phrase="a"),
+        ]
+        sorted_findings = _sort_findings(findings)
+        assert [(f.severity, f.count, f.phrase) for f in sorted_findings] == [
+            ("high", 10, "a"),
+            ("high", 3, "z"),
+            ("medium", 5, "b"),
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -1368,9 +1478,7 @@ class TestScanCallbacksIntegration:
         book = _write_book(tmp_path, CLAUDEMD_EMPTY_RULES, {"01": "Some text."})
         assert _scan_callbacks(book) == []
 
-    def test_unlinked_series_book_emits_unreadable_finding_not_empty(
-        self, tmp_path: Path, patch_db_dir: Path
-    ) -> None:
+    def test_unlinked_series_book_emits_unreadable_finding_not_empty(self, tmp_path: Path, patch_db_dir: Path) -> None:
         """Issue #584: without this, an unlinked series book's callback
         register (unreadable, Issue #579) and a book with a genuinely
         empty register both return [] here — indistinguishable to the
