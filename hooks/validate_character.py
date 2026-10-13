@@ -222,7 +222,14 @@ def validate_character(file_path: str) -> tuple[list[str], list[str]]:
         blocking.append(f"{path.name} — Frontmatter is not a YAML mapping")
         return blocking, warnings
 
-    for field in REQUIRED_FRONTMATTER:
+    # Memoir person files have no role concept (create_person() writes no
+    # 'role' field) — requiring it unconditionally blocked the first
+    # Write/Edit on every freshly created person file (Issue #628).
+    required_fields: tuple[str, ...] = REQUIRED_FRONTMATTER
+    if _is_memoir_person_file(meta):
+        required_fields = tuple(f for f in REQUIRED_FRONTMATTER if f != "role")
+
+    for field in required_fields:
         if field not in meta:
             blocking.append(f"{path.name} — Missing frontmatter field: '{field}'")
 
