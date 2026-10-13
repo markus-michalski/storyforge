@@ -42,7 +42,7 @@ If `/storyforge:new-book` has not run yet for the new book, this skill cannot pr
 1. Read both arguments: `prev_book_slug` and `new_book_slug` (positional).
 2. Load both via `mcp__storyforge-mcp__get_book_full(slug)`.
 3. Validate:
-   - `prev_book.status` must be `Final` / `Export Ready` / `Published`. Else warn (AskUserQuestion: **Run anyway** vs **Cancel**).
+   - `prev_book.status` must be `Export Ready` / `Published`. Else warn (AskUserQuestion: **Run anyway** vs **Cancel**) — a book whose chapters are all `Final` derives to `Proofread`, not a book status of its own.
    - `new_book` must exist (already scaffolded).
    - `prev_book.series == new_book.series` (else error: not in same series).
 4. Determine bands:
