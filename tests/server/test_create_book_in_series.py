@@ -113,3 +113,20 @@ class TestCreateBookInSeries:
             create_book_structure(title="Firelight", series_slug="../escape")
         )
         assert "error" in result
+
+    def test_rejects_slug_colliding_with_existing_standalone_book(self, mock_config, content_root: Path):
+        """Issue #650: a standalone book at projects/{slug} must not collide with a
+        series book created under the same slug — add_book_to_series() resolves by
+        slug via resolve_project_path(), which checks projects/ first, so the two
+        calls would silently disagree on which directory is "the" book.
+        """
+        create_book_structure(title="Firelight")
+        assert (content_root / "projects" / "firelight").is_dir()
+
+        _make_series_dir(content_root, "blood-and-binary")
+        result = json.loads(
+            create_book_structure(title="Firelight", series_slug="blood-and-binary")
+        )
+
+        assert "error" in result
+        assert not (content_root / "series" / "blood-and-binary" / "firelight").exists()
