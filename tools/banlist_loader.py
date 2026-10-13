@@ -657,6 +657,43 @@ _HOOK_BAN_CUE_RE = re.compile(
 )
 _HOOK_REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
 
+# Recommendation-marker vocabulary (#217): text from the start of a Don't
+# bullet up to the first marker is the "ban window" — italic/quoted phrases
+# found there are banned examples; a marker (Render/Instead:/→/...) hands
+# off to a positive/recommended example that must NOT be extracted as
+# banned. Shared by this module's hook-side extractor and the manuscript
+# checker's (tools.analysis.manuscript.rules._extract_patterns_from_author_dont)
+# so a don't with both a banned and a recommended phrase can't have the hook
+# block the recommended one while the checker correctly ignores it, or vice
+# versa (Issue #637 — previously only the checker applied this window).
+_RECOMMENDATION_MARKER_RE = re.compile(
+    r"(?:"
+    r"\bRender\b"
+    r"|\bReplace\b"
+    r"|\bUse\s+instead\b"
+    r"|\bInstead\s*:"
+    r"|\bAllowed\s*:"
+    r"|\bBetter\s*:"
+    r"|\bRewrite\s+as\b"
+    r"|\bRather\s*:"
+    r"|→"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def extract_ban_window(rule: str) -> str:
+    """Return the slice of ``rule`` before the first recommendation marker.
+
+    A marker found inside an ``*italic*`` span is part of the example, not
+    a boundary signal, so italic content is masked with spaces (keeping
+    character positions stable) before searching for the marker. Returns
+    the whole rule unchanged when no marker is present.
+    """
+    masked = _HOOK_ITALIC_RE.sub(lambda m: " " * len(m.group(0)), rule)
+    marker = _RECOMMENDATION_MARKER_RE.search(masked)
+    return rule[: marker.start()] if marker else rule
+
 
 def _extract_dont_patterns(rule: str) -> list[tuple[str, re.Pattern[str]]]:
     """Hook-side extractor — block-tier patterns from a single Don't bullet.
@@ -664,7 +701,9 @@ def _extract_dont_patterns(rule: str) -> list[tuple[str, re.Pattern[str]]]:
     Pulls backticked strings (regex or literal) plus italic phrases when
     the bullet carries a ban cue. Quoted phrases are intentionally
     skipped: the hook keeps to the strict #70 convention of "backticks and
-    italics only count as hard-block".
+    italics only count as hard-block". Italic extraction is bounded by
+    :func:`extract_ban_window` (#217/#637) — phrases after a recommendation
+    marker are positive examples, not bans.
     """
     patterns: list[tuple[str, re.Pattern[str]]] = []
     seen: set[str] = set()
@@ -690,7 +729,8 @@ def _extract_dont_patterns(rule: str) -> list[tuple[str, re.Pattern[str]]]:
             continue
 
     if _HOOK_BAN_CUE_RE.search(rule):
-        for m in _HOOK_ITALIC_RE.finditer(rule):
+        ban_window = extract_ban_window(rule)
+        for m in _HOOK_ITALIC_RE.finditer(ban_window):
             raw = m.group(1).strip()
             cleaned = raw.rstrip(".,!?;:").strip()
             if len(cleaned) < 3:
