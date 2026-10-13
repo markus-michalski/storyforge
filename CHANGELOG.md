@@ -25,6 +25,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Nothing yet
 
+## [3.6.7] - 2026-10-13
+
+### Added
+- add README for Märchen genre with overview and characteristics
+
+### Changed
+- document 5 missing manuscript-checker categories + fix sort-rank bug (#646)
+- bump the pip-all group across 1 directory with 4 updates (#627)
+
+### Fixed
+- narrow ReDoS guard to genuine nested unbounded quantifiers (#662)
+- manuscript checker honours tic severity and per-chapter cap (#661)
+- hook-side Don't extractor shares the checker's recommendation window (#660)
+- enforce bold-titled author vocabulary rows with no pattern (#659)
+- fall back to README author field when CLAUDE.md has no Author line (#658)
+- persist custom genres outside the plugin dir, auto-load genre craft guides (#657)
+- normalize memoir author_writing_mode vocabulary at write time (#656)
+- memoir person files don't require a 'role' frontmatter field (#655)
+- recognise template's '## Key Relationships' heading in harvest reader (#654)
+- reject series-book slug colliding with a standalone book (#653)
+- seed create_author default banned words into the vocabulary DB (#652)
+- register new-book with its series before copying characters (#651)
+- resolve series dir by position, not book_root.parent.parent (#649)
+- validate_character no longer skips series-nested book characters (#648)
+- remove nonexistent book status Final from status gates (#647)
+- stop describing PostToolUse validation as rejecting the write (#645)
+
 ## [3.6.6] - 2026-09-30
 
 ### Fixed
@@ -819,6 +846,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.6.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.2
 [3.6.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.3
 [3.6.4]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.4
-[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.6.6...HEAD
+[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.6.7...HEAD
 [3.6.5]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.5
 [3.6.6]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.6
+[3.6.7]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.7
