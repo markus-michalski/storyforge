@@ -108,6 +108,43 @@ class TestAuthorSlugFromBook:
         book = _make_book_with_author(tmp_path, "- **Author:** Ursula K. Le Guin")
         assert author_slug_from_book(book) == "ursula-k-le-guin"
 
+    def test_falls_back_to_readme_frontmatter_author_when_claudemd_has_no_line(self, tmp_path):
+        """Issue #630: standard-flow books never get a '- **Author:** ...' line
+        written into CLAUDE.md — neither the template nor init_book_claudemd
+        emit one — so author_slug_from_book() must fall back to the `author:`
+        field create_book_structure() actually writes into README.md
+        frontmatter. That field already holds the slug, not a display name,
+        so it's used as-is (not re-slugified)."""
+        book = _make_book_with_author(tmp_path, None)
+        (book / "README.md").write_text(
+            '---\ntitle: "Test Book"\nslug: "test-book"\nauthor: "ethan-cole"\n'
+            'genres: []\nstatus: "Idea"\n---\n\n# Test Book\n',
+            encoding="utf-8",
+        )
+        assert author_slug_from_book(book) == "ethan-cole"
+
+    def test_claudemd_author_line_takes_precedence_over_readme(self, tmp_path):
+        """An explicit CLAUDE.md Author line (hand-edited or from an older
+        book) still wins — the README fallback only fires when it's absent."""
+        book = _make_book_with_author(tmp_path, "- **Author:** Ethan Cole")
+        (book / "README.md").write_text(
+            '---\ntitle: "Test Book"\nauthor: "someone-else"\n---\n\n# Test Book\n',
+            encoding="utf-8",
+        )
+        assert author_slug_from_book(book) == "ethan-cole"
+
+    def test_no_fallback_when_readme_author_field_is_empty(self, tmp_path):
+        book = _make_book_with_author(tmp_path, None)
+        (book / "README.md").write_text(
+            '---\ntitle: "Test Book"\nauthor: ""\n---\n\n# Test Book\n',
+            encoding="utf-8",
+        )
+        assert author_slug_from_book(book) is None
+
+    def test_no_fallback_when_readme_is_also_missing(self, tmp_path):
+        book = _make_book_with_author(tmp_path, None)
+        assert author_slug_from_book(book) is None
+
 
 # ---------------------------------------------------------------------------
 # load_author_vocab — DB-backed since Issue #604 (was: vocabulary.md file)

@@ -54,6 +54,16 @@ _BOOK_AUTHOR_LINE_RE = re.compile(
     re.MULTILINE | re.IGNORECASE,
 )
 
+# Fallback source for author_slug_from_book(): standard-flow books never get
+# a '- **Author:** ...' line written into CLAUDE.md — neither
+# templates/book-claude-md.template nor init_book_claudemd() emit one — but
+# create_book_structure() always writes `author: "<slug>"` into README.md
+# frontmatter. Unlike the CLAUDE.md line (a display name that gets
+# slugified), this field already holds the slug create_book_structure() was
+# called with, so it's read as-is (Issue #630).
+_README_FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+_README_AUTHOR_FIELD_RE = re.compile(r'^author:\s*"?(?P<slug>[^"\n]*)"?\s*$', re.MULTILINE)
+
 
 def _slugify(text: str) -> str:
     """Local copy of ``tools.shared.paths.slugify`` to avoid a hard import
@@ -69,23 +79,43 @@ def author_slug_from_book(book_root: Path) -> str | None:
     """Extract the author slug from a book's ``CLAUDE.md`` Book Facts.
 
     Looks for a line shaped like ``- **Author:** Ethan Cole (...)`` and
-    slugifies the display name. Returns ``None`` if the line is missing
-    or unparseable.
+    slugifies the display name. Falls back to the ``author:`` field in the
+    book's README.md frontmatter (already a slug, not a display name) when
+    no tool ever wrote that CLAUDE.md line — the standard-flow case
+    (Issue #630). Returns ``None`` if neither source yields a value.
     """
     claudemd = book_root / "CLAUDE.md"
-    if not claudemd.is_file():
+    if claudemd.is_file():
+        try:
+            text = claudemd.read_text(encoding="utf-8")
+        except OSError:
+            text = ""
+        match = _BOOK_AUTHOR_LINE_RE.search(text)
+        if match:
+            name = match.group("name").strip()
+            if name:
+                return _slugify(name)
+
+    return _author_slug_from_readme(book_root)
+
+
+def _author_slug_from_readme(book_root: Path) -> str | None:
+    """README.md frontmatter fallback for author_slug_from_book() (Issue #630)."""
+    readme = book_root / "README.md"
+    if not readme.is_file():
         return None
     try:
-        text = claudemd.read_text(encoding="utf-8")
+        text = readme.read_text(encoding="utf-8")
     except OSError:
         return None
-    match = _BOOK_AUTHOR_LINE_RE.search(text)
-    if not match:
+    fm_match = _README_FRONTMATTER_RE.match(text)
+    if not fm_match:
         return None
-    name = match.group("name").strip()
-    if not name:
+    field_match = _README_AUTHOR_FIELD_RE.search(fm_match.group(1))
+    if not field_match:
         return None
-    return _slugify(name)
+    slug = field_match.group("slug").strip()
+    return slug or None
 
 
 def _strip_parenthetical(text: str) -> str:
