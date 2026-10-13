@@ -12,6 +12,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import stat
 import sys
 from datetime import date
@@ -146,6 +147,19 @@ def get_author(slug: str) -> str:
     return json.dumps(author)
 
 
+# Default AI-tell vocabulary bans. Seeded into author_discoveries ("donts") by
+# create_author — the table load_author_vocab() enforces (Issue #639). Flat
+# plain phrases, no backtick/bold markers. "navigate" is deliberately absent:
+# only its metaphorical use is an AI tell, but the matcher also hits
+# "navigation"/"navigator", which a ban cannot distinguish.
+_DEFAULT_BANNED_WORDS: tuple[str, ...] = (
+    "delve", "tapestry", "nuanced", "vibrant", "resonate", "pivotal",
+    "multifaceted", "realm", "testament", "intricate", "myriad",
+    "unprecedented", "foster", "beacon", "juxtaposition", "paradigm",
+    "synergy", "interplay", "ever-evolving",
+)
+
+
 @mcp.tool()
 def create_author(
     name: str, genres: str = "", tone: str = "", voice: str = "third-limited", tense: str = "past"
@@ -209,19 +223,43 @@ avoid: ["purple-prose", "info-dumps", "deus-ex-machina"]
 
     (author_dir / "profile.md").write_text(profile, encoding="utf-8")
     (author_dir / "vocabulary.md").write_text(
-        f"# {name} — Vocabulary\n\n## Preferred Words\n\n*To be defined*\n\n## Banned Words\n\n- delve\n- tapestry\n- nuanced\n- vibrant\n- resonate\n- pivotal\n- multifaceted\n- realm\n- testament\n- intricate\n- myriad\n- unprecedented\n- foster\n- beacon\n- juxtaposition\n- paradigm\n- synergy\n- interplay\n- ever-evolving\n- navigate (metaphorical)\n\n## Signature Phrases\n\n*To be defined through study-author*\n",
+        f"# {name} — Vocabulary\n\n"
+        "## Preferred Words\n\n*To be defined*\n\n"
+        "## Banned Words\n\n"
+        "*Seeded directly into this author's vocabulary bans — enforced from "
+        "creation, not tracked here. Add more via `add_vocabulary_entry()`.*\n\n"
+        "## Signature Phrases\n\n*To be defined through study-author*\n",
         encoding="utf-8",
     )
 
+    # Defaults live in author_discoveries ("donts"), which is what
+    # load_author_vocab() enforces. A DB failure must not strand the
+    # author: the directory already exists, so a retry would hit
+    # "already exists" and never seed. Report it instead.
+    seed_warning = ""
+    try:
+        conn = open_authors_db()
+        try:
+            for word in _DEFAULT_BANNED_WORDS:
+                insert_discovery(conn, author_slug=slug, discovery_type="donts", text=word)
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        seed_warning = (
+            f"default banned words not fully seeded ({exc}); "
+            "add them with add_vocabulary_entry(slug, 'banned', word)"
+        )
+
     _cache.invalidate()
-    return json.dumps(
-        {
-            "success": True,
-            "slug": slug,
-            "path": str(author_dir),
-            "message": f"Author profile '{name}' created at {author_dir}",
-        }
-    )
+    result: dict[str, Any] = {
+        "success": True,
+        "slug": slug,
+        "path": str(author_dir),
+        "message": f"Author profile '{name}' created at {author_dir}",
+    }
+    if seed_warning:
+        result["warning"] = seed_warning
+    return json.dumps(result)
 
 
 def _clear_readonly_and_retry(func: Any, path: Any, _exc: Any) -> None:

@@ -187,8 +187,8 @@ that differs, not just the three named in steps 2-3 below.
    `update_author(slug, "relationship_to_material", value)`, and `update_author(slug, "off_limits", value)`
    (`off_limits` is also list-typed — same comma/JSON-array convention as `themes`/`influences`)
    — all three memoir-specific fields collected in Phase 2, not just the two most obviously named.
-6. Load the generated `profile.md` and `vocabulary.md`
-7. Review the banned words list (AI tells) — ask if user wants to add/remove any (brief: list entries only, no prose commentary)
+6. Load the generated author via MCP `get_author(slug)` — its `writing_discoveries.donts` holds the default banned words `create_author()` seeded (they no longer live in `vocabulary.md`)
+7. Review the banned words list (AI tells) from `writing_discoveries.donts` — ask if user wants to add/remove any (brief: list entries only, no prose commentary). Add via `add_vocabulary_entry(slug, "banned", text)`, remove via `delete_discovery`
 8. For memoir: call MCP `write_author_banned_phrase(author_slug, phrase, reason)` once per memoir-specific
    AI tell from `book_categories/memoir/craft/memoir-anti-ai-patterns.md` (at minimum: "reflective
    platitude", "looking back I realize", "tidy lesson ending") — this must be a real write, not just a
@@ -202,7 +202,7 @@ that differs, not just the three named in steps 2-3 below.
 - **Memoir:** "Do you have personal journals, letters, or old writing to analyze for your authentic voice? → `/storyforge:study-author` (memoir mode)"
 
 ## Rules
-- **MANDATORY — Why:** Anti-AI vocabulary is the primary defense against generic output. Always pre-populate the avoid list from `anti-ai-patterns.md` before showing the profile. For memoir, additionally load `memoir-anti-ai-patterns.md`.
+- **MANDATORY — Why:** Anti-AI vocabulary is the primary defense against generic output. The default banned words are seeded by `create_author()` into the author's vocabulary bans; show them from `get_author` before showing the profile. For memoir, additionally load `memoir-anti-ai-patterns.md`.
 - Tone descriptors should be SPECIFIC, not generic ("searching with dry wit" beats "introspective").
 - Influences should be REAL authors the user has actually read — if a name doesn't read as a real,
   published author (invented-sounding, or presented as a character rather than a person), check with
