@@ -80,6 +80,22 @@ def create_book_structure(
         if not series_dir.exists():
             return json.dumps({"error": f"Series '{series_slug}' not found. Create it first with create_series()."})
         project_dir = resolve_book_in_series_path(config, series_slug, slug)
+        # Issue #650: resolve_project_path() checks projects/{slug} before
+        # series/*/{slug}, so add_book_to_series() would later resolve this
+        # slug to a pre-existing standalone book instead of the one just
+        # scaffolded here, silently rewriting the wrong book's README.
+        # Reject the collision up front rather than let the two resolvers
+        # disagree on which directory is "the" book.
+        existing_elsewhere = resolve_project_path(config, slug)
+        if existing_elsewhere.exists() and existing_elsewhere != project_dir:
+            return json.dumps(
+                {
+                    "error": (
+                        f"Book slug '{slug}' already exists at {existing_elsewhere}. "
+                        "Choose a different title or resolve the collision first."
+                    )
+                }
+            )
     else:
         project_dir = resolve_project_path(config, slug)
 
