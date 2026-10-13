@@ -121,7 +121,8 @@ class TestValidationResultEnvelope:
             ],
         )
         report = result.render_block_report()
-        assert "StoryForge linter blocked this write" in report
+        assert "StoryForge linter flagged this write as blocking" in report
+        assert "already written" in report
         assert "[BLOCK] draft.md line 12: callback found" in report
         assert "Plus 1 non-blocking warning" in report
 

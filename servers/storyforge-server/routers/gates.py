@@ -309,7 +309,8 @@ def validate_chapter(book_slug: str, chapter_slug: str) -> str:
     ``reference/gate-contract.md``):
 
     - **FAIL** when the chapter has blocking findings AND the resolved
-      linter mode is ``strict`` (the hook would reject the write).
+      linter mode is ``strict`` (the hook would report the write as
+      blocking — it already happened; PostToolUse cannot prevent it).
     - **WARN** when findings exist but the hook would not block (warn
       mode, or only warn-severity findings).
     - **PASS** when no findings.

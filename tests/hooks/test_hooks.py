@@ -1059,7 +1059,8 @@ class TestMainEntryPoint:
         rc = _run_hook(payload, monkeypatch, capsys)
         captured = capsys.readouterr()
         assert rc == 2
-        assert "blocked this write" in captured.err.lower()
+        assert "flagged this write as blocking" in captured.err.lower()
+        assert "already written" in captured.err.lower()
         assert "clocked" in captured.err
 
     def test_warn_mode_does_not_block(self, tmp_path, monkeypatch, capsys):
