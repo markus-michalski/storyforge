@@ -1,8 +1,11 @@
-"""Tests for ReDoS protection in _extract_block_patterns_from_rule (Issue #322).
+"""Tests for ReDoS protection in _extract_block_patterns_from_rule (Issue #322,
+narrowed by Issue #635).
 
-Verifies that patterns with nested quantifiers (the primary ReDoS trigger)
-are compiled as literals rather than regex, while safe regex patterns like
-simple alternations and word boundaries continue to work as intended.
+Verifies that patterns with GENUINE nested unbounded quantifiers (the actual
+ReDoS trigger) are compiled as literals rather than regex, while safe regex
+patterns — including a group with a BOUNDED outer quantifier like `(word){3}`,
+which #322's original guard over-broadly also flagged — continue to work as
+intended.
 """
 
 from __future__ import annotations
@@ -33,13 +36,51 @@ class TestReDoSProtection:
         _, compiled = patterns[0]
         assert compiled.pattern == re.escape("([a-z]+)*")
 
-    def test_brace_quantifier_on_group_is_literal(self) -> None:
+    def test_bounded_brace_quantifier_on_group_is_not_a_redos_risk(self) -> None:
+        """(word){3,}: the group's BODY has no quantifier at all — repeating
+        a fixed string any number of times is linear, not exponential.
+        Issue #635: the original guard (any `)` followed by any quantifier
+        char) flagged this too, silently demoting a safe regex to an
+        unmatchable literal."""
         rule = "Do not write `(word){3,}`."
         patterns = _extract_block_patterns_from_rule(rule)
 
         assert len(patterns) == 1
         _, compiled = patterns[0]
-        assert compiled.pattern == re.escape("(word){3,}")
+        assert compiled.pattern == "(word){3,}"
+        assert compiled.search("wordwordword")
+
+    def test_bounded_outer_quantifier_with_unbounded_body_is_not_flagged(self) -> None:
+        """(?:being){2}: body has no quantifier, outer is bounded — neither
+        condition for genuine ReDoS risk holds. Issue #635 reproduction."""
+        rule = "Never write `(?:was|were) (?:being){2}`."
+        patterns = _extract_block_patterns_from_rule(rule)
+
+        assert len(patterns) == 1
+        _, compiled = patterns[0]
+        assert compiled.pattern == "(?:was|were) (?:being){2}"
+        assert compiled.search("was beingbeing noted")
+
+    def test_unbounded_outer_quantifier_with_non_repeating_body_is_not_flagged(self) -> None:
+        """(?:very|really)+: outer quantifier is unbounded, but the body
+        ("very|really") contains no quantifier of its own — repeating a
+        non-quantified alternation is linear, not exponential."""
+        rule = r"Avoid `(?:very|really)+ \w+`."
+        patterns = _extract_block_patterns_from_rule(rule)
+
+        assert len(patterns) == 1
+        _, compiled = patterns[0]
+        assert compiled.search("very really tired")
+
+    def test_genuine_nested_unbounded_quantifier_is_still_literal(self) -> None:
+        """(a+)+ remains the actual ReDoS shape this guard must still catch:
+        the body ('a+') AND the outer quantifier are both unbounded."""
+        rule = "Never use `(a+)+b` in prose."
+        patterns = _extract_block_patterns_from_rule(rule)
+
+        assert len(patterns) == 1
+        _, compiled = patterns[0]
+        assert compiled.pattern == re.escape("(a+)+b")
 
     def test_character_class_with_outer_quantifier_is_literal(self) -> None:
         rule = "Avoid `[aeiou]+` repeated as `[aeiou]+{2}`."

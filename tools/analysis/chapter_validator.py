@@ -277,11 +277,6 @@ def resolve_mode(file_path: Path) -> str:
 # so requiring them keeps the user/skill in explicit territory.
 
 _BACKTICK_PATTERN_RE = re.compile(r"`([^`\n]+)`")
-_REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
-# Detects nested quantifiers on groups — the primary ReDoS trigger.
-# Matches ) followed by +, *, or { (e.g. (a+)+, ([a-z]+)*, (word){3,}).
-# Does NOT match ] — [a-z]+ is a safe character class, not a ReDoS pattern.
-_REDOS_RISK_RE = re.compile(r"\)[+*{]")
 
 
 def _extract_block_patterns_from_rule(
@@ -293,8 +288,15 @@ def _extract_block_patterns_from_rule(
     backticks is preserved so the user can encode word-boundary intent
     (e.g. `` ` thing ` ``). If the inner string contains regex
     metacharacters it is compiled as a regex; otherwise as a literal
-    substring. Malformed regexes are skipped silently.
+    substring — unless it carries a genuine nested unbounded quantifier
+    (ReDoS risk), in which case it's compiled as a literal regardless
+    (:func:`tools.banlist_loader.compile_backtick_pattern`, Issue #635).
+    Malformed regexes are skipped silently.
     """
+    # Lazy import: this module stays patchable from tests without pulling in
+    # the full banlist_loader dependency graph at import time.
+    from tools.banlist_loader import compile_backtick_pattern
+
     patterns: list[tuple[str, re.Pattern[str]]] = []
     seen: set[str] = set()
     for match in _BACKTICK_PATTERN_RE.finditer(rule):
@@ -306,12 +308,8 @@ def _extract_block_patterns_from_rule(
         if key in seen:
             continue
         seen.add(key)
-        try:
-            if any(c in _REGEX_HINT_CHARS for c in inner) and not _REDOS_RISK_RE.search(inner):
-                compiled = re.compile(raw, re.IGNORECASE)
-            else:
-                compiled = re.compile(re.escape(raw), re.IGNORECASE)
-        except re.error:
+        compiled = compile_backtick_pattern(raw)
+        if compiled is None:
             continue
         patterns.append((inner, compiled))
     return patterns

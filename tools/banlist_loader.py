@@ -273,6 +273,95 @@ _RECURRING_TIC_BULLET_RE = re.compile(
 _BACKTICK_CONTENT_RE = re.compile(r"`([^`\n]+)`")
 _REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
 
+# True nested-quantifier detection (Issue #635). The guard this replaces
+# (``\)[+*{]`` in tools.analysis.chapter_validator) flagged ANY group
+# followed by ANY quantifier character — including a bounded one like
+# ``(?:being){2}``, which is safe: a bounded repeat count caps backtracking
+# regardless of what's inside. An unboundedly-repeated group with a
+# non-repeating body (``(foo)+``) is linear, not exponential, either.
+# The actual ReDoS shape (``(a+)+``, ``(a*)*``) needs BOTH the group's own
+# quantifier AND something inside the group's body to be unbounded (``+``,
+# ``*``, or an open-ended ``{n,}``) — only that combination is flagged.
+_UNBOUNDED_QUANTIFIER_IN_BODY_RE = re.compile(r"(?<!\\)(?:[+*]|\{\d*,\})")
+_QUANTIFIER_AFTER_GROUP_RE = re.compile(r"(?:[+*]|\{\d*,\d*\})")
+
+
+def _group_quantifier_is_unbounded(pattern: str, pos: int) -> bool:
+    """True if the quantifier starting at ``pos`` is unbounded (``+``,
+    ``*``, or ``{n,}`` with no upper bound). No quantifier, ``?``, and a
+    bounded ``{n}``/``{n,m}`` all return ``False``."""
+    m = _QUANTIFIER_AFTER_GROUP_RE.match(pattern, pos)
+    if not m:
+        return False
+    text = m.group(0)
+    if text in ("+", "*"):
+        return True
+    return text[1:-1].endswith(",")  # "{n,}" (open range) vs "{n,m}" (bounded)
+
+
+def has_nested_unbounded_quantifier(pattern: str) -> bool:
+    """Detect a quantified group whose body itself contains an unbounded
+    quantifier AND which is itself unboundedly quantified — the actual
+    ReDoS risk shape, not merely "a group followed by some quantifier"
+    (Issue #635). Malformed/unbalanced parens return ``False`` and let the
+    caller's own ``re.compile`` surface the real error.
+    """
+    i = 0
+    n = len(pattern)
+    while i < n:
+        ch = pattern[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == "(":
+            depth = 1
+            j = i + 1
+            while j < n and depth > 0:
+                if pattern[j] == "\\":
+                    j += 2
+                    continue
+                if pattern[j] == "(":
+                    depth += 1
+                elif pattern[j] == ")":
+                    depth -= 1
+                j += 1
+            if depth != 0:
+                return False
+            body = pattern[i + 1 : j - 1]
+            if _group_quantifier_is_unbounded(pattern, j) and _UNBOUNDED_QUANTIFIER_IN_BODY_RE.search(body):
+                return True
+            i = j
+            continue
+        i += 1
+    return False
+
+
+def compile_backtick_pattern(raw: str) -> re.Pattern[str] | None:
+    """Compile a backtick-wrapped rule string as regex or escaped literal.
+
+    Shared by every backtick extractor in this plugin — the hook
+    (``_extract_dont_patterns``, ``_extract_patterns_from_tic_body``) and
+    the manuscript checker (``tools.analysis.manuscript.rules``
+    ``_extract_patterns_from_rule``/``_extract_patterns_from_author_dont``)
+    — so a book rule or author don't is a regex in one place and a literal
+    in another only when the author actually wrote a plain string, never
+    because one extractor applied a different ReDoS guard than another
+    (Issue #635).
+
+    Regex-hint characters trigger compile-as-regex, UNLESS the content
+    also has a genuine nested unbounded quantifier
+    (:func:`has_nested_unbounded_quantifier`), in which case it's compiled
+    as an escaped literal instead — inert for that pattern's regex intent,
+    but safe. Returns ``None`` on a malformed regex; the caller skips it.
+    """
+    inner = raw.strip()
+    try:
+        if any(c in _REGEX_HINT_CHARS for c in inner) and not has_nested_unbounded_quantifier(inner):
+            return re.compile(raw, re.IGNORECASE)
+        return re.compile(re.escape(raw), re.IGNORECASE)
+    except re.error:
+        return None
+
 
 def _title_inner_quotes(title: str) -> list[str]:
     """Return only the double-quoted phrases embedded in a bold title.
@@ -368,14 +457,10 @@ def _extract_patterns_from_tic_body(body: str) -> list[tuple[str, re.Pattern[str
         if key in seen:
             continue
         seen.add(key)
-        if any(c in _REGEX_HINT_CHARS for c in inner):
-            try:
-                compiled = re.compile(raw, re.IGNORECASE)
-            except re.error:
-                continue
-            out.append((inner, compiled))
-        else:
-            out.append((inner, re.compile(re.escape(raw), re.IGNORECASE)))
+        compiled = compile_backtick_pattern(raw)
+        if compiled is None:
+            continue
+        out.append((inner, compiled))
 
     for m in _DOUBLE_QUOTE_RE.finditer(body):
         phrase = m.group(1).strip()
@@ -584,7 +669,6 @@ _HOOK_BAN_CUE_RE = re.compile(
     r"nicht\s+(?:\S+\s+)?(?:verwenden?|nutzen|benutzen|einsetzen|schreiben|tippen))\b",
     re.IGNORECASE,
 )
-_HOOK_REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
 
 
 def _extract_dont_patterns(rule: str) -> list[tuple[str, re.Pattern[str]]]:
@@ -610,13 +694,10 @@ def _extract_dont_patterns(rule: str) -> list[tuple[str, re.Pattern[str]]]:
         inner = raw.strip()
         if len(inner) < 2:
             continue
-        try:
-            if any(c in _HOOK_REGEX_HINT_CHARS for c in inner):
-                _add(inner, re.compile(raw, re.IGNORECASE))
-            else:
-                _add(inner, re.compile(re.escape(raw), re.IGNORECASE))
-        except re.error:
+        compiled = compile_backtick_pattern(raw)
+        if compiled is None:
             continue
+        _add(inner, compiled)
 
     if _HOOK_BAN_CUE_RE.search(rule):
         for m in _HOOK_ITALIC_RE.finditer(rule):
