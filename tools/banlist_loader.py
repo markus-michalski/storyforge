@@ -117,16 +117,19 @@ def load_author_vocab(
     Backtick-wrapped (``write_author_banned_phrase``) rows and bold-titled
     rows containing an italic example after a ban cue (harvest-author-rules'
     usual shape) are already extracted by :func:`load_author_dont_rules` —
-    skipping every bold/backtick row here keeps the two loaders' output
-    from reporting the same DB row twice under different categories, and
-    avoids mis-parsing e.g. `` `math` — too on the nose`` as a literal
-    phrase containing backtick characters. A bold-titled row that does
-    *not* match either extractor's shape (e.g. a bare
-    ``**word** (parenthetical)`` bullet with no italic/backtick pattern) is
-    a pre-existing gap: it was equally unenforced by the pre-#604
-    file-based parser (which also produced an unmatchable literal
-    containing the ``**`` markers), so this is not a regression, just not
-    newly fixed either — see Issue #604's review discussion.
+    skipping every backtick row and every bold-titled row :func:`_extract_dont_patterns`
+    already matches here keeps the two loaders' output from reporting the
+    same DB row twice under different categories, and avoids mis-parsing
+    e.g. `` `math` — too on the nose`` as a literal phrase containing
+    backtick characters. A bold-titled row that does *not* match that
+    extractor's shape (e.g. a bare ``**word** (parenthetical)`` bullet with
+    no italic/backtick pattern) used to be a silent gap — enforced by
+    neither loader, with no diagnostic telling the author (Issue #604's
+    review discussion). Issue #638 closes it: such a row falls back to a
+    literal derived from the bold title itself (reusing the same
+    bold-title/quoted-phrase extraction :func:`_build_patterns_from_tic_db_texts`
+    uses for recurring tics), so every ``donts`` row is enforced by exactly
+    one of the two loaders.
 
     ``donts`` rows also include free-form text from
     ``add_vocabulary_entry(entry_type="banned", ...)``, which stores
@@ -149,7 +152,37 @@ def load_author_vocab(
     seen: set[str] = set()
 
     for entry in texts:
-        if "`" in entry or "**" in entry:
+        if "`" in entry:
+            continue  # fully handled by load_author_dont_rules's backtick extraction
+        if "**" in entry:
+            if _extract_dont_patterns(entry):
+                # Ban-cue + italic shape — load_author_dont_rules already
+                # extracts this; don't emit it a second time.
+                continue
+            # Bold-titled row with no backtick/italic pattern in either
+            # extractor's shape (Issue #638) — derive a literal from the
+            # bold title instead of leaving it silently unenforced.
+            title_match = _BOLD_TITLE_PREFIX_RE.match(entry.strip())
+            if not title_match:
+                continue
+            for phrase in _extract_phrases_from_bold_title(title_match.group("title")):
+                cleaned = _strip_parenthetical(phrase).strip()
+                if len(cleaned) < 2:
+                    continue
+                key = cleaned.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                pattern = _build_inflection_pattern(cleaned)
+                patterns.append(
+                    BannedPattern(
+                        label=cleaned,
+                        pattern=pattern,
+                        severity=SEVERITY_BLOCK,
+                        source="author-vocab (donts, DB, bold-title fallback)",
+                        reason="banned for this author voice (derived from bold title; no backtick/italic pattern)",
+                    )
+                )
             continue
         for raw_alias in entry.split(" / "):
             cleaned = _strip_parenthetical(raw_alias).strip()
@@ -301,6 +334,14 @@ def _title_inner_quotes(title: str) -> list[str]:
         seen.add(key)
         out.append(q)
     return out
+
+
+# Leading bold title of a DB donts row, e.g. "**tapestry**" out of
+# "**tapestry** (metaphorical use)" — load_author_vocab()'s bold-title
+# fallback (Issue #638) extracts just this prefix and hands it to
+# _extract_phrases_from_bold_title(), which expects the bold markup alone,
+# not trailing parenthetical/example text after it.
+_BOLD_TITLE_PREFIX_RE = re.compile(r"^(?P<title>\*\*[^*]+\*\*)")
 
 
 def _extract_phrases_from_bold_title(title: str) -> list[str]:
