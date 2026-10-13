@@ -225,6 +225,41 @@ class TestLoadAuthorVocab:
         assert "delve" in labels
         assert "a" not in labels
 
+    def test_bare_bold_title_with_no_pattern_is_now_enforced(self, tmp_path):
+        """Issue #638: a migrated row like '**tapestry** (metaphorical use)' has
+        neither a backtick pattern nor an italic example after a ban cue, so
+        load_author_dont_rules() extracts nothing from it — it must not be
+        silently inert; load_author_vocab() derives a literal from the bold
+        title instead."""
+        _seed_donts(tmp_path, "ivy", ["**tapestry** (metaphorical use)"])
+        patterns = load_author_vocab("ivy", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "tapestry" in labels
+        tapestry = next(p for p in patterns if p.label == "tapestry")
+        assert tapestry.severity == SEVERITY_BLOCK
+        assert tapestry.pattern.search("a vivid tapestry of images") is not None
+
+    def test_bold_title_with_quoted_phrase_uses_the_quote(self, tmp_path):
+        """A double-quoted phrase inside the bold title itself (the
+        recurring-tic bullet shape, #212) is the actual scannable pattern —
+        same precedence _extract_phrases_from_bold_title already applies
+        elsewhere."""
+        _seed_donts(tmp_path, 'jack', ['**"in essence"** (filler phrase)'])
+        patterns = load_author_vocab("jack", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "in essence" in labels
+        assert "filler phrase" not in labels
+
+    def test_bold_title_already_handled_by_dont_rules_is_not_duplicated(self, tmp_path):
+        """A bold title WITH an italic example after a ban cue is already
+        extracted by load_author_dont_rules() (_extract_dont_patterns) — the
+        bold-title fallback must not also emit it a second time here."""
+        _seed_donts(tmp_path, "kay", ["**the silence stretched** — never write *the silence stretched between them*."])
+        patterns = load_author_vocab("kay", storyforge_home=tmp_path)
+        labels = [p.label for p in patterns]
+        assert "the silence stretched" not in labels
+        assert not any("silence stretched between them" in label for label in labels)
+
     def test_pattern_catches_inflections_for_single_word(self, tmp_path):
         _seed_donts(tmp_path, "gina", ["delve"])
         patterns = load_author_vocab("gina", storyforge_home=tmp_path)
