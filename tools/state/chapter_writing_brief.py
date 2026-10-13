@@ -335,9 +335,20 @@ def _enrich_with_series_evolution(
     if not series_slug or series_number < 1:
         return
 
-    # book_root is content_root/projects/{book_slug} — series dir is
-    # content_root/series/{series_slug}.
-    series_dir = book_root.parent.parent / "series" / series_slug
+    # Two book layouts put book_root at a different depth under content_root:
+    # - Flat: content_root/projects/{book_slug} (two levels down).
+    # - Nested (create_book_structure(series_slug=...), Issue #632):
+    #   content_root/series/{series_slug}/{book_slug} (three levels down).
+    # Detect which one by position, not by comparing book_root.parent's name
+    # against series_slug — a book nested under one series can later be
+    # re-linked to a different series via add_book_to_series() without
+    # moving on disk, so the directory it actually sits under and the
+    # series_slug this book now declares can differ.
+    if book_root.parent.parent.name == "series":
+        content_root = book_root.parent.parent.parent
+    else:
+        content_root = book_root.parent.parent
+    series_dir = content_root / "series" / series_slug
     if not series_dir.is_dir():
         return
 

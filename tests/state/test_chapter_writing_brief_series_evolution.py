@@ -181,6 +181,90 @@ class TestBriefSeriesEvolutionEnrichment:
         assert "Trauernder Bruder" in evo["current_book_plan"]
         assert evo["current_book_phase"] == "B2 Moonrise (geplant)"
 
+    def test_enriches_when_book_nested_in_series_directory(self, content_root: Path):
+        """A book scaffolded with ``create_book_structure(series_slug=...)``
+        lives at ``content_root/series/{series}/{book}/``, not
+        ``content_root/projects/{book}/``. The series directory is a
+        sibling of the book itself here (``book_root.parent``), not two
+        levels up plus a fresh ``series/{slug}`` lookup — the latter only
+        works for the flat ``projects/`` layout (Issue #632).
+        """
+        book_slug = "blood-and-binary-firelight"
+        book_root = content_root / "series" / "blood-and-binary" / book_slug
+        _write(
+            book_root / "README.md",
+            f"---\ntitle: {book_slug}\nbook_category: fiction\n"
+            "series: blood-and-binary\nseries_number: 1\n---\n\nBook body.\n",
+        )
+        _make_character(book_root, "kael", name="Kael", role="deuteragonist")
+        _make_chapter(
+            book_root,
+            "01-opening",
+            pov="kael",
+            outline="Kael walks in. Caelan watches.",
+        )
+        _make_tracker(
+            content_root,
+            "blood-and-binary",
+            "kael",
+            recurs_in=["B1", "B2"],
+            body=(
+                "## Evolution per Band\n\n"
+                "### B1 Firelight\n"
+                "- **Start:** Cabin-Einsiedler.\n"
+                "- **Ende:** Mit Theo zusammen.\n\n"
+                "## Beziehungen ueber die Bande\n\n"
+                "- **Theo:** Liebe.\n"
+            ),
+        )
+
+        brief = build_chapter_writing_brief(
+            book_root=book_root,
+            book_slug=book_slug,
+            chapter_slug="01-opening",
+            plugin_root=Path("/tmp"),
+        )
+        evo = brief["characters_present"][0]["series_evolution"]
+        assert evo is not None
+        assert evo["tracker_slug"] == "kael"
+        assert "Mit Theo zusammen" in evo["current_book_plan"]
+        assert "**Theo:**" in evo["relationships_evolution"]
+
+    def test_enriches_when_nested_book_re_linked_to_a_different_series(self, content_root: Path):
+        """``add_book_to_series()`` rewrites a book's README (``series`` /
+        ``series_number``) but never moves the directory on disk. A book
+        physically nested under ``series/series-a/`` can therefore declare
+        ``series: series-b`` — the series dir must be resolved from
+        ``series_slug`` plus content_root, not by assuming the directory
+        the book happens to sit under is always the right one.
+        """
+        book_slug = "wandering-firelight"
+        book_root = content_root / "series" / "series-a" / book_slug
+        _write(
+            book_root / "README.md",
+            f"---\ntitle: {book_slug}\nbook_category: fiction\n"
+            "series: series-b\nseries_number: 1\n---\n\nBook body.\n",
+        )
+        _make_character(book_root, "kael", name="Kael", role="deuteragonist")
+        _make_chapter(book_root, "01-opening", pov="kael", outline="Kael walks.")
+        _make_tracker(
+            content_root,
+            "series-b",
+            "kael",
+            recurs_in=["B1"],
+            body="## Evolution per Band\n\n### B1\n- **Ende:** Settled in series-b.\n",
+        )
+
+        brief = build_chapter_writing_brief(
+            book_root=book_root,
+            book_slug=book_slug,
+            chapter_slug="01-opening",
+            plugin_root=Path("/tmp"),
+        )
+        evo = brief["characters_present"][0]["series_evolution"]
+        assert evo is not None
+        assert "Settled in series-b" in evo["current_book_plan"]
+
     def test_resolves_via_book_slug_field(self, content_root: Path):
         # Book file is caelan.md, tracker is king-caelan.md with book_slug.
         book_root = _make_book(
