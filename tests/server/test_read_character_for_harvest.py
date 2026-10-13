@@ -140,6 +140,24 @@ class TestReadCharacterForHarvestFiction:
         # Voice section is NOT included.
         assert "Ironic" not in rel
 
+    def test_returns_relationships_text_under_key_relationships_heading(self, mock_config, content_root: Path):
+        """Issue #640: templates/character.md uses '## Key Relationships' (filled by
+        character-creator Step 13), but the reader only recognised '## Relationships'
+        and '## Beziehungen' — the template's own heading was silently missed."""
+        _make_book_char(
+            content_root,
+            "my-book",
+            "kael",
+            body_extra=(
+                "## Key Relationships\n\n- **Theo:** Lover, partner.\n- **Caelan:** Father.\n\n## Voice\n\nIronic.\n"
+            ),
+        )
+        result = json.loads(read_character_for_harvest("my-book", "kael"))
+        rel = result["relationships_text"]
+        assert "**Theo:**" in rel
+        assert "**Caelan:**" in rel
+        assert "Ironic" not in rel
+
     def test_missing_snapshot_fields_default_to_empty(self, mock_config, content_root: Path):
         # Character file with no snapshot frontmatter at all.
         _make_book_char(content_root, "my-book", "kael")

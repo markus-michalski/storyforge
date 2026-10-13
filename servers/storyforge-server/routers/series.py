@@ -63,8 +63,10 @@ _SNAPSHOT_AS_OF_FIELD = "as_of_chapter"
 
 # Relationships heading variants accepted by the harvest reader.
 # Singular ``Relationship`` is tolerated for legacy character files.
+# ``Key Relationships`` is the heading templates/character.md actually ships
+# (filled by character-creator Step 13) — Issue #640.
 _RE_RELATIONSHIPS_HEADING = re.compile(
-    r"^##\s+(?:Relationships?|Beziehungen(?:\s+(?:ueber\s+die\s+Bande|über\s+die\s+Bände))?)\s*$",
+    r"^##\s+(?:(?:Key\s+)?Relationships?|Beziehungen(?:\s+(?:ueber\s+die\s+Bande|über\s+die\s+Bände))?)\s*$",
     re.MULTILINE,
 )
 _RE_NEXT_H2 = re.compile(r"^##\s+\S", re.MULTILINE)
