@@ -7,7 +7,7 @@ description: |
   `series/{slug}/characters/{tracker}.md` with an Updates Log entry.
   Use when: (1) User says "harvest evolution", "evolve characters",
   "harvest character evolution", "Charakter-Evolution ernten", "Tracker
-  abgleichen", (2) Book is in `Final` / `Export Ready` / `Published`
+  abgleichen", (2) Book is in `Export Ready` / `Published`
   status AND the book is part of a series, (3) After running
   `/storyforge:harvest-author-rules` and before starting the next book.
 model: claude-sonnet-4-6
@@ -29,10 +29,12 @@ D-3 (brief-source extension) consume what this skill writes.
 
 ## When to run
 
-- **Status gate**: book must be `Final`, `Export Ready`, or `Published`.
+- **Status gate**: book must be `Export Ready` or `Published`.
   Earlier than that, the end-state is still drifting. If `Editing` /
-  `Proofread` — warn but offer to run anyway. If `Drafting` / `Revision`
-  — block.
+  `Proofread` — warn but offer to run anyway (a book whose chapters are
+  all `Final` derives to `Proofread`, not a book status of its own — see
+  `derive_book_status` in `tools/state/parsers.py`). If `Drafting` /
+  `Revision` — block.
 - **Series gate**: book must declare `series:` in its README
   frontmatter. If absent, this skill has nothing to do.
 - **Sequencing**: ideally after `/storyforge:harvest-author-rules` and
@@ -44,12 +46,12 @@ D-3 (brief-source extension) consume what this skill writes.
    `mcp__storyforge-mcp__get_session()` for `last_book` (the real
    field name — the tool has no `book_slug` field).
 2. Load the book via `mcp__storyforge-mcp__get_book_full(book_slug)`.
-   - Validate `book.status` is one of `Final` / `Export Ready` / `Published`.
+   - Validate `book.status` is one of `Export Ready` / `Published`.
    - Read `book.series` (must be non-empty) and `book.series_number`
      (must be 1+). Build the band id: `band = f"B{book.series_number}"`.
    - Read `book.book_category` (`fiction` or `memoir`).
 3. Status gate (use AskUserQuestion when warning):
-   - `Final` / `Export Ready` / `Published` → proceed silently
+   - `Export Ready` / `Published` → proceed silently
    - `Editing` / `Proofread` → warn, offer **Run anyway** vs **Cancel**
    - `Drafting` / `Revision` / earlier → block with explanation
 4. If `series` is empty: report "Book is not part of a series — nothing
