@@ -321,10 +321,19 @@ def _scan_writing_discoveries(book_path: Path) -> list[Finding]:
     Issue #151 follow-up — without this scanner, phrases promoted via
     ``/storyforge:harvest-author-rules`` were invisible to the manuscript
     checker even though the chapter-writer brief picked them up.
+
+    Issue #636: applies the same ``severity``/``chapter_limit`` semantics
+    the write-time hook (``tools.analysis.chapter_validator``) already
+    honours — a ``[warn]``-tagged tic downgrades to ``medium`` instead of
+    an unconditional ``high``, and a chapter at or under its declared
+    ``Max N per chapter`` cap produces no finding at all. The cap is
+    evaluated per chapter (this scanner sees whole, already-drafted
+    chapters, unlike the hook's live-scene scaling), not against the
+    manuscript-wide occurrence total.
     """
     # Lazy import: the manuscript module already keeps imports light to stay
     # patchable from tests.
-    from tools.banlist_loader import author_slug_from_book, load_author_writing_discoveries
+    from tools.banlist_loader import SEVERITY_WARN, author_slug_from_book, load_author_writing_discoveries
 
     author_slug = author_slug_from_book(book_path)
     if not author_slug:
@@ -344,9 +353,10 @@ def _scan_writing_discoveries(book_path: Path) -> list[Finding]:
     findings: list[Finding] = []
     for banned in patterns:
         seen_positions: set[tuple[str, int]] = set()
-        occurrences: list[Occurrence] = []
+        occurrences_by_chapter: dict[str, list[Occurrence]] = {}
         for chapter_slug, raw_text in drafts:
             cleaned = _strip_markdown(raw_text)
+            chapter_occurrences: list[Occurrence] = []
             for line_no, line in enumerate(cleaned.splitlines(), start=1):
                 stripped = line.strip()
                 if not stripped:
@@ -357,14 +367,38 @@ def _scan_writing_discoveries(book_path: Path) -> list[Finding]:
                         continue
                     seen_positions.add(key)
                     snippet = _make_snippet(stripped, m.group(0).lower())
-                    occurrences.append(Occurrence(chapter=chapter_slug, line=line_no, snippet=snippet))
+                    chapter_occurrences.append(Occurrence(chapter=chapter_slug, line=line_no, snippet=snippet))
+            if chapter_occurrences:
+                occurrences_by_chapter[chapter_slug] = chapter_occurrences
+
+        if not occurrences_by_chapter:
+            continue
+
+        # A chapter at or under the declared per-chapter cap is within the
+        # author's own tolerance and contributes no occurrences at all —
+        # not just a downgraded finding. Evaluated per chapter, same as the
+        # write-time hook, since one chapter being over cap must not drag
+        # an unrelated chapter's under-cap hits into the same finding.
+        if banned.chapter_limit > 0:
+            occurrences = [
+                occ
+                for chapter_occurrences in occurrences_by_chapter.values()
+                if len(chapter_occurrences) > banned.chapter_limit
+                for occ in chapter_occurrences
+            ]
+        else:
+            occurrences = [occ for chapter_occurrences in occurrences_by_chapter.values() for occ in chapter_occurrences]
+
         if not occurrences:
             continue
+
+        severity = "medium" if banned.severity == SEVERITY_WARN else "high"
+
         findings.append(
             Finding(
                 phrase=banned.label,
                 category="writing_discovery_violation",
-                severity="high",
+                severity=severity,
                 count=len(occurrences),
                 occurrences=sorted(occurrences, key=lambda o: (o.chapter, o.line)),
                 source_rule=f"author profile ## Writing Discoveries — {banned.label}",

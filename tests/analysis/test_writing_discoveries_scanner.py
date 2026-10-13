@@ -128,6 +128,107 @@ class TestScanWritingDiscoveries:
         assert findings
         assert all(f.severity == "high" for f in findings)
 
+    def test_warn_severity_tic_downgrades_to_medium(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
+        """Issue #636: a tic tagged [warn] is a capped WARN in the write-time
+        hook (tools.analysis.chapter_validator) but used to be an uncapped
+        'high' finding here — parity means it reports as 'medium'."""
+        book = _write_book(
+            tmp_path,
+            chapters={
+                "01-open": "# Chapter 1\n\nHe did things he normally would not do.\n",
+            },
+        )
+        seed_author_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            "recurring_tics",
+            ["**Vague-plural things** — `\\b(did|does|doing)\\s+things\\b` — [warn] advisory."],
+        )
+
+        findings = _scan_writing_discoveries(book)
+        assert findings
+        assert all(f.severity == "medium" for f in findings)
+
+    def test_chapter_limit_allows_hits_under_cap(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
+        """Issue #636: a tic with 'Max 2 per chapter' must not fire when a
+        chapter's hit count is at or below the cap — same semantics as the
+        write-time hook's chapter_limit handling."""
+        book = _write_book(
+            tmp_path,
+            chapters={
+                "01-open": (
+                    "# Chapter 1\n\n"
+                    "He moved the way a cat moves.\n\n"
+                    "She spoke the way people speak at funerals.\n"
+                ),
+            },
+        )
+        seed_author_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            "recurring_tics",
+            ['**"the way" Vergleichs-Tic** — Max 2 per chapter.'],
+        )
+
+        findings = _scan_writing_discoveries(book)
+        assert findings == []
+
+    def test_chapter_limit_blocks_hits_over_cap(self, tmp_path, patch_storyforge_home, seed_author_discoveries):
+        """A tic with 'Max 2 per chapter' fires when a chapter's hit count
+        exceeds the cap — and the finding's count reflects the full
+        over-cap chapter's occurrences, not just the excess."""
+        book = _write_book(
+            tmp_path,
+            chapters={
+                "01-open": (
+                    "# Chapter 1\n\n"
+                    "He moved the way a cat moves.\n\n"
+                    "She spoke the way people speak.\n\n"
+                    "He laughed the way tired men laugh.\n"
+                ),
+            },
+        )
+        seed_author_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            "recurring_tics",
+            ['**"the way" Vergleichs-Tic** — Max 2 per chapter.'],
+        )
+
+        findings = _scan_writing_discoveries(book)
+        assert findings
+        assert findings[0].count == 3
+
+    def test_chapter_limit_is_per_chapter_not_whole_manuscript(
+        self, tmp_path, patch_storyforge_home, seed_author_discoveries
+    ):
+        """A chapter at or under the cap contributes no occurrences, even
+        when a different chapter in the same book is over cap — the limit
+        is evaluated per chapter, not against the manuscript-wide total."""
+        book = _write_book(
+            tmp_path,
+            chapters={
+                "01-open": "# Chapter 1\n\nHe moved the way a cat moves.\n",
+                "02-second": (
+                    "# Chapter 2\n\n"
+                    "He moved the way a cat moves.\n\n"
+                    "She spoke the way people speak.\n\n"
+                    "He laughed the way tired men laugh.\n"
+                ),
+            },
+        )
+        seed_author_discoveries(
+            patch_storyforge_home,
+            "ethan-cole",
+            "recurring_tics",
+            ['**"the way" Vergleichs-Tic** — Max 2 per chapter.'],
+        )
+
+        findings = _scan_writing_discoveries(book)
+        assert findings
+        assert all(o.chapter == "02-second" for o in findings[0].occurrences)
+        assert findings[0].count == 3
+
     def test_category_distinguishes_from_book_rules(self, tmp_path, patch_storyforge_home):
         """Writing-Discoveries findings must carry their own category so the
         report can show their origin (author profile vs book CLAUDE.md)."""
