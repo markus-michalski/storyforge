@@ -1323,6 +1323,25 @@ class TestValidateCharacter:
         # No section warnings — memoir schema is different.
         assert not any("Want vs. Need" in w for w in warnings)
 
+    def test_memoir_person_file_without_role_validates(self, tmp_path):
+        """Issue #628: create_person() writes no ``role`` field — the memoir
+        schema has no role concept — but REQUIRED_FRONTMATTER unconditionally
+        required it, so the first Write/Edit on a freshly created person file
+        blocked with "Missing frontmatter field: 'role'"."""
+        people_dir = tmp_path / "memoir-project" / "people"
+        people_dir.mkdir(parents=True)
+        person_file = people_dir / "anna.md"
+        person_file.write_text(
+            "---\n"
+            'name: "Anna"\nrelationship: "Sister"\nperson_category: "family"\n'
+            'consent_status: "given"\nanonymization: "real_name"\nreal_name: ""\n'
+            'status: "Concept"\ndescription: ""\n'
+            "---\n\n# Anna\n\n## Memory anchors\n",
+            encoding="utf-8",
+        )
+        blocking, _warnings = validate_character(str(person_file))
+        assert blocking == []
+
     def test_memoir_person_file_blocks_on_missing_frontmatter(self, tmp_path):
         """Memoir branch still enforces structural integrity."""
         people_dir = tmp_path / "memoir-project" / "people"
