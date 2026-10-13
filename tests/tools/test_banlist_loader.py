@@ -11,6 +11,7 @@ from pathlib import Path
 from tools.banlist_loader import (
     SEVERITY_BLOCK,
     SEVERITY_WARN,
+    _extract_dont_patterns,
     _extract_phrases_from_bold_title,
     author_slug_from_book,
     load_author_dont_rules,
@@ -68,6 +69,83 @@ class TestExtractPhrasesFromBoldTitle:
         assert _extract_phrases_from_bold_title("not a bold title") == []
         assert _extract_phrases_from_bold_title("") == []
 
+
+# ---------------------------------------------------------------------------
+# _extract_dont_patterns — hook-side recommendation-marker window (Issue #637)
+#
+# The checker's _extract_patterns_from_author_dont (tools/analysis/manuscript/
+# rules.py) truncates italic/quoted extraction at the first recommendation
+# marker (Render/Instead:/→/...) so a positive example after the marker isn't
+# extracted as banned (#217). The hook-side extractor here took every italic
+# phrase in the whole bullet, with no such window — a don't entry with both a
+# banned and a recommended italic phrase blocked the recommended one too.
+# ---------------------------------------------------------------------------
+
+
+class TestExtractDontPatternsRecommendationWindow:
+    def test_instead_marker_excludes_the_recommended_phrase(self):
+        rule = "Never *the silence stretched between them*. Instead: *the silence sat there.*"
+        labels = [label for label, _ in _extract_dont_patterns(rule)]
+        assert any("the silence stretched between them" in label for label in labels)
+        assert not any("the silence sat there" in label for label in labels)
+
+    def test_render_marker_excludes_following_italics(self):
+        rule = "Never write *purple prose*. Render: *plain description*."
+        labels = [label for label, _ in _extract_dont_patterns(rule)]
+        assert any("purple prose" in label for label in labels)
+        assert not any("plain description" in label for label in labels)
+
+    def test_arrow_marker_excludes_following_italics(self):
+        rule = "Avoid *overwrought metaphors* → *direct statements*"
+        labels = [label for label, _ in _extract_dont_patterns(rule)]
+        assert any("overwrought metaphors" in label for label in labels)
+        assert not any("direct statements" in label for label in labels)
+
+    def test_no_marker_extracts_all_italics_status_quo(self):
+        rule = "Never use *delve* or *tapestry* in narration."
+        labels = [label for label, _ in _extract_dont_patterns(rule)]
+        assert "delve" in labels
+        assert "tapestry" in labels
+
+    def test_backtick_after_marker_still_extracted(self):
+        """Backticks are position-independent — explicit ban intent — same
+        contract as the checker-side extractor."""
+        rule = "Never write `purple prose`. Instead: use plain description."
+        labels = [label for label, _ in _extract_dont_patterns(rule)]
+        assert "purple prose" in labels
+
+
+class TestHookAndCheckerExtractorsAgree:
+    """Parity test (per Issue #637's suggested fix): the same Don't bullets
+    must produce the same labels from both the hook-side and checker-side
+    extractors, so a recommendation at write time is never blocked by one
+    while the other lets it through."""
+
+    @staticmethod
+    def _checker_labels(rule: str) -> set[str]:
+        from tools.analysis.manuscript.rules import _extract_patterns_from_author_dont
+
+        return {label for label, _ in _extract_patterns_from_author_dont(rule)}
+
+    @staticmethod
+    def _hook_labels(rule: str) -> set[str]:
+        return {label for label, _ in _extract_dont_patterns(rule)}
+
+    def test_issue_637_reproduction_bullet(self):
+        rule = "Never *the silence stretched between them*. Instead: *the silence sat there.*"
+        assert self._hook_labels(rule) == self._checker_labels(rule)
+
+    def test_render_marker_bullet(self):
+        rule = "Never write *purple prose*. Render: *plain description*."
+        assert self._hook_labels(rule) == self._checker_labels(rule)
+
+    def test_arrow_marker_bullet(self):
+        rule = "Avoid *overwrought metaphors* → *direct statements*"
+        assert self._hook_labels(rule) == self._checker_labels(rule)
+
+    def test_no_marker_bullet(self):
+        rule = "Never use *delve* or *tapestry* in narration."
+        assert self._hook_labels(rule) == self._checker_labels(rule)
 
 
 # ---------------------------------------------------------------------------

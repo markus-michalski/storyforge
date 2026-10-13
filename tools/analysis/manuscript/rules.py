@@ -114,29 +114,10 @@ _QUALITY_EXCEPTION_RE = re.compile(
 )
 
 # Recommendation markers (#217) — words/symbols that signal "what follows is
-# the recommended replacement, not the banned example". The author-Don't
-# extractor caps the italic/quoted extraction window at the first occurrence
-# of any of these markers so positive examples never end up as banned
-# patterns. Backticks are unaffected — they encode explicit ban intent.
-#
-# Word-boundary markers use ``\b`` to avoid false positives inside other
-# words (``rerendered`` must not trigger the ``Render`` marker). The arrow
-# ``→`` is matched literally; colon-suffixed forms allow optional whitespace
-# before the colon.
-_RECOMMENDATION_MARKER_RE = re.compile(
-    r"(?:"
-    r"\bRender\b"
-    r"|\bReplace\b"
-    r"|\bUse\s+instead\b"
-    r"|\bInstead\s*:"
-    r"|\bAllowed\s*:"
-    r"|\bBetter\s*:"
-    r"|\bRewrite\s+as\b"
-    r"|\bRather\s*:"
-    r"|→"
-    r")",
-    re.IGNORECASE,
-)
+# the recommended replacement, not the banned example". Moved to
+# tools.banlist_loader.extract_ban_window() (Issue #637) so the hook-side
+# Don't extractor applies the identical window; this module calls that
+# shared helper instead of keeping its own copy of the regex.
 
 
 def _read_book_rules(book_path: Path) -> list[str]:
@@ -443,16 +424,15 @@ def _extract_patterns_from_author_dont(rule: str) -> list[tuple[str, re.Pattern[
         return patterns
 
     # Italic and quoted extraction is bounded by the first recommendation
-    # marker (#217). Everything from start-of-rule up to (but not including)
-    # the marker is the ban window; phrases after the marker are positive
-    # examples and must not be extracted as banned patterns.
-    #
-    # Markers inside ``*...*`` italic spans are part of the example, not
-    # a boundary signal — mask italic content with spaces before searching
-    # so positions stay aligned but the marker regex cannot land inside.
-    masked = _ITALIC_CONTENT_RE.sub(lambda m: " " * len(m.group(0)), rule)
-    marker = _RECOMMENDATION_MARKER_RE.search(masked)
-    ban_window = rule[: marker.start()] if marker else rule
+    # marker (#217): everything from start-of-rule up to (but not
+    # including) the marker is the ban window; phrases after the marker
+    # are positive examples and must not be extracted as banned patterns.
+    # Shared with the hook-side extractor (tools.banlist_loader
+    # ._extract_dont_patterns) so both agree on the same window — see
+    # extract_ban_window()'s docstring (Issue #637).
+    from tools.banlist_loader import extract_ban_window
+
+    ban_window = extract_ban_window(rule)
 
     for m in _QUOTED_CONTENT_RE.finditer(ban_window):
         raw = m.group(1).strip()

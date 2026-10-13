@@ -33,10 +33,10 @@ from typing import Any
 from tools.analysis.manuscript.rules import (
     _BAN_CUE_RE,
     _ITALIC_CONTENT_RE,
-    _RECOMMENDATION_MARKER_RE,
     _extract_patterns_from_author_dont,
 )
 from tools.banlist_loader import (
+    _RECOMMENDATION_MARKER_RE,
     _build_discovery_pattern,
     _extract_patterns_from_tic_body,
     _extract_phrases_from_bold_title,
