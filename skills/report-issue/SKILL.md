@@ -63,7 +63,7 @@ Ask **Pattern** first, on its own — its answer determines what (if anything) s
 
 3. **Severity** (Book scope only):
    Before asking, tell the user up front: *there is no flag-but-never-block tier for a scannable phrase* — the same backtick-wrapping that makes a phrase detectable at all is what the chapter-draft-save hook and the manuscript-checker's book-rule scanner both treat as a hard stop, regardless of whether the wording says "avoid" or "watch for". The only real dial is *when* it blocks:
-   - **Block on first hit** — draft is rejected the moment the phrase appears once.
+   - **Block on first hit** — the save hook reports the draft as blocking the moment the phrase appears once (the file is already written at that point; it must then be fixed).
    - **Allow up to N per chapter** — ask for N; still a hard stop once a chapter exceeds the cap (scaled against draft progress), but tolerates occasional use first. Good for "fine occasionally, not every paragraph" tics.
 
    If the user wants a phrase that is genuinely never enforced (no blocking, ever), say that requires going back to Pattern = Structural rule instead — an un-backticked phrase is invisible to every scanner, so it only survives as freeform guidance the chapter-writer/chapter-reviewer prompts may or may not honor.

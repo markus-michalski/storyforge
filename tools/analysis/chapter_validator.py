@@ -125,7 +125,10 @@ class ValidationResult:
 
     @property
     def will_block(self) -> bool:
-        """Whether the hook would reject the write in the resolved mode."""
+        """Whether the hook would report the write as blocking in the resolved
+        mode. This is a PostToolUse hook — the file is already written by the
+        time this runs; blocking only feeds the report back to the model.
+        """
         return self.mode == "strict" and bool(self.blocking)
 
     def to_gate(self) -> GateResult:
@@ -185,10 +188,11 @@ class ValidationResult:
 
     def render_block_report(self, *, warning_cap: int = 5) -> str:
         """Render the strict-mode block report — the message the hook prints
-        on stderr and the model sees when the write is rejected.
+        on stderr. The file was already written when this runs (PostToolUse);
+        this report is what the model sees to fix it, not a rejection notice.
         """
         path = Path(self.file_path)
-        lines: list[str] = ["StoryForge linter blocked this write:"]
+        lines: list[str] = ["StoryForge linter flagged this write as blocking:"]
         for f in self.blocking:
             location = f" line {f.line}" if f.line else ""
             lines.append(f"  [{f.severity.upper()}] {path.name}{location}: {f.message}")
@@ -199,7 +203,7 @@ class ValidationResult:
                 location = f" line {f.line}" if f.line else ""
                 lines.append(f"  [{f.severity.upper()}] {path.name}{location}: {f.message}")
         lines.append(
-            "Fix the blocking issues and try again. "
+            "The file was already written but is invalid — fix the blocking issues. "
             "Set `linter_mode: warn` in the book's CLAUDE.md frontmatter to override."
         )
         return "\n".join(lines)

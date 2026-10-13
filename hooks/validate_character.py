@@ -5,7 +5,9 @@ Runs on writes to ``characters/*.md`` (fiction) and ``people/*.md`` (memoir).
 Skips ``INDEX.md``. Two-tier severity:
 
 - **block** — missing or invalid YAML frontmatter, missing required frontmatter
-  fields. Hook exits 2 and Claude Code rejects the write.
+  fields. This is a PostToolUse hook: the file is already written when it runs.
+  Exit 2 reports the problem as blocking on stderr; the model must then fix the
+  file that was just written.
 - **warn**  — missing recommended sections, unknown role. Hook exits 0 and
   prints diagnostics to stdout.
 
@@ -236,8 +238,10 @@ def main() -> int:
     """Hook entry point. Returns 0 (continue / warn) or 2 (block).
 
     The hook differentiates structural problems (frontmatter) from content
-    completeness (sections). Structural problems exit 2 so Claude Code
-    rejects the write; content warnings exit 0 with diagnostics on stdout.
+    completeness (sections). As a PostToolUse hook it runs after the file is
+    already on disk: structural problems exit 2, which reports them to the
+    model as blocking so it fixes the file that was just written; content
+    warnings exit 0 with diagnostics on stdout.
     """
     payload = _read_payload()
 
@@ -259,7 +263,7 @@ def main() -> int:
 
     if blocking:
         print(
-            "StoryForge linter blocked this character-file write:",
+            "StoryForge linter flagged this character-file write as blocking:",
             file=sys.stderr,
         )
         for msg in blocking:
@@ -271,7 +275,8 @@ def main() -> int:
             for msg in warnings:
                 print(f"  [WARN] {msg}", file=sys.stderr)
         print(
-            "Fix the blocking frontmatter issues and try again.",
+            "The file was already written but is invalid — fix the blocking "
+            "frontmatter issues.",
             file=sys.stderr,
         )
         return 2
