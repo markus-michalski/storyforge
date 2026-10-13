@@ -20,6 +20,7 @@ present).
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -79,6 +80,25 @@ class TestExtractPatternsFromAuthorDont:
         assert patterns
         labels = [label for label, _ in patterns]
         assert any("room|silence" in lab for lab in labels)
+
+    def test_bounded_group_repeat_matches_as_regex(self):
+        """Issue #635 reproduction, author-dont side: the same backtick
+        text as the book-rule version (TestExtractPatternsFromRule in
+        tests/analysis/manuscript/test_rules.py) must behave identically —
+        a bounded repeat is a working regex here too, not a dead literal."""
+        rule = "**Never repeat the intensifier** — `(?:so very ){2}`"
+        patterns = _extract_patterns_from_author_dont(rule)
+        assert patterns
+        assert any(compiled.search("so very so very tired") for _, compiled in patterns)
+
+    def test_genuinely_dangerous_pattern_is_demoted_to_literal(self):
+        """This extractor had NO ReDoS guard before Issue #635 — a book
+        author's Don't with this shape would previously have compiled as a
+        live ReDoS regex."""
+        rule = "**Never use the classic shape** — `(a+)+b`"
+        patterns = _extract_patterns_from_author_dont(rule)
+        assert patterns
+        assert any(compiled.pattern == re.escape("(a+)+b") for _, compiled in patterns)
 
     def test_extracts_italic_phrase_with_ban_cue(self):
         rule = '**Never use word-count meta-commentary** — *Two words.* / *One word.*'

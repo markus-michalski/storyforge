@@ -30,10 +30,6 @@ _BACKTICK_CONTENT_RE = re.compile(r"`([^`\n]+)`")
 # like "a" or "ok" which produce noisy false positives.
 _QUOTED_CONTENT_RE = re.compile(r'"([^"\n]{3,})"')
 
-# Characters that strongly suggest a backtick-wrapped string is intended as a
-# regex rather than a literal substring.
-_REGEX_HINT_CHARS = set("|()[]\\^$?+*{}")
-
 # Cue keywords that mark a rule as containing bannable quoted phrases. Without
 # a cue, quoted strings are treated as examples, not patterns.
 _BAN_CUE_RE = re.compile(
@@ -180,6 +176,8 @@ def _extract_patterns_from_rule(rule: str) -> list[tuple[str, re.Pattern[str]]]:
        narrative examples, not scannable bans.
     4. Malformed regex strings are skipped rather than raising.
     """
+    from tools.banlist_loader import compile_backtick_pattern
+
     patterns: list[tuple[str, re.Pattern[str]]] = []
     seen: set[str] = set()
 
@@ -195,13 +193,10 @@ def _extract_patterns_from_rule(rule: str) -> list[tuple[str, re.Pattern[str]]]:
         inner = raw.strip()
         if len(inner) < 2:
             continue
-        if any(c in _REGEX_HINT_CHARS for c in inner):
-            try:
-                _add(inner, re.compile(raw, re.IGNORECASE))
-            except re.error:
-                continue
-        else:
-            _add(inner, re.compile(re.escape(raw), re.IGNORECASE))
+        compiled = compile_backtick_pattern(raw)
+        if compiled is None:
+            continue
+        _add(inner, compiled)
 
     boundaries = _rule_segment_boundaries(rule)
     cue_segments = {_segment_index(m.start(), boundaries) for m in _BAN_CUE_RE.finditer(rule)}
@@ -430,6 +425,8 @@ def _extract_patterns_from_author_dont(rule: str) -> list[tuple[str, re.Pattern[
        as quoted phrases. Bold spans are skipped via ``(?<![\\*\\w])`` /
        ``(?![\\*\\w])`` look-arounds.
     """
+    from tools.banlist_loader import compile_backtick_pattern
+
     patterns: list[tuple[str, re.Pattern[str]]] = []
     seen: set[str] = set()
 
@@ -446,13 +443,10 @@ def _extract_patterns_from_author_dont(rule: str) -> list[tuple[str, re.Pattern[
         inner = raw.strip()
         if len(inner) < 2:
             continue
-        if any(c in _REGEX_HINT_CHARS for c in inner):
-            try:
-                _add(inner, re.compile(raw, re.IGNORECASE))
-            except re.error:
-                continue
-        else:
-            _add(inner, re.compile(re.escape(raw), re.IGNORECASE))
+        compiled = compile_backtick_pattern(raw)
+        if compiled is None:
+            continue
+        _add(inner, compiled)
 
     if not _BAN_CUE_RE.search(rule):
         return patterns

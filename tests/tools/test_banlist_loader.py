@@ -6,6 +6,7 @@ author-slug-from-book) and the BannedPattern dataclass.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from tools.banlist_loader import (
@@ -13,7 +14,10 @@ from tools.banlist_loader import (
     SEVERITY_WARN,
     _extract_dont_patterns,
     _extract_phrases_from_bold_title,
+    _extract_patterns_from_tic_body,
     author_slug_from_book,
+    compile_backtick_pattern,
+    has_nested_unbounded_quantifier,
     load_author_dont_rules,
     load_author_vocab,
     load_author_writing_discoveries,
@@ -21,6 +25,102 @@ from tools.banlist_loader import (
 )
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+# ---------------------------------------------------------------------------
+# has_nested_unbounded_quantifier / compile_backtick_pattern — Issue #635
+#
+# The ReDoS guard previously lived only in tools.analysis.chapter_validator
+# and flagged ANY group followed by ANY quantifier, including safe bounded
+# ones. It's now shared here and used by every backtick-regex compiler in
+# the plugin (hook, book-rule checker, author-dont checker, recurring-tics).
+# ---------------------------------------------------------------------------
+
+
+class TestHasNestedUnboundedQuantifier:
+    def test_classic_redos_shape_is_flagged(self):
+        assert has_nested_unbounded_quantifier("(a+)+b") is True
+
+    def test_star_nested_quantifier_is_flagged(self):
+        assert has_nested_unbounded_quantifier("([a-z]+)*") is True
+
+    def test_bounded_outer_quantifier_is_not_flagged(self):
+        """(word){3,}: body has no quantifier — repeating a fixed string any
+        number of times is linear, not exponential."""
+        assert has_nested_unbounded_quantifier("(word){3,}") is False
+
+    def test_bounded_brace_count_is_not_flagged(self):
+        assert has_nested_unbounded_quantifier("(foo){2}") is False
+        assert has_nested_unbounded_quantifier("(?:so very ){2}") is False
+
+    def test_unbounded_outer_with_non_repeating_body_is_not_flagged(self):
+        """(?:very|really)+: outer is unbounded, but the body has no
+        quantifier of its own — not the nested shape."""
+        assert has_nested_unbounded_quantifier(r"(?:very|really)+ \w+") is False
+
+    def test_group_with_no_following_quantifier_is_not_flagged(self):
+        assert has_nested_unbounded_quantifier(r"\bthe (room|silence) held\b") is False
+
+    def test_no_group_at_all_is_not_flagged(self):
+        assert has_nested_unbounded_quantifier(r"[aeiou]+") is False
+
+
+class TestCompileBacktickPattern:
+    def test_safe_bounded_pattern_compiles_as_regex(self):
+        compiled = compile_backtick_pattern("(?:so very ){2}")
+        assert compiled is not None
+        assert compiled.search("so very so very tired")
+
+    def test_dangerous_nested_pattern_compiles_as_literal(self):
+        compiled = compile_backtick_pattern("(a+)+b")
+        assert compiled is not None
+        assert compiled.pattern == re.escape("(a+)+b")
+
+    def test_malformed_regex_returns_none(self):
+        assert compile_backtick_pattern("[unclosed") is None
+
+    def test_plain_literal_is_escaped(self):
+        compiled = compile_backtick_pattern("very unique")
+        assert compiled is not None
+        assert compiled.search("This is very unique indeed")
+
+
+class TestRedosGuardConsistencyAcrossExtractors:
+    """Issue #635: the same backtick regex must behave identically whether
+    it's a book rule, an author don't, or a recurring tic — previously the
+    hook had an over-broad guard while the other three extractors had none
+    at all, so the same pattern was a regex in one place and a literal (or
+    outright un-guarded, dangerous-if-compiled) in another."""
+
+    def test_dont_extractor_demotes_genuinely_dangerous_pattern(self):
+        """_extract_dont_patterns previously had NO ReDoS guard at all."""
+        rule = "Never write `(a+)+b` here."
+        patterns = _extract_dont_patterns(rule)
+        assert len(patterns) == 1
+        _, compiled = patterns[0]
+        assert compiled.pattern == re.escape("(a+)+b")
+
+    def test_dont_extractor_keeps_bounded_pattern_as_regex(self):
+        rule = "Never write `(?:so very ){2}` repeated."
+        patterns = _extract_dont_patterns(rule)
+        assert len(patterns) == 1
+        _, compiled = patterns[0]
+        assert compiled.search("so very so very tired")
+
+    def test_tic_body_extractor_demotes_genuinely_dangerous_pattern(self):
+        """_extract_patterns_from_tic_body previously had NO ReDoS guard."""
+        results = _extract_patterns_from_tic_body("`(a+)+b` — concretize on sight.")
+        assert len(results) == 1
+        _, compiled = results[0]
+        assert compiled is not None
+        assert compiled.pattern == re.escape("(a+)+b")
+
+    def test_tic_body_extractor_keeps_bounded_pattern_as_regex(self):
+        results = _extract_patterns_from_tic_body("`(?:so very ){2}` — a repeated tic.")
+        assert len(results) == 1
+        _, compiled = results[0]
+        assert compiled is not None
+        assert compiled.search("so very so very tired")
 
 
 # ---------------------------------------------------------------------------

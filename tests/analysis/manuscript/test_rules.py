@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 
 import pytest
@@ -73,6 +74,28 @@ class TestExtractPatternsFromRule:
     def test_short_backtick_skipped(self) -> None:
         patterns = _extract_patterns_from_rule("Note `a` is too short to ban.")
         assert patterns == []
+
+    def test_bounded_group_repeat_is_not_demoted_to_literal(self) -> None:
+        """Issue #635 reproduction: `(?:so very ){2}` is a bounded repeat of
+        a non-quantified body — not a ReDoS risk — and must stay a working
+        regex, not a dead literal. Previously this extractor had NO ReDoS
+        guard at all, so it already worked; the bug lived in the hook-side
+        guard this extractor's Don't counterpart shares (see
+        TestExtractPatternsFromAuthorDont below)."""
+        patterns = _extract_patterns_from_rule("Never write `(?:so very ){2}` in a row.")
+        assert len(patterns) == 1
+        _, compiled = patterns[0]
+        assert compiled.search("so very so very tired")
+
+    def test_genuinely_dangerous_pattern_is_demoted_to_literal(self) -> None:
+        """A real nested-unbounded-quantifier pattern must still be demoted
+        — this extractor had no guard before Issue #635, so a book rule
+        with this shape would previously have compiled as a live ReDoS
+        regex instead of being made safe."""
+        patterns = _extract_patterns_from_rule("Never use `(a+)+b` in prose.")
+        assert len(patterns) == 1
+        _, compiled = patterns[0]
+        assert compiled.pattern == re.escape("(a+)+b")
 
     def test_quoted_word_far_from_ban_cue_not_extracted(self) -> None:
         """Issue #612: a rule's bold title can carry a ban cue ("Never")
