@@ -75,6 +75,11 @@ during Step 5's interactive fix mode.
 | Category | What it catches | Severity logic |
 |---|---|---|
 | `book_rule_violation` | Patterns from book_rules DB (rendered in `<book>/CLAUDE.md ## Rules (from DB)`) | always high |
+| `author_rule_violation` | Author profile `### Don'ts` patterns (Issue #210) — same rule shape as `book_rule_violation`, scoped to the author instead of one book | always high |
+| `author_vocab_violation` | Author profile's flat vocabulary bans — the same phrase store the PostToolUse hook enforces at write time, surfaced again here in case the hook was bypassed (warn mode, edits that skip it) | always high |
+| `writing_discovery_violation` | Phrases promoted via `/storyforge:harvest-author-rules` into the author's Writing Discoveries (Issue #151 follow-up, `recurring_tics` rows) | always high |
+| `global_shape_violation` | Catalog-level AI-tell shape bans from `reference/craft/anti-ai-patterns.md` Section 11 (Issue #213) — advisory, not user-asserted. Suppressed for any paragraph where an author-level ban (Don'ts / vocabulary / Recurring Tics) also matches. | always medium |
+| `ai_tell_violation` | Catalog-level AI-tell vocabulary from `reference/craft/anti-ai-patterns.md` Section 1 (Issue #216) — advisory, parallel to `global_shape_violation`. Same author-level suppression. | always medium |
 | `plot_hole` | Causality inversions + dropped/unfired Chekhov's-gun promises (Issue #150). Sub-category in phrase prefix (`[causality_inversion]` / `[chekhov_gun]`). | high — story-logic breaks reader trust |
 | `cliche` | Curated banlist of worn-out phrasings | always high |
 | `question_as_statement` | Dialogue starting with a Q-word but ending with `.` | high if ≥5 hits |
@@ -88,7 +93,7 @@ during Step 5's interactive fix mode.
 | `simile` / `character_tell` / `blocking_tic` / `sensory` / `structural` / `signature_phrase` | Cross-chapter n-gram repetition | high if ≥4 hits |
 | `character_tell` (paraphrased) | Same body-part tell reworded each time, e.g. "shoulders came down" vs. "shoulders had dropped" — a second, additive `character_tell` source alongside the n-gram one above. `phrase` reads `"<body part> (varied phrasing)"`, a synthetic label, not manuscript text | medium ≥5 hits, high ≥10 hits |
 
-Sort priority: `book_rule_violation` → `plot_hole` (story logic) → `cliche` → all others by severity.
+Sort priority: `book_rules_unreadable` / `callbacks_unreadable` (meta-findings — surfaced first so "results below may be incomplete" is seen before anything else) → `book_rule_violation` → `author_rule_violation` / `author_vocab_violation` / `writing_discovery_violation` (same user-asserted-ban family, different source) → `global_shape_violation` / `ai_tell_violation` (catalog-level, advisory — every author inherits these, sits before the privacy/plot/cliché tier) → `plot_hole` (story logic) → `cliche` → all others by severity. Finding order within a scan follows `tools/analysis/manuscript/__init__.py`'s `_CATEGORY_RANK`; the report's per-category section order follows `renderer.py`'s `CATEGORY_ORDER` — the two are independently maintained but describe the same intended tiering.
 
 ## Workflow
 
@@ -200,8 +205,7 @@ finding.
    before the chapter/finding counts, not implied by them.
 2. State chapters scanned + total findings + high-severity count by category.
 3. Show the top 5 highest-severity findings across *all* categories, in the
-   **sort priority order defined above**: `book_rule_violation` →
-   `plot_hole` → `cliche` → all others by severity.
+   **sort priority order defined above**.
 4. Tell the user the report path so they can open it.
 5. Offer the next step (see section 5).
 
@@ -239,11 +243,16 @@ If the user says yes (or passes `--interactive`):
 
 Process findings in **category priority order**:
 
-1. `book_rule_violation` (user explicitly wants these fixed)
-2. `cliche` (always worth fixing)
-3. `question_as_statement` (distinct fix pattern — see below)
-4. `filter_word`, `adverb_density` (per-chapter craft fixes)
-5. Repetition categories (`simile`, `character_tell`, etc.)
+1. `book_rule_violation`, `author_rule_violation`, `author_vocab_violation`,
+   `writing_discovery_violation` (user- or author-asserted bans — same fix
+   urgency regardless of source)
+2. `global_shape_violation`, `ai_tell_violation` (catalog-level, advisory —
+   same tier as the report's sort priority above, right after the
+   user-asserted bans)
+3. `cliche` (always worth fixing)
+4. `question_as_statement` (distinct fix pattern — see below)
+5. `filter_word`, `adverb_density` (per-chapter craft fixes)
+6. Repetition categories (`simile`, `character_tell`, etc.)
 
 For each high-severity finding:
 
