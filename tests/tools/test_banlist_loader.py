@@ -7,6 +7,8 @@ author-slug-from-book) and the BannedPattern dataclass.
 from __future__ import annotations
 
 import re
+
+import pytest
 from pathlib import Path
 
 from tools.banlist_loader import (
@@ -16,7 +18,9 @@ from tools.banlist_loader import (
     _extract_phrases_from_bold_title,
     _extract_patterns_from_tic_body,
     author_slug_from_book,
+    book_language,
     compile_backtick_pattern,
+    has_global_catalog,
     has_nested_unbounded_quantifier,
     load_author_dont_rules,
     load_author_vocab,
@@ -325,6 +329,65 @@ class TestAuthorSlugFromBook:
 
 
 # ---------------------------------------------------------------------------
+# book_language — Issue #680: the global AI-tell catalog is English-only,
+# but the loaders were language-blind. This reads the book's declared
+# language so callers can skip (or scope) the catalog correctly.
+# ---------------------------------------------------------------------------
+
+
+class TestBookLanguage:
+    def test_defaults_to_en_when_no_readme(self, tmp_path):
+        book = tmp_path / "no-readme-book"
+        book.mkdir()
+        assert book_language(book) == "en"
+
+    def test_defaults_to_en_when_field_absent(self, tmp_path):
+        book = tmp_path / "book"
+        book.mkdir()
+        (book / "README.md").write_text(
+            '---\ntitle: "Test Book"\n---\n\n# Test Book\n', encoding="utf-8"
+        )
+        assert book_language(book) == "en"
+
+    def test_reads_declared_language(self, tmp_path):
+        book = tmp_path / "book"
+        book.mkdir()
+        (book / "README.md").write_text(
+            '---\ntitle: "Testbuch"\nlanguage: "de"\n---\n\n# Testbuch\n', encoding="utf-8"
+        )
+        assert book_language(book) == "de"
+
+    def test_lowercases_the_value(self, tmp_path):
+        book = tmp_path / "book"
+        book.mkdir()
+        (book / "README.md").write_text(
+            '---\nlanguage: "DE"\n---\n\n# Testbuch\n', encoding="utf-8"
+        )
+        assert book_language(book) == "de"
+
+    @pytest.mark.parametrize(
+        "line,expected",
+        [
+            ("language: 'de'", "de"),
+            ("language: de  # German", "de"),
+            ("language: de_DE", "de"),
+            ("language: en-US", "en"),
+        ],
+    )
+    def test_accepts_valid_yaml_variants(self, tmp_path, line, expected):
+        book = tmp_path / "book"
+        book.mkdir()
+        (book / "README.md").write_text(f"---\n{line}\n---\n\n# T\n", encoding="utf-8")
+        assert book_language(book) == expected
+
+    def test_defaults_to_en_when_no_frontmatter_block(self, tmp_path):
+        book = tmp_path / "book"
+        book.mkdir()
+        (book / "README.md").write_text("# Test Book\n\nNo frontmatter here.\n", encoding="utf-8")
+        assert book_language(book) == "en"
+
+
+# ---------------------------------------------------------------------------
 # load_author_vocab — DB-backed since Issue #604 (was: vocabulary.md file)
 # ---------------------------------------------------------------------------
 
@@ -620,6 +683,70 @@ class TestLoadGlobalAITells:
         patterns = load_global_ai_tells(tmp_path)
         delve = next(p for p in patterns if p.label == "Delve")
         assert len(delve.reason) <= 120
+
+    def test_default_language_is_en_and_unchanged(self, tmp_path):
+        """Issue #680: adding the ``language`` parameter must not change the
+        no-argument call — it still resolves ``anti-ai-patterns.md`` (no
+        language suffix)."""
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "anti-ai-patterns.md").write_text(
+            "### Heavily Flagged Words and Phrases (X)\n\n1. **Delve** — notorious.\n",
+            encoding="utf-8",
+        )
+        assert load_global_ai_tells(tmp_path) == load_global_ai_tells(tmp_path, language="en")
+
+    def test_language_without_a_catalog_file_returns_empty(self, tmp_path):
+        """Issue #680: only an English catalog exists today. Scanning a
+        German book must not silently fall back to the English vocabulary —
+        that's exactly how 'Rich' (English) ends up flagging 'richtig'
+        (German)."""
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "anti-ai-patterns.md").write_text(
+            "### Heavily Flagged Words and Phrases (X)\n\n1. **Rich** — overused intensifier.\n",
+            encoding="utf-8",
+        )
+        assert load_global_ai_tells(tmp_path, language="de") == []
+
+    def test_language_specific_catalog_file_is_used_when_present(self, tmp_path):
+        """Forward-looking: once a ``anti-ai-patterns.<lang>.md`` exists
+        (Issue #681), the loader must pick it up by language instead of
+        falling back to the English file."""
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "anti-ai-patterns.md").write_text(
+            "### Heavily Flagged Words and Phrases (X)\n\n1. **Rich** — overused intensifier.\n",
+            encoding="utf-8",
+        )
+        (ref / "anti-ai-patterns.de.md").write_text(
+            "### Heavily Flagged Words and Phrases (X)\n\n1. **Zweifellos** — Füllwort.\n",
+            encoding="utf-8",
+        )
+        de_patterns = load_global_ai_tells(tmp_path, language="de")
+        labels = {p.label.lower() for p in de_patterns}
+        assert labels == {"zweifellos"}
+
+
+class TestHasGlobalCatalog:
+    def test_true_for_english_base_file(self, tmp_path):
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "anti-ai-patterns.md").write_text("# x\n", encoding="utf-8")
+        assert has_global_catalog(tmp_path, "en") is True
+
+    def test_false_for_unknown_language(self, tmp_path):
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "anti-ai-patterns.md").write_text("# x\n", encoding="utf-8")
+        assert has_global_catalog(tmp_path, "de") is False
+
+    def test_true_once_language_specific_file_exists(self, tmp_path):
+        ref = tmp_path / "reference" / "craft"
+        ref.mkdir(parents=True)
+        (ref / "anti-ai-patterns.md").write_text("# x\n", encoding="utf-8")
+        (ref / "anti-ai-patterns.de.md").write_text("# x\n", encoding="utf-8")
+        assert has_global_catalog(tmp_path, "de") is True
 
 
 # ---------------------------------------------------------------------------

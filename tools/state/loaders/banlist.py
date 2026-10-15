@@ -43,6 +43,7 @@ def collect_banned_phrases(
     from tools.state.loaders.claudemd_sections import classify_rule as _classify_rule_text
     from tools.banlist_loader import (
         author_slug_from_book,
+        book_language,
         load_author_vocab,
         load_author_writing_discoveries,
         load_global_ai_tells,
@@ -125,7 +126,10 @@ def collect_banned_phrases(
             )
 
     try:
-        global_tells = load_global_ai_tells(plugin_root)
+        # Issue #680: the global catalog is English-only — resolve the
+        # book's declared language so a non-English book doesn't inherit
+        # the English vocabulary into its writing brief's banned_phrases.
+        global_tells = load_global_ai_tells(plugin_root, book_language(book_root))
     except Exception:  # pylint: disable=broad-except
         global_tells = []
     for p in global_tells:

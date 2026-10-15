@@ -66,11 +66,16 @@ def load_patterns(
     author_slug: str | None,
     storyforge_home: Path | None = None,
     book_root: Path | None = None,
+    language: str = "en",
 ) -> tuple[list[BannedPattern], list[BannedPattern], list[BannedPattern]]:
     """Load ``(global_shapes, global_tells, author_patterns)``.
 
     Every loader failure degrades to an empty list, matching the manuscript
     scanners: one broken source must not take the whole scan down.
+
+    ``language`` selects the global catalog (Issue #680) — a book whose
+    declared language has no catalog file gets ``[]`` for both globals
+    rather than silently inheriting the English vocabulary/shapes.
     """
     from tools.banlist_loader import (
         load_author_dont_rules,
@@ -86,8 +91,8 @@ def load_patterns(
         except Exception:  # pylint: disable=broad-except
             return []
 
-    shapes = _safe(load_global_shape_bans, plugin_root)
-    tells = _safe(load_global_ai_tells, plugin_root)
+    shapes = _safe(load_global_shape_bans, plugin_root, language)
+    tells = _safe(load_global_ai_tells, plugin_root, language)
     author: list[BannedPattern] = []
     if author_slug:
         for loader in (load_author_vocab, load_author_writing_discoveries, load_author_dont_rules):
@@ -292,7 +297,9 @@ def _density_hits(
             )
 
     for idx, seg in enumerate(metrics["segments"], start=1):
-        if seg["hedge_count"] >= HEDGE_SEGMENT_MIN:
+        # hedge_count is None when the draft's language has no hedge-word
+        # list (Issue #680) — there is nothing to flag, not zero to compare.
+        if seg["hedge_count"] is not None and seg["hedge_count"] >= HEDGE_SEGMENT_MIN:
             for line_no in sorted(set(seg["hedge_lines"])):
                 hits.append(
                     _make_hit(
@@ -329,12 +336,18 @@ def scan_draft(
     global_tells: list[BannedPattern],
     author_patterns: list[BannedPattern],
     dash_limit: float | None = None,
+    language: str = "en",
 ) -> dict[str, Any]:
-    """Scan a chapter draft. Returns hits, chapter-level flags, and metrics."""
+    """Scan a chapter draft. Returns hits, chapter-level flags, and metrics.
+
+    ``language`` only gates the hedge-word density metric here (Issue
+    #680) — ``global_shapes``/``global_tells`` are already-loaded pattern
+    lists, so the language gate for those lives in :func:`load_patterns`.
+    """
     limit = dash_limit if dash_limit is not None else DEFAULT_DASH_PER_1K_LIMIT
     groups, scene_breaks_found = split_segments(text)
     lines = [(idx, line_no, raw) for idx, group in enumerate(groups, start=1) for line_no, raw in group]
-    metrics = analyse_draft(text)
+    metrics = analyse_draft(text, language=language)
 
     hits = _pattern_hits(lines, global_shapes, global_tells, author_patterns)
     hits += _invisible_hits(lines)

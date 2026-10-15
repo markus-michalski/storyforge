@@ -58,10 +58,21 @@ def server_module(mock_config):
     return server_mod
 
 
-def _write_chapter(content_root: Path, draft: str, *, chapter: str = "01-start") -> Path:
-    book = content_root / "projects" / "test-book"
+def _write_chapter(
+    content_root: Path,
+    draft: str,
+    *,
+    chapter: str = "01-start",
+    book_slug: str = "test-book",
+    language: str | None = None,
+) -> Path:
+    book = content_root / "projects" / book_slug
     (book / "chapters" / chapter).mkdir(parents=True)
-    (book / "README.md").write_text("---\ntitle: T\nslug: test-book\n---\n", encoding="utf-8")
+    fm = f"---\ntitle: T\nslug: {book_slug}\n"
+    if language is not None:
+        fm += f'language: "{language}"\n'
+    fm += "---\n"
+    (book / "README.md").write_text(fm, encoding="utf-8")
     (book / "chapters" / chapter / "draft.md").write_text(draft, encoding="utf-8")
     return book
 
@@ -156,6 +167,48 @@ class TestScanChapterAiTells:
         _write_chapter(content_root, "Text.\n")
         result = json.loads(server_module.scan_chapter_ai_tells("test-book", "01-start", author_slug="../x"))
         assert "error" in result
+
+    def test_german_book_gets_no_english_false_positives_and_a_coverage_warning(
+        self, server_module, content_root
+    ) -> None:
+        """Issue #680: a book declaring ``language: de`` must not inherit the
+        English catalog — so 'richtig'/'Richtungen' (which the catalog's
+        'Rich' entry would otherwise match as a word-start) produce no
+        hits, and the gap is reported explicitly rather than as an empty,
+        apparently-clean ``warnings: []``."""
+        _write_chapter(
+            content_root,
+            "Das war richtig schwer. Sie kannte die Richtungen genau.\n",
+            book_slug="test-book-de",
+            language="de",
+        )
+        result = json.loads(server_module.scan_chapter_ai_tells("test-book-de", "01-start"))
+        assert result["hits"] == []
+        assert result["sources_loaded"] == {"shapes": 0, "tells": 0, "author": 0}
+        assert any("'de'" in w for w in result["warnings"])
+
+    def test_german_book_reports_hedge_count_as_null_not_zero(self, server_module, content_root) -> None:
+        """Issue #680: the hedge-word list is English; for a language with
+        no list the metric did not run, so it must come back ``null``
+        (``None``), not ``0`` — ``0`` would read as 'no hedging found'."""
+        _write_chapter(
+            content_root,
+            "Sie schien zufrieden.\n",
+            book_slug="test-book-de",
+            language="de",
+        )
+        result = json.loads(server_module.scan_chapter_ai_tells("test-book-de", "01-start"))
+        assert result["metrics"]["chapter"]["hedge_count"] is None
+
+    def test_english_book_is_unaffected_by_the_language_gate(self, server_module, content_root) -> None:
+        """Backward compatibility: a book with no declared language (or
+        ``language: en``) must keep getting the full catalog and no
+        coverage warning."""
+        _write_chapter(content_root, "Text.\n", book_slug="test-book-en", language="en")
+        result = json.loads(server_module.scan_chapter_ai_tells("test-book-en", "01-start"))
+        assert result["sources_loaded"]["shapes"] > 0
+        assert result["sources_loaded"]["tells"] > 0
+        assert result["warnings"] == []
 
 
 class TestCheckReplacementText:

@@ -668,6 +668,7 @@ def _scan_global_shape_bans(
     """
     from tools.banlist_loader import (
         author_slug_from_book,
+        book_language,
         load_author_dont_rules,
         load_author_vocab,
         load_author_writing_discoveries,
@@ -679,7 +680,10 @@ def _scan_global_shape_bans(
         plugin_root = Path(__file__).resolve().parents[3]
 
     try:
-        patterns = load_global_shape_bans(plugin_root)
+        # Issue #680: Section 11 shapes are English word-order regexes —
+        # resolve the book's declared language so they aren't applied
+        # language-blind to a non-English manuscript.
+        patterns = load_global_shape_bans(plugin_root, book_language(book_path))
     except Exception:  # pylint: disable=broad-except
         return []
     if not patterns:
@@ -776,6 +780,7 @@ def _scan_global_ai_tells(
     """
     from tools.banlist_loader import (
         author_slug_from_book,
+        book_language,
         load_author_dont_rules,
         load_author_vocab,
         load_author_writing_discoveries,
@@ -787,7 +792,11 @@ def _scan_global_ai_tells(
         plugin_root = Path(__file__).resolve().parents[3]
 
     try:
-        patterns = load_global_ai_tells(plugin_root)
+        # Issue #680: resolve the book's declared language so the English
+        # Section 1 vocabulary isn't applied language-blind (false
+        # positives on single-word entries like 'Rich' matching unrelated
+        # non-English words).
+        patterns = load_global_ai_tells(plugin_root, book_language(book_path))
     except Exception:  # pylint: disable=broad-except
         return []
     if not patterns:

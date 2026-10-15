@@ -38,6 +38,7 @@ def _write_book(
     *,
     author_line: str = "- **Author:** Ethan Cole",
     chapters: dict[str, str],
+    language: str | None = None,
 ) -> Path:
     book = tmp_path / "book"
     book.mkdir()
@@ -45,6 +46,11 @@ def _write_book(
         f"# Test Book\n\n## Book Facts\n\n{author_line}\n\n## Rules\n",
         encoding="utf-8",
     )
+    if language is not None:
+        (book / "README.md").write_text(
+            f'---\ntitle: "Test Book"\nlanguage: "{language}"\n---\n\n# Test Book\n',
+            encoding="utf-8",
+        )
     chapters_dir = book / "chapters"
     chapters_dir.mkdir()
     for slug, content in chapters.items():
@@ -134,6 +140,25 @@ class TestScanGlobalShapeBans:
         assert findings
         src = (findings[0].source_rule or "").lower()
         assert "section 11" in src or "anti-ai" in src
+
+    def test_german_book_does_not_get_the_english_shape_catalog(self, tmp_path: Path):
+        """Issue #680: the Section 11 shapes are regexes over English word
+        order; applying them to a German manuscript is language-blind in
+        the same way the Section 1 vocabulary is. A book declaring
+        ``language: de`` must get no Section 11 findings until a German
+        catalog exists (Issue #681)."""
+        plugin_root = tmp_path / "plugin"
+        plugin_root.mkdir()
+        _write_catalog(
+            plugin_root,
+            "## 11.\n\n**Banned shape:** `\\bder raum\\b`.\n",
+        )
+        book = _write_book(
+            tmp_path,
+            chapters={"01": "# Kap\n\nDer Raum war still und kalt.\n"},
+            language="de",
+        )
+        assert _scan_global_shape_bans(book, plugin_root=plugin_root) == []
 
 
 class TestScanGlobalShapeBansDedupesWithAuthorDonts:

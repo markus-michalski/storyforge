@@ -727,10 +727,46 @@ class TestGlobalAITellsLoading:
         labels = " ".join(f.message.lower() for f in ai_tells)
         assert "delve" in labels
 
+    def test_german_book_does_not_inherit_english_catalog(self, tmp_path):
+        """Issue #680: the catalog's single-word entry 'Rich' compiles to
+        ``\\bRich\\w*`` — language-blind, that also matches the German words
+        'richtig' and 'Richtung'. A book declaring ``language: de`` must not
+        load the English catalog at all, so neither a real tell nor this
+        false positive can fire."""
+        book = tmp_path / "german-book"
+        (book / "chapters" / "01-intro").mkdir(parents=True)
+        (book / "README.md").write_text(
+            '---\ntitle: "Testbuch"\nlanguage: "de"\n---\n\n# Testbuch\n', encoding="utf-8"
+        )
+        draft = _write_draft(
+            book,
+            "# Kapitel 1\n\n"
+            + (
+                "Das war richtig schwer. Sie kannte die Richtungen genau. "
+                "Die Navigation war innovativ und ruhig. "
+                * 5
+            ),
+        )
+        findings = vc.validate_chapter(str(draft))
+        ai_tells = [f for f in findings if f.category == "ai_tell"]
+        shape_hits = [f for f in findings if f.category == "global_shape_violation"]
+        assert ai_tells == []
+        assert shape_hits == []
+
 
 # ---------------------------------------------------------------------------
 # Per-chapter limit parsing
 # ---------------------------------------------------------------------------
+
+
+class TestGermanBookSkipsEnglishFallbackList:
+    def test_fallback_words_do_not_fire_for_non_english(self):
+        """Issue #680: the hardcoded English fallback list must not run for
+        a language that has no catalog."""
+        from tools.analysis.chapter_validator import _scan_ai_tells
+
+        assert _scan_ai_tells("He would navigate the synergy.", "de") == []
+        assert _scan_ai_tells("He would navigate the synergy.", "en")
 
 
 class TestExtractChapterLimit:

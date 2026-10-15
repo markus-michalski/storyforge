@@ -133,6 +133,23 @@ class TestHedgeDensity:
         segment = analyse_draft(text)["segments"][0]
         assert segment["hedge_lines"] == [2]
 
+    def test_default_language_is_en_and_unchanged(self) -> None:
+        """Issue #680: adding the ``language`` parameter must not change the
+        no-argument call."""
+        text = "He seemed tired.\n"
+        assert analyse_draft(text) == analyse_draft(text, language="en")
+
+    def test_unsupported_language_reports_hedge_count_as_none_not_zero(self) -> None:
+        """Issue #680: the hedge-word list (``seemed``, ``appeared to``, ...)
+        is English. For a language with no hedge list, ``0`` would silently
+        claim 'no hedging found' when the metric simply never ran — report
+        ``None`` so callers can tell 'not applicable' from 'clean'."""
+        text = "Er schien müde zu sein.\n"
+        result = analyse_draft(text, language="de")
+        assert _chapter(result)["hedge_count"] is None
+        assert result["segments"][0]["hedge_count"] is None
+        assert result["segments"][0]["hedge_lines"] == []
+
 
 class TestRepeatedOpeners:
     def test_four_consecutive_same_openers_are_reported(self) -> None:
