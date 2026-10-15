@@ -8,18 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `review_feedback` table in `authors.db` with CRUD helpers (`tools/db/review_feedback.py`): groundwork for learning the author voice from review feedback (epic #663, #664). Memoir rows never store raw text.
-- `reference/craft/voice-dimensions.md`: closed vocabulary of voice dimensions and directions plus the classification procedure for review feedback, with a validating loader in `tools/analysis/voice_dimensions.py` (epic #663, #666).
-- MCP tools `log_review_feedback`, `list_pending_feedback`, `set_feedback_classification`, `mark_feedback_harvested` and `discard_feedback`: log and manage review feedback per book, validated against the voice-dimension vocabulary; memoir rows are classified at logging time and their rules are checked for the names of people from the book (epic #663, #665).
-- Voice candidate engine (`tools/analysis/voice_candidates.py`) and MCP tool `get_voice_candidates`: weighted, genre-scoped promotion candidates with conflict detection and suppression of discarded candidates (epic #663, #667).
-- Skill `chapter-voice-harvest`: classifies a chapter's logged review feedback, resolves conflicts and walks the author through recurring voice patterns before promoting them into the author profile with genre scope (epic #663, #668).
-- Manual-edit capture for fiction chapters (epic #663, #671): Pre/PostToolUse hooks (`hooks/snapshot_draft.py`) keep a baseline of what Claude last wrote outside the book repository (three-way merge, so removing the author's review comment or editing next to their text does not invalidate it); when the author says they changed the text, MCP tools `get_self_edit_hunks` and `refresh_draft_baseline` and Step 0 of `chapter-voice-harvest` log the paragraph-level differences (changes above three words, review comments excluded) as `self_edit` feedback with weight 1.5. Memoir books are not supported.
+- Nothing yet
 
 ### Changed
-- `delete_author` also removes the author's `review_feedback` rows and reports `removed_feedback`.
-- Review feedback is logged through the chapter pipeline: `§ Logging Voice Feedback` in `chapter-writing-shared.md`, hooks in the writer, reviewer, fixer, scene-rewriter, humanizer and proofreader skills, CLAUDE.md rule 21, routing, pipeline, `help` and `next-step` mention `chapter-voice-harvest` (epic #663, #669).
-- `write_author_discovery` rejects names of people from a memoir source book and prose examples for memoir sources; memoir discoveries are tagged `memoir` and the genre filters treat it as a genre of every memoir book (epic #663, #668).
-- Voice candidates are always written as `style_principles`: `donts` and `recurring_tics` feed the enforced banlist (a bold title becomes a literal ban for every book), so only a phrase the author names becomes a don't. `study-author` writes deliberate imperfections to `style_principles` as well. Imperfections that earlier runs stored in `recurring_tics` stay enforced; remove them with `delete_discovery` if they should not be flagged.
+- Nothing yet
 
 ### Deprecated
 - Nothing yet
@@ -32,6 +24,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Nothing yet
+
+## [3.7.0] - 2026-10-15
+
+### Added
+- capture the author's manual draft edits as self_edit feedback (#679)
+- log review feedback across the chapter pipeline (#677)
+- add chapter-voice-harvest (#676)
+- add voice candidate engine and get_voice_candidates tool (#675)
+- add review feedback logging and management tools (#674)
+- add voice-dimensions vocabulary with validating loader (#673)
+- add review_feedback table for author-voice harvesting (#672)
+
+### Changed
+- add memoir privacy chain test and feedback tool smoke checks (#678)
 
 ## [3.6.7] - 2026-10-13
 
@@ -854,7 +860,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.6.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.2
 [3.6.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.3
 [3.6.4]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.4
-[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.6.7...HEAD
+[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.7.0...HEAD
 [3.6.5]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.5
 [3.6.6]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.6
 [3.6.7]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.7
+[3.7.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.7.0
