@@ -49,7 +49,6 @@ SOURCE_WEIGHTS: dict[str, float] = {
 DEFAULT_MIN_WEIGHT = 3.0
 DEFAULT_MIN_CHAPTERS = 2
 CONFLICT_MIN_WEIGHT = 1.0
-RECURRING_TIC_REJECTED_SHARE = 0.5  # strictly more than this share of rejected weight
 
 _OPEN = "classified"
 _REQUIRED = ("id", "book_slug", "chapter_slug")
@@ -257,12 +256,9 @@ def build_voice_candidates(
         total = sum(_weight(r) for r in open_rows)
         rejected = sum(_weight(r) for r in open_rows if r.get("decision") == "rejected")
         rejected_share = round(rejected / total, 4) if total else 0.0
-        if kind == "avoid":
-            target = "donts"
-        elif rejected_share > RECURRING_TIC_REJECTED_SHARE:
-            target = "recurring_tics"
-        else:
-            target = "style_principles"
+        # recurring_tics feed the banlist, so a quirk the author defended
+        # (rejected proposals) is a style principle, never a tic.
+        target = "donts" if kind == "avoid" else "style_principles"
 
         candidates.append({
             "book_category": category,

@@ -43,6 +43,7 @@ from tools.db.author_discoveries import (
 )
 from tools.db.connection import BookNotLinkedToSeriesError, open_authors_db
 from tools.db.review_feedback import remove_author_feedback
+from tools.shared.person_names import person_name_hit
 from tools.shared.paths import (
     catch_slug_value_error,
     find_projects,
@@ -609,6 +610,22 @@ def write_author_discovery(
     """
     if section not in VALID_TYPES:
         return json.dumps({"error": f"Invalid section '{section}'. Must be one of: {sorted(VALID_TYPES)}"})
+
+    # A discovery is read across all books of the author. Text that comes from a
+    # memoir book must not carry the names of the people in it, nor a prose example.
+    source_book = (_cache.get().get("books") or {}).get(book_slug) or {}
+    if source_book.get("book_category") == "memoir":
+        if example.strip():
+            return json.dumps({
+                "error": "Memoir discoveries must not carry an example: prose from a memoir "
+                         "would reach the author's other books",
+            })
+        hit = person_name_hit(f"{text} {example}", source_book.get("people") or {})
+        if hit:
+            return json.dumps({
+                "error": f"Discovery text must not contain the name of a person from the memoir "
+                         f"'{book_slug}' (matched {hit!r}); state the rule without names or facts",
+            })
 
     if not year_month:
         year_month = date.today().strftime("%Y-%m")

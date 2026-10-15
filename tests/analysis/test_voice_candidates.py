@@ -233,10 +233,12 @@ class TestTargetSection:
         rows = evidence(3, dimension="simile_density", direction="fewer", rule="Fewer similes.")
         assert build(rows)["candidates"][0]["target_section"] == "donts"
 
-    def test_prefer_kept_against_proposals_is_a_recurring_tic(self):
+    def test_prefer_kept_against_proposals_is_never_a_banlist_entry(self):
         rows = evidence(3, decision="rejected", dimension="sentence_rhythm",
                         direction="more_fragments", rule="Keep fragments.")
-        assert build(rows)["candidates"][0]["target_section"] == "recurring_tics"
+        c = build(rows)["candidates"][0]
+        assert c["target_section"] == "style_principles"
+        assert c["rejected_share"] == 1.0
 
     def test_avoid_with_rejections_stays_donts(self):
         rows = evidence(3, decision="rejected", dimension="simile_density",
@@ -384,12 +386,13 @@ class TestSuppressionScope:
 
 
 class TestRobustness:
-    def test_recurring_tic_needs_more_than_half_rejected(self):
+    def test_no_candidate_ever_targets_recurring_tics(self):
         rows = [row(chapter=f"{i:02d}", decision="rejected", direction="more_fragments",
-                    rule="Keep fragments.") for i in (1, 2)] + [
-            row(chapter=f"{i:02d}", decision="accepted", direction="more_fragments",
-                rule="Keep fragments.") for i in (3, 4)]
-        assert build(rows)["candidates"][0]["target_section"] == "style_principles"
+                    rule="Keep fragments.") for i in (1, 2, 3, 4)]
+        rows += evidence(3, dimension="simile_density", direction="fewer", rule="Fewer similes.",
+                         decision="rejected", book="b")
+        assert {c["target_section"] for c in build(rows)["candidates"]} <= {
+            "style_principles", "donts"}
 
     def test_missing_category_is_skipped_not_assumed_fiction(self):
         rows = evidence(3)

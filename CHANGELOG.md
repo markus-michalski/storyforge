@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `reference/craft/voice-dimensions.md`: closed vocabulary of voice dimensions and directions plus the classification procedure for review feedback, with a validating loader in `tools/analysis/voice_dimensions.py` (epic #663, #666).
 - MCP tools `log_review_feedback`, `list_pending_feedback`, `set_feedback_classification`, `mark_feedback_harvested` and `discard_feedback`: log and manage review feedback per book, validated against the voice-dimension vocabulary; memoir rows are classified at logging time and their rules are checked for the names of people from the book (epic #663, #665).
 - Voice candidate engine (`tools/analysis/voice_candidates.py`) and MCP tool `get_voice_candidates`: weighted, genre-scoped promotion candidates with conflict detection and suppression of discarded candidates (epic #663, #667).
+- Skill `chapter-voice-harvest`: classifies a chapter's logged review feedback, resolves conflicts and walks the author through recurring voice patterns before promoting them into the author profile with genre scope (epic #663, #668).
 
 ### Changed
 - `delete_author` also removes the author's `review_feedback` rows and reports `removed_feedback`.
