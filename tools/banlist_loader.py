@@ -118,6 +118,72 @@ def _author_slug_from_readme(book_root: Path) -> str | None:
     return slug or None
 
 
+# ---------------------------------------------------------------------------
+# Book language — Issue #680
+#
+# The global AI-tell catalog (Section 1 vocabulary, Section 11 shapes) is
+# English-only, but the loaders below used to be called with no language at
+# all — so an English-only pattern list got applied to every book regardless
+# of its declared ``language``, reading a non-English book as "clean" and
+# false-positiving on word-start matches (``Rich`` -> ``richtig``). This
+# reads the same ``language:`` README.md frontmatter field
+# ``tools.state.parsers.parse_book_readme()`` exposes (default ``"en"``),
+# without importing that module's PyYAML dependency — this module stays
+# stdlib-only so the hook can call it inline.
+# ---------------------------------------------------------------------------
+
+_README_LANGUAGE_FIELD_RE = re.compile(
+    r"""^language:\s*["']?(?P<lang>[A-Za-z_-]+)["']?\s*(?:#.*)?$""", re.MULTILINE
+)
+
+
+def book_language(book_root: Path) -> str:
+    """Read a book's declared ``language`` from its README.md frontmatter.
+
+    Defaults to ``"en"`` when the file, its frontmatter block, or the field
+    itself is absent — matching :func:`tools.state.parsers.parse_book_readme`'s
+    default so both readers agree on the same book.
+    """
+    readme = book_root / "README.md"
+    if not readme.is_file():
+        return "en"
+    try:
+        text = readme.read_text(encoding="utf-8")
+    except OSError:
+        return "en"
+    fm_match = _README_FRONTMATTER_RE.match(text)
+    if not fm_match:
+        return "en"
+    field_match = _README_LANGUAGE_FIELD_RE.search(fm_match.group(1))
+    if not field_match:
+        return "en"
+    # Primary subtag only: "en-US" / "de_DE" -> "en" / "de".
+    lang = re.split(r"[-_]", field_match.group("lang").strip().lower())[0]
+    return lang or "en"
+
+
+def _global_catalog_path(plugin_root: Path, language: str) -> Path:
+    """Resolve the global anti-AI catalog file for ``language``.
+
+    ``"en"`` keeps resolving the original, suffix-less
+    ``anti-ai-patterns.md`` (Issue #680 adds the parameter without moving
+    the English file). Any other language resolves to
+    ``anti-ai-patterns.<language>.md`` — present once a language-specific
+    catalog is added (Issue #681 ships German first); absent languages
+    simply have no file, which the callers below treat as "no catalog".
+    """
+    lang = re.split(r"[-_]", (language or "en").strip().lower())[0] or "en"
+    if not re.fullmatch(r"[a-z]{2,3}", lang):
+        lang = "en" if not lang else "invalid"
+    suffix = "" if lang == "en" else f".{lang}"
+    return plugin_root / "reference" / "craft" / f"anti-ai-patterns{suffix}.md"
+
+
+def has_global_catalog(plugin_root: Path, language: str) -> bool:
+    """True if a global anti-AI catalog file exists for ``language``."""
+    return _global_catalog_path(plugin_root, language).is_file()
+
+
 def _strip_parenthetical(text: str) -> str:
     """Remove trailing parenthetical clarifications like '(metaphorical)'."""
     return re.sub(r"\s*\([^)]+\)\s*", " ", text).strip()
@@ -883,19 +949,25 @@ _BANNED_SHAPE_LINE_RE = re.compile(
 )
 
 
-def load_global_shape_bans(plugin_root: Path) -> list[BannedPattern]:
-    """Parse banned-shape regexes from ``anti-ai-patterns.md`` Section 11.
+def load_global_shape_bans(plugin_root: Path, language: str = "en") -> list[BannedPattern]:
+    """Parse banned-shape regexes from the Section 11 catalog for ``language``.
 
     Returns one :class:`BannedPattern` per ``**Banned shape:** `regex```
     line found between the Section 11 header and the next top-level
     ``## N. ...`` heading. Invalid regexes are silently skipped so a
     single malformed line cannot break the global advisory layer.
 
+    ``language`` resolves which catalog file is read (Issue #680) — see
+    :func:`_global_catalog_path`. A language with no catalog file (every
+    language but ``"en"`` today) returns ``[]`` rather than silently
+    falling back to the English shapes, which are regexes over English
+    word order and would false-positive on unrelated text.
+
     Severity is always ``warn`` — these shapes are advisory baselines.
     Authors who want hard-block treatment override per-profile via
     ``### Don'ts``.
     """
-    path = plugin_root / "reference" / "craft" / "anti-ai-patterns.md"
+    path = _global_catalog_path(plugin_root, language)
     if not path.is_file():
         return []
     try:
@@ -951,16 +1023,24 @@ _BOLD_TERM_RE = re.compile(r"\*\*([^*]+)\*\*")
 _DASH_SPLIT_RE = re.compile(r"\s+[—-]\s+")
 
 
-def load_global_ai_tells(plugin_root: Path) -> list[BannedPattern]:
-    """Parse the AI-tell vocabulary from ``reference/craft/anti-ai-patterns.md``.
+def load_global_ai_tells(plugin_root: Path, language: str = "en") -> list[BannedPattern]:
+    """Parse the AI-tell vocabulary from the Section 1 catalog for ``language``.
 
     Reads the ``### Heavily Flagged Words and Phrases`` section, extracts
     each numbered entry's bolded terms (split on `` / ``), and emits one
     ``BannedPattern`` per unique phrase. Severity is ``warn`` — global
     advisory rather than user-asserted. Promotion to ``block`` is the
     job of the per-author or per-book banlist.
+
+    ``language`` resolves which catalog file is read (Issue #680) — see
+    :func:`_global_catalog_path`. A language with no catalog file (every
+    language but ``"en"`` today) returns ``[]``: single-word entries here
+    compile to ``\\b{stem}\\w*`` (see :func:`_build_inflection_pattern`), so
+    applying the English vocabulary to another language doesn't just miss —
+    it false-positives on any word that happens to start the same way
+    (``Rich`` matches German ``richtig``/``Richtung``).
     """
-    path = plugin_root / "reference" / "craft" / "anti-ai-patterns.md"
+    path = _global_catalog_path(plugin_root, language)
     if not path.is_file():
         return []
     try:

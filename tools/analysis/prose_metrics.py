@@ -67,6 +67,10 @@ _SENTENCE_SPLIT_RE = re.compile(
 )
 _DASH_RE = re.compile(r"—|(?<=\s)–(?=\s)")
 _HEDGE_RE = re.compile(r"\b(?:seemed|appeared to|as if|might have)\b", re.IGNORECASE)
+# The hedge-word list is language-specific (Issue #680 -- only English
+# exists today). A language absent here gets hedge_count=None, not 0: the
+# metric did not run, which is not the same as "no hedging found".
+_HEDGE_RE_BY_LANGUAGE: dict[str, re.Pattern[str]] = {"en": _HEDGE_RE}
 _NBSP_CHARS = "\u00a0\u202f\u2007"
 _MASK = "\x00"
 # A closing quote preceded by one of these ends the sentence the speech sits in.
@@ -153,7 +157,8 @@ def _opener_runs(sentences: list[tuple[int, str | None]]) -> list[dict[str, Any]
     return runs
 
 
-def _segment_metrics(lines: list[tuple[int, str]]) -> dict[str, Any]:
+def _segment_metrics(lines: list[tuple[int, str]], *, language: str = "en") -> dict[str, Any]:
+    hedge_re = _HEDGE_RE_BY_LANGUAGE.get(language)
     narration_words = 0
     dialogue_words = 0
     dash_count = 0
@@ -182,9 +187,10 @@ def _segment_metrics(lines: list[tuple[int, str]]) -> dict[str, Any]:
             dash_count += n_dashes
             dash_lines.extend([line_no] * n_dashes)
 
-        n_hedges = len(_HEDGE_RE.findall(narration))
-        if n_hedges:
-            hedge_lines.extend([line_no] * n_hedges)
+        if hedge_re is not None:
+            n_hedges = len(hedge_re.findall(narration))
+            if n_hedges:
+                hedge_lines.extend([line_no] * n_hedges)
 
         for sentence in _SENTENCE_SPLIT_RE.split(masked.strip()):
             sentence = sentence.strip()
@@ -217,7 +223,7 @@ def _segment_metrics(lines: list[tuple[int, str]]) -> dict[str, Any]:
         "dialogue_dash_count": dialogue_dash_count,
         "dash_per_1k": per_1k,
         "dash_lines": dash_lines,
-        "hedge_count": len(hedge_lines),
+        "hedge_count": len(hedge_lines) if hedge_re is not None else None,
         "hedge_lines": hedge_lines,
         "repeated_openers": _opener_runs(opener_sentences),
         "_sentence_lengths": pure_sentence_lengths,
@@ -235,10 +241,16 @@ def _invisible(text: str) -> tuple[int, list[int]]:
     return count, lines
 
 
-def analyse_draft(text: str) -> dict[str, Any]:
-    """Measure a chapter draft. Returns per-segment and chapter-level metrics."""
+def analyse_draft(text: str, language: str = "en") -> dict[str, Any]:
+    """Measure a chapter draft. Returns per-segment and chapter-level metrics.
+
+    ``language`` gates the hedge-word metric (Issue #680): only languages in
+    :data:`_HEDGE_RE_BY_LANGUAGE` (``"en"`` today) get a real
+    ``hedge_count``; every other language reports ``None`` instead of a
+    misleading ``0`` — the metric did not run, it did not find a clean draft.
+    """
     groups, found = split_segments(text)
-    segments = [_segment_metrics(g) for g in groups]
+    segments = [_segment_metrics(g, language=language) for g in groups]
 
     all_lengths = [n for s in segments for n in s["_sentence_lengths"]]
     cv: float | None = None
@@ -263,7 +275,9 @@ def analyse_draft(text: str) -> dict[str, Any]:
         "dialogue_dash_count": sum(s["dialogue_dash_count"] for s in segments),
         "dash_per_1k": round(dash_count * 1000 / narration_words, 2) if narration_words else 0.0,
         "dash_lines": [n for s in segments for n in s["dash_lines"]],
-        "hedge_count": sum(s["hedge_count"] for s in segments),
+        "hedge_count": (
+            sum(s["hedge_count"] for s in segments) if language in _HEDGE_RE_BY_LANGUAGE else None
+        ),
         "repeated_openers": openers,
         "invisible_chars": invisible_chars,
         "invisible_lines": invisible_lines,

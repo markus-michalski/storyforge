@@ -33,6 +33,24 @@ class TestLoadGlobalShapeBans:
     def test_returns_empty_when_file_missing(self, tmp_path: Path):
         assert load_global_shape_bans(tmp_path) == []
 
+    def test_default_language_is_en_and_unchanged(self, tmp_path: Path):
+        """Issue #680: the ``language`` parameter must not change the
+        no-argument call."""
+        _write_anti_ai_patterns(
+            tmp_path,
+            "## 11. Section 11\n\n**Banned shape:** `\\bfoo\\b`.\n",
+        )
+        assert load_global_shape_bans(tmp_path) == load_global_shape_bans(tmp_path, language="en")
+
+    def test_language_without_a_catalog_file_returns_empty(self, tmp_path: Path):
+        """A German book must not inherit the English Section 11 shapes —
+        same language-blindness bug (#680) as the Section 1 vocabulary."""
+        _write_anti_ai_patterns(
+            tmp_path,
+            "## 11. Section 11\n\n**Banned shape:** `\\bfoo\\b`.\n",
+        )
+        assert load_global_shape_bans(tmp_path, language="de") == []
+
     def test_returns_empty_when_no_section_11(self, tmp_path: Path):
         _write_anti_ai_patterns(
             tmp_path,
