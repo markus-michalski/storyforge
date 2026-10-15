@@ -10,6 +10,7 @@ import pytest
 import routers._app as _app
 from routers.feedback import (
     discard_feedback,
+    get_voice_candidates,
     list_pending_feedback,
     log_review_feedback,
     mark_feedback_harvested,
@@ -433,3 +434,88 @@ class TestReviewRoundTwo:
         result = json.loads(set_feedback_classification(
             "firelight", rid, "pacing", "faster", "Faster."))
         assert result["updated"] is False
+
+
+class TestGetVoiceCandidates:
+    def _seed(self, n=3, **kw):
+        for i in range(1, n + 1):
+            chapter = "01-arrival" if i % 2 else "02-fire"
+            _log(
+                chapter_slug=chapter, comment_text=f"kürzer {i}",
+                dimension="sentence_rhythm", direction="shorter",
+                normalized_rule="Prefer shorter sentences.", **kw,
+            )
+
+    def test_returns_candidate_with_genre_scope(self, env):
+        self._seed(3)
+        result = json.loads(get_voice_candidates("ethan-cole"))
+        assert result["author_slug"] == "ethan-cole"
+        assert len(result["candidates"]) == 1
+        c = result["candidates"][0]
+        assert (c["dimension"], c["direction"], c["target_section"]) == (
+            "sentence_rhythm", "shorter", "style_principles")
+        assert c["scope"] == {"universal": False, "genres": ["dark-fantasy", "lgbtq"]}
+
+    def test_below_threshold_returns_nothing_and_counts_unclassified(self, env):
+        self._seed(2)
+        _log(comment_text="noch offen")
+        result = json.loads(get_voice_candidates("ethan-cole"))
+        assert result["candidates"] == []
+        assert result["unclassified"] == 1
+
+    def test_book_filter_restricts_category_and_checks_author(self, env):
+        self._seed(3)
+        ok = json.loads(get_voice_candidates("ethan-cole", "firelight"))
+        assert len(ok["candidates"]) == 1
+        memoir_view = json.loads(get_voice_candidates("ethan-cole", "my-life"))
+        assert memoir_view["candidates"] == []
+        wrong = json.loads(get_voice_candidates("other-author", "firelight"))
+        assert "error" in wrong
+
+    def test_other_authors_evidence_is_not_mixed_in(self, env):
+        self._seed(3)
+        result = json.loads(get_voice_candidates("other-author"))
+        assert result["candidates"] == []
+
+    def test_rejects_bad_arguments(self, env):
+        assert "error" in json.loads(get_voice_candidates(""))
+        assert "error" in json.loads(get_voice_candidates(None))  # type: ignore[arg-type]
+        assert "error" in json.loads(get_voice_candidates("ethan-cole", "ghost"))
+
+
+class TestScalarGenres:
+    def test_scalar_genres_value_is_not_split_into_characters(self, env, monkeypatch):
+        books = {"solo": {**BOOKS["firelight"], "genres": "thriller"}}
+        monkeypatch.setattr(_app._cache, "get", lambda: {"books": books})
+        assert _log(book_slug="solo")["logged"] is True
+        assert _rows()[0]["genres"] == "thriller"
+
+
+class TestCandidatePrivacyAndErrors:
+    def test_memoir_candidates_carry_no_raw_text_keys(self, env):
+        for i, chapter in enumerate(["01-home", "01-home", "01-home"], start=1):
+            _log(
+                book_slug="my-life", chapter_slug=chapter, comment_text=f"c{i}",
+                dimension="hedging", direction="less", normalized_rule="No hedging.",
+            )
+        # distinct content, one chapter -> not enough chapters; add second memoir book
+        for i in range(3):
+            _log(
+                book_slug="other-life", chapter_slug="01-x", comment_text=f"d{i}",
+                dimension="hedging", direction="less", normalized_rule="No hedging.",
+            )
+        result = json.loads(get_voice_candidates("ethan-cole", "my-life"))
+        assert result["candidates"], result
+        for c in result["candidates"]:
+            assert not {"comment_text", "before_text", "after_text", "proposal_text"} & set(c)
+            assert c["scope"]["universal"] is True
+
+    def test_vocabulary_failure_returns_error(self, env, monkeypatch):
+        import routers.feedback as fb
+        from tools.analysis.voice_dimensions import VoiceDimensionError
+
+        def boom(rows):
+            raise VoiceDimensionError("vocabulary missing")
+
+        monkeypatch.setattr(fb, "build_voice_candidates", boom)
+        assert "vocabulary" in json.loads(get_voice_candidates("ethan-cole"))["error"]
