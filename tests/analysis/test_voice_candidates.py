@@ -94,6 +94,7 @@ class TestThreshold:
 class TestWeighting:
     def test_source_weights(self):
         assert SOURCE_WEIGHTS["reviewer"] == 1.0
+        assert SOURCE_WEIGHTS["self_edit"] == 1.5
         assert SOURCE_WEIGHTS["fixer"] == 1.0
         assert SOURCE_WEIGHTS["humanizer"] == 0.5
         assert SOURCE_WEIGHTS["proofreader"] == 0.25
@@ -413,3 +414,13 @@ class TestRobustness:
         result = build(good + bad)
         assert result["skipped_malformed"] == 3
         assert len(result["candidates"]) == 1
+
+
+class TestSelfEditWeight:
+    def test_own_edits_count_one_and_a_half(self):
+        rows = evidence(2, source="self_edit", decision="self_edit")
+        result = build(rows)["candidates"]
+        assert len(result) == 1 and result[0]["weight"] == 3.0
+
+    def test_one_own_edit_is_not_enough(self):
+        assert build(evidence(1, source="self_edit", decision="self_edit"))["candidates"] == []

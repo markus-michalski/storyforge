@@ -91,7 +91,7 @@ class TestToolContracts:
             "get_book_full", "get_session", "get_craft_reference", "list_pending_feedback",
             "set_feedback_classification", "get_voice_candidates", "get_author",
             "write_author_discovery", "mark_feedback_harvested", "discard_feedback",
-            "log_review_feedback",
+            "log_review_feedback", "get_self_edit_hunks", "refresh_draft_baseline",
         }
         assert expected <= used, sorted(expected - used)
 
@@ -199,3 +199,37 @@ class TestClassification:
     def test_mixed_comments_are_split_via_log_review_feedback(self, body):
         step = section(body, "Step 2 — Classify the open entries")
         assert "log_review_feedback(" in step
+
+
+class TestManualEdits:
+    def test_step_only_runs_on_the_authors_say_so(self, body):
+        step = section(body, "Step 0 — Manual edits (only when the author said they changed the text)")
+        assert " ".join(step.split()).count("Never on your own initiative") == 1
+
+    def test_step_handles_every_status_and_resets_the_baseline(self, body):
+        step = section(body, "Step 0 — Manual edits (only when the author said they changed the text)")
+        for status in ("memoir_unsupported", "no_baseline", "stale"):
+            assert status in step
+        assert step.index("get_self_edit_hunks(") < step.index("log_review_feedback(")
+        assert step.rindex("refresh_draft_baseline(") > step.index("log_review_feedback(")
+
+    def test_hunks_are_logged_as_self_edit_unclassified(self, body):
+        step = section(body, "Step 0 — Manual edits (only when the author said they changed the text)")
+        assert 'source_skill="self_edit"' in step
+        assert 'decision="self_edit"' in step
+        assert "classification empty" in " ".join(step.split())
+
+    def test_description_triggers_on_the_authors_phrase(self, text):
+        assert "Ich habe den Text noch etwas geändert" in text
+
+    def test_hunks_are_paged_confirmed_and_logged_before_the_baseline_resets(self, body):
+        step = " ".join(section(
+            body, "Step 0 — Manual edits (only when the author said they changed the text)").split())
+        assert "`offset`" in step and "`truncated`" in step
+        assert "Fetch all pages first" in step
+        assert "AskUserQuestion" in step and "or a list of indices" in step
+        assert "per machine" in step
+        assert "once every chosen hunk was logged" in step
+        assert "None" in step and "dismissed" in step
+        assert step.index("AskUserQuestion") < step.index("log_review_feedback(")
+        assert step.index("log_review_feedback(") < step.rindex("refresh_draft_baseline(")

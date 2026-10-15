@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 from mcp.types import ToolAnnotations
@@ -28,7 +29,10 @@ from tools.db.review_feedback import (
     set_classification,
 )
 
+from tools.shared.config import get_review_handle
+from tools.shared.paths import catch_slug_value_error, resolve_project_path
 from tools.shared.person_names import person_name_hit
+from tools.state import draft_snapshots
 
 from . import _app
 from ._app import mcp
@@ -430,3 +434,102 @@ def discard_feedback(book_slug: str, ids: list[int]) -> str:
     Only the book author's open entries are changed. Returns ``{changed, status}``.
     """
     return _close(book_slug, ids, "discarded")
+
+
+def _draft_path(book_slug: str, chapter_slug: str) -> tuple[Path | None, str | None]:
+    config = _app.load_config()
+    draft = resolve_project_path(config, book_slug) / "chapters" / chapter_slug / "draft.md"
+    if not draft.is_file():
+        return None, f"No draft.md for chapter '{chapter_slug}' of '{book_slug}'"
+    return draft, None
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
+def get_self_edit_hunks(book_slug: str, chapter_slug: str, offset: int = 0) -> str:
+    """Differences between a chapter draft and the text Claude last wrote (Epic #663, phase 2).
+
+    Call it when the author says they edited the text themselves. A baseline is
+    kept for every fiction chapter by a PostToolUse hook; the comparison runs
+    only on request. Changes of up to three words, whitespace/punctuation-only
+    changes and the author's own review-comment blocks are left out. Memoir
+    books are not supported.
+
+    At most 20 hunks are returned per call; page with ``offset`` until
+    ``truncated`` is false. A hunk with ``clipped: true`` is partial.
+
+    Baselines are per machine: text changed by Claude on another machine, by a
+    shell command or by git shows up as the author's edit. Show the hunks to the
+    author before logging them.
+
+    Returns ``{status, hunks, total, offset, ignored_small, truncated}`` with
+    ``status`` ``ok``, ``no_baseline``, ``stale`` or ``memoir_unsupported``, or
+    ``{error}``.
+    """
+    if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+        return _error("offset must be a non-negative integer")
+    book, error = _resolve_book(book_slug)
+    if error or book is None:
+        return _error(error or "book not resolved")
+    if not isinstance(chapter_slug, str) or chapter_slug not in (book.get("chapters_data") or {}):
+        return _error(f"Chapter '{chapter_slug}' not found in book '{book_slug}'")
+    if not draft_snapshots.is_fiction_category(book.get("book_category")):
+        return json.dumps({
+            "status": "memoir_unsupported",
+            "message": "Manual-edit capture is not available for memoir books.",
+        })
+
+    draft, error = _draft_path(book_slug, chapter_slug)
+    if error or draft is None:
+        return _error(error or "draft not found")
+    if draft_snapshots.is_stale(book_slug, chapter_slug):
+        return json.dumps({
+            "status": "stale",
+            "message": "The baseline could not be kept in step with an edit. Call "
+                       "refresh_draft_baseline to start from the current draft; earlier "
+                       "manual edits of this chapter cannot be attributed.",
+        })
+    baseline = draft_snapshots.read_snapshot(book_slug, chapter_slug)
+    if baseline is None:
+        return json.dumps({
+            "status": "no_baseline",
+            "message": "No baseline exists for this chapter yet. Call refresh_draft_baseline "
+                       "to record the current draft; later manual edits can then be compared.",
+        })
+
+    handle = get_review_handle(_app.load_config())
+    result = draft_snapshots.compute_hunks(
+        baseline, draft.read_text(encoding="utf-8"), review_handle=handle, offset=offset,
+    )
+    return json.dumps({"status": "ok", **result})
+
+
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@catch_slug_value_error
+def refresh_draft_baseline(book_slug: str, chapter_slug: str) -> str:
+    """Record the current chapter draft as the new baseline (Epic #663, phase 2).
+
+    Call it after the author's manual edits were logged (or deliberately
+    dismissed) so they are not reported again, and to recover from a stale or
+    missing baseline. Memoir books are not supported.
+
+    Returns ``{refreshed}`` or ``{status: "memoir_unsupported"}`` or ``{error}``.
+    """
+    book, error = _resolve_book(book_slug)
+    if error or book is None:
+        return _error(error or "book not resolved")
+    if not isinstance(chapter_slug, str) or chapter_slug not in (book.get("chapters_data") or {}):
+        return _error(f"Chapter '{chapter_slug}' not found in book '{book_slug}'")
+    if not draft_snapshots.is_fiction_category(book.get("book_category")):
+        draft_snapshots.remove_book_snapshots(book_slug)
+        return json.dumps({
+            "status": "memoir_unsupported",
+            "message": "Manual-edit capture is not available for memoir books.",
+        })
+
+    draft, error = _draft_path(book_slug, chapter_slug)
+    if error or draft is None:
+        return _error(error or "draft not found")
+    text = draft.read_text(encoding="utf-8")
+    draft_snapshots.write_snapshot(book_slug, chapter_slug, text)
+    return json.dumps({"refreshed": True, "characters": len(text)})

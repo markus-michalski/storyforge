@@ -7,8 +7,8 @@ on comment wording; the generic ``other`` dimension additionally keys on its
 normalized rule, because its direction carries no meaning of its own.
 
 Rules:
-- Each entry weighs by its source (author comments 1.0, humanizer 0.5,
-  proofreader 0.25). Rejected proposals count like accepted ones because the
+- Each entry weighs by its source (the author's own edits 1.5, comments 1.0,
+  humanizer 0.5, proofreader 0.25). Rejected proposals count like accepted ones because the
   classification already states what the author wants. Proofreader entries the
   author accepted are noise and weigh nothing.
 - A candidate needs a weighted sum of ``min_weight`` and evidence from
@@ -42,7 +42,7 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "reviewer": 1.0,
     "fixer": 1.0,
     "rewriter": 1.0,
-    "self_edit": 1.0,
+    "self_edit": 1.5,
     "humanizer": 0.5,
     "proofreader": 0.25,
 }
