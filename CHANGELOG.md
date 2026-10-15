@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- `plot/tone.md` "Banned Prose Patterns" bullets with a backticked phrase (optional `Max. N pro Kapitel`) are now enforced by the chapter validator hook, the manuscript checker, the humanizer scan and the banned-phrase brief; bullets without one are reported as advisory/unenforced in the writing and review briefs and scan warnings. The section is read at heading level 2 and 3 (#682)
 
 ### Changed
 - Nothing yet

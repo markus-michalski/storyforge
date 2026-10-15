@@ -39,7 +39,7 @@ Call MCP `get_review_brief(book_slug, chapter_slug)`. This returns:
 - `canon_log_facts_total_count` — the untruncated fact count.
 - `changed_facts` — revision entries from DB for THIS book only, each with `old`, `new`, `chapter`, `revision_impact` (list of chapter slugs the change affects). This is the source for check 19 below (Issue #500) — `get_canon_brief()`'s own `changed_facts` is NOT book-scoped and can false-match a same-named chapter slug in a different book of the series.
 - `consent_status_warnings` — people with non-approved consent status
-- `tonal_rules` — non-negotiable rules, litmus test, banned patterns from `plot/tone.md`
+- `tonal_rules` — non-negotiable rules, litmus test, banned patterns from `plot/tone.md` (`banned_prose_unenforced` lists bullets no scanner checks: advisory, never counted as a pass)
 - `active_rules` — book_rules DB (rule_type: rule) with severity
 - `active_callbacks` — book_rules DB (rule_type: callback)
 - `errors` — non-empty means some files missing; degrade gracefully, do not invent

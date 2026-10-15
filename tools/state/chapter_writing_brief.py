@@ -281,6 +281,22 @@ def _gather_tone(
     return litmus_questions(tone_text) if tone_text else []
 
 
+def _gather_tone_banned(
+    book_root: Path,
+    *,
+    recorder: _Recorder,
+) -> dict[str, list[str]]:
+    """Banned prose patterns of plot/tone.md, split by machine-checkability."""
+    from tools.banlist_loader import load_tone_banned_rule_texts
+
+    enforced, unenforced = recorder.run(
+        "tone.banned_patterns",
+        lambda: load_tone_banned_rule_texts(book_root),
+        ([], []),
+    )
+    return {"enforced": list(enforced), "advisory_unenforced": list(unenforced)}
+
+
 def _gather_tactical(
     book_root: Path,
     outline_text: str,
@@ -496,6 +512,7 @@ def build_chapter_writing_brief(
     )
 
     tone_questions = _gather_tone(book_root, recorder=recorder)
+    tone_banned = _gather_tone_banned(book_root, recorder=recorder)
 
     outline_text = ""
     if chapter_readme.is_file():
@@ -592,6 +609,7 @@ def build_chapter_writing_brief(
         "banned_phrases": banned_phrases,
         "recent_simile_count_per_chapter": simile_counts,
         "tone_litmus_questions": tone_questions,
+        "tone_banned_patterns": tone_banned,
         "tactical_constraints": tactical,
         "review_handle": review_handle,
         "errors": list(recorder.errors),
