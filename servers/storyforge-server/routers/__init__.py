@@ -17,6 +17,7 @@ from . import (  # noqa: F401
     claudemd,
     cover,
     creation,
+    feedback,
     gates,
     humanizer,
     ideas,
