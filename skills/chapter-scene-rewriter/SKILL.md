@@ -156,8 +156,9 @@ word count (for the Step 6 comparison).
 
 ## Step 2 — Verify the Rewrite Is Warranted
 
-Run **§ User Feedback Handling** (chapter-writing-shared.md) on whatever triggered this
-rewrite — a checker's findings, or the user's own read — before drafting anything:
+Run **§ User Feedback Handling** (chapter-writing-shared.md, including its Logging Voice Feedback
+subsection with `source_skill="rewriter"`: the rewrite instruction and whether the new scene was
+kept) on whatever triggered this rewrite — a checker's findings, or the user's own read — before drafting anything:
 
 1. Re-read the current scene. Does the stated problem actually hold up?
 2. Check whether an earlier chapter or the established voice justifies what's there.

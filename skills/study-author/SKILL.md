@@ -149,7 +149,7 @@ Update the author's profile using MCP tools to ensure cache invalidation:
   **Why:** Banned phrases only block AI-tells in prose when registered in the author profile — analysis file entries are never checked at write time.
 - **Preferred Words** — MCP `write_author_discovery(author_slug, section="style_principles", text=<entry>, book_slug=<analyzed-work-slug>, genres=<source_genres>)` per word/phrase. Format: `**{word}** — {usage context or frequency observation}.`
   **Why:** Vocabulary preferences in the analysis file are inert; only profile-level entries influence chapter-writer's word choices.
-- **Deliberate Imperfections** — MCP `write_author_discovery(author_slug, section="recurring_tics", text=<entry>, book_slug=<analyzed-work-slug>, genres=<source_genres>)` per pattern. Format: `**{pattern}** — intentional; {why it works for this author}.`
+- **Deliberate Imperfections** — MCP `write_author_discovery(author_slug, section="style_principles", text=<entry>, book_slug=<analyzed-work-slug>, genres=<source_genres>)` per pattern. Format: `**{pattern}** — intentional; {why it works for this author}.`
   **Why:** Recurring tics must be in the author profile so chapter-writer can reproduce them rather than smoothing them away as errors.
 
 ### Phase 5: Report

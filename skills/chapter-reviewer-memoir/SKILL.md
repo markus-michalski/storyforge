@@ -65,7 +65,7 @@ This is a review flag, not a halt — the review continues, but consent issues m
 
 ### Step 2 — Load author and craft context
 
-- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` lists cross-book tics — flag any hit as a Critical finding (the Output Format below has only Critical/Recommended/Minor tiers; a recurring, previously-documented tic is always Critical, never downgraded to Minor). `style_principles` (genre-filtered — skip entries whose `genres` list shares no genre with this book; entries without `genres` are universal — memoir books carry `genres` the same as fiction ones, so this scoping applies identically) and `donts` feed the same review pass.
+- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` lists cross-book tics — flag any hit as a Critical finding (the Output Format below has only Critical/Recommended/Minor tiers; a recurring, previously-documented tic is always Critical, never downgraded to Minor). `style_principles` (genre-filtered — skip entries whose `genres` list shares no genre with this book; entries without `genres` are universal — memoir books carry `genres` the same as fiction ones and additionally match the tag `memoir`, so this scoping applies identically) and `donts` feed the same review pass.
 - **Author vocabulary** from the already-loaded author profile: `writing_discoveries.donts` (banned phrases) and `writing_discoveries.style_principles` (preferred patterns). **Why:** Banned-word scan and preferred-word check both run against these lists. *(The SQLite-backed Writing Discoveries are authoritative — Issue #281. Do not read `vocabulary.md` directly.)*
 - **Craft references** via MCP `get_craft_reference()`:
   - `dos-and-donts` — general craft baseline for the Craft section. **Why:** Craft section scoring (points 6–10) requires the dos-and-donts baseline; without it the review defaults to unsourced opinion.
@@ -294,6 +294,9 @@ Verdict mapping:
 - **FAIL** — at least one Critical issue, any AI-tell banlist hit, or any load-bearing first-chapter row at FAIL.
 
 ## Rules
+- When the user answers a finding with a verdict (accept, rework, reject) and you apply or decline it
+  in this session, log it per `§ Logging Voice Feedback` in `chapter-writing-shared.md` with
+  `source_skill="reviewer"`. Findings you only report are not logged.
 - Be BRUTALLY honest.
 - Pair every critical finding with a specific strength.
 - Quote specific lines when flagging issues.

@@ -59,6 +59,7 @@ they are invocable strings, not prose.
 | `/storyforge:world-builder` | Create settings and world rules |
 | `/storyforge:chapter-writer` | Write a chapter in author's voice |
 | `/storyforge:chapter-reviewer` | Review and critique a chapter |
+| `/storyforge:chapter-voice-harvest` | Learn your voice from the chapter's review feedback and promote confirmed patterns into the author profile |
 
 ### Quality & Rules
 | Command | What it does |

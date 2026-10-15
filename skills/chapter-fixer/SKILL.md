@@ -283,6 +283,13 @@ what was planned.)
    counter from Step 6. State this recommendation on the `Re-run recommended:` line of the Closing
    Report Template when triggered; below both thresholds, omit the line (it's optional).
 
+## Step 5.4 — Log Voice Feedback
+
+For every finding of this batch that was applied, reworked (`N: instruction`) or skipped, log it per
+`§ Logging Voice Feedback` in `chapter-writing-shared.md` with `source_skill="fixer"` — a skipped
+finding is `decision="rejected"` with the finding's text as `proposal_text`. A logging error is one
+line in the report and never blocks the batch.
+
 ## Step 5.5 — Record Revision Summary
 
 If Step 4 applied at least one fix, call `add_canon_fact(book_slug, chapter_num=<this chapter's

@@ -227,6 +227,10 @@ have already run.
 
 ## Rules
 
+- When the user declines a flagged item, log it once per `§ Logging Voice Feedback` in
+  `chapter-writing-shared.md` with `source_skill="proofreader"` and `decision="rejected"`; accepted
+  corrections are not voice evidence and are not logged. A logging error never blocks the pass.
+
 - Flag errors, not style. If unsure whether something is intentional, check the author profile
   before flagging.
 - Quote the actual text when flagging — never describe it vaguely.

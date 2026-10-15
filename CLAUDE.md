@@ -73,6 +73,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 | "Szene umschreiben" / "rewrite this scene" / "scene neu schreiben" (fiction, already-drafted chapter) | `/storyforge:chapter-scene-rewriter` |
 | "Continuity prüfen" / "Check continuity" / "Zeitlinie prüfen" / "Timeline prüfen" | `/storyforge:continuity-checker` |
 | "Voice check" / "Klingt das nach AI?" | `/storyforge:voice-checker` |
+| "Voice harvest" / "Stimme ernten" / "Feedback in die Autorenstimme" / "chapter voice harvest" | `/storyforge:chapter-voice-harvest` |
 | "Author check" / "Style check" / "Positive check" / "Banter fehlt" / "Sarcasm fehlt" / "Stil prüfen" / "Positive Marker" | `/storyforge:author-check` |
 | "Manuscript check" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" (fiction) | `/storyforge:manuscript-checker` |
 | "Manuscript check (memoir)" / "Prose check" / "Repetition check" / "Wiederholungen prüfen" / "Prose tics" / "Buch prüfen" (memoir) | `/storyforge:manuscript-checker-memoir` |
@@ -112,7 +113,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
 1. Create Author Profile → Study PDFs (optional)
 2. Brainstorm → New Book → Concept
 3. Plot Architecture → Characters → World
-4. Chapter Writing → Chapter Review → Chapter Humanizer → Chapter Proofread
+4. Chapter Writing → Chapter Review → Chapter Voice Harvest → Chapter Humanizer → Chapter Proofread
 5. Revision → Export → Translation (optional)
 6. Voice Checker (optional, standalone score check)
 ```
@@ -156,6 +157,7 @@ Phase 1 (#54–#56, #67) adds the field plus knowledge scaffold. Skill branching
     chapter-reviewer / chapter-reviewer-memoir afterward to confirm either path. `manuscript-checker`'s
     chapter-anchored findings route the same way.
 10a. `/storyforge:author-check` — (Optional, after chapter-writer or chapter-reviewer) Positive style compliance gate: checks presence of style_principles Writing Discoveries and quantitative prose targets; counterpart to the constraint-only tools
+10a2. `/storyforge:chapter-voice-harvest` — (After the review loop, before the humanizer; runs on whatever feedback was logged, whether or not fixer/scene-rewriter were used) Classifies the chapter's logged review feedback (accepted, reworked, rejected), resolves conflicts and walks the author through recurring voice patterns before promoting them into the author profile with genre scope. Skips with one line when nothing is logged. Humanizer and proofreader decisions are logged after it and picked up by the next chapter
 10b. `/storyforge:chapter-humanizer` — Targeted AI-construction scan; starts from a deterministic pre-scan (`scan_chapter_ai_tells`: catalog shapes, flagged vocabulary, author bans, per-scene density rules, narration dash density), identifies Section 11 elegant-abstraction shapes and flagged vocabulary, proposes human alternatives interactively (each verified with `check_replacement_text`), reports a before/after metric delta; runs AFTER chapter-reviewer craft fixes
 10c. `/storyforge:chapter-proofreader` — Language correctness per chapter: spelling, grammar, punctuation — runs AFTER humanizer pass; explanations in author's native_language
 10d. `/storyforge:manuscript-checker` — (At drafting → revision transition) Scan the whole manuscript for book-rule violations, clichés, dialogue punctuation, filter words, adverb density, and cross-chapter repetition
@@ -280,6 +282,8 @@ Authors live at `~/.storyforge/authors/{slug}/`:
 - `profile.md` — Style, voice, techniques (YAML frontmatter)
 - `vocabulary.md` — Preferred-word notes and signature phrases (read-only reference; banned words/Don'ts enforcement reads the `author_discoveries` DB, not this file — Issue #604)
 - `studied-works/` — Analysis files from PDF imports
+
+Writing Discoveries carry `genres` and `universal`. Genre filters treat `memoir` as a genre of every memoir book; discoveries promoted from a memoir book are tagged `memoir` and never apply to fiction books.
 - `examples/` — Sample texts
 
 ## Genre System
@@ -313,6 +317,7 @@ Skills MUST load relevant craft references before generating creative content. U
 - `sensitivity-reader` (category-split) → Categories 1–2 (Representation, Harmful Tropes) are fiction-only and route memoir books to `memoir-ethics-checker`. Categories 3–5 (Cultural Accuracy, Trauma Handling, Power Dynamics) run for both categories — `memoir-ethics-checker` covers consent/defamation only, not these three.
 - `world-builder` → loads: world-building (memoir typically skips this skill — real settings are documented in `world/setting.md` via research, not invention)
 - `voice-checker` → loads: anti-ai-patterns, prose-style, dos-and-donts (memoir mode adds: `book_categories/memoir/craft/memoir-anti-ai-patterns.md`; runs Dimension 8 memoir-specific AI-tells: reflective platitude, "looking back" hinges, tidy lesson endings, hedging-as-humility, therapeutic reframe, explanation-after-image — Issue #62)
+- `chapter-voice-harvest` → loads: `voice-dimensions` craft reference (closed vocabulary, precedence, classification procedure) and the author profile via `get_author()`. Reads the `review_feedback` log through the feedback MCP tools only; promotes through `write_author_discovery`. Never targets `recurring_tics` (that section feeds the banlist).
 - `author-check` → loads: author profile (style_principles Writing Discoveries + quantitative targets) via `get_author()`; reads chapter draft directly; optionally reads existing `review.md` for constraint violation count (balance warning). No craft references needed — checks positive presence, not craft quality.
 - `manuscript-checker` (fiction-only since #138) → base checks only (book-rule violations, plot holes, clichés, filter words, adverb density, cross-chapter repetition). Refuses memoir books and routes to `manuscript-checker-memoir`. Loads `reference/craft/book-rule-pattern-extraction.md`, `reference/craft/repetition-category-rules.md`, and `reference/craft/question-as-statement-handling.md` on demand during Step 5's interactive fix mode (Issue #574 split, shared with the memoir variant below).
 - `manuscript-checker-memoir` (memoir-only, split out in #138) → base checks plus five memoir-specific passes: anonymization leaks, tidy-lesson endings, reflective platitudes, timeline ambiguity, real-people name-form consistency (Phase 3 #61). Same on-demand reference loads as `manuscript-checker` above.
@@ -341,6 +346,7 @@ Skills MUST load relevant craft references before generating creative content. U
 18. Prefix grammar for persistence: messages starting with `Regel:`, `Workflow:`, or `Callback:` are extracted by the PreCompact hook and written to the book's CLAUDE.md. Unprefixed messages are never persisted automatically.
 19. **ALWAYS `Read` the full file when processing review comments** (GH#27). When the user signals that review comments (`{review_handle}:` blocks) are ready, call the `Read` tool on the full file first. The file-change `system-reminder` diff is truncated for long files — end-of-file comments get silently dropped. After reading, count the comments you see and report the count; re-read if the count mismatches expectation.
 20. **ALWAYS check `book_category` before creative work on a book** (Path E #54/#67). Read it from `get_book_full(slug).book_category`. All skills now branch automatically on `book_category` (Phase 4 #64 complete — no more manual load bridge needed). For named living people in memoir scenes, surface `consent_status` decisions explicitly — use `/storyforge:memoir-ethics-checker` (#65). For felt-sense gaps in chapter drafts, use `/storyforge:emotional-truth-prompt` (#66).
+21. **ALWAYS log verified author feedback** (Epic #663). After you applied, reworked or declined a user correction, review comment or finding, call MCP `log_review_feedback` per `§ Logging Voice Feedback` in `reference/craft/chapter-writing-shared.md`. Voice-relevant feedback only; a logging error never blocks the flow. Memoir books are classified at logging time and never store raw text.
 
 ## User-Callable MCP Tools
 

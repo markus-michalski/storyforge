@@ -168,6 +168,10 @@ After the user approves (or applies with reworks confirmed):
 2. Apply ALL approved changes in a single write pass — one write, all changes together.
 3. Re-run `scan_chapter_ai_tells` on the written draft and report the delta against the baseline: *"Applied N changes. Skipped M. Draft updated. Burstiness {before} → {after}, narration dashes {before} → {after}/1k, hedges {before} → {after}, opener runs {before} → {after}."* This verification scan is a tool call, not a review pass — it does not count toward the 2-pass cap below. List any hit still present that you did not skip, and any metric that got worse.
 4. If flagged vocabulary was accepted to stay, note it: *"[word] kept at your request."*
+5. Log the decisions per `§ Logging Voice Feedback` in `chapter-writing-shared.md` with
+   `source_skill="humanizer"`: applied hits are `accepted`, reworks `reworked`, skipped hits and kept
+   vocabulary `rejected` (the proposed replacement as `proposal_text`). Do this after the report; a
+   logging error never blocks the pass.
 
 ### Iteration
 

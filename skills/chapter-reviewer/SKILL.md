@@ -49,7 +49,7 @@ When `canon_log_facts_truncated` is `true`, the Continuity Report's canon-confli
 
 ### Step 2 — Load author and craft context
 
-- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` (Issue #151) lists cross-book tics — flag any hit as a Critical finding (the Output Format below has only Critical/Recommended/Minor tiers; a recurring, previously-documented tic is always Critical, never downgraded to Minor). `style_principles` (genre-filtered — skip entries whose `genres` list shares no genre with this book; entries without `genres` are universal) and `donts` feed the same review pass.
+- **Author profile** via MCP `get_author()`. **Why:** Voice consistency check needs the documented baseline. `writing_discoveries.recurring_tics` (Issue #151) lists cross-book tics — flag any hit as a Critical finding (the Output Format below has only Critical/Recommended/Minor tiers; a recurring, previously-documented tic is always Critical, never downgraded to Minor). `style_principles` (genre-filtered — skip entries whose `genres` list shares no genre with this book; entries without `genres` are universal; `memoir` counts as a genre of every memoir book) and `donts` feed the same review pass.
 - **World rules** — Read `{project}/world/rules.md` if it exists. **Why:** Canonically fragile facts (room inventories, biology details, dates, Firelight-specific character states) consolidated with world-level rules. Use alongside check 20e. Missing file → skip silently.
 - **Author vocabulary** from the already-loaded author profile: `writing_discoveries.donts` (banned phrases) and `writing_discoveries.style_principles` (preferred patterns). **Why:** Banned-word scan and preferred-word check both run against these lists. *(The SQLite-backed Writing Discoveries are authoritative — Issue #281. Do not read `vocabulary.md` directly.)*
 - **Craft references** via MCP `get_craft_reference()`:
@@ -291,6 +291,9 @@ Verdict mapping:
 - **FAIL** ↔ at least one Critical issue, any AI-tell banlist hit, any question-as-statement hit (9b), or any load-bearing first-chapter row at FAIL.
 
 ## Rules
+- When the user answers a finding with a verdict (accept, rework, reject) and you apply or decline it
+  in this session, log it per `§ Logging Voice Feedback` in `chapter-writing-shared.md` with
+  `source_skill="reviewer"`. Findings you only report are not logged.
 - Be BRUTALLY honest.
 - Pair every critical finding with a specific strength — the report is signal, not just complaint.
 - Quote specific lines when flagging issues.
