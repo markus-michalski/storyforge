@@ -118,6 +118,32 @@ class TestDeleteAuthor:
         finally:
             conn.close()
 
+    def test_removes_review_feedback_from_db(self, author_env):
+        from tools.db.connection import open_authors_db
+        from tools.db.review_feedback import insert_feedback, list_feedback
+
+        conn = open_authors_db()
+        try:
+            for author in ("ethan-cole", "ethan-cole", "someone-else"):
+                insert_feedback(
+                    conn, author_slug=author, book_slug="b", chapter_slug="01",
+                    source_skill="reviewer", decision="accepted", book_category="fiction",
+                    comment_text=f"c-{author}-{conn.total_changes}",
+                )
+        finally:
+            conn.close()
+
+        result = json.loads(delete_author("ethan-cole"))
+        assert result["success"] is True
+        assert result["removed_feedback"] == 2
+
+        conn = open_authors_db()
+        try:
+            assert list_feedback(conn, "ethan-cole") == []
+            assert len(list_feedback(conn, "someone-else")) == 1
+        finally:
+            conn.close()
+
     def test_invalidates_cache(self, author_env, monkeypatch):
         # A successful delete must invalidate the shared state cache so later
         # list_authors()/get_author() calls don't surface the removed author.

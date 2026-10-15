@@ -42,6 +42,7 @@ from tools.db.author_discoveries import (
     update_source_genres,
 )
 from tools.db.connection import BookNotLinkedToSeriesError, open_authors_db
+from tools.db.review_feedback import remove_author_feedback
 from tools.shared.paths import (
     catch_slug_value_error,
     find_projects,
@@ -373,6 +374,7 @@ def delete_author(slug: str, force: bool = False) -> str:
     conn = open_authors_db()
     try:
         removed = remove_author_discoveries(conn, slug)
+        removed_feedback = remove_author_feedback(conn, slug)
     finally:
         conn.close()
 
@@ -395,6 +397,7 @@ def delete_author(slug: str, force: bool = False) -> str:
                 f"{author_dir}: {exc}. Re-run to finish removing the directory."
             ),
             "removed_discoveries": removed,
+            "removed_feedback": removed_feedback,
         })
 
     _cache.invalidate()
@@ -411,6 +414,7 @@ def delete_author(slug: str, force: bool = False) -> str:
         "slug": slug,
         "deleted_path": str(author_dir),
         "removed_discoveries": removed,
+        "removed_feedback": removed_feedback,
         "referencing_books": referencing,
         "message": message,
     })

@@ -8,10 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet
+- `review_feedback` table in `authors.db` with CRUD helpers (`tools/db/review_feedback.py`): groundwork for learning the author voice from review feedback (epic #663, #664). Memoir rows never store raw text.
 
 ### Changed
-- Nothing yet
+- `delete_author` also removes the author's `review_feedback` rows and reports `removed_feedback`.
 
 ### Deprecated
 - Nothing yet
