@@ -132,6 +132,30 @@ The user explicitly values being challenged over being blindly agreed with. Befo
 
 Only after validation should the correction be applied.
 
+### Logging Voice Feedback
+
+Every verified decision about the author's feedback is evidence of their voice. After you applied,
+reworked or declined a correction, review comment or finding, log it with MCP
+`log_review_feedback(book_slug, chapter_slug, source_skill, decision, comment_text, before_text,
+after_text, proposal_text, dimension, direction, normalized_rule)`:
+
+- `source_skill`: the skill that is running — `writer` (chapter-writer, chapter-writer-memoir),
+  `reviewer`, `fixer`, `rewriter`, `humanizer` or `proofreader`.
+- `decision`: `accepted` (applied as asked or proposed), `reworked` (applied in changed form, or via
+  an `N: instruction`), `rejected` (declined). For a rejection put the declined proposal in
+  `proposal_text` and the author's reason, if given, in `comment_text`.
+- Log voice-relevant feedback: style, rhythm, wording, tone, structure of the prose. Do not log typos,
+  continuity or fact corrections, or rules about the book's world. If unsure, log it; the harvest
+  discards what is not voice evidence.
+- **Fiction:** leave `dimension`, `direction` and `normalized_rule` empty; `chapter-voice-harvest`
+  classifies later.
+- **Memoir:** raw text is never stored, but still pass the texts: the tool hashes them for
+  de-duplication and discards them. Classify now. Load `get_craft_reference("voice-dimensions")`
+  once, pick `dimension` and `direction` from it and state `normalized_rule` in one sentence without
+  names or facts about real people.
+- A logging error is reported in one line and never blocks the writing or review flow. Logging the
+  same content twice is harmless.
+
 ## § Pre-Logic Audit
 
 **Emit a bulleted audit block to chat before any prose enters `draft.md`.** No exceptions, no inlining into the prose response. For each category, answer in one sentence citing the source; if the source is silent, say so — that is the gap to surface, not paper over.
@@ -158,7 +182,7 @@ Only after validation should the correction be applied.
 4. **Banned phrases + author tics.** Scan the *planned* beats against brief's `banned_phrases` and author profile's `writing_discoveries.recurring_tics` / `donts`. Replan offending beats before any prose.
    > *Example: "Planned 'Theo does mental math' → tic `math` → replan as 'Theo cross-checks timing against radio chatter'."*
 
-4.5 **style_principles activation.** From the author profile's `writing_discoveries.style_principles`, **excluding entries suppressed in the book's `## Style Suppressions` section and entries whose `genres` list shares no genre with this book** (entries without `genres` are universal; entries with `universal: true` always apply regardless of `genres`), name 3 principles that this scene's beats can express. For each: (a) the principle heading, (b) which beat is the trigger, (c) the concrete action or line that delivers it. If the principle has an `example` field, **quote it verbatim** immediately after naming it — that example is what the principle sounds like in this author's voice. If you cannot name a specific beat for a principle, do not count it — an intention without a beat is a hope, not a plan. List the 3 active principles before drafting begins.
+4.5 **style_principles activation.** From the author profile's `writing_discoveries.style_principles`, **excluding entries suppressed in the book's `## Style Suppressions` section and entries whose `genres` list shares no genre with this book — a memoir book's genres additionally include `memoir`** (entries without `genres` are universal; entries with `universal: true` always apply regardless of `genres`), name 3 principles that this scene's beats can express. For each: (a) the principle heading, (b) which beat is the trigger, (c) the concrete action or line that delivers it. If the principle has an `example` field, **quote it verbatim** immediately after naming it — that example is what the principle sounds like in this author's voice. If you cannot name a specific beat for a principle, do not count it — an intention without a beat is a hope, not a plan. List the 3 active principles before drafting begins.
 
 5. **Sensory plausibility.** Can the POV perceive what the planned beat requires? **Source:** brief's `pov_character_state` — `clothing`, `injuries`, `altered_states`, `environmental_limiters`. If any category has `extraction_methods[cat] == "none"` AND the planned beat depends on it → surface and ask.
 

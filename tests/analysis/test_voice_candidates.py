@@ -229,9 +229,11 @@ class TestTargetSection:
     def test_prefer_goes_to_style_principles(self):
         assert build(evidence(3))["candidates"][0]["target_section"] == "style_principles"
 
-    def test_avoid_goes_to_donts(self):
+    def test_avoid_is_a_style_principle_not_a_banlist_entry(self):
         rows = evidence(3, dimension="simile_density", direction="fewer", rule="Fewer similes.")
-        assert build(rows)["candidates"][0]["target_section"] == "donts"
+        c = build(rows)["candidates"][0]
+        assert c["target_section"] == "style_principles"
+        assert c["kind"] == "avoid"
 
     def test_prefer_kept_against_proposals_is_never_a_banlist_entry(self):
         rows = evidence(3, decision="rejected", dimension="sentence_rhythm",
@@ -240,10 +242,10 @@ class TestTargetSection:
         assert c["target_section"] == "style_principles"
         assert c["rejected_share"] == 1.0
 
-    def test_avoid_with_rejections_stays_donts(self):
+    def test_avoid_with_rejections_is_still_a_style_principle(self):
         rows = evidence(3, decision="rejected", dimension="simile_density",
                         direction="fewer", rule="Fewer similes.")
-        assert build(rows)["candidates"][0]["target_section"] == "donts"
+        assert build(rows)["candidates"][0]["target_section"] == "style_principles"
 
 
 class TestCandidateContent:
@@ -391,8 +393,7 @@ class TestRobustness:
                     rule="Keep fragments.") for i in (1, 2, 3, 4)]
         rows += evidence(3, dimension="simile_density", direction="fewer", rule="Fewer similes.",
                          decision="rejected", book="b")
-        assert {c["target_section"] for c in build(rows)["candidates"]} <= {
-            "style_principles", "donts"}
+        assert {c["target_section"] for c in build(rows)["candidates"]} == {"style_principles"}
 
     def test_missing_category_is_skipped_not_assumed_fiction(self):
         rows = evidence(3)

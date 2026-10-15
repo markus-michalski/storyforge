@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `delete_author` also removes the author's `review_feedback` rows and reports `removed_feedback`.
+- Review feedback is logged through the chapter pipeline: `§ Logging Voice Feedback` in `chapter-writing-shared.md`, hooks in the writer, reviewer, fixer, scene-rewriter, humanizer and proofreader skills, CLAUDE.md rule 21, routing, pipeline, `help` and `next-step` mention `chapter-voice-harvest` (epic #663, #669).
+- `write_author_discovery` rejects names of people from a memoir source book and prose examples for memoir sources; memoir discoveries are tagged `memoir` and the genre filters treat it as a genre of every memoir book (epic #663, #668).
+- Voice candidates are always written as `style_principles`: `donts` and `recurring_tics` feed the enforced banlist (a bold title becomes a literal ban for every book), so only a phrase the author names becomes a don't. `study-author` writes deliberate imperfections to `style_principles` as well. Imperfections that earlier runs stored in `recurring_tics` stay enforced; remove them with `delete_discovery` if they should not be flagged.
 
 ### Deprecated
 - Nothing yet

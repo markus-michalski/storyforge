@@ -256,9 +256,11 @@ def build_voice_candidates(
         total = sum(_weight(r) for r in open_rows)
         rejected = sum(_weight(r) for r in open_rows if r.get("decision") == "rejected")
         rejected_share = round(rejected / total, 4) if total else 0.0
-        # recurring_tics feed the banlist, so a quirk the author defended
-        # (rejected proposals) is a style principle, never a tic.
-        target = "donts" if kind == "avoid" else "style_principles"
+        # donts and recurring_tics feed the enforced banlist, where a bold title
+        # becomes a literal ban for every book. A voice rule is guidance, so it is
+        # always a style principle; ``kind`` tells the walk to phrase it as an
+        # avoid. A concrete banned phrase the author names becomes a don't by hand.
+        target = "style_principles"
 
         candidates.append({
             "book_category": category,

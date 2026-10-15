@@ -68,7 +68,7 @@ Look for `{chapter_dir}/review.md`. If it exists, extract constraint violation c
 
 ## Phase 2 — Parse Style Principles
 
-From `writing_discoveries.style_principles`, build a checklist. **Genre filter first:** skip any entry whose `genres` list has no overlap with this book's genres. Entries without a `genres` field are universal and always included. Entries with `universal: true` are always included regardless of `genres`.
+From `writing_discoveries.style_principles`, build a checklist. **Genre filter first:** skip any entry whose `genres` list has no overlap with this book's genres (a memoir book also matches the tag `memoir`). Entries without a `genres` field are universal and always included. Entries with `universal: true` are always included regardless of `genres`.
 
 Each style principle is one of:
 - **Quantitative** — contains a specific number, minimum, ratio, or frequency target. Examples:

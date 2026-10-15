@@ -3,7 +3,7 @@ name: chapter-voice-harvest
 description: |
   Learn the author's voice from a chapter's review feedback: classify the logged comments, rework
   results and rejected proposals, then walk through recurring patterns and promote the confirmed
-  ones into the author profile (style_principles, donts) with genre scope.
+  ones into the author profile (as style_principles) with genre scope.
   Use when: (1) User says "voice harvest", "chapter voice harvest", "Stimme ernten",
   "Feedback in die Autorenstimme", (2) A chapter's review loop (reviewer, fixer, scene-rewriter) is
   done and the chapter is about to go to humanizer and proofreader, (3) User wants to see which
@@ -116,7 +116,7 @@ After resolving any conflict call `get_voice_candidates` again before Step 5.
 One at a time, highest weight first:
 
 ```
-Candidate {n}/{total} — {dimension} / {direction}   [{target_section}]
+Candidate {n}/{total} — {dimension} / {direction}   [{kind}]
 
   Rule:      {normalized_rule}
   Evidence:  {evidence_count} entries in {chapter_count} chapters ({books})
@@ -150,7 +150,10 @@ When `opposed_by` is not empty, offer to discard that weak opposing evidence tog
 
 Compose the entry as `**{short title}** — {rule}` on one line, where the rule is the
 `normalized_rule` or the user's edit. Write it with MCP `write_author_discovery(author_slug,
-section=target_section, text=text, book_slug=book_slug, genres=..., universal=...)`:
+section="style_principles", text=text, book_slug=book_slug, genres=..., universal=...)`. Voice rules
+are style principles for both kinds: `donts` and `recurring_tics` feed the enforced banlist, where
+the bold title would become a literal ban for every book. Write a `donts` entry only when the author
+names a concrete phrase to ban, fiction books only, as `` `phrase` — reason ``:
 
 - **Fiction:** `genres` is the comma-separated `scope.genres`, `universal` is `scope.universal`; pass
   one `before → after` pair as `example`.
@@ -159,11 +162,9 @@ section=target_section, text=text, book_slug=book_slug, genres=..., universal=..
 
 The tool refuses text with a person's name from a memoir book; rewrite the rule without names.
 
-Show `warnings` and `extracted_patterns` from the response to the user. A `donts` entry for a style
-direction ("fewer similes") has no concrete phrase and the scanner extracts nothing
-(`scanner_extracts_nothing`); tell the author up front that such a Don't is guidance for
-`chapter-writer` and the reviewers, not an enforced ban, and do not rewrite it for that reason.
-Offer an edit for any other warning.
+Show `warnings` and `extracted_patterns` from the response to the user; offer an edit for any
+warning. `extracted_patterns` is empty for a style principle, and a phrase the author named for a
+`donts` entry must show up there.
 
 `written: true` and `already_present: true` both count as success. After either, call MCP
 `mark_feedback_harvested(book_slug, evidence_ids)` and compare `changed` with the number of ids;
@@ -173,7 +174,7 @@ mention a difference. If the write returns an `error`, leave the entries open.
 
 ```
 Voice harvest — {book_slug} / {chapter_slug}
-Promoted:      {n}   ({target_section}: {rule} [{scope}])
+Promoted:      {n}   ({rule} [{scope}])
 Keep watching: {n}
 Discarded:     {n}
 Conflicts:     {n} resolved, {n} left open
@@ -199,8 +200,8 @@ Next: /storyforge:chapter-humanizer
   pattern the engine did not return, however convincing a single comment felt.
 - **Fiction and memoir stay separate.** Entries and candidates of the other category are never
   classified, discarded, shown or promoted here.
-- **recurring_tics is not a target.** That section feeds the banlist; a quirk the author kept is a
-  style principle.
+- **donts and recurring_tics are not targets.** Both feed the enforced banlist; a quirk the author
+  kept and every other voice rule is a style principle.
 
 ## Error handling
 

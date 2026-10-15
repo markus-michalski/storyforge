@@ -98,7 +98,7 @@ PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
         "dimension", "direction", "target_section", "normalized_rule", "evidence_count",
         "chapter_count", "books", "rejected_share", "opposed_by", "evidence_ids",
         # Per-item loop counters and report-template values, self-evident from the surrounding label
-        "n", "total", "section", "rule", "scope", "short title",
+        "n", "total", "section", "rule", "scope", "short title", "kind",
     },
     "continuity-checker": {"date"},
     "emotional-truth-prompt": {"chapter-path"},  # slug-in-file-path, self-evident from "{chapter-path}/draft.md"

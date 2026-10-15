@@ -236,4 +236,4 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 
 ## User Feedback Handling — CRITICAL
 
-→ **§ User Feedback Handling** in `chapter-writing-shared.md`.
+→ **§ User Feedback Handling** in `chapter-writing-shared.md`, including its Logging Voice Feedback subsection (`source_skill="writer"`).
