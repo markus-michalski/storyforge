@@ -227,9 +227,16 @@ have already run.
 
 ## Rules
 
-- When the user declines a flagged item, log it once per `§ Logging Voice Feedback` in
-  `chapter-writing-shared.md` with `source_skill="proofreader"` and `decision="rejected"`; accepted
-  corrections are not voice evidence and are not logged. A logging error never blocks the pass.
+- When the author says after the report that a flagged form is intentional, that is voice evidence
+  and the one exception to "typos are not logged". Log it once with `decision="rejected"`; accepted
+  corrections are not logged.
+- Log with MCP `log_review_feedback(book_slug, chapter_slug, source_skill, decision, comment_text,
+  before_text, after_text, proposal_text, dimension, direction, normalized_rule)`.
+  `source_skill="proofreader"`; `decision` is `accepted`, `reworked` or `rejected` (a declined proposal goes into
+  `proposal_text`). Fiction: leave the three classification fields empty. Memoir: still pass the texts
+  (the tool hashes them for de-duplication and never stores them), classify with
+  `get_craft_reference("voice-dimensions")` and write `normalized_rule` without names or facts. A
+  logging error is one line in the report and never blocks the pass. Full procedure: `§ Logging Voice Feedback` in `chapter-writing-shared.md`.
 
 - Flag errors, not style. If unsure whether something is intentional, check the author profile
   before flagging.

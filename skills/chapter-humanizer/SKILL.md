@@ -168,10 +168,18 @@ After the user approves (or applies with reworks confirmed):
 2. Apply ALL approved changes in a single write pass — one write, all changes together.
 3. Re-run `scan_chapter_ai_tells` on the written draft and report the delta against the baseline: *"Applied N changes. Skipped M. Draft updated. Burstiness {before} → {after}, narration dashes {before} → {after}/1k, hedges {before} → {after}, opener runs {before} → {after}."* This verification scan is a tool call, not a review pass — it does not count toward the 2-pass cap below. List any hit still present that you did not skip, and any metric that got worse.
 4. If flagged vocabulary was accepted to stay, note it: *"[word] kept at your request."*
-5. Log the decisions per `§ Logging Voice Feedback` in `chapter-writing-shared.md` with
-   `source_skill="humanizer"`: applied hits are `accepted`, reworks `reworked`, skipped hits and kept
-   vocabulary `rejected` (the proposed replacement as `proposal_text`). Do this after the report; a
-   logging error never blocks the pass.
+5. Log the author's decisions once, after the final pass and the report: only reworked hits
+   (`reworked`) and skipped hits or kept vocabulary (`rejected`, the proposed replacement as
+   `proposal_text`) are voice evidence. Plain accepted replacements follow the AI-tell catalog and are
+   not logged.
+   Log with MCP `log_review_feedback(book_slug, chapter_slug, source_skill, decision, comment_text,
+  before_text, after_text, proposal_text, dimension, direction, normalized_rule)`.
+  `source_skill="humanizer"`; `decision` is `accepted`, `reworked` or `rejected` (a declined proposal goes into
+  `proposal_text`). Fiction: leave the three classification fields empty. Memoir: still pass the texts
+  (the tool hashes them for de-duplication and never stores them), classify with
+  `get_craft_reference("voice-dimensions")` and write `normalized_rule` without names or facts. A
+  logging error is one line in the report and never blocks the pass. Full procedure: `§ Logging Voice Feedback` in `chapter-writing-shared.md`.
+
 
 ### Iteration
 

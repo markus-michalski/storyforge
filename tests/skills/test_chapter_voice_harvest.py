@@ -157,9 +157,11 @@ class TestGates:
         step = section(body, "Step 6 — Promote")
         assert "scope.genres" in step and "scope.universal" in step
 
-    def test_recurring_tics_is_not_a_target(self, text, body):
-        assert "recurring_tics is not a target" in body
-        assert "(style_principles, donts)" in text
+    def test_banlist_sections_are_not_targets(self, text, body):
+        assert "donts and recurring_tics are not targets" in body
+        assert "(as style_principles)" in text
+        step = section(body, "Step 6 — Promote")
+        assert 'section="style_principles"' in step
 
 
 class TestMemoir:

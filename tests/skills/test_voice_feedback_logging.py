@@ -102,7 +102,10 @@ class TestRoutingAndRules:
         "skills/author-check/SKILL.md",
     ])
     def test_genre_filters_know_the_memoir_tag(self, path):
-        assert "`memoir`" in read(PLUGIN_ROOT / path)
+        text = read(PLUGIN_ROOT / path)
+        phrases = ("counts as a genre of every memoir book", "additionally match the tag `memoir`",
+                   "also matches the tag `memoir`")
+        assert any(p in text for p in phrases), path
 
     def test_shared_style_principle_activation_knows_the_memoir_tag(self):
         assert "additionally include `memoir`" in read(SHARED)
@@ -114,3 +117,52 @@ class TestBanlistSemantics:
         line = next(line for line in text.splitlines() if "Deliberate Imperfections" in line)
         assert 'section="recurring_tics"' not in line
         assert 'section="style_principles"' in line
+
+
+class TestHookSelfSufficiency:
+    """Skills that do not load chapter-writing-shared carry the call contract inline."""
+
+    INLINE = ["chapter-humanizer", "chapter-proofreader", "chapter-reviewer", "chapter-reviewer-memoir"]
+
+    @pytest.mark.parametrize("skill", INLINE)
+    def test_inline_contract(self, skill):
+        text = read(SKILLS / skill / "SKILL.md")
+        assert "log_review_feedback(book_slug, chapter_slug, source_skill, decision" in text
+        assert 'get_craft_reference("voice-dimensions")' in text
+        assert "still pass the texts" in text
+        assert "never blocks" in text
+
+    def test_memoir_branch_says_to_pass_the_texts(self):
+        assert "still pass the texts" in read(SHARED)
+        assert "still pass the texts" in read(CLAUDE_MD)
+
+
+class TestHookScope:
+    def test_fixer_logs_only_voice_decisions(self):
+        text = read(SKILLS / "chapter-fixer" / "SKILL.md")
+        step = text[text.index("## Step 5.4"): text.index("## Step 5.5")]
+        assert "voice-relevant" in step
+        assert "could not locate" in step
+
+    def test_rewriter_logs_after_the_decision_with_excerpts(self):
+        text = read(SKILLS / "chapter-scene-rewriter" / "SKILL.md")
+        step = text[text.index("## Step 5 "): text.index("## Step 6 ")]
+        assert "source_skill=\"rewriter\"" in step
+        assert "never whole scenes" in step
+
+    def test_reviewers_do_not_double_count_fixer_decisions(self):
+        for skill in ("chapter-reviewer", "chapter-reviewer-memoir"):
+            assert "never counted twice" in read(SKILLS / skill / "SKILL.md")
+
+    def test_humanizer_skips_plain_accepted_replacements(self):
+        assert "not logged" in read(SKILLS / "chapter-humanizer" / "SKILL.md")
+
+    def test_proofreader_hook_is_an_explicit_exception(self):
+        assert "one exception" in read(SKILLS / "chapter-proofreader" / "SKILL.md")
+
+
+class TestBanlistSections:
+    def test_claude_md_does_not_claim_genre_filtering_for_the_banlist(self):
+        text = read(CLAUDE_MD)
+        assert "`donts` and `recurring_tics` are not genre-filtered" in text
+        assert "never apply to fiction books" not in text

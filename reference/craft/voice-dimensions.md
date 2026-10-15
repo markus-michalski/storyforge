@@ -17,8 +17,11 @@ A classification is a pair `(dimension, direction)`:
 
 - **dimension** — what part of the voice the feedback is about (`sentence_rhythm`, `simile_density`, ...).
 - **direction** — which way the author pushes it (`shorter`, `fewer`, ...). Each direction has a `kind`:
-  - `prefer` — the author wants more of this quality. Becomes a `style_principles` candidate.
-  - `avoid` — the author wants less or none of it. Becomes a `donts` candidate.
+  - `prefer` — the author wants more of this quality. Phrased as a positive principle.
+  - `avoid` — the author wants less or none of it. Phrased as an "avoid" principle.
+  Both are `style_principles` entries: `donts` and `recurring_tics` feed the enforced banlist, where a bold
+  title becomes a literal ban for every book, so a voice rule only becomes a don't when the author
+  names a concrete phrase to ban.
 - **opposite** — the direction that contradicts it inside the same dimension. Two entries with opposite directions in the same scope are reported as a conflict by the candidate engine, never promoted.
 
 `normalized_rule` is the one free-text field: a single plain-language sentence stating the rule. For memoir books it must not contain names, places or facts about real people.

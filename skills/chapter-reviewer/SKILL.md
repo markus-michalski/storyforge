@@ -291,9 +291,16 @@ Verdict mapping:
 - **FAIL** ↔ at least one Critical issue, any AI-tell banlist hit, any question-as-statement hit (9b), or any load-bearing first-chapter row at FAIL.
 
 ## Rules
-- When the user answers a finding with a verdict (accept, rework, reject) and you apply or decline it
-  in this session, log it per `§ Logging Voice Feedback` in `chapter-writing-shared.md` with
-  `source_skill="reviewer"`. Findings you only report are not logged.
+- Log only decisions you carry out yourself in this session (the author's verdict on a finding
+  that you apply or decline). Findings you only report are not logged, and findings handed to
+  `chapter-fixer` are logged there, so one decision is never counted twice.
+- Log with MCP `log_review_feedback(book_slug, chapter_slug, source_skill, decision, comment_text,
+  before_text, after_text, proposal_text, dimension, direction, normalized_rule)`.
+  `source_skill="reviewer"`; `decision` is `accepted`, `reworked` or `rejected` (a declined proposal goes into
+  `proposal_text`). Fiction: leave the three classification fields empty. Memoir: still pass the texts
+  (the tool hashes them for de-duplication and never stores them), classify with
+  `get_craft_reference("voice-dimensions")` and write `normalized_rule` without names or facts. A
+  logging error is one line in the report and never blocks the pass. Full procedure: `§ Logging Voice Feedback` in `chapter-writing-shared.md`.
 - Be BRUTALLY honest.
 - Pair every critical finding with a specific strength — the report is signal, not just complaint.
 - Quote specific lines when flagging issues.

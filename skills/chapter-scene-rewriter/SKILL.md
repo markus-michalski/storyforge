@@ -156,9 +156,8 @@ word count (for the Step 6 comparison).
 
 ## Step 2 — Verify the Rewrite Is Warranted
 
-Run **§ User Feedback Handling** (chapter-writing-shared.md, including its Logging Voice Feedback
-subsection with `source_skill="rewriter"`: the rewrite instruction and whether the new scene was
-kept) on whatever triggered this rewrite — a checker's findings, or the user's own read — before drafting anything:
+Run **§ User Feedback Handling** (chapter-writing-shared.md) on whatever triggered this
+rewrite — a checker's findings, or the user's own read — before drafting anything:
 
 1. Re-read the current scene. Does the stated problem actually hold up?
 2. Check whether an earlier chapter or the established voice justifies what's there.
@@ -232,6 +231,11 @@ Step 1; this approval is specifically for the replacement *content*. Approval ha
 4. If the `Edit` fails (span no longer matches — e.g. the user or another tool touched the
    chapter mid-session), re-locate and re-confirm the span (Step 1) before retrying; never
    force a stale match.
+5. Once approval or rejection is known, log it per `§ Logging Voice Feedback` in
+   `chapter-writing-shared.md` with `source_skill="rewriter"`: the author's instruction as
+   `comment_text`, and short excerpts (at most ~400 characters each) as `before_text` /
+   `after_text` — never whole scenes. A declined replacement is `decision="rejected"` with an
+   excerpt as `proposal_text`. A logging error never blocks the swap.
 
 ## Step 6 — Re-Validate
 

@@ -149,7 +149,8 @@ after_text, proposal_text, dimension, direction, normalized_rule)`:
   discards what is not voice evidence.
 - **Fiction:** leave `dimension`, `direction` and `normalized_rule` empty; `chapter-voice-harvest`
   classifies later.
-- **Memoir:** raw text is never stored, so classify now. Load `get_craft_reference("voice-dimensions")`
+- **Memoir:** raw text is never stored, but still pass the texts: the tool hashes them for
+  de-duplication and discards them. Classify now. Load `get_craft_reference("voice-dimensions")`
   once, pick `dimension` and `direction` from it and state `normalized_rule` in one sentence without
   names or facts about real people.
 - A logging error is reported in one line and never blocks the writing or review flow. Logging the

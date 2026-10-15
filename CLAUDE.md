@@ -282,9 +282,9 @@ Authors live at `~/.storyforge/authors/{slug}/`:
 - `profile.md` — Style, voice, techniques (YAML frontmatter)
 - `vocabulary.md` — Preferred-word notes and signature phrases (read-only reference; banned words/Don'ts enforcement reads the `author_discoveries` DB, not this file — Issue #604)
 - `studied-works/` — Analysis files from PDF imports
-
-Writing Discoveries carry `genres` and `universal`. Genre filters treat `memoir` as a genre of every memoir book; discoveries promoted from a memoir book are tagged `memoir` and never apply to fiction books.
 - `examples/` — Sample texts
+
+Writing Discoveries carry `genres` and `universal`. The `style_principles` filters treat `memoir` as a genre of every memoir book; `chapter-voice-harvest` promotes memoir rules as `style_principles` tagged `memoir`, so they do not apply to fiction books. `donts` and `recurring_tics` are not genre-filtered (they feed the enforced banlist), so the harvest never writes voice rules there.
 
 ## Genre System
 
@@ -346,7 +346,7 @@ Skills MUST load relevant craft references before generating creative content. U
 18. Prefix grammar for persistence: messages starting with `Regel:`, `Workflow:`, or `Callback:` are extracted by the PreCompact hook and written to the book's CLAUDE.md. Unprefixed messages are never persisted automatically.
 19. **ALWAYS `Read` the full file when processing review comments** (GH#27). When the user signals that review comments (`{review_handle}:` blocks) are ready, call the `Read` tool on the full file first. The file-change `system-reminder` diff is truncated for long files — end-of-file comments get silently dropped. After reading, count the comments you see and report the count; re-read if the count mismatches expectation.
 20. **ALWAYS check `book_category` before creative work on a book** (Path E #54/#67). Read it from `get_book_full(slug).book_category`. All skills now branch automatically on `book_category` (Phase 4 #64 complete — no more manual load bridge needed). For named living people in memoir scenes, surface `consent_status` decisions explicitly — use `/storyforge:memoir-ethics-checker` (#65). For felt-sense gaps in chapter drafts, use `/storyforge:emotional-truth-prompt` (#66).
-21. **ALWAYS log verified author feedback** (Epic #663). After you applied, reworked or declined a user correction, review comment or finding, call MCP `log_review_feedback` per `§ Logging Voice Feedback` in `reference/craft/chapter-writing-shared.md`. Voice-relevant feedback only; a logging error never blocks the flow. Memoir books are classified at logging time and never store raw text.
+21. **ALWAYS log verified author feedback** (Epic #663). After you applied, reworked or declined a user correction, review comment or finding, call MCP `log_review_feedback` per `§ Logging Voice Feedback` in `reference/craft/chapter-writing-shared.md`. Voice-relevant feedback only; a logging error never blocks the flow. Memoir books are classified at logging time (still pass the texts; the tool hashes and discards them) and never store raw text.
 
 ## User-Callable MCP Tools
 

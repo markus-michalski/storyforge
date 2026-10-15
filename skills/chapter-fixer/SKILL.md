@@ -285,10 +285,12 @@ what was planned.)
 
 ## Step 5.4 — Log Voice Feedback
 
-For every finding of this batch that was applied, reworked (`N: instruction`) or skipped, log it per
-`§ Logging Voice Feedback` in `chapter-writing-shared.md` with `source_skill="fixer"` — a skipped
-finding is `decision="rejected"` with the finding's text as `proposal_text`. A logging error is one
-line in the report and never blocks the batch.
+For every voice-relevant finding the author decided on in this batch — applied, reworked
+(`N: instruction`) or skipped by the author — log it per `§ Logging Voice Feedback` in
+`chapter-writing-shared.md` with `source_skill="fixer"`; a skipped finding is `decision="rejected"`
+with the finding's text as `proposal_text`. Do not log continuity, `book_rule_violation` or
+`anonymization_leak` findings, nor findings you could not locate. Memoir: one classified entry per
+dimension and direction per batch. A logging error is one line in the report.
 
 ## Step 5.5 — Record Revision Summary
 

@@ -150,7 +150,7 @@ Update the author's profile using MCP tools to ensure cache invalidation:
 - **Preferred Words** — MCP `write_author_discovery(author_slug, section="style_principles", text=<entry>, book_slug=<analyzed-work-slug>, genres=<source_genres>)` per word/phrase. Format: `**{word}** — {usage context or frequency observation}.`
   **Why:** Vocabulary preferences in the analysis file are inert; only profile-level entries influence chapter-writer's word choices.
 - **Deliberate Imperfections** — MCP `write_author_discovery(author_slug, section="style_principles", text=<entry>, book_slug=<analyzed-work-slug>, genres=<source_genres>)` per pattern. Format: `**{pattern}** — intentional; {why it works for this author}.`
-  **Why:** Recurring tics must be in the author profile so chapter-writer can reproduce them rather than smoothing them away as errors.
+  **Why:** Intentional quirks belong in `style_principles`, not `recurring_tics`: that section feeds the banlist and every hit would be flagged. Only profile-level entries reach chapter-writer.
 
 ### Phase 5: Report
 Show a concise summary (~200 words total): top 3 findings, count of banned phrases added, count of Writing Discoveries written.
