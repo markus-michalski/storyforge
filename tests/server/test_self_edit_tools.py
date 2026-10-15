@@ -50,7 +50,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     db_dir = tmp_path / "home" / "db"
     db_dir.mkdir(parents=True)
     monkeypatch.setattr(conn_mod, "DB_DIR", db_dir)
-    return {"chapters": chapters, "home": tmp_path / "home"}
+    return {"chapters": chapters, "home": tmp_path / "home", "content_root": content_root}
 
 
 def _call(fn, *a, **k) -> dict:
@@ -101,6 +101,40 @@ class TestGetSelfEditHunks:
         assert "error" in _call(get_self_edit_hunks, "firelight", "../x")
 
 
+class TestPagingAndPrivacy:
+    def test_offset_pages_through_hunks(self, env):
+        base = "\n\n".join(f"Paragraph number {i} stays as it is." for i in range(30))
+        cur = "\n\n".join(f"Paragraph number {i} was rewritten completely by the author today."
+                          for i in range(30))
+        env["chapters"]["firelight"].write_text(cur, encoding="utf-8")
+        ds.write_snapshot("firelight", "01-x", base)
+        first = _call(get_self_edit_hunks, "firelight", "01-x")
+        assert len(first["hunks"]) == 20 and first["truncated"] is True
+        second = _call(get_self_edit_hunks, "firelight", "01-x", offset=20)
+        assert len(second["hunks"]) == 10 and second["truncated"] is False
+
+    @pytest.mark.parametrize("bad", [-1, True, "2"])
+    def test_bad_offset_is_an_error(self, env, bad):
+        ds.write_snapshot("firelight", "01-x", BASE)
+        assert "error" in _call(get_self_edit_hunks, "firelight", "01-x", offset=bad)
+
+    def test_memoir_call_removes_leftover_baselines(self, env):
+        ds.write_snapshot("my-life", "01-x", "old copy of a memoir chapter")
+        assert _call(get_self_edit_hunks, "my-life", "01-x")["status"] == "memoir_unsupported"
+        assert ds.read_snapshot("my-life", "01-x") is None
+
+    def test_umlaut_chapter_slug_passes_the_tools(self, env, monkeypatch):
+        slug = "01-der-fuchs-zählen"
+        ch = env["chapters"]["firelight"].parent.parent / slug
+        ch.mkdir()
+        (ch / "draft.md").write_text(BASE, encoding="utf-8")
+        books = {"firelight": {"author": "ethan-cole", "book_category": "fiction", "genres": [],
+                               "chapters_data": {slug: {"number": 2}}, "people": {}}}
+        monkeypatch.setattr(_app._cache, "get", lambda: {"books": books, "authors": {}})
+        assert _call(refresh_draft_baseline, "firelight", slug)["refreshed"] is True
+        assert _call(get_self_edit_hunks, "firelight", slug)["status"] == "ok"
+
+
 class TestRefreshDraftBaseline:
     def test_stores_the_current_draft_and_clears_stale(self, env):
         ds.mark_stale("firelight", "01-x")
@@ -129,8 +163,12 @@ class TestHookScript:
     def run_hook(self, env, payload: dict) -> subprocess.CompletedProcess:
         import os
 
-        envs = {**os.environ, "STORYFORGE_DB_DIR": str(env["home"] / "db"),
-                "CLAUDE_PLUGIN_ROOT": str(PLUGIN_ROOT)}
+        home = env["home"]
+        (home / ".storyforge").mkdir(exist_ok=True)
+        (home / ".storyforge" / "config.yaml").write_text(
+            f"paths:\n  content_root: {env['content_root']}\n", encoding="utf-8")
+        envs = {**os.environ, "STORYFORGE_DB_DIR": str(home / "db"), "HOME": str(home),
+                "USERPROFILE": str(home), "CLAUDE_PLUGIN_ROOT": str(PLUGIN_ROOT)}
         return subprocess.run(
             [sys.executable, str(PLUGIN_ROOT / "hooks" / "snapshot_draft.py")],
             input=json.dumps(payload), capture_output=True, text=True, env=envs, timeout=30,

@@ -53,13 +53,19 @@ initiative.
    - `no_baseline` or `stale`: say that this chapter's edits cannot be attributed, call MCP
      `refresh_draft_baseline(book_slug, chapter_slug)` so later edits can be compared, continue.
    - `ok` without hunks: say that no change above three words was found, continue.
-2. Log every hunk (the call returns at most 20; mention `truncated`) with MCP
-   `log_review_feedback(book_slug, chapter_slug, source_skill, decision, before_text, after_text)`,
-   using `source_skill="self_edit"`, `decision="self_edit"` and the hunk's `before` / `after` text.
-   Leave the classification empty; Step 2 classifies it. Large insertions of new story content are
-   usually not voice evidence; Step 2 closes those.
-3. Report one line: "{n} changes recorded, {ignored_small} small ones (up to three words) ignored".
-4. Call MCP `refresh_draft_baseline(book_slug, chapter_slug)` so the same edits are not reported again.
+2. Page through all hunks: the call returns at most 20; repeat it with `offset` until `truncated`
+   is false. Show the author a short list (index and the first words of each hunk) and ask
+   (AskUserQuestion) "Log these {n} changes as your own edits?". The baseline is per machine, so
+   text changed on another machine, by a shell command or by git also appears here; the author
+   decides what counts.
+3. Log every confirmed hunk with MCP `log_review_feedback(book_slug, chapter_slug, source_skill,
+   decision, before_text, after_text)`, using `source_skill="self_edit"`, `decision="self_edit"` and
+   the hunk's `before` / `after` text. Leave the classification empty; Step 2 classifies it. Large
+   insertions of new story content are usually not voice evidence; Step 2 closes those. A hunk with
+   `clipped: true` is partial; mention that in the list.
+4. Report one line: "{n} changes recorded, {ignored_small} small ones (up to three words) ignored".
+5. Call MCP `refresh_draft_baseline(book_slug, chapter_slug)` only when every confirmed hunk was
+   logged without an error, so no edit is lost and none is reported twice.
 
 Changes of up to three words, whitespace and punctuation, and your own `{review_handle}:` blocks are
 never reported. Your own edits weigh more than comments (1.5).

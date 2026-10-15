@@ -446,7 +446,7 @@ def _draft_path(book_slug: str, chapter_slug: str) -> tuple[Path | None, str | N
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 @catch_slug_value_error
-def get_self_edit_hunks(book_slug: str, chapter_slug: str) -> str:
+def get_self_edit_hunks(book_slug: str, chapter_slug: str, offset: int = 0) -> str:
     """Differences between a chapter draft and the text Claude last wrote (Epic #663, phase 2).
 
     Call it when the author says they edited the text themselves. A baseline is
@@ -455,15 +455,26 @@ def get_self_edit_hunks(book_slug: str, chapter_slug: str) -> str:
     changes and the author's own review-comment blocks are left out. Memoir
     books are not supported.
 
-    Returns ``{status, hunks, total, ignored_small, truncated}`` with ``status``
-    ``ok``, ``no_baseline``, ``stale`` or ``memoir_unsupported``, or ``{error}``.
+    At most 20 hunks are returned per call; page with ``offset`` until
+    ``truncated`` is false. A hunk with ``clipped: true`` is partial.
+
+    Baselines are per machine: text changed by Claude on another machine, by a
+    shell command or by git shows up as the author's edit. Show the hunks to the
+    author before logging them.
+
+    Returns ``{status, hunks, total, offset, ignored_small, truncated}`` with
+    ``status`` ``ok``, ``no_baseline``, ``stale`` or ``memoir_unsupported``, or
+    ``{error}``.
     """
+    if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+        return _error("offset must be a non-negative integer")
     book, error = _resolve_book(book_slug)
     if error or book is None:
         return _error(error or "book not resolved")
     if not isinstance(chapter_slug, str) or chapter_slug not in (book.get("chapters_data") or {}):
         return _error(f"Chapter '{chapter_slug}' not found in book '{book_slug}'")
     if _category(book) == "memoir":
+        draft_snapshots.remove_book_snapshots(book_slug)
         return json.dumps({
             "status": "memoir_unsupported",
             "message": "Manual-edit capture is not available for memoir books.",
@@ -489,7 +500,7 @@ def get_self_edit_hunks(book_slug: str, chapter_slug: str) -> str:
 
     handle = get_review_handle(_app.load_config())
     result = draft_snapshots.compute_hunks(
-        baseline, draft.read_text(encoding="utf-8"), review_handle=handle,
+        baseline, draft.read_text(encoding="utf-8"), review_handle=handle, offset=offset,
     )
     return json.dumps({"status": "ok", **result})
 
@@ -511,6 +522,7 @@ def refresh_draft_baseline(book_slug: str, chapter_slug: str) -> str:
     if not isinstance(chapter_slug, str) or chapter_slug not in (book.get("chapters_data") or {}):
         return _error(f"Chapter '{chapter_slug}' not found in book '{book_slug}'")
     if _category(book) == "memoir":
+        draft_snapshots.remove_book_snapshots(book_slug)
         return json.dumps({
             "status": "memoir_unsupported",
             "message": "Manual-edit capture is not available for memoir books.",

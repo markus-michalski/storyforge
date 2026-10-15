@@ -221,3 +221,12 @@ class TestManualEdits:
 
     def test_description_triggers_on_the_authors_phrase(self, text):
         assert "Ich habe den Text noch etwas geändert" in text
+
+    def test_hunks_are_paged_confirmed_and_logged_before_the_baseline_resets(self, body):
+        step = " ".join(section(
+            body, "Step 0 — Manual edits (only when the author said they changed the text)").split())
+        assert "`offset`" in step and "`truncated`" in step
+        assert "AskUserQuestion" in step
+        assert "per machine" in step
+        assert "only when every confirmed hunk was logged" in step
+        assert step.index("AskUserQuestion") < step.index("log_review_feedback(")

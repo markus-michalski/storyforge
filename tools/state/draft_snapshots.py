@@ -1,19 +1,31 @@
 """Draft baselines and manual-edit hunks — Epic #663 / Issue #671 (phase 2).
 
 A baseline is the text of a chapter's ``draft.md`` as Claude last wrote it. It
-is kept outside the book repository and updated by replaying every Claude
-Write/Edit/MultiEdit onto it, so the author's own edits stay visible as the
-difference between ``draft.md`` and the baseline. The author triggers the
-comparison themselves ("Ich habe den Text geändert"); nothing is captured
-automatically. Memoir books get no baseline at all.
+is kept outside the book repository. After every Claude Write/Edit/MultiEdit
+the baseline takes over **Claude's change only**, via a paragraph-level
+three-way merge of (baseline, file before the edit, file after the edit); the
+author's own edits stay visible as the difference between ``draft.md`` and the
+baseline, even when Claude removes a review comment or edits next to them.
+
+The file before the edit is taken from the hook's ``tool_response.originalFile``
+when present and otherwise reconstructed by undoing the edit on the new file.
+A Write replaces the whole file, so Claude's output becomes the baseline.
+
+The author triggers the comparison themselves ("Ich habe den Text geändert");
+nothing is captured automatically. Memoir books get no baseline at all, and a
+book whose category cannot be read as fiction is skipped (fail closed).
 """
 
 from __future__ import annotations
 
+import contextlib
 import difflib
 import os
 import re
+import shutil
 import tempfile
+import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -23,25 +35,26 @@ from tools.shared.paths import _validate_slug
 MIN_CHANGED_WORDS = 4  # a change of up to three words is not voice evidence
 DEFAULT_MAX_HUNKS = 20
 DEFAULT_MAX_CHARS = 4000
+LARGE_BLOCK_WORDS = 20_000
+PAIR_SIMILARITY = 0.5
 
-_SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
 _PARA_SPLIT = re.compile(r"\n\s*\n")
 
 
 def snapshots_dir() -> Path:
-    """Baselines live next to the databases, never inside a synced book repository."""
+    """Baselines live next to the databases, never inside a synced book repository.
+
+    ``STORYFORGE_SNAPSHOT_DIR`` overrides the location (e.g. when the databases sit
+    in a synced folder).
+    """
+    override = os.environ.get("STORYFORGE_SNAPSHOT_DIR")
+    if override:
+        return Path(override)
     return Path(_db.DB_DIR).parent / "snapshots"
 
 
-def _check_slug(value: str, name: str) -> None:
-    if not isinstance(value, str) or not _SLUG_RE.match(value) or ".." in value:
-        raise ValueError(f"invalid {name}: {value!r}")
-
-
 def snapshot_file(book_slug: str, chapter_slug: str) -> Path:
-    _check_slug(book_slug, "book_slug")
-    _check_slug(chapter_slug, "chapter_slug")
     _validate_slug(book_slug, "book_slug")
     _validate_slug(chapter_slug, "chapter_slug")
     return snapshots_dir() / book_slug / f"{chapter_slug}.md"
@@ -96,15 +109,95 @@ def is_stale(book_slug: str, chapter_slug: str) -> bool:
     return _stale_file(book_slug, chapter_slug).is_file()
 
 
-def apply_tool_edit(text: str, tool_name: str, tool_input: dict[str, Any]) -> str | None:
-    """Replay one Claude write onto ``text``. None when it cannot be applied."""
-    if tool_name == "Write":
-        content = tool_input.get("content")
-        return content if isinstance(content, str) else None
+def remove_book_snapshots(book_slug: str) -> None:
+    """Delete every baseline of a book (used when a book turns out to be memoir)."""
+    _validate_slug(book_slug, "book_slug")
+    shutil.rmtree(snapshots_dir() / book_slug, ignore_errors=True)
 
-    edits: list[Any]
+
+@contextlib.contextmanager
+def _lock(book_slug: str, chapter_slug: str, timeout: float = 5.0) -> Iterator[None]:
+    """Best-effort per-chapter lock so parallel hooks do not lose each other's merge."""
+    lock = snapshot_file(book_slug, chapter_slug).with_suffix(".lock")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout
+    held = False
+    while not held:
+        try:
+            lock.touch(exist_ok=False)  # exclusive create
+            held = True
+        except FileExistsError:
+            try:
+                if time.time() - lock.stat().st_mtime > 30:
+                    lock.unlink(missing_ok=True)  # abandoned lock
+                    continue
+            except OSError:
+                continue
+            if time.monotonic() > deadline:
+                break
+            time.sleep(0.02)
+    try:
+        yield
+    finally:
+        if held:
+            lock.unlink(missing_ok=True)
+
+
+# --------------------------------------------------------------------------- merge
+
+
+def _paras(text: str) -> list[str]:
+    return [p.strip() for p in _PARA_SPLIT.split(text.replace("\r\n", "\n")) if p.strip()]
+
+
+def merge_claude_change(baseline: str, before: str, after: str) -> str:
+    """Baseline after taking over only Claude's change ``before`` -> ``after``.
+
+    ``baseline`` is what Claude last wrote, ``before`` the draft just before this
+    edit (baseline plus the author's edits), ``after`` the draft just after it.
+    Paragraphs Claude did not touch keep their baseline text, so the author's
+    edits there remain a difference. Paragraphs Claude rewrote or removed take
+    Claude's version (an author edit inside them is absorbed — Claude saw it).
+    """
+    base, prev, new = _paras(baseline), _paras(before), _paras(after)
+
+    # Which baseline paragraphs stand behind each paragraph of ``before``?
+    contrib: dict[int, list[str]] = {}
+    gap: dict[int, list[str]] = {}
+    for tag, b1, b2, p1, p2 in difflib.SequenceMatcher(None, base, prev, autojunk=False).get_opcodes():
+        if tag == "equal":
+            for t in range(p2 - p1):
+                contrib[p1 + t] = [base[b1 + t]]
+        elif p2 > p1:
+            contrib[p1] = base[b1:b2]
+            for k in range(p1 + 1, p2):
+                contrib[k] = []
+        elif b2 > b1:
+            gap.setdefault(p1, []).extend(base[b1:b2])
+
+    out: list[str] = []
+    for tag, p1, p2, d1, d2 in difflib.SequenceMatcher(None, prev, new, autojunk=False).get_opcodes():
+        if tag == "equal":
+            for k in range(p1, p2):
+                out.extend(gap.get(k, []))
+                out.extend(contrib.get(k, []))
+        else:
+            for k in range(p1, p2):
+                out.extend(gap.get(k, []))  # the author's deletion site stays untouched
+            out.extend(new[d1:d2])
+    out.extend(gap.get(len(prev), []))
+    return "\n\n".join(out)
+
+
+def replay_on_baseline(baseline: str, tool_name: str, tool_input: dict[str, Any]) -> str | None:
+    """Apply an Edit/MultiEdit straight onto the baseline when that is unambiguous.
+
+    Every ``old_string`` must occur exactly once in the baseline. A deletion whose
+    text is not in the baseline removed the author's own text; nothing to do then.
+    None when the edit cannot be replayed with certainty.
+    """
     if tool_name == "Edit":
-        edits = [tool_input]
+        edits: list[Any] = [tool_input]
     elif tool_name == "MultiEdit":
         raw = tool_input.get("edits")
         if not isinstance(raw, list):
@@ -113,26 +206,86 @@ def apply_tool_edit(text: str, tool_name: str, tool_input: dict[str, Any]) -> st
     else:
         return None
 
-    out = text
+    text = baseline
     for edit in edits:
         if not isinstance(edit, dict):
             return None
         old, new = edit.get("old_string"), edit.get("new_string")
-        if not isinstance(old, str) or not isinstance(new, str) or not old or old not in out:
+        if not isinstance(old, str) or not isinstance(new, str) or not old:
             return None
-        out = out.replace(old, new) if edit.get("replace_all") else out.replace(old, new, 1)
-    return out
+        found = text.count(old)
+        if edit.get("replace_all"):
+            if found == 0 and new == "":
+                continue
+            if found == 0:
+                return None
+            text = text.replace(old, new)
+        elif found == 1:
+            text = text.replace(old, new, 1)
+        elif found == 0 and new == "":
+            continue
+        else:
+            return None
+    return text
 
 
-def _is_memoir(draft_path: Path) -> bool:
-    readme = draft_path.parent.parent.parent / "README.md"
+def reconstruct_previous(after: str, tool_name: str, tool_input: dict[str, Any]) -> str | None:
+    """Undo a Claude edit on ``after`` when the tool response carried no original file."""
+    edits: list[Any]
+    if tool_name == "Edit":
+        edits = [tool_input]
+    elif tool_name == "MultiEdit":
+        raw = tool_input.get("edits")
+        if not isinstance(raw, list):
+            return None
+        edits = list(reversed(raw))
+    else:
+        return None
+
+    text = after
+    for edit in edits:
+        if not isinstance(edit, dict):
+            return None
+        old, new = edit.get("old_string"), edit.get("new_string")
+        if not isinstance(old, str) or not isinstance(new, str) or not old or not new:
+            return None
+        if edit.get("replace_all"):
+            if new not in text:
+                return None
+            text = text.replace(new, old)
+        else:
+            if text.count(new) != 1:
+                return None  # ambiguous: cannot tell which occurrence Claude wrote
+            text = text.replace(new, old, 1)
+    return text
+
+
+# --------------------------------------------------------------------------- hook
+
+
+def _fiction_book(draft: Path) -> bool:
+    """True only when the README is readable and does not declare another category."""
+    readme = draft.parent.parent.parent / "README.md"
     try:
-        head = readme.read_text(encoding="utf-8").split("---", 2)
+        text = readme.read_text(encoding="utf-8-sig")
     except OSError:
         return False
-    if len(head) < 3:
+    from tools.state.parsers import parse_frontmatter
+
+    meta, _ = parse_frontmatter(text)
+    return str(meta.get("book_category", "fiction")).strip().lower() == "fiction"
+
+
+def _is_known_chapter(draft: Path, book: str, chapter: str) -> bool:
+    """The file must be the draft of a book StoryForge knows, not a copy elsewhere."""
+    from tools.shared.config import load_config
+    from tools.shared.paths import resolve_project_path
+
+    expected = resolve_project_path(load_config(), book) / "chapters" / chapter / "draft.md"
+    try:
+        return draft.resolve() == expected.resolve()
+    except OSError:
         return False
-    return re.search(r'^book_category:\s*["\']?memoir["\']?\s*$', head[1], re.MULTILINE) is not None
 
 
 def record_tool_write(payload: dict[str, Any]) -> None:
@@ -149,34 +302,47 @@ def record_tool_write(payload: dict[str, Any]) -> None:
         if ref is None:
             return
         draft = Path(file_path)
-        if _is_memoir(draft):
-            return
         book, chapter = ref
-        if is_stale(book, chapter):
+        if not _is_known_chapter(draft, book, chapter):
+            return
+        if not _fiction_book(draft):
+            remove_book_snapshots(book)
+            return
+        if not draft.is_file():
             return
 
-        current = read_snapshot(book, chapter)
-        if current is None:
-            # First write we see: the file as it is now is the best baseline there is.
-            if draft.is_file():
-                write_snapshot(book, chapter, draft.read_text(encoding="utf-8"))
-            return
+        after = draft.read_text(encoding="utf-8")
+        with _lock(book, chapter):
+            if is_stale(book, chapter):
+                return
+            baseline = read_snapshot(book, chapter)
+            if baseline is None:
+                write_snapshot(book, chapter, after)  # best baseline there is
+                return
 
-        updated = apply_tool_edit(current, tool_name, tool_input)
-        if updated is None:
-            mark_stale(book, chapter)
-        else:
-            write_snapshot(book, chapter, updated)
+            response = payload.get("tool_response")
+            original = response.get("originalFile") if isinstance(response, dict) else None
+            if isinstance(original, str):
+                write_snapshot(book, chapter, merge_claude_change(baseline, original, after))
+                return
+            if tool_name == "Write":
+                # full rewrite: Claude's output becomes the baseline
+                write_snapshot(book, chapter, merge_claude_change(baseline, baseline, after))
+                return
+            replayed = replay_on_baseline(baseline, tool_name, tool_input)
+            if replayed is not None:
+                write_snapshot(book, chapter, replayed)
+                return
+            previous = reconstruct_previous(after, tool_name, tool_input)
+            if previous is None:
+                mark_stale(book, chapter)
+                return
+            write_snapshot(book, chapter, merge_claude_change(baseline, previous, after))
     except Exception:  # a hook must never get in the way of the write
         return
 
 
-def _paragraphs(text: str, review_handle: str) -> list[str]:
-    paras = [p.strip() for p in _PARA_SPLIT.split(text.replace("\r\n", "\n")) if p.strip()]
-    if review_handle:
-        prefix = f"{review_handle.casefold()}:"
-        paras = [p for p in paras if not p.casefold().startswith(prefix)]
-    return paras
+# --------------------------------------------------------------------------- hunks
 
 
 def _words(text: str) -> list[str]:
@@ -185,6 +351,8 @@ def _words(text: str) -> list[str]:
 
 def _changed_words(before: str, after: str) -> int:
     a, b = _words(before), _words(after)
+    if len(a) + len(b) > LARGE_BLOCK_WORDS:
+        return max(len(a), len(b))
     removed = added = 0
     for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
         if tag in {"replace", "delete"}:
@@ -194,8 +362,54 @@ def _changed_words(before: str, after: str) -> int:
     return max(removed, added)
 
 
-def _clip(text: str, limit: int) -> str:
-    return text if len(text) <= limit else text[:limit].rstrip() + " …"
+def _comment_pattern(review_handle: str) -> re.Pattern[str] | None:
+    handle = review_handle.strip()
+    if not handle:
+        return None
+    return re.compile(
+        rf"^\s*(?:>\s*)*(?:\*\*|__)?{re.escape(handle)}\s*(?:\*\*|__)?\s*:",
+        re.IGNORECASE | re.MULTILINE,
+    )
+
+
+def _prose_paragraphs(text: str, review_handle: str) -> list[str]:
+    paras = _paras(text)
+    pattern = _comment_pattern(review_handle)
+    if pattern is None:
+        return paras
+    return [p for p in paras if not pattern.search(p)]
+
+
+def _clip(text: str, limit: int) -> tuple[str, bool]:
+    if len(text) <= limit:
+        return text, False
+    return text[:limit].rstrip() + " …", True
+
+
+def _pair_block(before: list[str], after: list[str]) -> list[tuple[str, str]]:
+    """Pair paragraphs of an unequal replace block by similarity; the rest stand alone."""
+    pairs: list[tuple[str, str]] = []
+    unused = list(range(len(after)))
+    cursor = 0
+    for b in before:
+        best, best_ratio = None, PAIR_SIMILARITY
+        for idx in unused:
+            if idx < cursor:
+                continue
+            ratio = difflib.SequenceMatcher(None, b, after[idx], autojunk=False).ratio()
+            if ratio > best_ratio:
+                best, best_ratio = idx, ratio
+        if best is None:
+            pairs.append((b, ""))
+            continue
+        for idx in [i for i in unused if cursor <= i < best]:
+            pairs.append(("", after[idx]))
+            unused.remove(idx)
+        pairs.append((b, after[best]))
+        unused.remove(best)
+        cursor = best + 1
+    pairs.extend(("", after[idx]) for idx in unused)
+    return pairs
 
 
 def compute_hunks(
@@ -206,21 +420,22 @@ def compute_hunks(
     min_changed_words: int = MIN_CHANGED_WORDS,
     max_hunks: int = DEFAULT_MAX_HUNKS,
     max_chars: int = DEFAULT_MAX_CHARS,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """Paragraph-level differences between baseline and draft that look like voice edits."""
-    base = _paragraphs(baseline, review_handle)
-    cur = _paragraphs(current, review_handle)
+    base = _prose_paragraphs(baseline, review_handle)
+    cur = _prose_paragraphs(current, review_handle)
 
-    hunks: list[dict[str, Any]] = []
+    found: list[dict[str, Any]] = []
     ignored_small = 0
     matcher = difflib.SequenceMatcher(None, base, cur, autojunk=False)
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "equal":
             continue
-        # Equal paragraph counts are paired one to one so every rewritten paragraph is
-        # its own hunk; otherwise the whole block is one hunk.
         if tag == "replace" and (i2 - i1) == (j2 - j1):
             pairs = [(base[i1 + k], cur[j1 + k]) for k in range(i2 - i1)]
+        elif tag == "replace":
+            pairs = _pair_block(base[i1:i2], cur[j1:j2])
         else:
             pairs = [("\n\n".join(base[i1:i2]), "\n\n".join(cur[j1:j2]))]
         for before, after in pairs:
@@ -230,22 +445,20 @@ def compute_hunks(
                     ignored_small += 1
                 continue
             kind = "insert" if not before else "delete" if not after else "replace"
-            hunks.append({
-                "kind": kind,
-                "before": before,
-                "after": after,
-                "changed_words": changed,
-            })
+            found.append({"kind": kind, "before": before, "after": after, "changed_words": changed})
 
-    total = len(hunks)
-    shown = hunks[:max_hunks]
-    for i, hunk in enumerate(shown, start=1):
+    total = len(found)
+    start = max(0, offset)
+    window = found[start: start + max_hunks]
+    for i, hunk in enumerate(window, start=start + 1):
         hunk["index"] = i
-        hunk["before"] = _clip(hunk["before"], max_chars)
-        hunk["after"] = _clip(hunk["after"], max_chars)
+        hunk["before"], clipped_b = _clip(hunk["before"], max_chars)
+        hunk["after"], clipped_a = _clip(hunk["after"], max_chars)
+        hunk["clipped"] = clipped_b or clipped_a
     return {
-        "hunks": shown,
+        "hunks": window,
         "total": total,
+        "offset": start,
         "ignored_small": ignored_small,
-        "truncated": total > len(shown),
+        "truncated": start + len(window) < total,
     }
