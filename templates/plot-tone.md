@@ -53,11 +53,15 @@
 ### Character Voice Rules
 *e.g. "Jace must exist in every chapter's universe, even off-page. If Jace isn't mentioned or felt, the chapter is incomplete."*
 
-### Banned Prose Patterns (Book-Specific)
-*Beyond the author profile's banned list — what's specifically wrong for THIS book?*
+## Banned Prose Patterns (Book-Specific)
+*Beyond the author profile's banned list — what's specifically wrong for THIS book? Machine-checked at write time and in the manuscript scan: put the phrase in backticks, optionally with a density cap such as `Max. 1 pro Kapitel`. A bullet without a backticked phrase is only advisory (reviewers see it, no scanner enforces it). Level 2 and level 3 headings are both read.*
 
-- *e.g. No extended interiority without interruption — if a character thinks for more than 3 paragraphs without dialog or action, break it up.*
-- *e.g. No weather descriptions as mood-setting. The mood comes from the characters.*
+<!-- Supported bullet form (examples are inert inside this comment):
+- `plötzlich` Max. 1 pro Kapitel
+- `Mit einem Mal`
+-->
+
+- *e.g. `plötzlich` Max. 1 pro Kapitel*
 
 ## Litmus Test
 

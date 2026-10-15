@@ -65,6 +65,7 @@ def load_patterns(
     plugin_root: Path,
     author_slug: str | None,
     storyforge_home: Path | None = None,
+    book_root: Path | None = None,
     language: str = "en",
 ) -> tuple[list[BannedPattern], list[BannedPattern], list[BannedPattern]]:
     """Load ``(global_shapes, global_tells, author_patterns)``.
@@ -96,6 +97,13 @@ def load_patterns(
     if author_slug:
         for loader in (load_author_vocab, load_author_writing_discoveries, load_author_dont_rules):
             author.extend(_safe(loader, author_slug, storyforge_home=storyforge_home))
+    if book_root is not None:
+        try:
+            from tools.banlist_loader import load_tone_banned_patterns
+
+            author.extend(load_tone_banned_patterns(book_root)[0])
+        except Exception:  # pylint: disable=broad-except
+            pass
     return shapes, tells, author
 
 

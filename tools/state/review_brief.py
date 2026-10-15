@@ -23,6 +23,7 @@ from tools.db.brief_helpers import (
     load_changed_facts_for_brief,
     load_rules_for_brief,
 )
+from tools.banlist_loader import parse_tone_banned_bullets, tone_bullet_is_enforceable
 from tools.db.connection import get_book_num
 from tools.shared.paths import _validate_slug, resolve_people_dir
 from tools.state.brief_common import Recorder as _Recorder, cap_canon_facts as _cap_canon_facts
@@ -172,10 +173,6 @@ _LITMUS_SECTION_RE = re.compile(
     r"^##\s+Litmus Test\s*$(.*?)(?=^##\s|\Z)",
     re.MULTILINE | re.DOTALL,
 )
-_BANNED_PATTERNS_RE = re.compile(
-    r"^##\s+Banned Prose Patterns.*?$(.*?)(?=^##\s|\Z)",
-    re.MULTILINE | re.DOTALL,
-)
 _TONAL_ARC_SECTION_RE = re.compile(
     r"^##\s+Tonal Arc\s*$(.*?)(?=^##\s|\Z)",
     re.MULTILINE | re.DOTALL,
@@ -247,7 +244,10 @@ def _parse_tonal_rules(tone_text: str) -> dict[str, list[str]]:
     return {
         "non_negotiable_rules": _bullets_from_section(tone_text, _NON_NEG_SECTION_RE),
         "litmus_test": _numbered_or_bullets_from_section(tone_text, _LITMUS_SECTION_RE),
-        "banned_prose_patterns": _bullets_from_section(tone_text, _BANNED_PATTERNS_RE),
+        "banned_prose_patterns": parse_tone_banned_bullets(tone_text),
+        "banned_prose_unenforced": [
+            b for b in parse_tone_banned_bullets(tone_text) if not tone_bullet_is_enforceable(b)
+        ],
         "warning_signs": _parse_tonal_arc_warning_signs(tone_text),
     }
 

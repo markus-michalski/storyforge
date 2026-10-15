@@ -224,7 +224,7 @@ If the user is blocked or struggling: redirect to `/storyforge:unblock` instead 
 - Author profile is LAW. Every scene needs *stakes* — the lived equivalent of conflict. Dialog has subtext. Banned words trigger sentence rewrite.
 - **Simile Discipline (Step 6c) is non-negotiable.** Every scene survives the two-question test before it enters `draft.md`. See `simile-discipline.md`.
 - **Elegant Abstraction Scan (Step 6d) is a non-negotiable interactive hard-gate.** No scene enters `draft.md` until every Section 11 hit is either fixed or explicitly skipped by the user. The model does not fix autonomously — each hit is presented, a replacement proposed, user approves. These shapes look literary but render emotion through abstraction — in memoir this is the "reflective platitude smoothed into elegant prose" failure mode overlapping with `memoir-anti-ai-patterns.md`. See `anti-ai-patterns.md` Section 11.
-- Honor every entry in the brief's `rules_to_honor` (book CLAUDE.md ## Rules). Honor `tone_litmus_questions` (from `plot/tone.md`) when present.
+- Honor every entry in the brief's `rules_to_honor` (book CLAUDE.md ## Rules). Honor `tone_litmus_questions` (from `plot/tone.md`) when present, and `tone_banned_patterns` (`enforced` are scanned by the hook; `advisory_unenforced` are not machine-checkable, honor them by judgement).
 - Never write a relative time reference without checking against the brief's `story_anchor` and `recent_chapter_timelines`. Adjust prose — not the timeline.
 - The Chapter Timeline section in `README.md` is MANDATORY at review status.
 - Full-chapter mode: write in ONE PASS, then offer revision.

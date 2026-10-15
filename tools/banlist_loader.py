@@ -613,6 +613,135 @@ def _extract_patterns_from_tic_body(body: str) -> list[tuple[str, re.Pattern[str
 
 
 # ---------------------------------------------------------------------------
+# Book tone.md "Banned Prose Patterns" section (Issue #682)
+# ---------------------------------------------------------------------------
+
+_TONE_BANNED_HEADING_RE = re.compile(
+    r"^(?P<hashes>#{2,6})[ \t]+Banned Prose Patterns\b[^\n]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_MD_HEADING_LINE_RE = re.compile(r"^(?P<hashes>#{1,6})[ \t]+\S")
+_BULLET_START_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(?P<body>.*)$")
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_PLACEHOLDER_BULLET_RE = re.compile(r"^[*_]*\s*e\.g\.", re.IGNORECASE)
+_TONE_SOURCE = "plot/tone.md"
+
+
+def parse_tone_banned_bullets(tone_text: str) -> list[str]:
+    """Return the bullets of the ``Banned Prose Patterns`` section of tone.md.
+
+    The heading is matched at any level from 2 to 6; the section runs to the
+    next heading of the same or a shallower level. Wrapped bullets are joined
+    into one string, HTML comments and ``e.g.`` template placeholders are
+    skipped.
+    """
+    m = _TONE_BANNED_HEADING_RE.search(tone_text)
+    if not m:
+        return []
+    level = len(m.group("hashes"))
+    body_lines: list[str] = []
+    for line in tone_text[m.end():].splitlines():
+        h = _MD_HEADING_LINE_RE.match(line)
+        if h and len(h.group("hashes")) <= level:
+            break
+        body_lines.append(line)
+    body = _HTML_COMMENT_RE.sub("", "\n".join(body_lines))
+
+    bullets: list[str] = []
+    current: list[str] | None = None
+    for line in body.splitlines():
+        start = _BULLET_START_RE.match(line)
+        if start:
+            if current is not None:
+                bullets.append(" ".join(current))
+            current = [start.group("body").strip()]
+        elif current is not None and line.strip() and line[:1] in (" ", "\t"):
+            current.append(line.strip())
+        else:
+            if current is not None:
+                bullets.append(" ".join(current))
+            current = None
+    if current is not None:
+        bullets.append(" ".join(current))
+    return [
+        b for b in (re.sub(r"\s+", " ", x).strip() for x in bullets)
+        if b and not _PLACEHOLDER_BULLET_RE.match(b)
+    ]
+
+
+def _bullet_patterns(bullet: str) -> list[tuple[str, re.Pattern[str]]]:
+    out: list[tuple[str, re.Pattern[str]]] = []
+    seen: set[str] = set()
+    for m in _BACKTICK_CONTENT_RE.finditer(bullet):
+        raw = m.group(1)
+        inner = raw.strip()
+        if len(inner) < 2:
+            continue
+        compiled = compile_backtick_pattern(raw)
+        if compiled is None or compiled.pattern.lower() in seen:
+            continue
+        seen.add(compiled.pattern.lower())
+        out.append((inner, compiled))
+    return out
+
+
+def tone_bullet_is_enforceable(bullet: str) -> bool:
+    """True when the bullet carries at least one compilable backtick pattern."""
+    return bool(_bullet_patterns(bullet))
+
+
+def load_tone_banned_rule_texts(book_root: Path) -> tuple[list[str], list[str]]:
+    """Return ``(enforceable_bullets, unenforced_bullets)`` from plot/tone.md.
+
+    A bullet is enforceable when it carries at least one backtick-wrapped
+    pattern that compiles. Every other bullet is returned verbatim as
+    unenforced: patterns are never guessed from free prose. Missing file or
+    section yields two empty lists.
+    """
+    tone_path = Path(book_root) / "plot" / "tone.md"
+    try:
+        text = tone_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return [], []
+    enforceable: list[str] = []
+    unenforced: list[str] = []
+    for bullet in parse_tone_banned_bullets(text):
+        (enforceable if _bullet_patterns(bullet) else unenforced).append(bullet)
+    return enforceable, unenforced
+
+
+def load_tone_banned_patterns(book_root: Path) -> tuple[list[BannedPattern], list[str]]:
+    """Load ``(patterns, unenforced)`` from the book's tone.md banned section.
+
+    Patterns carry the severity (``[warn]`` / ``[advisory]`` tag, else block)
+    and the ``Max. N pro Kapitel`` density limit of their bullet, exactly as
+    book rules and author tics do.
+    """
+    enforceable, unenforced = load_tone_banned_rule_texts(book_root)
+    patterns: list[BannedPattern] = []
+    seen: set[str] = set()
+    for bullet in enforceable:
+        severity = _extract_discovery_severity(bullet)
+        limit = _extract_discovery_limit(bullet)
+        for label, compiled in _bullet_patterns(bullet):
+            key = compiled.pattern.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            patterns.append(
+                BannedPattern(
+                    label=label,
+                    pattern=compiled,
+                    severity=severity,
+                    source=_TONE_SOURCE,
+                    reason="banned prose pattern from the book's tone.md",
+                    chapter_limit=limit,
+                )
+            )
+    return patterns, unenforced
+
+
+# ---------------------------------------------------------------------------
 # SQLite helpers — stdlib only (dependency-free for hook use)
 # ---------------------------------------------------------------------------
 

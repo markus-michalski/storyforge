@@ -370,6 +370,19 @@ def _book_banned_patterns(
                 continue
             seen.add(key)
             patterns.append((label, compiled, limit))
+
+    try:
+        from tools.banlist_loader import load_tone_banned_patterns
+
+        tone_patterns, _unenforced = load_tone_banned_patterns(book_root)
+    except Exception:
+        tone_patterns = []
+    for tp in tone_patterns:
+        key = tp.pattern.pattern.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        patterns.append((tp.label, tp.pattern, tp.chapter_limit))
     return patterns
 
 

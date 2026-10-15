@@ -76,6 +76,19 @@ def _source_report(
     return loaded, warnings
 
 
+def _tone_unenforced_warnings(book_path: Path) -> list[str]:
+    from tools.banlist_loader import load_tone_banned_patterns
+
+    try:
+        _patterns, unenforced = load_tone_banned_patterns(book_path)
+    except Exception:  # pylint: disable=broad-except
+        return []
+    return [
+        f"plot/tone.md banned pattern is advisory, not machine-checkable (no backticked phrase): {b}"
+        for b in unenforced
+    ]
+
+
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 @catch_slug_value_error
 def scan_chapter_ai_tells(
@@ -142,7 +155,9 @@ def scan_chapter_ai_tells(
         limit = load_author_dash_limit(resolve_author_path(config, author))
 
     language = book_language(book_path)
-    shapes, tells, author_patterns = load_patterns(_PLUGIN_ROOT, author, language=language)
+    shapes, tells, author_patterns = load_patterns(
+        _PLUGIN_ROOT, author, book_root=book_path, language=language
+    )
     result = scan_draft(
         draft_text,
         global_shapes=shapes,
@@ -159,6 +174,7 @@ def scan_chapter_ai_tells(
         language=language,
         catalog_available=has_global_catalog(_PLUGIN_ROOT, language),
     )
+    warnings.extend(_tone_unenforced_warnings(book_path))
     return json.dumps(
         {
             "book_slug": book_slug,
@@ -196,7 +212,9 @@ def check_replacement_text(book_slug: str, text: str, author_slug: str = "") -> 
 
     author = _author_for(config, book_path, author_slug)
     language = book_language(book_path)
-    shapes, tells, author_patterns = load_patterns(_PLUGIN_ROOT, author, language=language)
+    shapes, tells, author_patterns = load_patterns(
+        _PLUGIN_ROOT, author, book_root=book_path, language=language
+    )
     result = check_replacement(
         text,
         global_shapes=shapes,
@@ -211,4 +229,5 @@ def check_replacement_text(book_slug: str, text: str, author_slug: str = "") -> 
         language=language,
         catalog_available=has_global_catalog(_PLUGIN_ROOT, language),
     )
+    warnings.extend(_tone_unenforced_warnings(book_path))
     return json.dumps({**result, "sources_loaded": loaded, "warnings": warnings}, ensure_ascii=False)

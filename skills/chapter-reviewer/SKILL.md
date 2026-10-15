@@ -36,7 +36,7 @@ This returns:
 - `canon_log_facts_truncated` — `true` if `canon_log_facts` was capped for size (Issue #500).
 - `canon_log_facts_total_count` — the untruncated fact count; compare against `len(canon_log_facts)` to know how much was dropped.
 - `changed_facts` — revision entries from DB for THIS book, each with `old`, `new`, `chapter`, `revision_impact` (list of chapter slugs the change affects). Feeds check 19 below (Issue #500).
-- `tonal_rules` — non-negotiable rules, litmus test, banned patterns from `plot/tone.md`
+- `tonal_rules` — non-negotiable rules, litmus test, banned patterns from `plot/tone.md` (`banned_prose_unenforced` lists bullets no scanner checks: advisory, never counted as a pass)
 - `active_rules` — book_rules DB (rule_type: rule) with severity
 - `active_callbacks` — book_rules DB (rule_type: callback)
 - `errors` — non-empty means some files missing; degrade gracefully, do not invent

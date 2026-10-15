@@ -254,6 +254,12 @@ def _scan_book_rules(book_path: Path) -> list[Finding]:
                 promotable=False,
             )
         ]
+    try:
+        from tools.banlist_loader import load_tone_banned_rule_texts
+
+        rules = list(rules) + load_tone_banned_rule_texts(book_path)[0]
+    except Exception:  # pylint: disable=broad-except
+        pass
     if not rules:
         return []
     drafts = _read_chapter_drafts(book_path)

@@ -70,6 +70,19 @@ def collect_banned_phrases(
                 }
             )
 
+    try:
+        from tools.banlist_loader import load_tone_banned_patterns
+
+        tone_patterns, _unenforced = load_tone_banned_patterns(book_root)
+    except Exception:  # pylint: disable=broad-except
+        tone_patterns = []
+    for p in tone_patterns:
+        key = p.label.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"phrase": p.label, "source": "plot/tone.md", "severity": p.severity})
+
     author_slug = author_slug_from_book(book_root)
     if author_slug:
         # ``load_author_vocab`` accepts a ``storyforge_home`` override
