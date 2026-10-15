@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
+import unicodedata
 from typing import Any
 
 from mcp.types import ToolAnnotations
@@ -31,68 +33,112 @@ from . import _app
 from ._app import mcp
 
 MAX_RULE_LENGTH = 240
+MAX_TEXT_LENGTH = 8000
+
+# Name parts that carry no identity: relationship terms and name particles.
+_NOT_NAMES = frozenset({
+    "mom", "mum", "mama", "mommy", "mother", "dad", "papa", "daddy", "father",
+    "oma", "opa", "omi", "mutti", "vati", "uncle", "aunt", "auntie", "onkel", "tante",
+    "grandma", "grandpa", "sister", "brother", "schwester", "bruder",
+    "de", "la", "le", "van", "von", "der", "den", "di", "da", "du", "el", "al",
+})
 
 
 def _error(message: str) -> str:
     return json.dumps({"error": message})
 
 
+def _db_error(exc: sqlite3.Error) -> str:
+    return _error(f"Review feedback database error: {exc}. Try again; nothing was changed.")
+
+
+def _first_non_str(**params: Any) -> str | None:
+    for name, value in params.items():
+        if not isinstance(value, str):
+            return name
+    return None
+
+
+def _is_int_id(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 def _resolve_book(book_slug: str) -> tuple[dict[str, Any] | None, str | None]:
-    """Return ``(book, error_message)`` from the state cache."""
+    """Return ``(book, error_message)`` from the state cache, with a stripped author."""
+    if not isinstance(book_slug, str) or not book_slug.strip():
+        return None, "book_slug must be a non-empty string"
     book = (_app._cache.get().get("books") or {}).get(book_slug)
     if not book:
         return None, f"Book '{book_slug}' not found"
-    if not str(book.get("author", "")).strip():
+    author = str(book.get("author") or "").strip()
+    if not author:
         return None, (
             f"Book '{book_slug}' has no author in its README; set `author` so feedback "
             f"can be attributed to an author profile"
         )
-    return book, None
+    return {**book, "author": author}, None
 
 
 def _category(book: dict[str, Any]) -> str:
     return str(book.get("book_category") or "fiction")
 
 
-def _person_names(book: dict[str, Any]) -> set[str]:
-    """Names (full and parts of at least 3 letters) of the real people in a memoir book."""
-    names: set[str] = set()
-    for person in (book.get("people") or {}).values():
-        for key in ("name", "real_name"):
-            value = str(person.get(key) or "").strip()
-            if not value:
-                continue
-            names.add(value.lower())
-            names.update(part.lower() for part in re.findall(r"\w+", value) if len(part) >= 3)
-    return names
+def _fold(text: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
 
 
-def _check_rule(book: dict[str, Any], normalized_rule: str) -> str | None:
-    rule = normalized_rule.strip()
+def _tokens(text: str) -> list[str]:
+    return [t for t in re.split(r"[\W_]+", _fold(text)) if t]
+
+
+def _person_tokens(people: dict[str, Any]) -> set[str]:
+    """Identity-bearing name parts of the real people in a memoir book."""
+    found: set[str] = set()
+    for key, person in (people or {}).items():
+        sources = [str(person.get("name") or ""), str(person.get("real_name") or ""),
+                   str(person.get("slug") or key)]
+        for source in sources:
+            found.update(t for t in _tokens(source) if len(t) >= 2 and t not in _NOT_NAMES)
+    return found
+
+
+def _name_in(rule: str, people: dict[str, Any]) -> str | None:
+    names = _person_tokens(people)
+    for token in _tokens(rule):
+        if token in names:
+            return token
+        for suffix in ("s", "es"):
+            if token.endswith(suffix) and token[: -len(suffix)] in names:
+                return token[: -len(suffix)]
+    return None
+
+
+def _check_rule(rule_text: str, *, memoir: bool, people: dict[str, Any]) -> str | None:
+    rule = rule_text.strip()
     if not rule:
         return "normalized_rule must state the rule in one plain sentence"
     if len(rule) > MAX_RULE_LENGTH or "\n" in rule or "\r" in rule:
         return f"normalized_rule must be a single line of at most {MAX_RULE_LENGTH} characters"
-    if _category(book) == "memoir":
-        words = {w.lower() for w in re.findall(r"\w+", rule)}
-        lowered = rule.lower()
-        for name in sorted(_person_names(book)):
-            if name in words or (" " in name and name in lowered):
-                return (
-                    "normalized_rule must not contain the name of a person from this memoir "
-                    "(name or real name); state the rule without names or facts"
-                )
+    if memoir:
+        hit = _name_in(rule, people)
+        if hit:
+            return (
+                f"normalized_rule must not contain the name of a person from this memoir "
+                f"(matched {hit!r}); state the rule without names or facts"
+            )
     return None
 
 
 def _check_classification(
-    book: dict[str, Any], dimension: str, direction: str, normalized_rule: str
+    category: str, dimension: str, direction: str, rule: str,
+    *, memoir: bool, people: dict[str, Any],
 ) -> str | None:
     try:
-        validate_classification(dimension, direction, _category(book))
+        validate_classification(dimension, direction, category)
     except VoiceDimensionError as exc:
         return str(exc)
-    return _check_rule(book, normalized_rule)
+    return _check_rule(rule, memoir=memoir, people=people)
 
 
 def _entry_view(row: dict[str, Any], chapter_slug: str) -> dict[str, Any]:
@@ -106,7 +152,7 @@ def _entry_view(row: dict[str, Any], chapter_slug: str) -> dict[str, Any]:
     return view
 
 
-@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True))
+@mcp.tool(annotations=ToolAnnotations(idempotent_hint=True, destructive_hint=False))
 def log_review_feedback(
     book_slug: str,
     chapter_slug: str,
@@ -145,46 +191,71 @@ def log_review_feedback(
 
     Returns ``{logged, duplicate, id, status}`` or ``{error: ...}``.
     """
+    bad = _first_non_str(
+        chapter_slug=chapter_slug, source_skill=source_skill, decision=decision,
+        comment_text=comment_text, before_text=before_text, after_text=after_text,
+        proposal_text=proposal_text, dimension=dimension, direction=direction,
+        normalized_rule=normalized_rule,
+    )
+    if bad:
+        return _error(f"{bad} must be a string")
+
     book, error = _resolve_book(book_slug)
     if error or book is None:
         return _error(error or "book not resolved")
 
-    if chapter_slug not in (book.get("chapters_data") or {}):
+    category = _category(book)
+    if category == "fiction" and book.get("people"):
+        return _error(
+            f"Book '{book_slug}' has people profiles but book_category is 'fiction'; set "
+            f"`book_category: memoir` in its README so raw text is not stored"
+        )
+
+    chapters = book.get("chapters_data") or {}
+    if chapter_slug not in chapters:
         return _error(
             f"Chapter '{chapter_slug}' not found in book '{book_slug}'; "
-            f"known chapters: {', '.join(sorted(book.get('chapters_data') or {})) or 'none'}"
+            f"known chapters: {', '.join(sorted(chapters)) or 'none'}"
         )
     if source_skill not in VALID_SOURCES:
         return _error(f"invalid source_skill {source_skill!r}; allowed: {', '.join(sorted(VALID_SOURCES))}")
     if decision not in VALID_DECISIONS:
         return _error(f"invalid decision {decision!r}; allowed: {', '.join(sorted(VALID_DECISIONS))}")
 
+    for name, value in (("comment_text", comment_text), ("before_text", before_text),
+                        ("after_text", after_text), ("proposal_text", proposal_text)):
+        if len(value) > MAX_TEXT_LENGTH:
+            return _error(f"{name} is too long ({len(value)} characters, maximum {MAX_TEXT_LENGTH})")
+
     classified = bool(dimension.strip() or direction.strip())
     if classified:
         if not (dimension.strip() and direction.strip()):
             return _error("classification needs both dimension and direction")
-        problem = _check_classification(book, dimension, direction, normalized_rule)
+        problem = _check_classification(
+            category, dimension, direction, normalized_rule,
+            memoir=category == "memoir", people=book.get("people") or {},
+        )
         if problem:
             return _error(problem)
-    elif _category(book) == "memoir":
+    elif category == "memoir":
         return _error(
             "memoir feedback requires a classification (dimension, direction, normalized_rule): "
             "raw text is not stored for memoir books"
         )
 
-    genres = ",".join(str(g) for g in (book.get("genres") or [])) if _category(book) != "memoir" else ""
+    genres = "" if category == "memoir" else ",".join(str(g) for g in (book.get("genres") or []))
 
-    conn = open_authors_db()
     try:
+        conn = open_authors_db()
         try:
             row_id = insert_feedback(
                 conn,
-                author_slug=str(book["author"]),
+                author_slug=book["author"],
                 book_slug=book_slug,
                 chapter_slug=chapter_slug,
                 source_skill=source_skill,
                 decision=decision,
-                book_category=_category(book),
+                book_category=category,
                 genres=genres,
                 comment_text=comment_text,
                 before_text=before_text,
@@ -196,8 +267,10 @@ def log_review_feedback(
             )
         except ValueError as exc:
             return _error(str(exc))
-    finally:
-        conn.close()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        return _db_error(exc)
 
     if row_id is None:
         return json.dumps({"logged": False, "duplicate": True, "id": None})
@@ -219,17 +292,22 @@ def list_pending_feedback(book_slug: str, chapter_slug: str = "") -> str:
 
     Returns ``{count, entries}`` or ``{error: ...}``.
     """
+    if not isinstance(chapter_slug, str):
+        return _error("chapter_slug must be a string")
     book, error = _resolve_book(book_slug)
     if error or book is None:
         return _error(error or "book not resolved")
     if chapter_slug and chapter_slug not in (book.get("chapters_data") or {}):
         return _error(f"Chapter '{chapter_slug}' not found in book '{book_slug}'")
 
-    conn = open_authors_db()
     try:
-        rows = list_feedback(conn, str(book["author"]))
-    finally:
-        conn.close()
+        conn = open_authors_db()
+        try:
+            rows = list_feedback(conn, book["author"])
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        return _db_error(exc)
 
     entries = [_entry_view(r, chapter_slug) for r in rows]
     return json.dumps({"count": len(entries), "entries": entries})
@@ -246,34 +324,57 @@ def set_feedback_classification(
     """Store the classification of an open feedback entry (Epic #663).
 
     The pair is validated against the closed vocabulary in
-    ``reference/craft/voice-dimensions.md`` for the entry's book category.
-    Only entries of the book's author can be changed; closed entries are not.
+    ``reference/craft/voice-dimensions.md`` for the entry's book category, and
+    the rule is checked against the people of the entry's own book (not the
+    book passed here). Only entries of the book's author can be changed;
+    closed entries are not.
 
     Returns ``{updated}`` or ``{error: ...}``.
     """
+    bad = _first_non_str(dimension=dimension, direction=direction, normalized_rule=normalized_rule)
+    if bad:
+        return _error(f"{bad} must be a string")
+    if not _is_int_id(feedback_id):
+        return _error("feedback_id must be an integer")
+
     book, error = _resolve_book(book_slug)
     if error or book is None:
         return _error(error or "book not resolved")
 
-    author_slug = str(book["author"])
-    conn = open_authors_db()
+    author_slug = book["author"]
     try:
-        row = get_feedback(conn, feedback_id)
-        if row is None or row["author_slug"] != author_slug:
-            return json.dumps({"updated": False})
+        conn = open_authors_db()
+        try:
+            row = get_feedback(conn, feedback_id)
+            if row is None or row["author_slug"] != author_slug:
+                return json.dumps({"updated": False})
 
-        scoped = {**book, "book_category": row["book_category"]}
-        problem = _check_classification(scoped, dimension, direction, normalized_rule)
-        if problem:
-            return _error(problem)
+            row_category = str(row["book_category"])
+            own_book = (_app._cache.get().get("books") or {}).get(row["book_slug"])
+            if own_book is None and row_category == "memoir":
+                return _error(
+                    f"The memoir book '{row['book_slug']}' of this entry is no longer indexed, "
+                    f"so the rule cannot be checked for names; restore the book first"
+                )
+            people = (own_book or {}).get("people") or {}
+            memoir = row_category == "memoir" or _category(own_book or {}) == "memoir"
 
-        updated = set_classification(
-            conn, feedback_id,
-            dimension=dimension.strip(), direction=direction.strip(),
-            normalized_rule=normalized_rule.strip(), author_slug=author_slug,
-        )
-    finally:
-        conn.close()
+            problem = _check_classification(
+                row_category, dimension, direction, normalized_rule,
+                memoir=memoir, people=people,
+            )
+            if problem:
+                return _error(problem)
+
+            updated = set_classification(
+                conn, feedback_id,
+                dimension=dimension.strip(), direction=direction.strip(),
+                normalized_rule=normalized_rule.strip(), author_slug=author_slug,
+            )
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        return _db_error(exc)
     return json.dumps({"updated": updated})
 
 
@@ -281,16 +382,17 @@ def _close(book_slug: str, ids: list[int], status: str) -> str:
     book, error = _resolve_book(book_slug)
     if error or book is None:
         return _error(error or "book not resolved")
-    if not isinstance(ids, list) or not ids or not all(
-        isinstance(i, int) and not isinstance(i, bool) for i in ids
-    ):
+    if not isinstance(ids, list) or not ids or not all(_is_int_id(i) for i in ids):
         return _error("ids must be a non-empty list of integer feedback ids")
 
-    conn = open_authors_db()
     try:
-        changed = mark_feedback(conn, ids, status, author_slug=str(book["author"]))
-    finally:
-        conn.close()
+        conn = open_authors_db()
+        try:
+            changed = mark_feedback(conn, ids, status, author_slug=book["author"])
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        return _db_error(exc)
     return json.dumps({"changed": changed, "status": status})
 
 

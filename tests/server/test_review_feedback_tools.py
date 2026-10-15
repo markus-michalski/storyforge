@@ -40,7 +40,31 @@ BOOKS = {
         "chapters_data": {"01-home": {"number": 1}},
         "people": {
             "anna": {"slug": "anna", "name": "Anna Berger", "real_name": "Anna Mueller"},
+            "mom": {"slug": "mom", "name": "Mom", "real_name": ""},
+            "wei": {"slug": "li-wei", "name": "Li Wei", "real_name": ""},
+            "schmidt": {"slug": "karl-schmidt", "name": "Pseudonym", "real_name": ""},
         },
+    },
+    "other-life": {
+        "author": "ethan-cole",
+        "genres": [],
+        "book_category": "memoir",
+        "chapters_data": {"01-x": {"number": 1}},
+        "people": {"bob": {"slug": "bob", "name": "Robert Hale", "real_name": ""}},
+    },
+    "mixed-up": {
+        "author": "ethan-cole",
+        "genres": ["drama"],
+        "book_category": "fiction",
+        "chapters_data": {"01-x": {"number": 1}},
+        "people": {"zoe": {"slug": "zoe", "name": "Zoe Park", "real_name": ""}},
+    },
+    "spaced": {
+        "author": "  ethan-cole ",
+        "genres": ["drama"],
+        "book_category": "fiction",
+        "chapters_data": {"01-x": {"number": 1}},
+        "people": {},
     },
 }
 
@@ -300,3 +324,112 @@ class TestClosingFeedback:
     def test_rejects_empty_and_non_integer_ids(self, env):
         assert "error" in json.loads(mark_feedback_harvested("firelight", []))
         assert "error" in json.loads(discard_feedback("firelight", ["1"]))  # type: ignore[list-item]
+
+
+class TestReviewRoundTwo:
+    """Findings from the #665 code review."""
+
+    def test_memoir_row_cannot_be_reclassified_with_a_name_via_another_book(self, env):
+        _log(book_slug="my-life", chapter_slug="01-home",
+             dimension="hedging", direction="less", normalized_rule="No hedging.")
+        rid = _rows()[0]["id"]
+        for via in ("firelight", "other-life"):
+            result = json.loads(set_feedback_classification(
+                via, rid, "sentence_rhythm", "shorter", "Write about Anna Mueller plainly.",
+            ))
+            assert "error" in result, via
+        assert _rows()[0]["normalized_rule"] == "No hedging."
+
+    def test_memoir_row_of_a_vanished_book_fails_closed(self, env, monkeypatch):
+        _log(book_slug="my-life", chapter_slug="01-home",
+             dimension="hedging", direction="less", normalized_rule="No hedging.")
+        rid = _rows()[0]["id"]
+        books = {k: v for k, v in BOOKS.items() if k != "my-life"}
+        monkeypatch.setattr(_app._cache, "get", lambda: {"books": books})
+        result = json.loads(set_feedback_classification(
+            "firelight", rid, "sentence_rhythm", "shorter", "Plain rule.",
+        ))
+        assert "error" in result
+
+    @pytest.mark.parametrize("rule", [
+        "Annas voice is too polished",
+        "Bergers habit of talking",
+        "Anna_Berger style",
+        "Ánna would not say it",
+        "Li speaks too formally",
+        "Schmidt family dialogue",
+        "Anna\u2019s rhythm",
+    ])
+    def test_name_guard_catches_common_variants(self, env, rule):
+        result = _log(book_slug="my-life", chapter_slug="01-home",
+                      dimension="word_register", direction="plainer", normalized_rule=rule)
+        assert "error" in result, rule
+
+    def test_name_guard_reports_the_matching_token(self, env):
+        result = _log(book_slug="my-life", chapter_slug="01-home",
+                      dimension="word_register", direction="plainer",
+                      normalized_rule="Anna sounds stiff")
+        assert "anna" in result["error"].lower()
+
+    @pytest.mark.parametrize("rule", [
+        "Allow grace notes in the rhythm.",
+        "Mom-style warmth in dialogue tags is fine.",
+        "Plainer wording in narration.",
+    ])
+    def test_name_guard_does_not_block_ordinary_rules(self, env, rule):
+        result = _log(book_slug="my-life", chapter_slug="01-home",
+                      dimension="word_register", direction="plainer", normalized_rule=rule)
+        assert result.get("logged") is True, result
+
+    def test_database_errors_become_json_errors(self, env, monkeypatch):
+        import sqlite3
+
+        import routers.feedback as fb
+
+        def boom(*a, **k):
+            raise sqlite3.OperationalError("database is locked")
+
+        monkeypatch.setattr(fb, "open_authors_db", boom)
+        for call in (
+            lambda: _log(),
+            lambda: json.loads(list_pending_feedback("firelight")),
+            lambda: json.loads(set_feedback_classification("firelight", 1, "pacing", "faster", "Faster.")),
+            lambda: json.loads(mark_feedback_harvested("firelight", [1])),
+        ):
+            assert "locked" in call()["error"]
+
+    def test_text_fields_have_a_length_cap(self, env):
+        result = _log(comment_text="x" * 20000)
+        assert "error" in result and "comment_text" in result["error"]
+        assert _rows() == []
+
+    def test_non_string_arguments_return_errors(self, env):
+        assert "error" in _log(comment_text=None)
+        assert "error" in _log(dimension=None, direction="x")
+        assert "error" in _log(chapter_slug=["a"])
+        assert "error" in json.loads(set_feedback_classification(
+            "firelight", 1, "pacing", "faster", None))  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("bad_id", [True, "1", 1.5])
+    def test_set_classification_rejects_non_int_ids(self, env, bad_id):
+        _log()
+        result = json.loads(set_feedback_classification(
+            "firelight", bad_id, "pacing", "faster", "Faster."))  # type: ignore[arg-type]
+        assert "error" in result
+
+    def test_author_whitespace_is_normalised(self, env):
+        assert _log(book_slug="spaced", chapter_slug="01-x")["logged"] is True
+        assert _rows("ethan-cole")[0]["author_slug"] == "ethan-cole"
+
+    def test_fiction_book_with_people_profiles_fails_closed(self, env):
+        result = _log(book_slug="mixed-up", chapter_slug="01-x")
+        assert "error" in result and "memoir" in result["error"]
+        assert _rows() == []
+
+    def test_closed_row_cannot_be_reclassified_through_the_tool(self, env):
+        _log()
+        rid = _rows()[0]["id"]
+        mark_feedback_harvested("firelight", [rid])
+        result = json.loads(set_feedback_classification(
+            "firelight", rid, "pacing", "faster", "Faster."))
+        assert result["updated"] is False
