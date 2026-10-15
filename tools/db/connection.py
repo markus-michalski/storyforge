@@ -190,6 +190,46 @@ def ensure_authors_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_ad
             ON author_discoveries(author_slug, discovery_type);
+
+        -- Epic #663: review feedback log that chapter-voice-harvest mines.
+        -- Keyed on book_slug (not book_num, see #558). Memoir rows never
+        -- carry raw text; that is enforced in tools/db/review_feedback.py.
+        CREATE TABLE IF NOT EXISTS review_feedback (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            author_slug     TEXT NOT NULL,
+            book_slug       TEXT NOT NULL,
+            chapter_slug    TEXT NOT NULL,
+            book_category   TEXT NOT NULL DEFAULT 'fiction',
+            genres          TEXT NOT NULL DEFAULT '',
+            source_skill    TEXT NOT NULL,
+            decision        TEXT NOT NULL,
+            comment_text    TEXT NOT NULL DEFAULT '',
+            before_text     TEXT NOT NULL DEFAULT '',
+            after_text      TEXT NOT NULL DEFAULT '',
+            proposal_text   TEXT NOT NULL DEFAULT '',
+            dimension       TEXT,
+            direction       TEXT,
+            normalized_rule TEXT,
+            status          TEXT NOT NULL DEFAULT 'pending',
+            content_hash    TEXT NOT NULL,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(book_slug, chapter_slug, content_hash)
+        );
+
+        -- Per-database secret for review_feedback.content_hash. It defeats
+        -- precomputed tables and hash comparison across databases; it is not a
+        -- confidentiality boundary, because it lives next to the hashes.
+        CREATE TABLE IF NOT EXISTS review_feedback_meta (
+            id   INTEGER PRIMARY KEY CHECK (id = 1),
+            salt TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_rf_author_status
+            ON review_feedback(author_slug, status);
+
+        CREATE INDEX IF NOT EXISTS idx_rf_book_chapter
+            ON review_feedback(book_slug, chapter_slug);
     """)
     conn.commit()
 

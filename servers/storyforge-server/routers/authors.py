@@ -42,6 +42,7 @@ from tools.db.author_discoveries import (
     update_source_genres,
 )
 from tools.db.connection import BookNotLinkedToSeriesError, open_authors_db
+from tools.db.review_feedback import remove_author_feedback
 from tools.shared.paths import (
     catch_slug_value_error,
     find_projects,
@@ -373,6 +374,15 @@ def delete_author(slug: str, force: bool = False) -> str:
     conn = open_authors_db()
     try:
         removed = remove_author_discoveries(conn, slug)
+        removed_feedback = remove_author_feedback(conn, slug)
+    except sqlite3.Error as exc:
+        # The profile directory is untouched, so re-running finishes the job.
+        return json.dumps({
+            "error": (
+                f"Could not clear the DB rows of '{slug}': {exc}. "
+                f"The author profile was not deleted. Re-run to finish."
+            ),
+        })
     finally:
         conn.close()
 
@@ -391,15 +401,19 @@ def delete_author(slug: str, force: bool = False) -> str:
         # finishes the job since profile.md still exists for the existence gate.
         return json.dumps({
             "error": (
-                f"Removed DB discoveries for '{slug}' but could not delete "
+                f"Removed DB discoveries and review feedback for '{slug}' but could not delete "
                 f"{author_dir}: {exc}. Re-run to finish removing the directory."
             ),
             "removed_discoveries": removed,
+            "removed_feedback": removed_feedback,
         })
 
     _cache.invalidate()
 
-    message = f"Author '{slug}' deleted ({removed} discovery row(s) removed)."
+    message = (
+        f"Author '{slug}' deleted ({removed} discovery row(s) and "
+        f"{removed_feedback} review feedback row(s) removed)."
+    )
     if referencing:
         message += (
             f" WARNING: {len(referencing)} book(s) now reference a missing "
@@ -411,6 +425,7 @@ def delete_author(slug: str, force: bool = False) -> str:
         "slug": slug,
         "deleted_path": str(author_dir),
         "removed_discoveries": removed,
+        "removed_feedback": removed_feedback,
         "referencing_books": referencing,
         "message": message,
     })

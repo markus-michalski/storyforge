@@ -118,6 +118,53 @@ class TestDeleteAuthor:
         finally:
             conn.close()
 
+    def test_removes_review_feedback_from_db(self, author_env):
+        from tools.db.connection import open_authors_db
+        from tools.db.review_feedback import insert_feedback, list_feedback
+
+        conn = open_authors_db()
+        try:
+            for author in ("ethan-cole", "ethan-cole", "someone-else"):
+                insert_feedback(
+                    conn, author_slug=author, book_slug="b", chapter_slug="01",
+                    source_skill="reviewer", decision="accepted", book_category="fiction",
+                    comment_text=f"c-{author}-{conn.total_changes}",
+                )
+        finally:
+            conn.close()
+
+        result = json.loads(delete_author("ethan-cole"))
+        assert result["success"] is True
+        assert result["removed_feedback"] == 2
+
+        conn = open_authors_db()
+        try:
+            assert list_feedback(conn, "ethan-cole") == []
+            assert len(list_feedback(conn, "someone-else")) == 1
+        finally:
+            conn.close()
+
+    def test_db_error_during_cleanup_returns_json_error(self, author_env, monkeypatch):
+        import sqlite3
+
+        import routers.authors as authors_mod
+
+        def boom(conn, slug):
+            raise sqlite3.OperationalError("database is locked")
+
+        monkeypatch.setattr(authors_mod, "remove_author_feedback", boom)
+
+        result = json.loads(delete_author("ethan-cole"))
+        assert "error" in result
+        assert "database is locked" in result["error"]
+        assert "Re-run" in result["error"]
+        # Profile directory survives, so re-running can finish the job.
+        assert author_env["author_dir"].exists()
+
+    def test_success_message_counts_feedback_rows(self, author_env):
+        result = json.loads(delete_author("ethan-cole"))
+        assert "feedback" in result["message"]
+
     def test_invalidates_cache(self, author_env, monkeypatch):
         # A successful delete must invalidate the shared state cache so later
         # list_authors()/get_author() calls don't surface the removed author.
