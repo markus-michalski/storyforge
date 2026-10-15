@@ -93,6 +93,13 @@ PER_SKILL_ALLOWLIST: dict[str, set[str]] = {
         "test",  # Step 5 item 3's spot-check rule name, self-evident from "Spot-check [{n}] {category} — {test}: {PASS/FAIL}"
     },
     "chapter-proofreader": {"count"},
+    "chapter-voice-harvest": {
+        # Candidate fields returned by get_voice_candidates (Step 5 walk template)
+        "dimension", "direction", "target_section", "normalized_rule", "evidence_count",
+        "chapter_count", "books", "rejected_share", "opposed_by", "evidence_ids",
+        # Per-item loop counters and report-template values, self-evident from the surrounding label
+        "n", "total", "section", "rule", "scope", "short title",
+    },
     "continuity-checker": {"date"},
     "emotional-truth-prompt": {"chapter-path"},  # slug-in-file-path, self-evident from "{chapter-path}/draft.md"
     "export-engineer": {
