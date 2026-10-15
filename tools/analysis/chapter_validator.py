@@ -510,13 +510,17 @@ def _scan_meta_narrative(text: str) -> list[Finding]:
 # ---------------------------------------------------------------------------
 
 
-def _scan_global_shapes(text: str) -> list[Finding]:
+def _scan_global_shapes(text: str, language: str = "en") -> list[Finding]:
     """Surface catalog-level shape bans as warn-severity findings (#213).
 
     Reads ``reference/craft/anti-ai-patterns.md`` Section 11's
     ``**Banned shape:** `regex``` lines via
     :func:`tools.banlist_loader.load_global_shape_bans` and reports each
     hit as ``category='global_shape_violation'``, ``severity=warn``.
+
+    ``language`` selects the catalog (Issue #680) — a book whose declared
+    language has no catalog file gets no shape findings rather than the
+    English shapes applied language-blind.
 
     Author-level overrides (Don'ts / vocabulary) still emit at block-severity
     via :func:`_scan_author_banlist` — those run independently. The global
@@ -527,7 +531,7 @@ def _scan_global_shapes(text: str) -> list[Finding]:
     try:
         from tools.banlist_loader import load_global_shape_bans
 
-        patterns = load_global_shape_bans(PLUGIN_ROOT)
+        patterns = load_global_shape_bans(PLUGIN_ROOT, language)
     except Exception:
         return findings
 
@@ -555,12 +559,15 @@ def _scan_global_shapes(text: str) -> list[Finding]:
     return findings
 
 
-def _scan_ai_tells(text: str) -> list[Finding]:
+def _scan_ai_tells(text: str, language: str = "en") -> list[Finding]:
+    """``language`` selects the catalog (Issue #680) — see
+    :func:`_scan_global_shapes` for why this must not default to English
+    for every book regardless of its declared language."""
     findings: list[Finding] = []
     try:
         from tools.banlist_loader import load_global_ai_tells
 
-        patterns = load_global_ai_tells(PLUGIN_ROOT)
+        patterns = load_global_ai_tells(PLUGIN_ROOT, language)
     except Exception:
         patterns = []
 
@@ -579,6 +586,12 @@ def _scan_ai_tells(text: str) -> list[Finding]:
                     line=line_num,
                 )
             )
+        return findings
+
+    # The fallback word list is English. Only reached when the English
+    # catalog couldn't be read; a language without a catalog must stay
+    # silent, not inherit English words (Issue #680).
+    if language != "en":
         return findings
 
     text_lower = text.lower()
@@ -943,14 +956,18 @@ def validate_chapter(file_path: str) -> list[Finding]:
 
     findings: list[Finding] = []
     book_root = find_book_root(path)
+    language = "en"
     if book_root is not None:
+        from tools.banlist_loader import book_language
+
+        language = book_language(book_root)
         findings.extend(_scan_book_banlist(text, book_root, path))
         findings.extend(_scan_author_banlist(text, book_root, path))
         findings.extend(_scan_pov_boundary(text, path, book_root))
     findings.extend(_scan_time_anchor(text, path))
     findings.extend(_scan_meta_narrative(text))
-    findings.extend(_scan_ai_tells(text))
-    findings.extend(_scan_global_shapes(text))
+    findings.extend(_scan_ai_tells(text, language))
+    findings.extend(_scan_global_shapes(text, language))
     findings.extend(_scan_sentence_variance(text))
     return findings
 

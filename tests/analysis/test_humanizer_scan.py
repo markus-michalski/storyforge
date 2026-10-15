@@ -187,6 +187,16 @@ class TestDensityRules:
         )
         assert [h for h in result["hits"] if h["category"] == "shape"] == []
 
+    def test_unsupported_language_reports_hedge_count_null_and_skips_the_hit(self, catalog) -> None:
+        """Issue #680: ``hedge_density`` is an English-only metric (the hedge
+        word list is English). For a language without one, the scan must not
+        report ``hedge_count: 0`` (reads as 'clean') and must not raise when
+        guarding the per-scene threshold against a ``None`` count."""
+        text = "Er schien müde. Sie schien zuzustimmen. Es schien in Ordnung.\n"
+        result = _scan(text, catalog, language="de")
+        assert [h for h in result["hits"] if h["category"] == "hedge_density"] == []
+        assert result["metrics"]["chapter"]["hedge_count"] is None
+
 
 class TestDashDensity:
     @staticmethod
@@ -347,6 +357,21 @@ class TestLoaders:
     def test_load_patterns_survives_unknown_author(self, isolated_home: Path) -> None:
         _, _, author = load_patterns(PLUGIN_ROOT, author_slug="nobody")
         assert author == []
+
+    def test_load_patterns_defaults_to_english_catalog(self) -> None:
+        """Issue #680: no-argument call keeps loading the real English
+        catalog (backward compatible)."""
+        shapes, tells, _ = load_patterns(PLUGIN_ROOT, author_slug=None, language="en")
+        default_shapes, default_tells, _ = load_patterns(PLUGIN_ROOT, author_slug=None)
+        assert [p.label for p in shapes] == [p.label for p in default_shapes]
+        assert [p.label for p in tells] == [p.label for p in default_tells]
+
+    def test_load_patterns_for_language_without_a_catalog_returns_empty(self) -> None:
+        """Issue #680: a German book must not silently inherit the English
+        catalog — only an explicit, language-matched catalog may load."""
+        shapes, tells, _ = load_patterns(PLUGIN_ROOT, author_slug=None, language="de")
+        assert shapes == []
+        assert tells == []
 
     def test_author_dash_limit_read_from_profile_frontmatter(self, tmp_path: Path) -> None:
         author_dir = tmp_path / "ethan"

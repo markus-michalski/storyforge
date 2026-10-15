@@ -317,3 +317,31 @@ class TestBookRuleSeverity:
             assert entry["severity"] == expected, (
                 f"Rule '{rule}' produced severity={entry['severity']}, expected {expected}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Global catalog language gate — Issue #680
+# ---------------------------------------------------------------------------
+
+
+class TestGlobalCatalogLanguage:
+    def test_english_book_still_gets_the_global_catalog(self, tmp_path, patch_storyforge_home):
+        """No README.md (as in ``_make_book``) must keep defaulting to the
+        English catalog — backward compatible."""
+        book = _make_book(tmp_path, author="ethan-cole")
+        _make_author_home(tmp_path)
+        result = collect_banned_phrases(book, PLUGIN_ROOT)
+        assert any(r["source"] == "anti-ai-patterns.md" for r in result)
+
+    def test_german_book_does_not_get_the_english_catalog(self, tmp_path, patch_storyforge_home):
+        """Issue #680: a book declaring ``language: de`` must not inherit
+        the English anti-ai-patterns.md vocabulary into its writing brief's
+        ``banned_phrases`` — that's the same language-blind bug as the
+        chapter-humanizer scan, just surfacing somewhere else."""
+        book = _make_book(tmp_path, author="ethan-cole")
+        (book / "README.md").write_text(
+            '---\ntitle: "Testbuch"\nlanguage: "de"\n---\n\n# Testbuch\n', encoding="utf-8"
+        )
+        _make_author_home(tmp_path)
+        result = collect_banned_phrases(book, PLUGIN_ROOT)
+        assert not any(r["source"] == "anti-ai-patterns.md" for r in result)

@@ -20,7 +20,7 @@ from tools.analysis.humanizer_scan import (
     load_patterns,
     scan_draft,
 )
-from tools.banlist_loader import author_slug_from_book
+from tools.banlist_loader import author_slug_from_book, book_language, has_global_catalog
 from tools.shared.paths import (
     catch_slug_value_error,
     resolve_author_path,
@@ -47,12 +47,23 @@ def _source_report(
     tells: list[Any],
     author_patterns: list[Any],
     author: str | None,
+    *,
+    language: str,
+    catalog_available: bool,
 ) -> tuple[dict[str, int], list[str]]:
     """How many patterns each source yielded, plus a warning for every source
     that came back empty — an empty source otherwise reads as a clean scan."""
     loaded = {"shapes": len(shapes), "tells": len(tells), "author": len(author_patterns)}
     warnings: list[str] = []
-    if not shapes or not tells:
+    if language != "en" and not catalog_available:
+        # Issue #680: an empty hits list for a language without a catalog
+        # must not read as "clean" — name the gap explicitly.
+        warnings.append(
+            f"no global AI-tell catalog for '{language}' (anti-ai-patterns.{language}.md absent); "
+            f"tells, shapes and hedge counts do not apply to '{language}', and the "
+            "near-miss (11.5) and negation-loop (11.9) rules are English-only."
+        )
+    elif not shapes or not tells:
         warnings.append(
             "anti-ai-patterns.md yielded no shape or vocabulary patterns; the scan is incomplete, "
             "do not treat an empty result as clean."
@@ -130,15 +141,24 @@ def scan_chapter_ai_tells(
     if limit is None and author:
         limit = load_author_dash_limit(resolve_author_path(config, author))
 
-    shapes, tells, author_patterns = load_patterns(_PLUGIN_ROOT, author)
+    language = book_language(book_path)
+    shapes, tells, author_patterns = load_patterns(_PLUGIN_ROOT, author, language=language)
     result = scan_draft(
         draft_text,
         global_shapes=shapes,
         global_tells=tells,
         author_patterns=author_patterns,
         dash_limit=limit,
+        language=language,
     )
-    loaded, warnings = _source_report(shapes, tells, author_patterns, author)
+    loaded, warnings = _source_report(
+        shapes,
+        tells,
+        author_patterns,
+        author,
+        language=language,
+        catalog_available=has_global_catalog(_PLUGIN_ROOT, language),
+    )
     return json.dumps(
         {
             "book_slug": book_slug,
@@ -175,12 +195,20 @@ def check_replacement_text(book_slug: str, text: str, author_slug: str = "") -> 
         return json.dumps({"error": f"Book '{book_slug}' not found at {book_path}"})
 
     author = _author_for(config, book_path, author_slug)
-    shapes, tells, author_patterns = load_patterns(_PLUGIN_ROOT, author)
+    language = book_language(book_path)
+    shapes, tells, author_patterns = load_patterns(_PLUGIN_ROOT, author, language=language)
     result = check_replacement(
         text,
         global_shapes=shapes,
         global_tells=tells,
         author_patterns=author_patterns,
     )
-    loaded, warnings = _source_report(shapes, tells, author_patterns, author)
+    loaded, warnings = _source_report(
+        shapes,
+        tells,
+        author_patterns,
+        author,
+        language=language,
+        catalog_available=has_global_catalog(_PLUGIN_ROOT, language),
+    )
     return json.dumps({**result, "sources_loaded": loaded, "warnings": warnings}, ensure_ascii=False)
