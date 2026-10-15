@@ -17,6 +17,7 @@ from typing import Any
 
 from mcp.types import ToolAnnotations
 
+from tools.analysis.voice_candidates import build_voice_candidates
 from tools.analysis.voice_dimensions import VoiceDimensionError, validate_classification
 from tools.db.connection import open_authors_db
 from tools.db.review_feedback import (
@@ -376,6 +377,58 @@ def set_feedback_classification(
     except sqlite3.Error as exc:
         return _db_error(exc)
     return json.dumps({"updated": updated})
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_voice_candidates(author_slug: str, book_slug: str = "") -> str:
+    """Promotion candidates for an author's voice, mined from review feedback (Epic #663).
+
+    Only classified entries count. A candidate needs a weighted evidence sum of 3
+    from at least two chapters; its scope is the intersection of the genres of
+    all evidence (empty intersection = universal). Opposite directions in
+    overlapping scope are returned as ``conflicts`` instead of candidates, and a
+    discarded candidate only returns once its open evidence has caught up.
+
+    With ``book_slug`` the book must belong to the author; only candidates of
+    that book's category (fiction or memoir) are returned.
+
+    Returns ``{author_slug, candidates, conflicts, suppressed, unclassified,
+    skipped_unknown}`` or ``{error: ...}``.
+    """
+    bad = _first_non_str(author_slug=author_slug, book_slug=book_slug)
+    if bad:
+        return _error(f"{bad} must be a string")
+    if not author_slug.strip():
+        return _error("author_slug must be a non-empty string")
+    author = author_slug.strip()
+
+    category = ""
+    if book_slug:
+        book, error = _resolve_book(book_slug)
+        if error or book is None:
+            return _error(error or "book not resolved")
+        if book["author"] != author:
+            return _error(f"Book '{book_slug}' belongs to author '{book['author']}', not '{author}'")
+        category = _category(book)
+
+    try:
+        conn = open_authors_db()
+        try:
+            rows = list_feedback(
+                conn, author, statuses=("pending", "classified", "harvested", "discarded"),
+            )
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        return _db_error(exc)
+
+    if category:
+        rows = [r for r in rows if r["book_category"] == category]
+    try:
+        result = build_voice_candidates(rows)
+    except VoiceDimensionError as exc:
+        return _error(f"Voice vocabulary unavailable: {exc}")
+    return json.dumps({"author_slug": author, **result})
 
 
 def _close(book_slug: str, ids: list[int], status: str) -> str:

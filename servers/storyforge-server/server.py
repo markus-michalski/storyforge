@@ -83,6 +83,7 @@ from routers.creation import (  # noqa: E402, F401
 )
 from routers.feedback import (  # noqa: E402, F401
     discard_feedback,
+    get_voice_candidates,
     list_pending_feedback,
     log_review_feedback,
     mark_feedback_harvested,

@@ -10,6 +10,7 @@ import pytest
 import routers._app as _app
 from routers.feedback import (
     discard_feedback,
+    get_voice_candidates,
     list_pending_feedback,
     log_review_feedback,
     mark_feedback_harvested,
@@ -433,3 +434,50 @@ class TestReviewRoundTwo:
         result = json.loads(set_feedback_classification(
             "firelight", rid, "pacing", "faster", "Faster."))
         assert result["updated"] is False
+
+
+class TestGetVoiceCandidates:
+    def _seed(self, n=3, **kw):
+        for i in range(1, n + 1):
+            chapter = "01-arrival" if i % 2 else "02-fire"
+            _log(
+                chapter_slug=chapter, comment_text=f"kürzer {i}",
+                dimension="sentence_rhythm", direction="shorter",
+                normalized_rule="Prefer shorter sentences.", **kw,
+            )
+
+    def test_returns_candidate_with_genre_scope(self, env):
+        self._seed(3)
+        result = json.loads(get_voice_candidates("ethan-cole"))
+        assert result["author_slug"] == "ethan-cole"
+        assert len(result["candidates"]) == 1
+        c = result["candidates"][0]
+        assert (c["dimension"], c["direction"], c["target_section"]) == (
+            "sentence_rhythm", "shorter", "style_principles")
+        assert c["scope"] == {"universal": False, "genres": ["dark-fantasy", "lgbtq"]}
+
+    def test_below_threshold_returns_nothing_and_counts_unclassified(self, env):
+        self._seed(2)
+        _log(comment_text="noch offen")
+        result = json.loads(get_voice_candidates("ethan-cole"))
+        assert result["candidates"] == []
+        assert result["unclassified"] == 1
+
+    def test_book_filter_restricts_category_and_checks_author(self, env):
+        self._seed(3)
+        ok = json.loads(get_voice_candidates("ethan-cole", "firelight"))
+        assert len(ok["candidates"]) == 1
+        memoir_view = json.loads(get_voice_candidates("ethan-cole", "my-life"))
+        assert memoir_view["candidates"] == []
+        wrong = json.loads(get_voice_candidates("other-author", "firelight"))
+        assert "error" in wrong
+
+    def test_other_authors_evidence_is_not_mixed_in(self, env):
+        self._seed(3)
+        result = json.loads(get_voice_candidates("other-author"))
+        assert result["candidates"] == []
+
+    def test_rejects_bad_arguments(self, env):
+        assert "error" in json.loads(get_voice_candidates(""))
+        assert "error" in json.loads(get_voice_candidates(None))  # type: ignore[arg-type]
+        assert "error" in json.loads(get_voice_candidates("ethan-cole", "ghost"))
