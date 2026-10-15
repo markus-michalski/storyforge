@@ -144,6 +144,27 @@ class TestDeleteAuthor:
         finally:
             conn.close()
 
+    def test_db_error_during_cleanup_returns_json_error(self, author_env, monkeypatch):
+        import sqlite3
+
+        import routers.authors as authors_mod
+
+        def boom(conn, slug):
+            raise sqlite3.OperationalError("database is locked")
+
+        monkeypatch.setattr(authors_mod, "remove_author_feedback", boom)
+
+        result = json.loads(delete_author("ethan-cole"))
+        assert "error" in result
+        assert "database is locked" in result["error"]
+        assert "Re-run" in result["error"]
+        # Profile directory survives, so re-running can finish the job.
+        assert author_env["author_dir"].exists()
+
+    def test_success_message_counts_feedback_rows(self, author_env):
+        result = json.loads(delete_author("ethan-cole"))
+        assert "feedback" in result["message"]
+
     def test_invalidates_cache(self, author_env, monkeypatch):
         # A successful delete must invalidate the shared state cache so later
         # list_authors()/get_author() calls don't surface the removed author.

@@ -94,6 +94,15 @@ def insert_feedback(
     _check(decision, VALID_DECISIONS, "decision")
     _check(book_category, VALID_CATEGORIES, "book_category")
 
+    if not isinstance(genres, str):
+        raise ValueError("genres must be a string (comma-separated slugs, may be empty)")
+    for name, value in (
+        ("comment_text", comment_text), ("before_text", before_text),
+        ("after_text", after_text), ("proposal_text", proposal_text),
+    ):
+        if not isinstance(value, str):
+            raise ValueError(f"{name} must be a string")
+
     texts = (comment_text, before_text, after_text, proposal_text)
     if not any(t.strip() for t in texts):
         raise ValueError("feedback entry has no content (comment, before/after or proposal)")
@@ -112,11 +121,12 @@ def insert_feedback(
 
     cur = conn.execute(
         """
-        INSERT OR IGNORE INTO review_feedback
+        INSERT INTO review_feedback
             (author_slug, book_slug, chapter_slug, book_category, genres, source_skill,
              decision, comment_text, before_text, after_text, proposal_text,
              dimension, direction, normalized_rule, status, content_hash)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(book_slug, chapter_slug, content_hash) DO NOTHING
         """,
         (
             author_slug, book_slug, chapter_slug, book_category, genres, source_skill,
@@ -202,6 +212,8 @@ def mark_feedback(conn: sqlite3.Connection, ids: Iterable[int], status: str) -> 
     entries this call actually transitioned.
     """
     _check(status, TERMINAL_STATUSES, "status")
+    if isinstance(ids, (str, bytes)):
+        raise ValueError("ids must be an iterable of integers, not a string")
     id_list = list(ids)
     if not id_list:
         return 0

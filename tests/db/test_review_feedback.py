@@ -316,6 +316,32 @@ class TestSaltedHash:
         db.close()
 
 
+class TestInputTypes:
+    """Re-review findings: no silent None, no str-as-id-list, ValueError contract."""
+
+    def test_non_string_genres_raise_instead_of_looking_like_duplicates(self, conn):
+        with pytest.raises(ValueError, match="genres"):
+            _add(conn, genres=None)
+        assert conn.execute("SELECT COUNT(*) FROM review_feedback").fetchone()[0] == 0
+
+    @pytest.mark.parametrize("field", ["comment_text", "before_text", "after_text", "proposal_text"])
+    @pytest.mark.parametrize("value", [None, 123])
+    def test_non_string_texts_raise_value_error(self, conn, field, value):
+        with pytest.raises(ValueError, match=field):
+            _add(conn, **{field: value})
+
+    @pytest.mark.parametrize("ids", ["12", b"12"])
+    def test_mark_rejects_str_and_bytes_ids(self, conn, ids):
+        _add(conn)
+        with pytest.raises(ValueError, match="ids"):
+            mark_feedback(conn, ids, "discarded")
+        assert len(list_feedback(conn, "ethan-cole")) == 1
+
+    def test_unique_conflict_is_still_none_but_other_integrity_errors_propagate(self, conn):
+        assert _add(conn) is not None
+        assert _add(conn) is None
+
+
 class TestRemoveAuthorFeedback:
     def test_removes_only_that_authors_rows(self, conn):
         _add(conn)
