@@ -166,3 +166,17 @@ class TestBanlistSections:
         text = read(CLAUDE_MD)
         assert "`donts` and `recurring_tics` are not genre-filtered" in text
         assert "never apply to fiction books" not in text
+
+
+class TestManualEditCapture:
+    def test_shared_procedure_describes_it_for_fiction_only(self):
+        text = read(SHARED)
+        section = text[text.index("### Logging Voice Feedback"): text.index("## § Pre-Logic Audit")]
+        assert "get_self_edit_hunks(" in section
+        assert "refresh_draft_baseline(" in section
+        assert "fiction only" in section
+
+    def test_claude_md_mentions_the_capture(self):
+        text = read(CLAUDE_MD)
+        assert "get_self_edit_hunks" in text
+        assert "above three words" in text

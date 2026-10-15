@@ -153,6 +153,10 @@ after_text, proposal_text, dimension, direction, normalized_rule)`:
   de-duplication and discards them. Classify now. Load `get_craft_reference("voice-dimensions")`
   once, pick `dimension` and `direction` from it and state `normalized_rule` in one sentence without
   names or facts about real people.
+- **Manual edits (fiction only):** when the user says they changed the text themselves, call MCP
+  `get_self_edit_hunks(book_slug, chapter_slug)`, log each hunk with `source_skill="self_edit"` and
+  `decision="self_edit"` (before and after text as given, no classification), then call
+  `refresh_draft_baseline(book_slug, chapter_slug)`. Details: Step 0 of `chapter-voice-harvest`.
 - A logging error is reported in one line and never blocks the writing or review flow. Logging the
   same content twice is harmless.
 

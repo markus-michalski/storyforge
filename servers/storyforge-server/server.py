@@ -83,10 +83,12 @@ from routers.creation import (  # noqa: E402, F401
 )
 from routers.feedback import (  # noqa: E402, F401
     discard_feedback,
+    get_self_edit_hunks,
     get_voice_candidates,
     list_pending_feedback,
     log_review_feedback,
     mark_feedback_harvested,
+    refresh_draft_baseline,
     set_feedback_classification,
 )
 from routers.gates import (  # noqa: E402, F401

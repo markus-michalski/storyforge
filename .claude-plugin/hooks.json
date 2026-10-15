@@ -21,6 +21,10 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-server ${CLAUDE_PLUGIN_ROOT}/hooks/validate_character.py"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-server ${CLAUDE_PLUGIN_ROOT}/hooks/snapshot_draft.py"
           }
         ]
       }
