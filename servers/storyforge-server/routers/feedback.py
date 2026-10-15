@@ -473,8 +473,7 @@ def get_self_edit_hunks(book_slug: str, chapter_slug: str, offset: int = 0) -> s
         return _error(error or "book not resolved")
     if not isinstance(chapter_slug, str) or chapter_slug not in (book.get("chapters_data") or {}):
         return _error(f"Chapter '{chapter_slug}' not found in book '{book_slug}'")
-    if _category(book) == "memoir":
-        draft_snapshots.remove_book_snapshots(book_slug)
+    if not draft_snapshots.is_fiction_category(book.get("book_category")):
         return json.dumps({
             "status": "memoir_unsupported",
             "message": "Manual-edit capture is not available for memoir books.",
@@ -521,7 +520,7 @@ def refresh_draft_baseline(book_slug: str, chapter_slug: str) -> str:
         return _error(error or "book not resolved")
     if not isinstance(chapter_slug, str) or chapter_slug not in (book.get("chapters_data") or {}):
         return _error(f"Chapter '{chapter_slug}' not found in book '{book_slug}'")
-    if _category(book) == "memoir":
+    if not draft_snapshots.is_fiction_category(book.get("book_category")):
         draft_snapshots.remove_book_snapshots(book_slug)
         return json.dumps({
             "status": "memoir_unsupported",

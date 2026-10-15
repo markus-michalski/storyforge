@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import threading
 from pathlib import Path
 
 import pytest
@@ -137,81 +136,124 @@ class TestMerge:
         out = ds.merge_claude_change(BASE, before, after)
         assert "Mara crossed the bridge" in out and "very loud" in out
 
+    def test_same_size_author_block_maps_one_to_one(self):
+        base = "A one.\n\nB one.\n\nC one."
+        before = "A one.\n\nB two.\n\nC two."
+        after = "A one.\n\nB two.\n\nC claude."
+        assert ds.merge_claude_change(base, before, after).split("\n\n") == ["A one.", "B one.", "C claude."]
+
+    def test_author_split_paragraph_is_not_duplicated(self):
+        base = "A one.\n\nBC two three.\n\nD one."
+        before = "A one.\n\nB two.\n\nC three.\n\nD one."
+        after = "A one.\n\nB two.\n\nC claude.\n\nD one."
+        out = ds.merge_claude_change(base, before, after).split("\n\n")
+        assert out.count("C claude.") == 1
+        assert "C three." not in out and "BC two three." not in out
+
+    def test_claude_editing_the_first_paragraph_of_an_unequal_block(self):
+        base = "b0.\n\nb1.\n\nb2.\n\nb3."
+        before = "a0.\n\na1.\n\nb2.\n\nb3."
+        after = "c1.\n\na1.\n\nb2.\n\nb3."
+        out = ds.merge_claude_change(base, before, after).split("\n\n")
+        assert out[0] == "c1." and out[-1] == "b3."
+        assert "b0." not in out and "a0." not in out
+
     def test_claude_rewriting_an_author_edited_paragraph_absorbs_it(self):
         manual = BASE.replace("The river was loud.", "The river roared under the planks.")
         after = manual.replace("The river roared under the planks.", "Water thundered below.")
         assert "Water thundered below." in ds.merge_claude_change(BASE, manual, after)
 
 
-class TestReconstructPrevious:
-    def test_edit_is_undone(self):
-        after = "a NEW c"
-        assert ds.reconstruct_previous(
-            after, "Edit", {"old_string": "OLD", "new_string": "NEW"}) == "a OLD c"
-
-    def test_ambiguous_new_text_cannot_be_undone(self):
-        assert ds.reconstruct_previous(
-            "NEW and NEW", "Edit", {"old_string": "OLD", "new_string": "NEW"}) is None
-
-    def test_replace_all(self):
-        out = ds.reconstruct_previous(
-            "NEW and NEW", "Edit", {"old_string": "OLD", "new_string": "NEW", "replace_all": True})
-        assert out == "OLD and OLD"
-
-    def test_multiedit_is_undone_in_reverse(self):
-        out = ds.reconstruct_previous("c", "MultiEdit", {"edits": [
-            {"old_string": "a", "new_string": "b"}, {"old_string": "b", "new_string": "c"}]})
-        assert out == "a"
-
-    def test_write_and_unknown_tools_have_no_reverse(self):
-        assert ds.reconstruct_previous("x", "Write", {"content": "x"}) is None
-        assert ds.reconstruct_previous("x", "Read", {}) is None
-
-
 class TestRecordToolWrite:
+    def _with_baseline(self, tmp_path, text=BASE):
+        path = chapter_file(tmp_path)
+        path.write_text(text, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=text))
+        return path
+
+    def claude_edit(self, path: Path, new_text: str, tool="Edit", **tool_input):
+        """Run one Claude write the way the hooks see it: pre, write, post."""
+        data = payload(path, tool, **tool_input)
+        ds.record_pre_write(data)
+        path.write_text(new_text, encoding="utf-8")
+        ds.record_tool_write(data)
+
     def test_first_write_creates_the_baseline(self, tmp_path):
         path = chapter_file(tmp_path)
         path.write_text(BASE, encoding="utf-8")
         ds.record_tool_write(payload(path, "Write", content=BASE))
         assert ds.read_snapshot("firelight", "04-the-crossing") == BASE
 
-    def _with_baseline(self, tmp_path):
-        path = chapter_file(tmp_path)
-        path.write_text(BASE, encoding="utf-8")
-        ds.record_tool_write(payload(path, "Write", content=BASE))
-        return path
-
-    def test_edit_without_original_file_keeps_manual_changes_visible(self, tmp_path):
+    def test_edit_keeps_manual_changes_visible(self, tmp_path):
         path = self._with_baseline(tmp_path)
         manual = BASE.replace("The river was loud.", "The river roared under the planks.")
-        edited = manual.replace("Mara crossed", "Mara walked across")
-        path.write_text(edited, encoding="utf-8")
-        ds.record_tool_write(payload(path, "Edit", old_string="Mara crossed",
-                                     new_string="Mara walked across"))
+        path.write_text(manual, encoding="utf-8")
+        self.claude_edit(path, manual.replace("Mara crossed", "Mara walked across"),
+                         old_string="Mara crossed", new_string="Mara walked across")
         baseline = ds.read_snapshot("firelight", "04-the-crossing")
         assert "Mara walked across" in baseline
         assert "The river was loud." in baseline and "roared" not in baseline
 
-    def test_edit_with_original_file_is_used_directly(self, tmp_path):
-        path = self._with_baseline(tmp_path)
-        manual = BASE.replace("The river was loud.", "The river roared under the planks.")
-        edited = manual.replace("Mara crossed", "Mara walked across")
-        path.write_text(edited, encoding="utf-8")
-        ds.record_tool_write(payload(
-            path, "Edit", response={"originalFile": manual}, old_string="Mara crossed",
-            new_string="Mara walked across"))
-        baseline = ds.read_snapshot("firelight", "04-the-crossing")
-        assert "Mara walked across" in baseline and "roared" not in baseline
-
     def test_removing_the_authors_comment_does_not_stale_the_baseline(self, tmp_path):
         path = self._with_baseline(tmp_path)
         comment = "Markus: das ist zu verschwurbelt, bitte kürzer und klarer formulieren"
-        manual = BASE + "\n\n" + comment
-        path.write_text(manual, encoding="utf-8")                      # author comments
-        path.write_text(BASE, encoding="utf-8")                        # Claude removes it
-        ds.record_tool_write(payload(path, "Edit", old_string="\n\n" + comment, new_string=""))
+        path.write_text(BASE + "\n\n" + comment, encoding="utf-8")
+        self.claude_edit(path, BASE, old_string="\n\n" + comment, new_string="")
         assert ds.is_stale("firelight", "04-the-crossing") is False
         assert ds.read_snapshot("firelight", "04-the-crossing") == BASE
+
+    def test_deleting_baseline_text_together_with_a_comment_is_not_an_author_deletion(self, tmp_path):
+        path = self._with_baseline(tmp_path)
+        comment = "Markus: streich den Satz davor, er trägt nichts zur Szene bei"
+        with_comment = BASE.replace("Mara crossed the bridge without looking down.",
+                                    "Mara crossed the bridge without looking down.\n" + comment)
+        path.write_text(with_comment, encoding="utf-8")
+        after = with_comment.replace(
+            "Mara crossed the bridge without looking down.\n" + comment + "\n\n", "")
+        self.claude_edit(path, after,
+                         old_string="Mara crossed the bridge without looking down.\n" + comment + "\n\n",
+                         new_string="")
+        hunks = ds.compute_hunks(ds.read_snapshot("firelight", "04-the-crossing"), after,
+                                 review_handle="Markus")
+        assert hunks["hunks"] == []
+
+    def test_deleting_an_author_tweaked_paragraph_is_clauds_deletion(self, tmp_path):
+        path = self._with_baseline(tmp_path)
+        tweaked = BASE.replace("without looking down", "without once looking down at the water")
+        path.write_text(tweaked, encoding="utf-8")
+        after = tweaked.replace("Mara crossed the bridge without once looking down at the water.\n\n", "")
+        self.claude_edit(path, after, old_string=
+                         "Mara crossed the bridge without once looking down at the water.\n\n",
+                         new_string="")
+        hunks = ds.compute_hunks(ds.read_snapshot("firelight", "04-the-crossing"), after)
+        assert hunks["hunks"] == []
+
+    def test_adjacent_author_edits_and_a_claude_edit_in_the_second_one(self, tmp_path):
+        base = "Alpha one two three four.\n\nBeta one two three four.\n\nGamma one two three four."
+        path = self._with_baseline(tmp_path, base)
+        manual = base.replace("Beta one", "Beta uno").replace("Gamma one", "Gamma uno")
+        path.write_text(manual, encoding="utf-8")
+        after = manual.replace("Gamma uno two three four.", "Gamma completely rewritten by Claude here.")
+        self.claude_edit(path, after, old_string="Gamma uno two three four.",
+                         new_string="Gamma completely rewritten by Claude here.")
+        baseline = ds.read_snapshot("firelight", "04-the-crossing")
+        assert baseline.count("Gamma") == 1
+        assert "Beta one" in baseline            # the author's other edit is still a difference
+        assert "Gamma one two three four." not in baseline
+
+    def test_crlf_files_survive_a_write_followed_by_a_deletion(self, tmp_path):
+        crlf = BASE.replace("\n", "\r\n")
+        path = chapter_file(tmp_path)
+        path.write_bytes(crlf.encode("utf-8"))
+        ds.record_tool_write(payload(path, "Write", content=crlf))
+        after = crlf.replace("Mara crossed the bridge without looking down.\r\n\r\n", "")
+        data = payload(path, "Edit", old_string="Mara crossed the bridge without looking down.\r\n\r\n",
+                       new_string="")
+        ds.record_pre_write(data)
+        path.write_bytes(after.encode("utf-8"))
+        ds.record_tool_write(data)
+        hunks = ds.compute_hunks(ds.read_snapshot("firelight", "04-the-crossing"), after)
+        assert hunks["hunks"] == []
 
     def test_write_takes_claudes_output_as_the_baseline(self, tmp_path):
         path = self._with_baseline(tmp_path)
@@ -220,42 +262,54 @@ class TestRecordToolWrite:
         ds.record_tool_write(payload(path, "Write", content=new))
         assert "Mara walked across" in ds.read_snapshot("firelight", "04-the-crossing")
 
-    def test_unreconstructable_edit_marks_the_baseline_stale(self, tmp_path):
+    def test_original_file_in_the_response_replaces_a_missing_pre_copy(self, tmp_path):
         path = self._with_baseline(tmp_path)
-        # Claude's new text occurs twice in the draft and its old text is not in the baseline
-        path.write_text(BASE + "\n\nNEW and again NEW", encoding="utf-8")
-        ds.record_tool_write(payload(path, "Edit", old_string="gamma", new_string="NEW"))
+        manual = BASE.replace("The river was loud.", "The river roared under the planks.")
+        edited = manual.replace("Mara crossed", "Mara walked across")
+        path.write_text(edited, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Edit", response={"originalFile": manual},
+                                     old_string="Mara crossed", new_string="Mara walked across"))
+        baseline = ds.read_snapshot("firelight", "04-the-crossing")
+        assert "Mara walked across" in baseline and "roared" not in baseline
+
+    def test_edit_without_any_view_of_the_file_before_marks_the_baseline_stale(self, tmp_path):
+        path = self._with_baseline(tmp_path)
+        path.write_text(BASE.replace("loud", "NEW"), encoding="utf-8")
+        ds.record_tool_write(payload(path, "Edit", old_string="loud", new_string="NEW"))
         assert ds.is_stale("firelight", "04-the-crossing") is True
         path.write_text(BASE + "\n\nmore", encoding="utf-8")
         ds.record_tool_write(payload(path, "Write", content=BASE + "\n\nmore"))
         assert ds.read_snapshot("firelight", "04-the-crossing") is None
 
-    def test_ambiguous_baseline_match_falls_back_to_reconstruction(self, tmp_path):
-        path = chapter_file(tmp_path)
-        base = "Er ging.\n\nEr ging."
-        path.write_text(base, encoding="utf-8")
-        ds.record_tool_write(payload(path, "Write", content=base))
-        path.write_text("Sie lief.\n\nEr ging.", encoding="utf-8")        # author edit
-        path.write_text("Sie lief.\n\nEr rannte.", encoding="utf-8")       # Claude edit
-        ds.record_tool_write(payload(path, "Edit", old_string="Er ging.", new_string="Er rannte."))
-        baseline = ds.read_snapshot("firelight", "04-the-crossing")
-        assert "Er rannte." in baseline          # Claude's edit became part of the baseline
-        assert "Sie lief." not in baseline       # the author's did not
+    def test_pre_copy_is_consumed_by_the_post_hook(self, tmp_path):
+        path = self._with_baseline(tmp_path)
+        data = payload(path, "Edit", old_string="loud", new_string="calm")
+        ds.record_pre_write(data)
+        pre = ds.snapshot_file("firelight", "04-the-crossing").with_suffix(".pre")
+        assert pre.is_file()
+        path.write_text(BASE.replace("loud", "calm"), encoding="utf-8")
+        ds.record_tool_write(data)
+        assert not pre.exists()
 
-    def test_memoir_books_get_no_baseline(self, tmp_path):
+    def test_memoir_books_get_no_baseline_and_no_pre_copy(self, tmp_path):
         path = chapter_file(tmp_path, book="my-life", category="memoir")
         path.write_text("Anna ging.", encoding="utf-8")
+        ds.record_pre_write(payload(path, "Write", content="Anna ging."))
         ds.record_tool_write(payload(path, "Write", content="Anna ging."))
-        assert ds.read_snapshot("my-life", "04-the-crossing") is None
+        assert not (ds.snapshots_dir() / "my-life").exists()
 
     @pytest.mark.parametrize("readme", [
         '---\ntitle: "x"\nbook_category: memoir # note\n---\n',
         '---\ntitle: "A---B"\nbook_category: "memoir"\n---\n',
-        '﻿---\ntitle: "x"\nbook_category: "memoir"\n---\n',
+        '\ufeff---\ntitle: "x"\nbook_category: "memoir"\n---\n',
+        '---\ntitle: Mein Leben: Teil 1\nbook_category: memoir\n---\n',
+        '---\ntitle: "x"\nbook_category: " Memoir "\n---\n',
         "<none>",
+        "# no frontmatter at all\n",
         '---\ntitle: "x"\nbook_category: "poetry"\n---\n',
+        "---\n- just\n- a list\n---\n",
     ])
-    def test_memoir_and_unreadable_categories_fail_closed(self, tmp_path, readme):
+    def test_memoir_and_unparseable_readmes_fail_closed(self, tmp_path, readme):
         path = chapter_file(tmp_path, book="odd-book", readme=readme)
         path.write_text("Some text of the chapter.", encoding="utf-8")
         ds.record_tool_write(payload(path, "Write", content="Some text of the chapter."))
@@ -272,7 +326,7 @@ class TestRecordToolWrite:
         stray = tmp_path / "backup" / "firelight" / "chapters" / "04-the-crossing"
         stray.mkdir(parents=True)
         (stray / "draft.md").write_text("copy", encoding="utf-8")
-        chapter_file(tmp_path)  # the real book exists
+        chapter_file(tmp_path)
         ds.record_tool_write(payload(stray / "draft.md", "Write", content="copy"))
         assert ds.read_snapshot("firelight", "04-the-crossing") is None
 
@@ -284,27 +338,15 @@ class TestRecordToolWrite:
         assert ds.read_snapshot("firelight", slug) == BASE
 
     def test_never_raises(self, tmp_path):
-        ds.record_tool_write({"tool_name": "Edit", "tool_input": None})
-        ds.record_tool_write({})
-        ds.record_tool_write(payload(tmp_path / "x" / "chapters" / "y" / "draft.md", "Edit",
-                                     old_string="a", new_string="b"))
+        for fn in (ds.record_pre_write, ds.record_tool_write):
+            fn({"tool_name": "Edit", "tool_input": None})
+            fn({})
+            fn(payload(tmp_path / "x" / "chapters" / "y" / "draft.md", "Edit",
+                       old_string="a", new_string="b"))
 
-    def test_parallel_hooks_do_not_lose_an_edit(self, tmp_path):
-        path = self._with_baseline(tmp_path)
-        text = BASE
-        events = []
-        for old, new in (("Mara crossed", "Mara walked across"), ("The river was loud.", "The river was calm.")):
-            text = text.replace(old, new)
-            events.append((text, payload(path, "Edit", old_string=old, new_string=new)))
-        path.write_text(text, encoding="utf-8")
-        threads = [threading.Thread(target=ds.record_tool_write, args=(e[1],)) for e in events]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-        baseline = ds.read_snapshot("firelight", "04-the-crossing")
-        assert baseline is not None            # never lost entirely
-        assert not ds.is_stale("firelight", "04-the-crossing") or baseline is None
+    def test_remove_book_snapshots_refuses_an_empty_slug(self):
+        with pytest.raises(ValueError):
+            ds.remove_book_snapshots("")
 
 
 class TestHunks:

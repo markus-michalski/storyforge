@@ -118,10 +118,23 @@ class TestPagingAndPrivacy:
         ds.write_snapshot("firelight", "01-x", BASE)
         assert "error" in _call(get_self_edit_hunks, "firelight", "01-x", offset=bad)
 
-    def test_memoir_call_removes_leftover_baselines(self, env):
+    def test_memoir_refresh_removes_leftover_baselines(self, env):
+        ds.write_snapshot("my-life", "01-x", "old copy of a memoir chapter")
+        assert _call(refresh_draft_baseline, "my-life", "01-x")["status"] == "memoir_unsupported"
+        assert ds.read_snapshot("my-life", "01-x") is None
+
+    def test_reading_never_deletes_anything(self, env):
         ds.write_snapshot("my-life", "01-x", "old copy of a memoir chapter")
         assert _call(get_self_edit_hunks, "my-life", "01-x")["status"] == "memoir_unsupported"
-        assert ds.read_snapshot("my-life", "01-x") is None
+        assert ds.read_snapshot("my-life", "01-x") == "old copy of a memoir chapter"
+
+    @pytest.mark.parametrize("category", ["Memoir", " memoir ", "poetry"])
+    def test_category_check_matches_the_hook(self, env, monkeypatch, category):
+        books = {"odd": {"author": "ethan-cole", "book_category": category, "genres": [],
+                         "chapters_data": {"01-x": {"number": 1}}, "people": {}}}
+        monkeypatch.setattr(_app._cache, "get", lambda: {"books": books, "authors": {}})
+        assert _call(get_self_edit_hunks, "odd", "01-x")["status"] == "memoir_unsupported"
+        assert _call(refresh_draft_baseline, "odd", "01-x")["status"] == "memoir_unsupported"
 
     def test_umlaut_chapter_slug_passes_the_tools(self, env, monkeypatch):
         slug = "01-der-fuchs-zählen"
@@ -160,7 +173,7 @@ class TestRefreshDraftBaseline:
 
 
 class TestHookScript:
-    def run_hook(self, env, payload: dict) -> subprocess.CompletedProcess:
+    def run_hook(self, env, payload: dict, mode: str = "post") -> subprocess.CompletedProcess:
         import os
 
         home = env["home"]
@@ -170,7 +183,7 @@ class TestHookScript:
         envs = {**os.environ, "STORYFORGE_DB_DIR": str(home / "db"), "HOME": str(home),
                 "USERPROFILE": str(home), "CLAUDE_PLUGIN_ROOT": str(PLUGIN_ROOT)}
         return subprocess.run(
-            [sys.executable, str(PLUGIN_ROOT / "hooks" / "snapshot_draft.py")],
+            [sys.executable, str(PLUGIN_ROOT / "hooks" / "snapshot_draft.py"), mode],
             input=json.dumps(payload), capture_output=True, text=True, env=envs, timeout=30,
         )
 
@@ -196,11 +209,29 @@ class TestHookScript:
             )
             assert proc.returncode == 0
 
-    def test_hook_is_registered_for_write_edit_multiedit(self):
+    def test_hook_is_registered_before_and_after_write_edit_multiedit(self):
         hooks = json.loads((PLUGIN_ROOT / ".claude-plugin" / "hooks.json").read_text(encoding="utf-8"))
-        post = hooks["hooks"]["PostToolUse"]
-        commands = [h["command"] for block in post for h in block["hooks"]]
-        assert any("snapshot_draft.py" in c for c in commands)
-        for block in post:
-            if any("snapshot_draft.py" in h["command"] for h in block["hooks"]):
-                assert block["matcher"] == "Write|Edit|MultiEdit"
+        for event, arg in (("PreToolUse", "pre"), ("PostToolUse", "post")):
+            blocks = [b for b in hooks["hooks"][event]
+                      if any("snapshot_draft.py" in h["command"] for h in b["hooks"])]
+            assert blocks, event
+            assert blocks[0]["matcher"] == "Write|Edit|MultiEdit"
+            assert any(h["command"].endswith(f"snapshot_draft.py {arg}") for h in blocks[0]["hooks"])
+
+    def test_pre_then_post_through_the_script_keeps_the_authors_edit_visible(self, env):
+        import os
+
+        draft = env["chapters"]["firelight"]
+        first = self.run_hook(env, {"tool_name": "Write",
+                                    "tool_input": {"file_path": str(draft), "content": BASE}}, "post")
+        assert first.returncode == 0
+        manual = BASE.replace("The river was loud.", "The river roared under the planks.")
+        draft.write_text(manual, encoding="utf-8")
+        edit = {"tool_name": "Edit", "tool_input": {
+            "file_path": str(draft), "old_string": "Mara crossed", "new_string": "Mara walked across"}}
+        assert self.run_hook(env, edit, "pre").returncode == 0
+        draft.write_text(manual.replace("Mara crossed", "Mara walked across"), encoding="utf-8")
+        assert self.run_hook(env, edit, "post").returncode == 0
+        baseline = (env["home"] / "snapshots" / "firelight" / "01-x.md").read_text(encoding="utf-8")
+        assert "Mara walked across" in baseline and "roared" not in baseline
+        assert os is not None

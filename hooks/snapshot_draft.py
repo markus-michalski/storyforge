@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: keep the chapter-draft baseline in step with Claude's writes.
+"""Pre/PostToolUse hook: keep the chapter-draft baseline in step with Claude's writes.
 
-Epic #663 / Issue #671. Replays every Write/Edit/MultiEdit on a chapter
-``draft.md`` onto a baseline kept outside the book repository, so the author's
-own edits remain visible as the difference between the draft and the baseline.
+Epic #663 / Issue #671. ``snapshot_draft.py pre`` keeps the draft as it is right
+before a Write/Edit/MultiEdit; ``snapshot_draft.py post`` lets the baseline (kept
+outside the book repository) take over Claude's change only, so the author's own
+edits remain visible as the difference between the draft and the baseline.
 Memoir books are skipped. The hook only records; it never blocks, prints or fails.
 """
 
@@ -26,9 +27,12 @@ def main() -> int:
         raw = sys.stdin.read().strip() if not sys.stdin.isatty() else ""
         payload = json.loads(raw) if raw else None
         if isinstance(payload, dict) and payload.get("tool_name") in WATCHED_TOOLS:
-            from tools.state.draft_snapshots import record_tool_write
+            from tools.state import draft_snapshots
 
-            record_tool_write(payload)
+            if len(sys.argv) > 1 and sys.argv[1] == "pre":
+                draft_snapshots.record_pre_write(payload)
+            else:
+                draft_snapshots.record_tool_write(payload)
     except Exception:
         pass
     return 0

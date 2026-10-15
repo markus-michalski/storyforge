@@ -226,7 +226,10 @@ class TestManualEdits:
         step = " ".join(section(
             body, "Step 0 — Manual edits (only when the author said they changed the text)").split())
         assert "`offset`" in step and "`truncated`" in step
-        assert "AskUserQuestion" in step
+        assert "Fetch all pages first" in step
+        assert "AskUserQuestion" in step and "or a list of indices" in step
         assert "per machine" in step
-        assert "only when every confirmed hunk was logged" in step
+        assert "once every chosen hunk was logged" in step
+        assert "None" in step and "dismissed" in step
         assert step.index("AskUserQuestion") < step.index("log_review_feedback(")
+        assert step.index("log_review_feedback(") < step.rindex("refresh_draft_baseline(")
