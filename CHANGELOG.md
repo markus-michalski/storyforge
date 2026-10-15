@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `review_feedback` table in `authors.db` with CRUD helpers (`tools/db/review_feedback.py`): groundwork for learning the author voice from review feedback (epic #663, #664). Memoir rows never store raw text.
+- `reference/craft/voice-dimensions.md`: closed vocabulary of voice dimensions and directions plus the classification procedure for review feedback, with a validating loader in `tools/analysis/voice_dimensions.py` (epic #663, #666).
 
 ### Changed
 - `delete_author` also removes the author's `review_feedback` rows and reports `removed_feedback`.

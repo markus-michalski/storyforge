@@ -293,7 +293,7 @@ Books can combine 1-3 genres.
 
 ## Craft Knowledge Base
 
-- `{plugin_root}/reference/craft/` — 32 universal/fiction-craft reference documents
+- `{plugin_root}/reference/craft/` — 33 universal/fiction-craft reference documents
 - `{plugin_root}/reference/genre/` — genre-specific craft guides
 - `{plugin_root}/book_categories/memoir/craft/` — 6 memoir-specific craft documents (structure types, scene vs. summary, emotional truth, real-people ethics, memoir anti-AI patterns, theme development)
 
