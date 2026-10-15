@@ -28,10 +28,25 @@ A classification is a pair `(dimension, direction)`:
 1. **Classify once.** Each feedback entry is classified a single time and the result is stored. Never re-derive it on later runs; model variance must not change the counts.
 2. **The diff is primary evidence.** If the entry has a `before → after` pair, read the direction from what changed (sentence got shorter, simile removed, tag swapped for `said`). The comment text is secondary and only disambiguates.
 3. **Rejected proposals are evidence too.** A declined suggestion points in the opposite direction of the proposal. Classify what the author kept or asked for instead, not what was proposed.
-4. **Pick the narrowest dimension that fits.** Use `other` only when nothing fits, and then set the most generic direction (`more`, `less`, `prefer`, `avoid`) and put the specifics in `normalized_rule`.
-5. **One entry, one classification.** If a comment mixes several wishes, split it into several entries before classifying.
-6. **Ignore non-voice feedback.** Typos, continuity fixes, fact corrections and book-specific rules are not voice evidence; leave them unclassified and discard them at harvest.
-7. **Memoir: abstract before storing.** Classify at logging time and write `normalized_rule` without names or facts.
+4. **Pick the narrowest dimension that fits.** Use `other` only when nothing fits, and then set the generic direction `prefer` or `avoid` and put the specifics in `normalized_rule`.
+5. **One key per signal.** Every wish has exactly one valid `(dimension, direction)` key; the vocabulary contains no synonyms. If two dimensions seem to fit, apply the precedence rules below.
+6. **One entry, one classification.** If a comment mixes several wishes, split it into several entries before classifying.
+7. **Ignore non-voice feedback.** Typos, continuity fixes, fact corrections and book-specific rules are not voice evidence; leave them unclassified and discard them at harvest.
+8. **Memoir: abstract before storing.** Classify at logging time and write `normalized_rule` without names or facts.
+
+## Precedence
+
+When feedback fits several dimensions, the more specific dimension wins:
+
+| Feedback is about | Use | Not |
+|---|---|---|
+| a scene or chapter ending on a tidy takeaway | `tidy_lesson_ending` | `scene_ending`, `emotional_restraint` |
+| an image followed by its interpretation | `explanation_after_image` | `show_vs_tell`, `exposition_density` |
+| an announced realization ("looking back") | `looking_back_hinge` (memoir) | `pov_distance`, `exposition_density` |
+| the same word, opening or structure recurring | `repetition` | `pacing`, `word_register` |
+| flagged AI vocabulary ("delve", "tapestry") | `ai_vocabulary` | `word_register` |
+| universal wisdom delivered in a narrator pause | `reflective_platitude` | `exposition_density` |
+| qualifiers that soften claims | `hedging` | `word_register` |
 
 ## Overlap with Existing Checks
 
@@ -42,7 +57,9 @@ A classification is a pair `(dimension, direction)`:
 | `show_vs_tell`, `emotional_restraint` | `voice-checker` dimension 5, `show-dont-tell.md` |
 | `specificity`, `word_register` | `voice-checker` dimensions 1 and 6, `prose-style.md` |
 | `simile_density` | `simile-discipline.md` |
-| memoir-only dimensions | `voice-checker` dimension 8, `memoir-anti-ai-patterns.md` |
+| `ai_vocabulary`, `repetition` | `voice-checker` dimension 1, `anti-ai-patterns.md`, `repetition-category-rules.md` |
+| `reflective_platitude`, `hedging`, `tidy_lesson_ending`, `explanation_after_image` | `anti-ai-patterns.md` sections 3, 5 and 11 (fiction), `voice-checker` dimension 8 and `memoir-anti-ai-patterns.md` (memoir) |
+| `looking_back_hinge`, `therapeutic_reframe` (memoir only) | `voice-checker` dimension 8, `memoir-anti-ai-patterns.md` |
 
 ## Vocabulary
 
@@ -57,7 +74,8 @@ sentence_rhythm:
     longer: {kind: prefer, opposite: shorter}
     more_variance: {kind: prefer, opposite: more_uniform}
     more_uniform: {kind: prefer, opposite: more_variance}
-    fewer_fragments: {kind: avoid}
+    more_fragments: {kind: prefer, opposite: fewer_fragments}
+    fewer_fragments: {kind: avoid, opposite: more_fragments}
   examples:
     - "Zu lang, brich das auf."
     - "Cut this down, three clauses is too many."
@@ -68,8 +86,8 @@ paragraph_shape:
   directions:
     shorter: {kind: prefer, opposite: longer}
     longer: {kind: prefer, opposite: shorter}
-    more_single_line: {kind: prefer}
-    fewer_single_line: {kind: avoid}
+    more_single_line: {kind: prefer, opposite: fewer_single_line}
+    fewer_single_line: {kind: avoid, opposite: more_single_line}
   examples:
     - "Der Absatz ist ein Block, teil ihn."
     - "Too many one-liners in a row, merge them."
@@ -94,7 +112,6 @@ dialog_realism:
     more_broken_speech: {kind: prefer, opposite: more_polished_speech}
     more_polished_speech: {kind: prefer, opposite: more_broken_speech}
     more_subtext: {kind: prefer}
-    less_on_the_nose: {kind: avoid}
     more_distinct_voices: {kind: prefer}
   examples:
     - "Niemand redet so sauber."
@@ -107,7 +124,6 @@ simile_density:
     fewer: {kind: avoid, opposite: more}
     more: {kind: prefer, opposite: fewer}
     more_concrete: {kind: prefer}
-    fewer_abstract: {kind: avoid}
   examples:
     - "Der Vergleich trägt nichts, raus."
     - "One simile per page is plenty."
@@ -118,7 +134,6 @@ show_vs_tell:
   directions:
     more_showing: {kind: prefer, opposite: more_telling}
     more_telling: {kind: prefer, opposite: more_showing}
-    fewer_named_emotions: {kind: avoid}
   examples:
     - "Sag nicht, dass sie traurig ist, zeig es."
     - "Why name the feeling, the gesture already does it."
@@ -130,7 +145,6 @@ emotional_restraint:
     more_restrained: {kind: prefer, opposite: more_open}
     more_open: {kind: prefer, opposite: more_restrained}
     less_melodrama: {kind: avoid}
-    fewer_neat_resolutions: {kind: avoid}
   examples:
     - "Das ist zu dick aufgetragen."
     - "Let the moment stay unresolved."
@@ -140,7 +154,7 @@ humor_register:
   categories: [fiction, memoir]
   directions:
     more_humor: {kind: prefer, opposite: less_humor}
-    less_humor: {kind: prefer, opposite: more_humor}
+    less_humor: {kind: avoid, opposite: more_humor}
     drier: {kind: prefer}
     less_snark: {kind: avoid}
   examples:
@@ -176,7 +190,6 @@ scene_opening:
   categories: [fiction, memoir]
   directions:
     more_in_medias_res: {kind: prefer}
-    less_setup: {kind: avoid}
     fewer_weather_openings: {kind: avoid}
   examples:
     - "Fang mittendrin an."
@@ -222,7 +235,7 @@ pacing:
   directions:
     faster: {kind: prefer, opposite: slower}
     slower: {kind: prefer, opposite: faster}
-    less_repetition: {kind: avoid}
+    more_variation: {kind: prefer}
   examples:
     - "Das zieht sich."
     - "Linger here, this is the moment."
@@ -233,14 +246,13 @@ exposition_density:
   directions:
     less_exposition: {kind: avoid, opposite: more_exposition}
     more_exposition: {kind: prefer, opposite: less_exposition}
-    fewer_info_dumps: {kind: avoid}
   examples:
     - "Das weiß der Leser schon."
     - "Trust the reader, cut the explanation."
 
 reflective_platitude:
   definition: Narrator pauses that deliver universal life wisdom in elegant cadence.
-  categories: [memoir]
+  categories: [fiction, memoir]
   directions:
     less: {kind: avoid}
   examples:
@@ -258,17 +270,17 @@ looking_back_hinge:
 
 tidy_lesson_ending:
   definition: Chapters or scenes that end on a clean takeaway or learned lesson.
-  categories: [memoir]
+  categories: [fiction, memoir]
   directions:
     less: {kind: avoid}
     more_unresolved: {kind: prefer}
   examples:
     - "Das Ende ist zu aufgeräumt."
-    - "End on the moment, not on the meaning."
+    - "It all wraps up too neatly, leave it open."
 
 hedging:
   definition: Qualifiers that soften claims - perhaps, I think, in a sense.
-  categories: [memoir]
+  categories: [fiction, memoir]
   directions:
     less: {kind: avoid}
   examples:
@@ -286,12 +298,33 @@ therapeutic_reframe:
 
 explanation_after_image:
   definition: A concrete image immediately followed by its interpretation.
-  categories: [memoir]
+  categories: [fiction, memoir]
   directions:
     less: {kind: avoid}
   examples:
     - "Das Bild reicht, die Erklärung muss weg."
     - "The image already did the work."
+
+ai_vocabulary:
+  definition: Flagged AI-sounding words and phrases ("delve", "tapestry", "it's worth noting").
+  categories: [fiction, memoir]
+  directions:
+    fewer_flagged_words: {kind: avoid}
+    plainer_wording: {kind: prefer}
+  examples:
+    - "Dieses Wort benutzt kein Mensch."
+    - "Nobody says 'testament to'."
+
+repetition:
+  definition: The same word, sentence opening or sentence structure recurring close together.
+  categories: [fiction, memoir]
+  directions:
+    fewer_word_echoes: {kind: avoid}
+    fewer_repeated_openings: {kind: avoid}
+    fewer_repeated_structures: {kind: avoid}
+  examples:
+    - "Das Wort steht dreimal auf einer Seite."
+    - "Every sentence starts with 'She'."
 
 other:
   definition: Voice feedback that fits no dimension above; the specifics go into normalized_rule.
