@@ -342,6 +342,26 @@ class TestInputTypes:
         assert _add(conn) is None
 
 
+class TestAuthorScoping:
+    def test_mark_only_touches_the_given_authors_rows(self, conn):
+        mine = _add(conn)
+        theirs = _add(conn, author_slug="other", comment_text="fremd")
+        assert mark_feedback(conn, [mine, theirs], "harvested", author_slug="ethan-cole") == 1
+        assert get_feedback(conn, theirs)["status"] == "pending"
+
+    def test_set_classification_is_author_scoped(self, conn):
+        theirs = _add(conn, author_slug="other", comment_text="fremd")
+        assert set_classification(
+            conn, theirs, dimension="d", direction="x", normalized_rule="r",
+            author_slug="ethan-cole",
+        ) is False
+        assert get_feedback(conn, theirs)["dimension"] is None
+
+    def test_scope_is_optional(self, conn):
+        row_id = _add(conn)
+        assert mark_feedback(conn, [row_id], "discarded") == 1
+
+
 class TestRemoveAuthorFeedback:
     def test_removes_only_that_authors_rows(self, conn):
         _add(conn)

@@ -81,6 +81,13 @@ from routers.creation import (  # noqa: E402, F401
     create_chapter,
     create_character,
 )
+from routers.feedback import (  # noqa: E402, F401
+    discard_feedback,
+    list_pending_feedback,
+    log_review_feedback,
+    mark_feedback_harvested,
+    set_feedback_classification,
+)
 from routers.gates import (  # noqa: E402, F401
     analyze_plot_logic,
     check_memoir_consent,

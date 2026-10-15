@@ -188,8 +188,12 @@ def set_classification(
     dimension: str,
     direction: str,
     normalized_rule: str,
+    author_slug: str | None = None,
 ) -> bool:
-    """Store the (single) classification of an open entry. False if not found or closed."""
+    """Store the (single) classification of an open entry. False if not found or closed.
+
+    With ``author_slug`` the update only applies to that author's rows.
+    """
     if not dimension.strip() or not direction.strip():
         raise ValueError("dimension and direction must not be empty")
     cur = conn.execute(
@@ -198,18 +202,26 @@ def set_classification(
         SET dimension=?, direction=?, normalized_rule=?, status='classified',
             updated_at=CURRENT_TIMESTAMP
         WHERE id=? AND status IN ('pending', 'classified')
+          AND (? IS NULL OR author_slug=?)
         """,
-        (dimension, direction, normalized_rule, feedback_id),
+        (dimension, direction, normalized_rule, feedback_id, author_slug, author_slug),
     )
     conn.commit()
     return cur.rowcount == 1
 
 
-def mark_feedback(conn: sqlite3.Connection, ids: Iterable[int], status: str) -> int:
+def mark_feedback(
+    conn: sqlite3.Connection,
+    ids: Iterable[int],
+    status: str,
+    *,
+    author_slug: str | None = None,
+) -> int:
     """Close open entries as harvested or discarded. Returns the number of rows changed.
 
     Rows that are already closed are left alone, so the count is the number of
-    entries this call actually transitioned.
+    entries this call actually transitioned. With ``author_slug`` only that
+    author's rows are touched.
     """
     _check(status, TERMINAL_STATUSES, "status")
     if isinstance(ids, (str, bytes)):
@@ -222,8 +234,9 @@ def mark_feedback(conn: sqlite3.Connection, ids: Iterable[int], status: str) -> 
         UPDATE review_feedback SET status=?, updated_at=CURRENT_TIMESTAMP
         WHERE id IN ({','.join('?' * len(id_list))})
           AND status IN ('pending', 'classified')
+          AND (? IS NULL OR author_slug=?)
         """,
-        [status, *id_list],
+        [status, *id_list, author_slug, author_slug],
     )
     conn.commit()
     return cur.rowcount
