@@ -102,9 +102,12 @@ class TestWeighting:
         assert build(evidence(4, source="humanizer"))["candidates"] == []
         assert build(evidence(6, source="humanizer"))["candidates"][0]["weight"] == 3.0
 
-    def test_proofreader_alone_needs_twelve_entries(self):
-        assert build(evidence(11, source="proofreader"))["candidates"] == []
-        assert len(build(evidence(12, source="proofreader"))["candidates"]) == 1
+    def test_proofreader_rejections_alone_need_twelve_entries(self):
+        assert build(evidence(11, source="proofreader", decision="rejected"))["candidates"] == []
+        assert len(build(evidence(12, source="proofreader", decision="rejected"))["candidates"]) == 1
+
+    def test_accepted_proofreader_entries_weigh_nothing(self):
+        assert build(evidence(12, source="proofreader", decision="accepted"))["candidates"] == []
 
     def test_rejected_decisions_count_like_accepted_ones(self):
         rows = evidence(3, decision="rejected")
@@ -137,6 +140,18 @@ class TestScope:
     def test_entries_without_genres_are_universal(self):
         c = build(evidence(3, genres=""))["candidates"][0]
         assert c["scope"]["universal"] is True
+
+    def test_a_row_without_genres_does_not_widen_known_scope(self):
+        rows = evidence(5, genres="thriller") + [row(chapter="09", genres="", source="proofreader",
+                                                    decision="rejected")]
+        c = build(rows)["candidates"][0]
+        assert c["scope"] == {"universal": False, "genres": ["thriller"]}
+
+    def test_genre_slugs_are_compared_case_insensitively(self):
+        rows = [row(chapter="01", genres="Thriller"), row(chapter="02", genres="thriller"),
+                row(chapter="03", genres=" THRILLER ")]
+        c = build(rows)["candidates"][0]
+        assert c["scope"] == {"universal": False, "genres": ["thriller"]}
 
     def test_memoir_and_fiction_are_never_mixed(self):
         rows = evidence(2) + [row(chapter="03", category="memoir", genres="")]
@@ -188,7 +203,7 @@ class TestSuppression:
     def test_discarded_candidate_needs_double_the_evidence(self):
         discarded = [row(chapter=f"{i:02d}", status="discarded") for i in range(1, 4)]
         fresh3 = evidence(3, book="b")
-        assert build(discarded + fresh3[:0])["candidates"] == []
+        assert build(discarded)["candidates"] == []
         # open evidence equal to the discarded weight is enough again
         assert len(build(discarded + fresh3)["candidates"]) == 1
 
@@ -271,7 +286,7 @@ class TestCandidateContent:
         result = build([])
         assert result == {
             "candidates": [], "conflicts": [], "suppressed": 0,
-            "unclassified": 0, "skipped_unknown": 0,
+            "unclassified": 0, "skipped_unknown": 0, "skipped_malformed": 0,
         }
 
 
@@ -280,3 +295,117 @@ def test_invalid_thresholds_raise():
         build([], min_weight=0)
     with pytest.raises(ValueError):
         build([], min_chapters=0)
+
+
+class TestOtherDimension:
+    def test_unrelated_rules_are_not_merged(self):
+        rows = [
+            row(dimension="other", direction="prefer", chapter="01", rule="Use British spelling."),
+            row(dimension="other", direction="prefer", chapter="02", rule="Name chapters after objects."),
+            row(dimension="other", direction="prefer", chapter="03", rule="More food detail."),
+        ]
+        assert build(rows)["candidates"] == []
+
+    def test_same_rule_in_different_wording_case_is_merged(self):
+        rows = [
+            row(dimension="other", direction="prefer", chapter="01", rule="Use British spelling."),
+            row(dimension="other", direction="prefer", chapter="02", rule="use british spelling. "),
+            row(dimension="other", direction="prefer", chapter="03", rule="Use British spelling."),
+        ]
+        result = build(rows)
+        assert len(result["candidates"]) == 1
+        assert result["candidates"][0]["normalized_rule"].lower().startswith("use british")
+
+
+class TestConflictPolicy:
+    def test_weak_opposition_does_not_block_a_strong_candidate(self):
+        rows = evidence(10, direction="shorter") + [
+            row(chapter="99", direction="longer", source="proofreader", decision="rejected",
+                rule="Longer.")
+        ]
+        result = build(rows)
+        assert result["conflicts"] == []
+        c = result["candidates"][0]
+        assert c["direction"] == "shorter"
+        assert [o["direction"] for o in c["opposed_by"]] == ["longer"]
+
+    def test_real_opposition_still_blocks(self):
+        rows = evidence(4, direction="shorter") + [
+            row(chapter="98", direction="longer", rule="Longer."),
+            row(chapter="99", direction="longer", rule="Longer."),
+        ]
+        result = build(rows)
+        assert result["candidates"] == []
+        assert len(result["conflicts"]) == 1
+
+    def test_suppressed_side_does_not_create_a_conflict(self):
+        discarded = [row(chapter=f"{i:02d}", direction="shorter", status="discarded")
+                     for i in range(1, 7)]
+        rows = discarded + [row(chapter="01", direction="shorter", book="b")] + [
+            row(chapter=f"{i:02d}", direction="longer", book="c", rule="Longer.")
+            for i in range(1, 5)
+        ]
+        result = build(rows)
+        assert result["conflicts"] == []
+        assert [c["direction"] for c in result["candidates"]] == ["longer"]
+
+    def test_universal_and_genre_scoped_sides_conflict(self):
+        rows = evidence(3, direction="shorter", genres="") + [
+            row(chapter=f"{i:02d}", direction="longer", genres="thriller", book="b", rule="Longer.")
+            for i in range(1, 4)
+        ]
+        assert len(build(rows)["conflicts"]) == 1
+
+    def test_two_pairs_in_one_dimension_are_both_reported_in_stable_order(self):
+        rows = (
+            evidence(3, direction="shorter") + evidence(3, direction="longer", rule="L.", book="b")
+            + evidence(3, direction="more_variance", rule="V.", book="c")
+            + evidence(3, direction="more_uniform", rule="U.", book="d")
+        )
+        result = build(rows)
+        assert [c["sides"][0]["direction"] for c in result["conflicts"]] == [
+            "longer", "more_uniform"]
+
+
+class TestSuppressionScope:
+    def test_discard_in_a_disjoint_scope_does_not_suppress(self):
+        discarded = [row(chapter=f"{i:02d}", status="discarded", genres="romance", book="a")
+                     for i in range(1, 5)]
+        thriller = evidence(3, genres="thriller", book="b")
+        result = build(discarded + thriller)
+        assert result["suppressed"] == 0
+        assert len(result["candidates"]) == 1
+
+    def test_discard_in_an_overlapping_scope_suppresses(self):
+        discarded = [row(chapter=f"{i:02d}", status="discarded", genres="thriller", book="a")
+                     for i in range(1, 6)]
+        result = build(discarded + evidence(3, genres="thriller", book="b"))
+        assert result["suppressed"] == 1
+
+
+class TestRobustness:
+    def test_recurring_tic_needs_more_than_half_rejected(self):
+        rows = [row(chapter=f"{i:02d}", decision="rejected", direction="more_fragments",
+                    rule="Keep fragments.") for i in (1, 2)] + [
+            row(chapter=f"{i:02d}", decision="accepted", direction="more_fragments",
+                rule="Keep fragments.") for i in (3, 4)]
+        assert build(rows)["candidates"][0]["target_section"] == "style_principles"
+
+    def test_missing_category_is_skipped_not_assumed_fiction(self):
+        rows = evidence(3)
+        for r in rows:
+            r["book_category"] = None
+        result = build(rows)
+        assert result["candidates"] == []
+        assert result["skipped_unknown"] == 3
+
+    def test_malformed_rows_are_counted_not_raised(self):
+        good = evidence(3)
+        bad = [
+            {**row(), "id": None},
+            {**row(), "id": "7a"},
+            {k: v for k, v in row().items() if k != "chapter_slug"},
+        ]
+        result = build(good + bad)
+        assert result["skipped_malformed"] == 3
+        assert len(result["candidates"]) == 1

@@ -481,3 +481,41 @@ class TestGetVoiceCandidates:
         assert "error" in json.loads(get_voice_candidates(""))
         assert "error" in json.loads(get_voice_candidates(None))  # type: ignore[arg-type]
         assert "error" in json.loads(get_voice_candidates("ethan-cole", "ghost"))
+
+
+class TestScalarGenres:
+    def test_scalar_genres_value_is_not_split_into_characters(self, env, monkeypatch):
+        books = {"solo": {**BOOKS["firelight"], "genres": "thriller"}}
+        monkeypatch.setattr(_app._cache, "get", lambda: {"books": books})
+        assert _log(book_slug="solo")["logged"] is True
+        assert _rows()[0]["genres"] == "thriller"
+
+
+class TestCandidatePrivacyAndErrors:
+    def test_memoir_candidates_carry_no_raw_text_keys(self, env):
+        for i, chapter in enumerate(["01-home", "01-home", "01-home"], start=1):
+            _log(
+                book_slug="my-life", chapter_slug=chapter, comment_text=f"c{i}",
+                dimension="hedging", direction="less", normalized_rule="No hedging.",
+            )
+        # distinct content, one chapter -> not enough chapters; add second memoir book
+        for i in range(3):
+            _log(
+                book_slug="other-life", chapter_slug="01-x", comment_text=f"d{i}",
+                dimension="hedging", direction="less", normalized_rule="No hedging.",
+            )
+        result = json.loads(get_voice_candidates("ethan-cole", "my-life"))
+        assert result["candidates"], result
+        for c in result["candidates"]:
+            assert not {"comment_text", "before_text", "after_text", "proposal_text"} & set(c)
+            assert c["scope"]["universal"] is True
+
+    def test_vocabulary_failure_returns_error(self, env, monkeypatch):
+        import routers.feedback as fb
+        from tools.analysis.voice_dimensions import VoiceDimensionError
+
+        def boom(rows):
+            raise VoiceDimensionError("vocabulary missing")
+
+        monkeypatch.setattr(fb, "build_voice_candidates", boom)
+        assert "vocabulary" in json.loads(get_voice_candidates("ethan-cole"))["error"]

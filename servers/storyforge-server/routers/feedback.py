@@ -244,7 +244,10 @@ def log_review_feedback(
             "raw text is not stored for memoir books"
         )
 
-    genres = "" if category == "memoir" else ",".join(str(g) for g in (book.get("genres") or []))
+    raw_genres = book.get("genres") or []
+    if isinstance(raw_genres, str):
+        raw_genres = [raw_genres]
+    genres = "" if category == "memoir" else ",".join(str(g).strip() for g in raw_genres)
 
     try:
         conn = open_authors_db()
