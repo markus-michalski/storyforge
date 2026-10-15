@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
+import secrets
 import sqlite3
 from collections.abc import Iterable, Sequence
 
@@ -25,12 +27,25 @@ _COLUMNS = (
 )
 
 
-def _content_hash(source_skill: str, decision: str, texts: Sequence[str]) -> str:
-    # JSON encoding keeps field boundaries unambiguous, whatever the texts contain.
+def _salt(conn: sqlite3.Connection) -> bytes:
+    """Return this database's secret, creating it on first use."""
+    conn.execute(
+        "INSERT OR IGNORE INTO review_feedback_meta (id, salt) VALUES (1, ?)",
+        (secrets.token_hex(32),),
+    )
+    row = conn.execute("SELECT salt FROM review_feedback_meta WHERE id=1").fetchone()
+    return str(row[0]).encode("utf-8")
+
+
+def _content_hash(
+    conn: sqlite3.Connection, source_skill: str, decision: str, texts: Sequence[str]
+) -> str:
+    # JSON encoding keeps field boundaries unambiguous, whatever the texts contain;
+    # the keyed digest keeps short texts from being recovered by guessing.
     payload = json.dumps(
         [source_skill, decision, *(t.strip() for t in texts)], ensure_ascii=False
     )
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return hmac.new(_salt(conn), payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def _require_slug(value: str | None, name: str) -> None:
@@ -67,9 +82,10 @@ def insert_feedback(
     classified, so names and facts about real people never reach the table.
     ``book_category`` is required on purpose: a default would fail open for memoir.
 
-    Note: the content hash of a memoir row is computed over the raw text before it
-    is discarded. Treat it as a dedup key, not as anonymisation; ``dimension``,
-    ``direction`` and ``normalized_rule`` must be written without names or facts.
+    Note: the content hash of a memoir row is a keyed digest (per-database secret)
+    of the raw text before it is discarded. It is a dedup key, not anonymisation;
+    ``dimension``, ``direction`` and ``normalized_rule`` must be written without
+    names or facts.
     """
     _require_slug(author_slug, "author_slug")
     _require_slug(book_slug, "book_slug")
@@ -109,7 +125,7 @@ def insert_feedback(
             direction if classified else None,
             normalized_rule if classified else None,
             "classified" if classified else "pending",
-            _content_hash(source_skill, decision, texts),
+            _content_hash(conn, source_skill, decision, texts),
         ),
     )
     conn.commit()

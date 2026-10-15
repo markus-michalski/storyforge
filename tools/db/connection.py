@@ -217,6 +217,13 @@ def ensure_authors_schema(conn: sqlite3.Connection) -> None:
             UNIQUE(book_slug, chapter_slug, content_hash)
         );
 
+        -- Per-database secret for review_feedback.content_hash, so the hash of a
+        -- short memoir comment cannot be recovered by guessing candidate texts.
+        CREATE TABLE IF NOT EXISTS review_feedback_meta (
+            id   INTEGER PRIMARY KEY CHECK (id = 1),
+            salt TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_rf_author_status
             ON review_feedback(author_slug, status);
 

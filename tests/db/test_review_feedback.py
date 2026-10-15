@@ -281,6 +281,41 @@ class TestHardening:
         assert [r["id"] for r in list_feedback(conn, "ethan-cole", statuses="pending")] == [row_id]
 
 
+class TestSaltedHash:
+    def test_hash_is_not_the_plain_digest_of_the_text(self, conn):
+        import hashlib
+        import json
+
+        row_id = _add(conn, comment_text="Anna ging.", before_text="", after_text="")
+        stored = get_feedback(conn, row_id)["content_hash"]
+        plain = hashlib.sha256(
+            json.dumps(["reviewer", "accepted", "Anna ging.", "", "", ""],
+                       ensure_ascii=False).encode("utf-8")
+        ).hexdigest()
+        assert stored != plain
+
+    def test_hash_differs_between_databases(self, tmp_path):
+        hashes = []
+        for name in ("a.db", "b.db"):
+            db = open_db(tmp_path / name)
+            ensure_authors_schema(db)
+            hashes.append(get_feedback(db, _add(db))["content_hash"])
+            db.close()
+        assert hashes[0] != hashes[1]
+
+    def test_salt_persists_so_dedup_survives_reopen(self, tmp_path):
+        path = tmp_path / "authors.db"
+        db = open_db(path)
+        ensure_authors_schema(db)
+        assert _add(db) is not None
+        db.close()
+
+        db = open_db(path)
+        ensure_authors_schema(db)
+        assert _add(db) is None
+        db.close()
+
+
 class TestRemoveAuthorFeedback:
     def test_removes_only_that_authors_rows(self, conn):
         _add(conn)
