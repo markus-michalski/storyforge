@@ -519,3 +519,17 @@ class TestCandidatePrivacyAndErrors:
 
         monkeypatch.setattr(fb, "build_voice_candidates", boom)
         assert "vocabulary" in json.loads(get_voice_candidates("ethan-cole"))["error"]
+
+
+class TestCarriedOverAcrossBooks:
+    def test_same_chapter_slug_in_another_book_is_carried_over(self, env, monkeypatch):
+        books = {
+            "firelight": BOOKS["firelight"],
+            "sequel": {**BOOKS["firelight"], "chapters_data": {"01-arrival": {"number": 1}}},
+        }
+        monkeypatch.setattr(_app._cache, "get", lambda: {"books": books, "authors": {}})
+        _log(book_slug="firelight", chapter_slug="01-arrival", comment_text="a")
+        _log(book_slug="sequel", chapter_slug="01-arrival", comment_text="b")
+        result = json.loads(list_pending_feedback("firelight", "01-arrival"))
+        flags = {e["book_slug"]: e["carried_over"] for e in result["entries"]}
+        assert flags == {"firelight": False, "sequel": True}

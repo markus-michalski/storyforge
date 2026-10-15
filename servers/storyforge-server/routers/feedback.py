@@ -10,9 +10,7 @@ it keeps going through ``write_author_discovery``.
 from __future__ import annotations
 
 import json
-import re
 import sqlite3
-import unicodedata
 from typing import Any
 
 from mcp.types import ToolAnnotations
@@ -30,20 +28,13 @@ from tools.db.review_feedback import (
     set_classification,
 )
 
+from tools.shared.person_names import person_name_hit
+
 from . import _app
 from ._app import mcp
 
 MAX_RULE_LENGTH = 240
 MAX_TEXT_LENGTH = 8000
-
-# Name parts that carry no identity: relationship terms and name particles.
-_NOT_NAMES = frozenset({
-    "mom", "mum", "mama", "mommy", "mother", "dad", "papa", "daddy", "father",
-    "oma", "opa", "omi", "mutti", "vati", "uncle", "aunt", "auntie", "onkel", "tante",
-    "grandma", "grandpa", "sister", "brother", "schwester", "bruder",
-    "de", "la", "le", "van", "von", "der", "den", "di", "da", "du", "el", "al",
-})
-
 
 def _error(message: str) -> str:
     return json.dumps({"error": message})
@@ -84,37 +75,6 @@ def _category(book: dict[str, Any]) -> str:
     return str(book.get("book_category") or "fiction")
 
 
-def _fold(text: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
-
-
-def _tokens(text: str) -> list[str]:
-    return [t for t in re.split(r"[\W_]+", _fold(text)) if t]
-
-
-def _person_tokens(people: dict[str, Any]) -> set[str]:
-    """Identity-bearing name parts of the real people in a memoir book."""
-    found: set[str] = set()
-    for key, person in (people or {}).items():
-        sources = [str(person.get("name") or ""), str(person.get("real_name") or ""),
-                   str(person.get("slug") or key)]
-        for source in sources:
-            found.update(t for t in _tokens(source) if len(t) >= 2 and t not in _NOT_NAMES)
-    return found
-
-
-def _name_in(rule: str, people: dict[str, Any]) -> str | None:
-    names = _person_tokens(people)
-    for token in _tokens(rule):
-        if token in names:
-            return token
-        for suffix in ("s", "es"):
-            if token.endswith(suffix) and token[: -len(suffix)] in names:
-                return token[: -len(suffix)]
-    return None
-
-
 def _check_rule(rule_text: str, *, memoir: bool, people: dict[str, Any]) -> str | None:
     rule = rule_text.strip()
     if not rule:
@@ -122,7 +82,7 @@ def _check_rule(rule_text: str, *, memoir: bool, people: dict[str, Any]) -> str 
     if len(rule) > MAX_RULE_LENGTH or "\n" in rule or "\r" in rule:
         return f"normalized_rule must be a single line of at most {MAX_RULE_LENGTH} characters"
     if memoir:
-        hit = _name_in(rule, people)
+        hit = person_name_hit(rule, people)
         if hit:
             return (
                 f"normalized_rule must not contain the name of a person from this memoir "
@@ -142,14 +102,16 @@ def _check_classification(
     return _check_rule(rule, memoir=memoir, people=people)
 
 
-def _entry_view(row: dict[str, Any], chapter_slug: str) -> dict[str, Any]:
+def _entry_view(row: dict[str, Any], book_slug: str, chapter_slug: str) -> dict[str, Any]:
     keys = (
         "id", "book_slug", "chapter_slug", "source_skill", "decision", "comment_text",
         "before_text", "after_text", "proposal_text", "dimension", "direction",
         "normalized_rule", "status", "genres", "book_category", "created_at",
     )
     view = {k: row[k] for k in keys}
-    view["carried_over"] = bool(chapter_slug) and row["chapter_slug"] != chapter_slug
+    view["carried_over"] = bool(chapter_slug) and (
+        row["chapter_slug"] != chapter_slug or row["book_slug"] != book_slug
+    )
     return view
 
 
@@ -313,7 +275,7 @@ def list_pending_feedback(book_slug: str, chapter_slug: str = "") -> str:
     except sqlite3.Error as exc:
         return _db_error(exc)
 
-    entries = [_entry_view(r, chapter_slug) for r in rows]
+    entries = [_entry_view(r, book_slug, chapter_slug) for r in rows]
     return json.dumps({"count": len(entries), "entries": entries})
 
 
