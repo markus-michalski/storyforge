@@ -533,3 +533,53 @@ def refresh_draft_baseline(book_slug: str, chapter_slug: str) -> str:
     text = draft.read_text(encoding="utf-8")
     draft_snapshots.write_snapshot(book_slug, chapter_slug, text)
     return json.dumps({"refreshed": True, "characters": len(text)})
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
+def list_raw_drafts(book_slug: str) -> str:
+    """List chapters of ``book_slug`` that have a raw-draft copy (Issue #686).
+
+    ``create_chapter`` seeds a fiction chapter's raw copy with its starting
+    heading; it then grows only through plain appends — a write that changes
+    existing text (chapter-reviewer, chapter-humanizer, chapter-proofreader,
+    chapter-fixer, or the writer's own in-draft revision loop) contributes
+    nothing, but a later append still picks up from the text already
+    captured — see ``read_raw_draft`` to fetch it. Only fiction books get
+    raw copies; memoir books, and chapters scaffolded before this feature
+    shipped, never have one. Returns ``{chapters: [chapter_slug, ...]}``.
+    """
+    book, error = _resolve_book(book_slug)
+    if error or book is None:
+        return _error(error or "book not resolved")
+    raw_dir = draft_snapshots.raw_snapshots_dir(book_slug)
+    if not raw_dir.is_dir():
+        return json.dumps({"chapters": []})
+    known_chapters = book.get("chapters_data") or {}
+    chapters = sorted(p.stem for p in raw_dir.glob("*.md") if p.stem in known_chapters)
+    return json.dumps({"chapters": chapters})
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@catch_slug_value_error
+def read_raw_draft(book_slug: str, chapter_slug: str) -> str:
+    """Return the raw-draft copy of one chapter, if one exists (Issue #686).
+
+    Returns ``{text, characters}`` or ``{status: "no_raw_draft", message}`` when
+    none was recorded (memoir book, chapter scaffolded before this feature
+    shipped, or no eligible write has happened yet).
+    """
+    book, error = _resolve_book(book_slug)
+    if error or book is None:
+        return _error(error or "book not resolved")
+    if not isinstance(chapter_slug, str) or chapter_slug not in (book.get("chapters_data") or {}):
+        return _error(f"Chapter '{chapter_slug}' not found in book '{book_slug}'")
+    text = draft_snapshots.read_raw_draft(book_slug, chapter_slug)
+    if text is None:
+        return json.dumps({
+            "status": "no_raw_draft",
+            "message": "No raw-draft copy exists for this chapter (memoir book, the chapter "
+                       "was scaffolded before this feature shipped, or no eligible write has "
+                       "happened yet).",
+        })
+    return json.dumps({"text": text, "characters": len(text)})

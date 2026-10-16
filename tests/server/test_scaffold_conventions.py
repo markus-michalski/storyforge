@@ -194,6 +194,71 @@ class TestCreateChapterWritesBoth:
 
 
 # ---------------------------------------------------------------------------
+# Issue #686 — create_chapter seeds the raw-draft copy
+# ---------------------------------------------------------------------------
+
+
+class TestCreateChapterSeedsRawDraft:
+    """create_chapter seeds a fiction chapter's raw-draft copy with its starting heading.
+
+    Without this seed, chapter-writer's first real touch on a freshly-scaffolded chapter
+    is very often an Edit appending after that heading, not a Write on an empty file — see
+    the module docstring of tools/state/draft_snapshots.py for why that matters.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _snapshot_dir(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        import tools.db.connection as conn_mod
+
+        db_dir = tmp_path / "home" / "db"
+        db_dir.mkdir(parents=True)
+        monkeypatch.setattr(conn_mod, "DB_DIR", db_dir)
+        monkeypatch.delenv("STORYFORGE_SNAPSHOT_DIR", raising=False)
+
+    def test_fiction_chapter_gets_a_seeded_raw_copy(self, server_module, content_root: Path):
+        from tools.state import draft_snapshots as ds
+
+        _write_book_skeleton(content_root)  # no book_category -> defaults to fiction
+        result = json.loads(
+            server_module.create_chapter(book_slug="test-book", title="Opening", number=1)
+        )
+        assert result.get("success") is True
+
+        draft = content_root / "projects" / "test-book" / "chapters" / "01-opening" / "draft.md"
+        heading = draft.read_text(encoding="utf-8")
+        assert ds.read_raw_draft("test-book", "01-opening") == heading
+
+    def test_memoir_book_gets_no_seeded_raw_copy(self, server_module, content_root: Path):
+        from tools.state import draft_snapshots as ds
+
+        project = _write_book_skeleton(content_root, slug="memoir-book")
+        (project / "README.md").write_text(
+            '---\ntitle: "Memoir"\nslug: "memoir-book"\nstatus: "Drafting"\nbook_category: "memoir"\n---\n# M\n',
+            encoding="utf-8",
+        )
+        result = json.loads(
+            server_module.create_chapter(book_slug="memoir-book", title="Opening", number=1)
+        )
+        assert result.get("success") is True
+        assert ds.read_raw_draft("memoir-book", "01-opening") is None
+
+    def test_unreadable_book_readme_still_gets_a_seeded_raw_copy(self, server_module, content_root: Path):
+        """A transient README problem must not cost every chapter of that book its raw copy
+        for good -- the seed is only a heading, and the hook deletes it later if the book
+        turns out to be a confirmed memoir after all (Issue #686, finding L-3)."""
+        from tools.state import draft_snapshots as ds
+
+        project = _write_book_skeleton(content_root, slug="odd-book")
+        (project / "README.md").write_text("not frontmatter at all", encoding="utf-8")
+        result = json.loads(
+            server_module.create_chapter(book_slug="odd-book", title="Opening", number=1)
+        )
+        assert result.get("success") is True
+        draft = content_root / "projects" / "odd-book" / "chapters" / "01-opening" / "draft.md"
+        assert ds.read_raw_draft("odd-book", "01-opening") == draft.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
 # Issue #17 — world/ vs worldbuilding/ alias
 # ---------------------------------------------------------------------------
 

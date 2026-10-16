@@ -11,7 +11,8 @@ import pytest
 
 import routers._app as _app
 import tools.db.connection as conn_mod
-from routers.feedback import get_self_edit_hunks, refresh_draft_baseline
+import tools.shared.config as config_mod
+from routers.feedback import get_self_edit_hunks, list_raw_drafts, read_raw_draft, refresh_draft_baseline
 from tools.state import draft_snapshots as ds
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -170,6 +171,52 @@ class TestRefreshDraftBaseline:
         result = _call(refresh_draft_baseline, "my-life", "01-x")
         assert result["status"] == "memoir_unsupported"
         assert ds.read_snapshot("my-life", "01-x") is None
+
+
+class TestRawDraftTools:
+    """MCP read-side tools for the Issue #686 raw-draft copy.
+
+    ``record_tool_write`` (unlike the read tools, which go through
+    ``_app.load_config``) resolves the chapter via ``tools.shared.config
+    .load_config`` directly (``_is_known_chapter``) — patch that binding too
+    so the hook sees the same fixture content root.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _patch_shared_config(self, env, monkeypatch):
+        tmp_path = env["content_root"].parent
+        monkeypatch.setattr(
+            config_mod, "load_config",
+            lambda: {"paths": {"content_root": str(env["content_root"]), "authors_root": str(tmp_path / "a")},
+                     "defaults": {"review_handle": "Markus"}},
+        )
+
+    def test_list_is_empty_before_any_write(self, env):
+        assert _call(list_raw_drafts, "firelight") == {"chapters": []}
+
+    def test_read_reports_no_raw_draft_before_any_write(self, env):
+        result = _call(read_raw_draft, "firelight", "01-x")
+        assert result["status"] == "no_raw_draft"
+
+    def test_first_recorded_write_surfaces_through_both_tools(self, env):
+        draft = env["chapters"]["firelight"]
+        ds.record_tool_write({"tool_name": "Write", "tool_input": {"file_path": str(draft), "content": BASE}})
+        assert _call(list_raw_drafts, "firelight") == {"chapters": ["01-x"]}
+        result = _call(read_raw_draft, "firelight", "01-x")
+        assert result["text"] == BASE
+        assert result["characters"] == len(BASE)
+
+    def test_memoir_books_never_get_a_raw_draft(self, env):
+        draft = env["chapters"]["my-life"]
+        ds.record_tool_write({"tool_name": "Write", "tool_input": {"file_path": str(draft), "content": BASE}})
+        assert _call(list_raw_drafts, "my-life") == {"chapters": []}
+        assert _call(read_raw_draft, "my-life", "01-x")["status"] == "no_raw_draft"
+
+    def test_unknown_book_and_chapter_are_errors(self, env):
+        assert "error" in _call(list_raw_drafts, "ghost")
+        assert "error" in _call(read_raw_draft, "firelight", "99-nope")
+        assert "error" in _call(read_raw_draft, "firelight", "../x")
+        assert "error" in _call(list_raw_drafts, "../x")
 
 
 class TestHookScript:
