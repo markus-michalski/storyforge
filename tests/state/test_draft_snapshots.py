@@ -349,6 +349,252 @@ class TestRecordToolWrite:
             ds.remove_book_snapshots("")
 
 
+class TestRawDraft:
+    """Issue #686: raw-draft copy that grows only through pure appends."""
+
+    def test_first_write_creates_a_raw_copy_equal_to_the_baseline(self, tmp_path):
+        path = chapter_file(tmp_path)
+        path.write_text(BASE, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=BASE))
+        assert ds.read_raw_draft("firelight", "04-the-crossing") == BASE
+        assert ds.read_snapshot("firelight", "04-the-crossing") == BASE
+
+    def test_raw_copy_follows_mode_a_scene_appends(self, tmp_path):
+        path = chapter_file(tmp_path)
+        scene1 = "Scene one text."
+        path.write_text(scene1, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=scene1))
+
+        scene2_full = scene1 + "\n\nScene two text."
+        ds.record_pre_write(payload(path, "Edit", old_string="x", new_string="y"))
+        path.write_text(scene2_full, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=scene2_full))
+
+        assert ds.read_raw_draft("firelight", "04-the-crossing") == scene2_full
+
+    def test_in_place_edit_is_skipped_not_merged(self, tmp_path):
+        path = chapter_file(tmp_path)
+        path.write_text(BASE, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=BASE))
+
+        reviewed = BASE.replace("The river was loud.", "The river roared.")
+        data = payload(path, "Edit", old_string="The river was loud.", new_string="The river roared.")
+        ds.record_pre_write(data)
+        path.write_text(reviewed, encoding="utf-8")
+        ds.record_tool_write(data)
+
+        assert ds.read_raw_draft("firelight", "04-the-crossing") == BASE  # unchanged
+        assert "roared" in ds.read_snapshot("firelight", "04-the-crossing")  # baseline still follows
+
+    def test_appending_still_works_after_an_unrelated_in_place_edit(self, tmp_path):
+        """A reviewer-style in-place edit is skipped (not merged), but it does not get the
+        raw copy stuck forever: a later append is still recorded on top of whatever text is
+        actually in the file now, picking up from the text already captured — this is what
+        keeps scene-by-scene writing working even when a review pass runs mid-chapter."""
+        path = chapter_file(tmp_path)
+        scene1 = "Scene one text."
+        path.write_text(scene1, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=scene1))
+
+        # An in-place edit (e.g. a reviewer fix) changes existing text -- skipped, not merged.
+        data = payload(path, "Edit", old_string="Scene one", new_string="Scene ONE")
+        ds.record_pre_write(data)
+        edited = scene1.replace("Scene one", "Scene ONE")
+        path.write_text(edited, encoding="utf-8")
+        ds.record_tool_write(data)
+        assert ds.read_raw_draft("firelight", "04-the-crossing") == scene1  # unchanged
+
+        # A later append -- on top of the file's actual (edited) current text -- still works:
+        # only the newly-added suffix is recorded, on top of what was already captured.
+        append_data = payload(path, "Edit", old_string="x", new_string="y")
+        ds.record_pre_write(append_data)  # captures "edited" as this write's before-state
+        appended = edited + "\n\nScene two text."
+        path.write_text(appended, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=appended))
+        assert ds.read_raw_draft("firelight", "04-the-crossing") == scene1 + "\n\nScene two text."
+
+    def test_a_review_comment_the_author_added_directly_never_reaches_the_raw_copy(self, tmp_path):
+        """The author's own `{review_handle}:` comment is written directly into draft.md, not
+        through a Claude tool call -- the hook never sees a write that "added" it, so it can
+        never end up as part of what the raw-copy append logic records."""
+        path = chapter_file(tmp_path)
+        scene1 = "Scene one text."
+        path.write_text(scene1, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=scene1))
+
+        # The author adds a comment directly -- no Claude tool call, so no hook fires for it.
+        with_comment = scene1 + "\n\nMarkus: bitte kürzer formulieren hier"
+        path.write_text(with_comment, encoding="utf-8")
+
+        # The writer's next Claude edit appends scene 2 after the comment, without touching it.
+        data = payload(path, "Edit", old_string="x", new_string="y")
+        ds.record_pre_write(data)  # captures "with_comment" as this write's before-state
+        scene2_after_comment = with_comment + "\n\nScene two text."
+        path.write_text(scene2_after_comment, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=scene2_after_comment))
+
+        raw = ds.read_raw_draft("firelight", "04-the-crossing")
+        assert "Markus:" not in raw
+        assert raw == scene1 + "\n\nScene two text."
+
+    def test_first_touch_via_edit_gets_no_raw_copy(self, tmp_path):
+        """A baseline-less chapter touched first by Edit/MultiEdit (not Write) means the
+        baseline was lost or reset for some other reason -- the current text is not
+        reliably "the writer's first output", so no raw copy is created (fail closed)."""
+        path = chapter_file(tmp_path)
+        path.write_text(BASE, encoding="utf-8")
+        data = payload(path, "Edit", old_string="loud.", new_string="loud!")
+        ds.record_pre_write(data)
+        path.write_text(BASE.replace("loud.", "loud!"), encoding="utf-8")
+        ds.record_tool_write(data)
+        assert ds.read_raw_draft("firelight", "04-the-crossing") is None
+        assert ds.read_snapshot("firelight", "04-the-crossing") is not None  # baseline still created
+
+    def test_seeded_raw_copy_is_extended_by_the_writers_first_edit(self, tmp_path):
+        """Mirrors `create_chapter` seeding the raw copy with the chapter heading, then the
+        writer's first real touch appending scene 1 via Edit (not Write) -- the common case
+        that a Write-only gate on a baseline-less chapter would miss entirely (Issue #686)."""
+        path = chapter_file(tmp_path)
+        heading = "# Chapter 4: The Crossing\n\n"
+        path.write_text(heading, encoding="utf-8")
+        ds.write_raw_draft("firelight", "04-the-crossing", heading)  # what create_chapter does
+
+        data = payload(path, "Edit", old_string="x", new_string="y")
+        ds.record_pre_write(data)  # captures "heading" as this write's before-state
+        after_scene1 = heading + "Scene one text."
+        path.write_text(after_scene1, encoding="utf-8")
+        ds.record_tool_write(data)  # a genuine Edit, not a Write
+
+        assert ds.read_raw_draft("firelight", "04-the-crossing") == after_scene1
+        assert ds.read_snapshot("firelight", "04-the-crossing") == after_scene1  # baseline too
+
+    def test_chapter_that_predates_the_feature_gets_no_raw_copy(self, tmp_path):
+        path = chapter_file(tmp_path)
+        path.write_text(BASE, encoding="utf-8")
+        # Simulate a baseline that already existed before raw tracking shipped
+        # (the chapter had Claude writes under the old hook code already).
+        ds.write_snapshot("firelight", "04-the-crossing", BASE)
+        data = payload(path, "Edit", old_string="loud.", new_string="loud. More.")
+        ds.record_pre_write(data)
+        path.write_text(BASE.replace("loud.", "loud. More."), encoding="utf-8")
+        ds.record_tool_write(data)
+        assert ds.read_raw_draft("firelight", "04-the-crossing") is None
+
+    def test_existing_chapter_with_baseline_gets_no_raw_copy_on_a_bare_write(self, tmp_path):
+        """A chapter already tracked by a baseline (e.g. it's deep in the review pipeline,
+        fully reviewed and humanized) but with no raw copy must not get one seeded from
+        whatever polished text happens to be in the file on its next plain Write -- that
+        text is not "the writer's first output" just because no raw copy exists yet."""
+        path = chapter_file(tmp_path)
+        polished = "# Chapter 4: The Crossing\n\nPolished, reviewed, humanized chapter text."
+        path.write_text(polished, encoding="utf-8")
+        ds.write_snapshot("firelight", "04-the-crossing", polished)  # pre-existing baseline
+
+        appended = polished + "\n\nNew ending."
+        ds.record_pre_write(payload(path, "Write", content=appended))
+        path.write_text(appended, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=appended))
+
+        assert ds.read_raw_draft("firelight", "04-the-crossing") is None
+
+    def test_stale_baseline_does_not_freeze_the_raw_copy(self, tmp_path):
+        """A chapter's baseline can go stale (an Edit with no way to resolve `before`) without
+        that stopping the raw copy, which has its own, independent append signal."""
+        path = chapter_file(tmp_path)
+        heading = "# Chapter 4: The Crossing\n\n"
+        path.write_text(heading, encoding="utf-8")
+        ds.write_raw_draft("firelight", "04-the-crossing", heading)  # what create_chapter does
+
+        scene1_data = payload(path, "Edit", old_string="x", new_string="y")
+        ds.record_pre_write(scene1_data)
+        after_scene1 = heading + "Scene one text."
+        path.write_text(after_scene1, encoding="utf-8")
+        ds.record_tool_write(scene1_data)
+        assert ds.read_raw_draft("firelight", "04-the-crossing") == after_scene1
+
+        ds.mark_stale("firelight", "04-the-crossing")
+        assert ds.is_stale("firelight", "04-the-crossing") is True
+
+        # A further append, properly tracked via the PreToolUse hook (which still fires for
+        # the raw copy even though the baseline is stale), still advances the raw copy.
+        scene2_data = payload(path, "Edit", old_string="x", new_string="y")
+        ds.record_pre_write(scene2_data)
+        after_scene2 = after_scene1 + "\n\nScene two text."
+        path.write_text(after_scene2, encoding="utf-8")
+        ds.record_tool_write(scene2_data)
+
+        assert ds.read_raw_draft("firelight", "04-the-crossing") == after_scene2
+        assert ds.read_snapshot("firelight", "04-the-crossing") is None  # baseline stays stale
+
+    def test_refresh_draft_baseline_equivalent_never_touches_raw(self, tmp_path):
+        path = chapter_file(tmp_path)
+        path.write_text(BASE, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=BASE))
+        # refresh_draft_baseline (MCP tool) is just write_snapshot under the hood.
+        ds.write_snapshot("firelight", "04-the-crossing", "author's own rewrite, not Claude's")
+        assert ds.read_raw_draft("firelight", "04-the-crossing") == BASE
+
+    def test_memoir_books_get_no_raw_copy(self, tmp_path):
+        path = chapter_file(tmp_path, book="my-life", category="memoir")
+        path.write_text("Anna ging.", encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content="Anna ging."))
+        assert ds.read_raw_draft("my-life", "04-the-crossing") is None
+        assert not ds.raw_snapshots_dir("my-life").exists()
+
+    def test_confirmed_memoir_deletes_an_existing_raw_copy(self, tmp_path):
+        path = chapter_file(tmp_path, book="my-life", category="memoir")
+        ds.write_raw_draft("my-life", "04-the-crossing", "stray raw copy from before memoir was set")
+        path.write_text("Anna ging.", encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content="Anna ging."))
+        assert ds.read_raw_draft("my-life", "04-the-crossing") is None
+
+    def test_unreadable_readme_does_not_delete_an_existing_raw_copy(self, tmp_path):
+        """A temporary README read/parse failure must not delete data that (unlike the
+        baseline) can't be rebuilt -- only a *confirmed* memoir category may (Issue #686)."""
+        path = chapter_file(tmp_path, book="odd-book", readme="<none>")  # book README missing
+        ds.write_raw_draft("odd-book", "04-the-crossing", "already-captured raw text")
+        path.write_text("More prose.", encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content="More prose."))
+        assert ds.read_raw_draft("odd-book", "04-the-crossing") == "already-captured raw text"
+        assert ds.read_snapshot("odd-book", "04-the-crossing") is None  # baseline still fails closed
+
+    def test_remove_book_snapshots_also_removes_the_raw_dir(self, tmp_path):
+        path = chapter_file(tmp_path)
+        path.write_text(BASE, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=BASE))
+        assert ds.raw_snapshots_dir("firelight").exists()
+        ds.remove_book_snapshots("firelight")
+        assert not ds.raw_snapshots_dir("firelight").exists()
+
+    def test_remove_book_snapshots_include_raw_false_keeps_the_raw_dir(self, tmp_path):
+        path = chapter_file(tmp_path)
+        path.write_text(BASE, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=BASE))
+        ds.remove_book_snapshots("firelight", include_raw=False)
+        assert not ds.snapshot_file("firelight", "04-the-crossing").parent.exists()  # baseline gone
+        assert ds.read_raw_draft("firelight", "04-the-crossing") == BASE  # raw copy untouched
+
+    def test_raw_namespace_cannot_collide_with_a_real_book(self, tmp_path):
+        # A book literally named ".raw" is impossible -- _validate_slug rejects
+        # any leading dot -- so no real book's baseline dir can ever be the
+        # raw-draft namespace itself, or vice versa.
+        with pytest.raises(ValueError):
+            ds.raw_draft_file(".raw", "04")
+        path = chapter_file(tmp_path)
+        path.write_text(BASE, encoding="utf-8")
+        ds.record_tool_write(payload(path, "Write", content=BASE))
+        assert ds.snapshot_file("firelight", "04-the-crossing").parent != ds.raw_snapshots_dir("firelight").parent
+
+    @pytest.mark.parametrize("book,chapter", [("../evil", "04"), ("firelight", "../../x"),
+                                              ("firelight", "a/b"), (".hidden", "04")])
+    def test_raw_draft_file_slugs_cannot_escape_the_snapshot_dir(self, book, chapter):
+        with pytest.raises(ValueError):
+            ds.raw_draft_file(book, chapter)
+
+    def test_never_raises(self, tmp_path):
+        ds.record_tool_write(payload(tmp_path / "x" / "chapters" / "y" / "draft.md", "Write", content="x"))
+
+
 class TestHunks:
     def test_unchanged_text_has_no_hunks(self):
         assert ds.compute_hunks(BASE, BASE)["hunks"] == []
