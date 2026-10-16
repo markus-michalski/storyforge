@@ -23,7 +23,7 @@ The following terms appear with suspicious frequency in AI-generated fiction and
 2. **Tapestry** (metaphorical) — "A rich tapestry of..." Almost never used by humans in this way. Overused in AI summaries.
 3. **Nuanced** / **Nuance** — AI loves claiming things are nuanced when it needs to sound sophisticated without committing to analysis.
 4. **Vibrant** — Favored descriptor for colors, communities, markets. Humans use more specific color words.
-5. **Landscape** (metaphorical) — "The technological landscape" or "political landscape." AI's favorite abstraction.
+5. **Landscape of** — "The landscape of modern politics." AI's favorite abstraction. Narrowed to the "landscape of" construction: bare "landscape" is ordinary scenery vocabulary in fiction (78 hits in 3.7M words of human fantasy/horror prose) — judge the metaphorical use in Pass 2.
 6. **Embark** / **Embark on** — Overly formal and archaic. Humans say "start" or "begin."
 7. **Resonate** — "This idea resonates..." AI's go-to word when an emotional connection should be shown, not stated.
 8. **Pivotal** — Overused intensifier. Humans prefer "turning point" or "critical" (not "crucial" — same AI-intensifier reflex, see #67).
@@ -48,7 +48,7 @@ The following terms appear with suspicious frequency in AI-generated fiction and
 27. **Bolster** — Formal and distant from human speech.
 28. **Differentiate** — Academic and didactic.
 29. **Refine** — Too gentle for dramatic prose.
-30. **Illuminate** — Overused metaphorical explanation.
+30. Illuminate — Overused metaphorical explanation. Not bolded: lamps, candles and spells literally illuminate things in fiction (165 hits in 3.7M words of human prose, almost all literal) — judge the metaphorical use in Pass 2.
 31. **Harness** — "Harness the power of..." Corporate jargon.
 32. **At its core** — Transition favorite of AI, signaling summary-mode.
 33. **To put it simply** — Condescending filler that distances the reader.
@@ -61,13 +61,13 @@ The following terms appear with suspicious frequency in AI-generated fiction and
 40. **Game-changing** — Hyphenated marketing-speak.
 41. **Seamless integration** — No human character thinks or speaks this way.
 42. **Scalable solution** — Pure business jargon in narrative.
-43. **Rich** (as in "rich with meaning") — Overused intensifier. Show the richness.
-44. **Journey** (metaphorical) — "A journey toward self-discovery." Humans use "path," "process," or show the actual journey.
+43. **Rich with** / **Rich in** — Overused intensifier ("rich with meaning"). Show the richness. Narrowed to the "rich with/in" constructions: bare "rich" (money, food, soil, voices) fired 134 times in 3.7M words of human prose, and `Rich\w*` also matched the names Richard and Richards.
+44. **Journey of** / **Journey toward** / **Journey towards** — "A journey toward self-discovery." Humans use "path," "process," or show the actual journey. Narrowed to the abstract constructions: bare "journey" is the most common false positive in the catalog (320 hits in 3.7M words of human prose, nearly all literal travel).
 45. **Profound** — When attached to vague concepts. AI's favorite complexity-signal.
 46. **Compelling** — Meta-commentary. Show why something is compelling.
 47. **Dynamic** — Vague intensifier. Describe what actually moves.
 48. **Compelling narrative** — Self-aware corporate phrase.
-49. **Embrace** (metaphorical) — "Embrace this opportunity." Distant and formal.
+49. **Embrace the** / **Embrace this** — "Embrace this opportunity." Distant and formal. Narrowed to the abstract constructions: bare "embrace" is also the ordinary physical hug (114 hits in 3.7M words of human prose).
 50. **In essence** — AI summary-mode indicator.
 51. **Remarkably** — Weak intensifier that actually weakens the claim.
 52. **Arguably** — Hedging word that signals uncertainty and AI-caution.
@@ -78,9 +78,9 @@ The following terms appear with suspicious frequency in AI-generated fiction and
 57. **Moreover** — Academic-tier connector; identical problem to "Furthermore." Absent from authentic fiction and dialogue.
 58. **In addition** — Bland additive connector. Real writers use structure to imply addition, not announce it.
 59. **Conversely** — Signals "pivot to contrast" without doing the actual pivoting. The word names the move instead of making it.
-60. **On the other hand** — AI's preferred hedge when presenting an alternative view. Vanishingly rare in authentic prose or speech.
+60. On the other hand — AI's preferred hedge when presenting an alternative view. Not bolded: measured at 76 hits in 3.7M words of human fiction (about one per 50,000 words, mostly dialogue and interior reasoning), so it is not rare enough to auto-match — judge it in Pass 2.
 
-> **Note:** Entries 56–60 also appear in Section 2 (Too-Clean Transitions) as a pattern-level structural tell. Including them here makes them available for vocabulary-level scanning in chapter-humanizer Pass 2, so they are caught even when used in isolation.
+> **Note:** Entries 56–60 also appear in Section 2 (Too-Clean Transitions) as a pattern-level structural tell. Including them here makes them available for vocabulary-level scanning in chapter-humanizer Pass 2, so they are caught even when used in isolation. Entry 60 ("On the other hand") is the exception: it is listed for Pass-2 judgment only and is not auto-matched (see the entry).
 
 > **Bold-term contract:** every bolded term below becomes a literal, un-filtered regex via
 > `load_global_ai_tells` — no part-of-speech or literal/metaphorical check. Only bold a term when
@@ -91,7 +91,7 @@ The following terms appear with suspicious frequency in AI-generated fiction and
 61. Nestled in — "Nestled in the heart of..." Real-estate/travel-brochure filler for describing where a place sits. Not bolded: "nestled in" is also the ordinary preposition for legitimate concrete body-language prose ("nestled in her arms," "nestled in the crook of his neck," "nestled in the blanket") — narrowing from the bare verb doesn't remove the collision, only the geography sense (the sales-brochure "nestled in the heart of/valley of/hills of" pattern) is the tell.
 62. In the heart of — Sales-brochure geography ("nestled in the heart of the valley"). Not bolded: the same phrase describes literal geography or anatomy ("in the heart of the forest," "in the heart of the storm") too often to auto-match safely.
 63. Boasts (non-literal, as in "the town boasts...") — Advertising verb standing in for "has." Not bolded: a character literally boasting ("he boasts about his catch") is ordinary, legitimate dialogue-adjacent prose — judge by context in Pass 2.
-64. **Breathtaking** / **Stunning** — Empty superlatives for scenery or spectacle. Show what's striking about it instead of naming the reaction. (Same accepted advisory-risk profile as existing entries #4 "Vibrant" and #43 "Rich" — warn-severity, not a hard block.)
+64. **Breathtaking** / Stunning — Empty superlatives for scenery or spectacle. Show what's striking about it instead of naming the reaction. Only "Breathtaking" is bolded: "stunning" also covers the stunning spell and "stunned"-adjacent action prose (84 hits in 3.7M words of human fantasy/horror prose) — judge it in Pass 2.
 65. **Renowned** — "The renowned..." Undercuts itself by asserting fame instead of demonstrating it.
 66. Valuable — Vague positive intensifier that rarely earns its weight. Not bolded: collides with the literal noun "valuables" (heist/theft/inheritance scenes) — same failure class as the `Key` incident.
 67. **Crucial** — Same reflex as "pivotal" (#8) — naming importance instead of dramatizing it. (Entry #8 was updated to stop recommending "crucial" as pivotal's replacement, so the two entries no longer contradict each other.)

@@ -619,7 +619,6 @@ class TestLoadGlobalAITells:
         labels = {p.label.lower() for p in patterns}
         for term in (
             "breathtaking",
-            "stunning",
             "renowned",
             "crucial",
             "additionally",
@@ -638,12 +637,29 @@ class TestLoadGlobalAITells:
             "quietly",
             "garner",
             "align with",
+            # Measured against human prose (scripts/measure_ai_tell_fp.py, #685):
+            # bare forms fire far above one hit per 50,000 words.
+            "stunning",
+            "illuminate",
+            "on the other hand",
+            "rich",
+            "journey",
+            "embrace",
+            "landscape",
         ):
             assert risky_term not in labels, (
                 f"{risky_term!r} was deliberately left unbolded (literal-use "
                 "false-positive risk, same class as the Key/door-key "
                 "incident) — it must not be auto-matched"
             )
+
+    def test_narrowed_entries_keep_only_their_abstract_constructions(self):
+        """Rich / Journey / Embrace / Landscape were narrowed (not dropped) after the
+        false-positive measurement against human prose (#685)."""
+        labels = {p.label.lower() for p in load_global_ai_tells(PLUGIN_ROOT)}
+        for term in ("rich with", "rich in", "journey of", "journey toward", "journey towards",
+                     "embrace the", "embrace this", "landscape of"):
+            assert term in labels, f"narrowed term missing: {term!r}"
 
     def test_missing_file_returns_empty(self, tmp_path):
         patterns = load_global_ai_tells(tmp_path)
