@@ -17,11 +17,11 @@ class TestAbbreviations:
         assert _chapter(text)["narration_sentences"] == 3
 
     def test_opener_run_is_found_through_honorifics(self) -> None:
-        text = "Mr. Smith sat. Mr. Smith stood. Mr. Smith left. Mr. Smith waited.\n"
+        text = "Mr. Smith sat. Mr. Smith stood. Mr. Smith left. Mr. Smith waited. Mr. Smith ate. Mr. Smith slept.\n"
         runs = _chapter(text)["repeated_openers"]
         assert len(runs) == 1
         assert runs[0]["opener"] == "mr"
-        assert runs[0]["run"] == 4
+        assert runs[0]["run"] == 6
 
     @pytest.mark.parametrize("abbr", ["Mr", "Mrs", "Ms", "Dr", "Prof", "Sr", "Jr", "St", "Capt", "Sgt"])
     def test_each_listed_abbreviation(self, abbr: str) -> None:

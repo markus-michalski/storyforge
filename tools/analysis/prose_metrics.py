@@ -36,10 +36,20 @@ DEFAULT_DASH_PER_1K_LIMIT = 8.0
 # extreme chapter trips it; prose that varies at all sits far above.
 UNIFORM_BURSTINESS_BELOW = 0.35
 MIN_SENTENCES_FOR_BURSTINESS = 5
-# Runs of 3 identical openers fired ~3x per chapter on the same book
-# (107 of 143 runs); 4+ is about one per chapter.
-OPENER_RUN_MIN = 4
-HEDGE_SEGMENT_MIN = 3
+# The two limits below are measured against ~7.4M words of published
+# fantasy/horror/YA, cut into ~1,200-word scenes (``scripts/measure_ai_tell_fp.py``).
+# Both are set so they fire on well under 0.1 hits per 5,000 words of human prose.
+#
+# Runs of identical sentence openers: 4+ occurs in ~7% of human scenes, 5+ in
+# ~2%, 6+ in ~1%. The 6+ limit is the shortest run under that bar.
+OPENER_RUN_MIN = 6
+# Hedge words (seemed, appeared to, as if, might have) scale with scene length:
+# the human median is ~1.8 per 1,000 narration words and 3+ per scene occurs in
+# ~30% of human scenes. A scene is flagged only at 12+ per 1,000 narration words
+# (~0.3% of human scenes) and at least ``HEDGE_SEGMENT_MIN`` hedges, so a short
+# fragment cannot trip the rate on one or two words.
+HEDGE_PER_1K_MIN = 12.0
+HEDGE_SEGMENT_MIN = 4
 
 _HR_LINE_RE = re.compile(r"^\s*(?:[*_-]\s*){3,}$")
 _HEADING_RE = re.compile(r"^\s*#{1,6}\s")
@@ -135,8 +145,18 @@ def split_segments(text: str) -> tuple[list[list[tuple[int, str]]], bool]:
     return (non_empty or [[]]), found
 
 
+def hedge_density_exceeded(hedge_count: int | None, narration_words: int) -> bool:
+    """Whether a scene's hedge-word count is above the human range.
+
+    ``None`` (a language with no hedge list) is never flagged.
+    """
+    if hedge_count is None or hedge_count < HEDGE_SEGMENT_MIN or narration_words <= 0:
+        return False
+    return hedge_count * 1000 / narration_words >= HEDGE_PER_1K_MIN
+
+
 def _opener_runs(sentences: list[tuple[int, str | None]]) -> list[dict[str, Any]]:
-    """Find runs of 3+ consecutive sentences sharing the same first word.
+    """Find runs of ``OPENER_RUN_MIN``+ consecutive sentences sharing the same first word.
 
     ``None`` marks a dialogue-led sentence: it is never an opener and breaks a run.
     """

@@ -10,6 +10,7 @@ from tools.analysis.prose_metrics import (
     DEFAULT_DASH_PER_1K_LIMIT,
     analyse_draft,
     compare_metrics,
+    hedge_density_exceeded,
 )
 
 
@@ -133,6 +134,22 @@ class TestHedgeDensity:
         segment = analyse_draft(text)["segments"][0]
         assert segment["hedge_lines"] == [2]
 
+    @pytest.mark.parametrize(
+        ("hedges", "words", "expected"),
+        [
+            (3, 100, False),  # high rate, but below the absolute floor
+            (4, 300, True),  # 13.3 per 1,000
+            (4, 400, False),  # 10 per 1,000 is inside the human range
+            (6, 500, True),  # exactly 12.0 per 1,000
+            (11, 900, True),  # 12.2 per 1,000
+            (10, 900, False),  # 11.1 per 1,000
+            (5, 0, False),  # no narration, no rate
+            (None, 900, False),  # language without a hedge list
+        ],
+    )
+    def test_hedge_density_scales_with_narration_words(self, hedges, words, expected) -> None:
+        assert hedge_density_exceeded(hedges, words) is expected
+
     def test_default_language_is_en_and_unchanged(self) -> None:
         """Issue #680: adding the ``language`` parameter must not change the
         no-argument call."""
@@ -152,21 +169,21 @@ class TestHedgeDensity:
 
 
 class TestRepeatedOpeners:
-    def test_four_consecutive_same_openers_are_reported(self) -> None:
-        text = "She opened the door. She stepped inside. She looked around. She waited.\n"
+    def test_six_consecutive_same_openers_are_reported(self) -> None:
+        text = "She opened the door. She stepped inside. She looked around. She waited. She listened. She froze.\n"
         runs = _chapter(analyse_draft(text))["repeated_openers"]
         assert len(runs) == 1
         assert runs[0]["opener"] == "she"
-        assert runs[0]["run"] == 4
+        assert runs[0]["run"] == 6
         assert runs[0]["line"] == 1
 
-    def test_three_in_a_row_is_below_the_threshold(self) -> None:
-        # Runs of 3 are ordinary prose (107 of 143 runs in a reviewed novel).
-        text = "She opened the door. She stepped inside. She looked around.\n"
+    def test_five_in_a_row_is_below_the_threshold(self) -> None:
+        # Runs of 4-5 occur in published human prose (Issue #689).
+        text = "She opened the door. She stepped inside. She looked around. She waited. She listened.\n"
         assert _chapter(analyse_draft(text))["repeated_openers"] == []
 
     def test_run_continues_across_paragraph_lines(self) -> None:
-        text = "She opened.\nShe stepped inside.\nShe looked around.\nShe waited.\n"
+        text = "She opened.\nShe stepped inside.\nShe looked around.\nShe waited.\nShe listened.\nShe froze.\n"
         runs = _chapter(analyse_draft(text))["repeated_openers"]
         assert len(runs) == 1 and runs[0]["line"] == 1
 

@@ -127,14 +127,38 @@ class TestDensityRules:
         result = _scan("He seemed tired.\n", catalog)
         assert result["hits"] == []
 
-    def test_three_hedges_in_one_scene_flag_each_line(self, catalog) -> None:
+    def test_ordinary_hedge_use_in_a_scene_is_not_a_hit(self, catalog) -> None:
+        """Issue #689: about 30% of published human scenes carry 3+ hedge words, so a
+        flat count of three must not flag a scene."""
         text = "He seemed tired.\nShe appeared to agree.\nIt seemed fine.\n"
+        assert [h for h in _scan(text, catalog)["hits"] if h["category"] == "hedge_density"] == []
+
+    def test_hedge_cluster_above_the_human_range_flags_each_line(self, catalog) -> None:
+        text = "\n".join(["He seemed tired."] * 4) + "\n"
         hits = [h for h in _scan(text, catalog)["hits"] if h["category"] == "hedge_density"]
-        assert [h["line"] for h in hits] == [1, 2, 3]
+        assert [h["line"] for h in hits] == [1, 2, 3, 4]
+
+    def test_hedge_density_is_scaled_by_narration_length(self, catalog) -> None:
+        """Four hedges in a long scene are well inside the human range."""
+        filler = "The corridor ran on past the cold windows and the shuttered doors. " * 20
+        text = "\n".join(["He seemed tired. " + filler] * 4) + "\n"
+        assert [h for h in _scan(text, catalog)["hits"] if h["category"] == "hedge_density"] == []
 
     def test_hedges_split_across_scenes_stay_below_threshold(self, catalog) -> None:
-        text = "He seemed tired. She appeared to agree.\n\n***\n\nIt seemed fine.\n"
+        """Three hedges per scene sit under the four-hedge floor; merged, the
+        same six hedges in sixty words would be flagged."""
+        scene = "He seemed tired. She appeared to agree. It seemed fine.\n"
+        text = scene + "\n***\n\n" + scene
         assert [h for h in _scan(text, catalog)["hits"] if h["category"] == "hedge_density"] == []
+
+    def test_rate_uses_the_scene_s_own_narration_words(self, catalog) -> None:
+        """A short hedge-dense scene stays flagged next to a long clean one; a
+        chapter-wide rate (4 in ~1,500 words) would hide it."""
+        short = "\n".join(["He seemed tired."] * 4) + "\n"
+        filler = "The corridor ran on past the cold windows and the shuttered doors. " * 130 + "\n"
+        text = short + "\n***\n\n" + filler
+        hits = [h for h in _scan(text, catalog)["hits"] if h["category"] == "hedge_density"]
+        assert [h["line"] for h in hits] == [1, 2, 3, 4]
 
     def test_first_negation_assertion_is_allowed_second_is_flagged(self, catalog) -> None:
         text = (
@@ -238,9 +262,14 @@ class TestDashDensity:
 
 class TestStructuralAndFingerprint:
     def test_repeated_opener_run_is_a_hit(self, catalog) -> None:
-        text = "She opened the door. She stepped inside. She looked around. She waited.\n"
+        text = "She opened the door. She stepped inside. She looked around. She waited. She listened. She froze.\n"
         hits = [h for h in _scan(text, catalog)["hits"] if h["category"] == "repeated_openers"]
         assert len(hits) == 1 and hits[0]["line"] == 1
+
+    def test_short_opener_run_is_ordinary_prose(self, catalog) -> None:
+        """Issue #689: runs of 4-5 identical openers occur in published human prose."""
+        text = "She opened the door. She stepped inside. She looked around. She waited. She listened.\n"
+        assert [h for h in _scan(text, catalog)["hits"] if h["category"] == "repeated_openers"] == []
 
     def test_invisible_character_is_a_hit(self, catalog) -> None:
         result = _scan("Clean.\nHid\u200bden.\n", catalog)
