@@ -86,8 +86,10 @@ from routers.feedback import (  # noqa: E402, F401
     get_self_edit_hunks,
     get_voice_candidates,
     list_pending_feedback,
+    list_raw_drafts,
     log_review_feedback,
     mark_feedback_harvested,
+    read_raw_draft,
     refresh_draft_baseline,
     set_feedback_classification,
 )

@@ -7,6 +7,7 @@ machinery.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from datetime import date
@@ -20,6 +21,7 @@ from tools.shared.paths import (
     resolve_series_path,
     slugify,
 )
+from tools.state import draft_snapshots
 
 from . import _app
 from ._app import _cache, mcp
@@ -342,8 +344,23 @@ word_count_target: 3000
 
 *Writing notes, research needed, etc.*
 """
+    heading = f"# Chapter {number}: {title}\n\n"
     (ch_dir / "README.md").write_text(readme, encoding="utf-8")
-    (ch_dir / "draft.md").write_text(f"# Chapter {number}: {title}\n\n", encoding="utf-8")
+    (ch_dir / "draft.md").write_text(heading, encoding="utf-8")
+
+    # Issue #686: seed the raw-draft copy with the same heading, unless the book is a
+    # *confirmed* memoir. Without this, chapter-writer's first real touch on this file is
+    # very often an Edit appending after the existing heading, not a Write on an empty file --
+    # gating raw-copy creation on Write alone (the hook's own fallback for a chapter that
+    # bypassed this seed) would miss the common case and capture no raw copy for most
+    # chapters. An unreadable/malformed README ("unknown") still gets a seed: the seed is
+    # only a heading (nothing private), the hook deletes it later if the book turns out to
+    # be memoir after all, and skipping it here would otherwise cost every chapter of a book
+    # with a transient README problem its raw copy for good. Best-effort: a write failure
+    # here must not stop the chapter from being created.
+    if draft_snapshots.book_category_signal(ch_dir / "draft.md") != "memoir":
+        with contextlib.suppress(OSError):
+            draft_snapshots.write_raw_draft(book_slug, slug, heading)
 
     # Issue #16: write chapter.yaml as the canonical metadata source so the
     # parser's preferred lookup target stays consistent with what we created.

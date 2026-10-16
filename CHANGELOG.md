@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `plot/tone.md` "Banned Prose Patterns" bullets with a backticked phrase (optional `Max. N pro Kapitel`) are now enforced by the chapter validator hook, the manuscript checker, the humanizer scan and the banned-phrase brief; bullets without one are reported as advisory/unenforced in the writing and review briefs and scan warnings. The section is read at heading level 2 and 3 (#682)
+- keep a raw-draft copy of a chapter's drafted text, separate from the existing baseline — `create_chapter` seeds it with the chapter's starting heading (fiction only), and the `snapshot_draft.py` PostToolUse hook then advances it only through plain appends (scene-by-scene writing), picking up again after a write that changed existing text (chapter-reviewer, chapter-humanizer, chapter-proofreader, chapter-fixer, or the writer's own revision loop) rather than staying stuck. `list_raw_drafts`/`read_raw_draft` MCP tools surface it for voice/pattern analysis (#686)
 
 ### Changed
 - Nothing yet
