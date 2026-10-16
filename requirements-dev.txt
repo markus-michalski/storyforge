@@ -5,6 +5,6 @@ pytest-asyncio>=1.4.0,<2.0
 # Upper bound: ruff 0.16.0 flags 332 new findings (DTZ/SIM rules) on
 # unrelated existing code, breaking CI. Investigate and fix separately,
 # then remove this cap.
-ruff<0.17.0
+ruff<0.18.0
 mypy
 types-PyYAML

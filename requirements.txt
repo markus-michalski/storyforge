@@ -5,7 +5,7 @@ python-docx>=1.2.0
 
 # Security-relevant transitive dependencies — minimum versions with known CVE fixes.
 # These are pulled in by mcp; explicit bounds ensure vulnerable versions are rejected.
-starlette>=1.7.0
+starlette>=1.8.0
 pyjwt>=2.15.1
 python-multipart>=0.0.32
 lxml>=6.1.3
