@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - English AI-tell catalog: after measuring it against 3.7M words of human fantasy/horror prose (2.2 enforced hits per 5,000 words, seven entries above one hit per 50,000 words), the entries that fired far above that bar were narrowed or un-bolded — `Rich` → `Rich with`/`Rich in`, `Journey` → `Journey of`/`toward(s)`, `Embrace` → `Embrace the`/`this`, `Landscape` → `Landscape of`; `Illuminate`, `Stunning` and `On the other hand` are no longer auto-matched (Pass-2 judgment notes). Result: 0.885 hits per 5,000 words, no entry above the bar. Narrowed entries match their exact phrase only, so inflected metaphorical uses (`embraced the`) are no longer caught. The per-scene hedge-density (11.10) and repeated-opener (11.13) rules also fire on human prose (5.3 and 0.3 hits per 5,000 words) and are left unchanged here (#685)
 
+### Fixed
+- The chapter-humanizer pre-scan's hedge-density (11.10) and repeated-opener (11.13) rules no longer fire on human prose. Measured on ~7.4M words of published fantasy/horror/YA in ~1,200-word scenes, the flat limit of 3 hedge words per scene flagged about 30% of human scenes (3.8 hits per 5,000 words) and runs of 4+ identical openers about 7%. 11.10 now flags a scene at 12+ hedge words per 1,000 narration words (and at least 4), 11.13 reports runs of 6+; both now fire below 0.1 hits per 5,000 words on the same corpus. The reference text and `chapter-humanizer` skill carry the new limits (#689)
+
 ### Deprecated
 - Nothing yet
 

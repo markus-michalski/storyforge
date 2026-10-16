@@ -739,7 +739,7 @@ The bad pattern: `It wasn't [X]. It was [Y].` or `Not [X]. [Y].` appearing two o
 
 ### 11.10 Hedge-Word Density
 
-*Seemed*, *appeared to*, *as if* (used as hedge rather than simile), and *might have* are legitimate individually. AI deploys them at density — three or more per scene — creating prose that refuses to commit to what actually happens. The narrator watches events through gauze instead of rendering them.
+*Seemed*, *appeared to*, *as if* (used as hedge rather than simile), and *might have* are legitimate individually, and ordinary in published fiction (the human median is about 2 per 1,000 narration words; a flat 3 per scene shows up in roughly 30% of human scenes). AI deploys them at a density well above that range, creating prose that refuses to commit to what actually happens. The narrator watches events through gauze instead of rendering them.
 
 *AI Example (density problem):*
 > He seemed uncertain. The room appeared to hold its breath. She might have smiled. It seemed like the right moment.
@@ -749,9 +749,9 @@ The bad pattern: `It wasn't [X]. It was [Y].` or `Not [X]. [Y].` appearing two o
 
 The bad pattern: a paragraph where the narrator refuses to commit to a single direct assertion — every observation hedged. Individually these words are neutral. Clustered, they signal a model that is afraid to say what happens.
 
-**Density rule:** Flag *seemed* / *appeared to* / *as if* (non-simile use) / *might have* when three or more combined instances appear in the same scene.
+**Density rule:** Flag *seemed* / *appeared to* / *as if* (non-simile use) / *might have* when the combined count in a scene reaches 12 or more per 1,000 narration words (and at least 4 instances). The limit is a rate, not a flat count, so a long scene is not penalised for length. Below it the hedges are within the range of published prose; judge them by ear only when they read as gauze.
 
-**Banned shape (density):** `\b(seemed|appeared to|as if|might have)\b` — count per scene; flag when the combined total reaches 3+ and the use is hedge rather than literal simile or direct comparison.
+**Banned shape (density):** `\b(seemed|appeared to|as if|might have)\b` — count per scene against the narration word count; flag when the rate reaches 12 per 1,000 and the use is hedge rather than literal simile or direct comparison.
 
 **Diagnostic question:** Remove the hedge word and read the sentence without it. If it still makes sense, cut the hedge.
 
@@ -793,7 +793,7 @@ Three or more consecutive sentences open with the same subject (most often *He*,
 *Human Example:*
 > She noted the door and its lock, checked the window, then filed it all away.
 
-The bad pattern: 3+ consecutive sentences sharing the same opening subject, with no rhetorical intent. Do **not** flag deliberate anaphora used for rhythm or escalation (e.g. "She came. She saw. She conquered.") — the tell is repetition applied *by rule*, not *by ear*. When in doubt, ask whether merging the sentences loses anything; if not, it's the tell.
+The bad pattern: a run of consecutive sentences sharing the same opening subject, with no rhetorical intent. The automated pre-scan reports runs of 6+; runs of 3–5 are common in published prose and are judged by ear only. Do **not** flag deliberate anaphora used for rhythm or escalation (e.g. "She came. She saw. She conquered.") — the tell is repetition applied *by rule*, not *by ear*. When in doubt, ask whether merging the sentences loses anything; if not, it's the tell.
 
 **Detection:** no single regex; scan manually for 3+ consecutive sentences sharing an opening subject within one paragraph.
 

@@ -83,7 +83,7 @@ class TestSceneSplitAndDensity:
         assert "\n\n".join(pieces) == text
 
     def test_density_rules_are_reported_apart_from_the_catalog_figures(self):
-        scene = "It seemed odd. It seemed late. It seemed over."
+        scene = "It seemed odd. It seemed late. It seemed over. It seemed done."
         report = m.measure_texts([scene])
         hedge = next(e for e in report["density_entries"] if e["label"].startswith("11.10"))
         assert hedge["hits"] > 0

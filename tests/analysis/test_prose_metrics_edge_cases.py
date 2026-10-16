@@ -32,9 +32,9 @@ class TestNarrationAfterDialogueOnTheSameLine:
         assert _chapter(text)["repeated_openers"] == []
 
     def test_run_of_openers_after_quotes_is_still_found(self) -> None:
-        text = '"No." He turned. He walked. He stopped. He waited.\n'
+        text = '"No." He turned. He walked. He stopped. He waited. He listened. He left.\n'
         runs = _chapter(text)["repeated_openers"]
-        assert len(runs) == 1 and runs[0]["run"] == 4
+        assert len(runs) == 1 and runs[0]["run"] == 6
 
 
 class TestQuoteStyles:

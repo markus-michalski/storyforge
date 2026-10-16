@@ -30,10 +30,11 @@ from tools.analysis.prose_metrics import (
     _MASK,
     _MD_FORMAT_RE,
     DEFAULT_DASH_PER_1K_LIMIT,
-    HEDGE_SEGMENT_MIN,
+    HEDGE_PER_1K_MIN,
     UNIFORM_BURSTINESS_BELOW,
     _mask_dialogue,
     analyse_draft,
+    hedge_density_exceeded,
     is_invisible_char,
     split_lines,
     split_segments,
@@ -299,14 +300,17 @@ def _density_hits(
     for idx, seg in enumerate(metrics["segments"], start=1):
         # hedge_count is None when the draft's language has no hedge-word
         # list (Issue #680) — there is nothing to flag, not zero to compare.
-        if seg["hedge_count"] is not None and seg["hedge_count"] >= HEDGE_SEGMENT_MIN:
+        if hedge_density_exceeded(seg["hedge_count"], seg["narration_words"]):
             for line_no in sorted(set(seg["hedge_lines"])):
                 hits.append(
                     _make_hit(
                         line_no=line_no,
                         segment=idx,
                         category="hedge_density",
-                        label=f"11.10 hedge-word density ({seg['hedge_count']} in this scene, limit 2)",
+                        label=(
+                            f"11.10 hedge-word density ({seg['hedge_count']} in {seg['narration_words']} "
+                            f"narration words, limit {HEDGE_PER_1K_MIN:g} per 1,000)"
+                        ),
                         snippet=line_text.get(line_no, ""),
                         source="global anti-ai (11.10)",
                     )
