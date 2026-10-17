@@ -13,9 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Nothing yet
 
-### Fixed
-- The chapter-humanizer pre-scan's hedge-density (11.10) and repeated-opener (11.13) rules no longer fire on human prose. Measured on ~7.4M words of published fantasy/horror/YA in ~1,200-word scenes, the flat limit of 3 hedge words per scene flagged about 30% of human scenes (3.8 hits per 5,000 words) and runs of 4+ identical openers about 7%. 11.10 now flags a scene at 12+ hedge words per 1,000 narration words (and at least 4), 11.13 reports runs of 6+; both now fire below 0.1 hits per 5,000 words on the same corpus. The reference text and `chapter-humanizer` skill carry the new limits (#689)
-
 ### Deprecated
 - Nothing yet
 
@@ -27,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Nothing yet
+
+## [3.8.1] - 2026-10-17
+
+### Added
+- keep a raw-draft copy of the chapter-writer's first output (#686) (#687)
+- enforce plot/tone.md banned prose patterns like book rules (#684)
+
+### Changed
+- measure the English AI-tell catalog against human prose and narrow false positives (#685) (#688)
+
+### Fixed
+- calibrate hedge-density and repeated-opener limits on human prose (#689) (#690)
+- make global AI-tell catalog language-aware (#680) (#683)
 
 ## [3.8.0] - 2026-10-17
 
@@ -875,9 +885,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.6.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.2
 [3.6.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.3
 [3.6.4]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.4
-[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.8.0...HEAD
+[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.8.1...HEAD
 [3.6.5]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.5
 [3.6.6]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.6
 [3.6.7]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.7
 [3.7.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.7.0
 [3.8.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.8.0
+[3.8.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.8.1
