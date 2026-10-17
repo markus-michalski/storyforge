@@ -8,12 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `plot/tone.md` "Banned Prose Patterns" bullets with a backticked phrase (optional `Max. N pro Kapitel`) are now enforced by the chapter validator hook, the manuscript checker, the humanizer scan and the banned-phrase brief; bullets without one are reported as advisory/unenforced in the writing and review briefs and scan warnings. The section is read at heading level 2 and 3 (#682)
-- `scripts/measure_ai_tell_fp.py` measures how often every enforced English AI-tell catalog entry (Section 1 vocabulary, Section 11 banned shapes) and the per-scene Section 11 density rules fire on a corpus of human-written prose, in hits per 5,000 words overall and per entry, so the check can be repeated after catalog edits (#685)
-- keep a raw-draft copy of a chapter's drafted text, separate from the existing baseline — `create_chapter` seeds it with the chapter's starting heading (fiction only), and the `snapshot_draft.py` PostToolUse hook then advances it only through plain appends (scene-by-scene writing), picking up again after a write that changed existing text (chapter-reviewer, chapter-humanizer, chapter-proofreader, chapter-fixer, or the writer's own revision loop) rather than staying stuck. `list_raw_drafts`/`read_raw_draft` MCP tools surface it for voice/pattern analysis (#686)
+- Nothing yet
 
 ### Changed
-- English AI-tell catalog: after measuring it against 3.7M words of human fantasy/horror prose (2.2 enforced hits per 5,000 words, seven entries above one hit per 50,000 words), the entries that fired far above that bar were narrowed or un-bolded — `Rich` → `Rich with`/`Rich in`, `Journey` → `Journey of`/`toward(s)`, `Embrace` → `Embrace the`/`this`, `Landscape` → `Landscape of`; `Illuminate`, `Stunning` and `On the other hand` are no longer auto-matched (Pass-2 judgment notes). Result: 0.885 hits per 5,000 words, no entry above the bar. Narrowed entries match their exact phrase only, so inflected metaphorical uses (`embraced the`) are no longer caught. The per-scene hedge-density (11.10) and repeated-opener (11.13) rules also fire on human prose (5.3 and 0.3 hits per 5,000 words) and are left unchanged here (#685)
+- Nothing yet
 
 ### Fixed
 - The chapter-humanizer pre-scan's hedge-density (11.10) and repeated-opener (11.13) rules no longer fire on human prose. Measured on ~7.4M words of published fantasy/horror/YA in ~1,200-word scenes, the flat limit of 3 hedge words per scene flagged about 30% of human scenes (3.8 hits per 5,000 words) and runs of 4+ identical openers about 7%. 11.10 now flags a scene at 12+ hedge words per 1,000 narration words (and at least 4), 11.13 reports runs of 6+; both now fire below 0.1 hits per 5,000 words on the same corpus. The reference text and `chapter-humanizer` skill carry the new limits (#689)
@@ -29,6 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Nothing yet
+
+## [3.8.0] - 2026-10-17
+
+### Added
+- keep a raw-draft copy of the chapter-writer's first output (#686) (#687)
+- enforce plot/tone.md banned prose patterns like book rules (#684)
+
+### Changed
+- measure the English AI-tell catalog against human prose and narrow false positives (#685) (#688)
+
+### Fixed
+- make global AI-tell catalog language-aware (#680) (#683)
 
 ## [3.7.0] - 2026-10-15
 
@@ -865,8 +875,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.6.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.2
 [3.6.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.3
 [3.6.4]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.4
-[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.7.0...HEAD
+[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.8.0...HEAD
 [3.6.5]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.5
 [3.6.6]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.6
 [3.6.7]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.7
 [3.7.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.7.0
+[3.8.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.8.0
