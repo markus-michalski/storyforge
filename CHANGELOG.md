@@ -20,10 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- `cover-artist` and `reference/export/cover-specs.md` now write Midjourney prompts for the current default model (V8.2). The templates no longer pin `--v 7` / `--v 6`, add `--hd` and `--no text`, and the skill lists the parameters V8.x no longer supports (`--oref`, `--cref`, `--q`, `::`, `--draft`, `--turbo`, `--niji`, `--style raw`) with their replacements (Edit model, `--raw`). The unsourced 200-character Midjourney limit is gone; the DALL-E limit of 80 words stays
+- Nothing yet
 
 ### Security
 - Nothing yet
+
+## [3.8.2] - 2026-10-18
+
+### Fixed
+- write Midjourney prompts for V8.2 (#692)
 
 ## [3.8.1] - 2026-10-17
 
@@ -885,10 +890,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.6.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.2
 [3.6.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.3
 [3.6.4]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.4
-[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.8.1...HEAD
+[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.8.2...HEAD
 [3.6.5]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.5
 [3.6.6]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.6
 [3.6.7]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.7
 [3.7.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.7.0
 [3.8.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.8.0
 [3.8.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.8.1
+[3.8.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.8.2
