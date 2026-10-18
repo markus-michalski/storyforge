@@ -48,9 +48,11 @@ Your cover must work at 160x256 pixels. If you can't read the title at this size
 /imagine [subject] [action/pose] [setting/background],
 [art style], [lighting], [mood/atmosphere],
 [color palette], book cover composition,
-professional book cover art, no text,
---ar 2:3 --stylize 500 --v 6
+professional book cover art
+--ar 2:3 --hd --stylize 500 --no text
 ```
+
+V8.2 is the default model, so no `--v`. `--oref`, `--cref`, `--q` and `::` no longer exist; use the Edit model for reference images. Parameters go last, with no punctuation before or after them. See the cover-artist skill for the full V8.2 notes.
 
 ### For DALL-E
 ```

@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Nothing yet
+- `cover-artist` and `reference/export/cover-specs.md` now write Midjourney prompts for the current default model (V8.2). The templates no longer pin `--v 7` / `--v 6`, add `--hd` and `--no text`, and the skill lists the parameters V8.x no longer supports (`--oref`, `--cref`, `--q`, `::`, `--draft`, `--turbo`, `--niji`, `--style raw`) with their replacements (Edit model, `--raw`). The unsourced 200-character Midjourney limit is gone; the DALL-E limit of 80 words stays
 
 ### Security
 - Nothing yet
