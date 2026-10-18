@@ -52,7 +52,7 @@ Write to `{project}/cover/prompts.md`. Branch by `book_category`:
 ```
 /imagine [description], [style], [mood], [lighting], [composition],
 book cover design, [genre] novel cover, professional book cover art
---ar 2:3 --stylize [value] --v 7 --no text
+--ar 2:3 --hd --stylize [value] --no text
 ```
 
 **For DALL-E:**
@@ -82,7 +82,7 @@ Memoir covers lean toward restraint — authenticity over drama. The cover shoul
 ```
 /imagine [description], [period/mood], [color palette], [lighting],
 memoir book cover design, literary memoir cover,
-professional book cover --ar 2:3 --stylize [value] --v 7 --no text
+professional book cover --ar 2:3 --hd --stylize [value] --no text
 ```
 
 **For DALL-E:**
@@ -108,6 +108,13 @@ Memoir prompt variations (generate 3-4 of the four approaches below; not all wil
 - Trauma/difficult subject memoir: high contrast, stark, monochrome + accent color
 - Warm/family memoir: soft warm tones, golden light, lived-in textures
 
+**Midjourney V8.2 notes** (no `--v` needed, V8.2 is the default):
+- `--hd` renders 2048 px wide at 1:1; drop it for quick exploration rounds. `--stylize` runs 0–1000, default 100: lower follows the prompt literally, higher is more artistic. Offer two values to test.
+- Not available in V8.x, never put them in a prompt: `--oref`, `--cref`, `--q`, `::`, `--draft`, `--turbo`, `--niji`. Write `--raw`, not `--style raw`.
+- Reference images go through the Edit model in the Imagine bar (up to 4 images, no parameter). Style: `--sref <URL or code>`, strength `--sw` (0–1000, default 100).
+- `--no` takes a comma-separated list of concrete objects. Each word is checked on its own, so `--no modern clothing` reads as "no modern" and "no clothing".
+- Parameters go last, after one space, with no punctuation inside or after them.
+
 ### Step 4: Platform Specs
 Include size requirements:
 - **Amazon KDP:** 1600 x 2560px (front cover), 300 DPI
@@ -120,7 +127,7 @@ Include size requirements:
 
 ## Rules
 - ALWAYS specify "no text" in prompts — text will be added separately
-- Prompt length limits (fiction and memoir alike): DALL-E prompts max 80 words, Midjourney prompts max 200 characters — before finalizing, check each prompt against its limit and trim any that run over
+- Prompt length (fiction and memoir alike): DALL-E prompts max 80 words — before finalizing, check each DALL-E prompt against it and trim any that run over. Midjourney documents no length limit but advises short, simple prompts, so keep each Midjourney prompt to one dense line and cut lists of adjectives
 - Genre conventions matter: horror readers expect dark covers, romance expects warmth
 - Less is more — one strong visual > cluttered composition
 - The cover must work as a THUMBNAIL (social media, online stores)
