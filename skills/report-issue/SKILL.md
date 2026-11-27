@@ -160,9 +160,11 @@ Rule added:
 {If global scope}: This write is local and uncommitted — the change will be
   silently overwritten on the next plugin update or sync. This plugin installs
   into two deploy locations; only the active one received this edit.
-  To make it permanent: run `/git-pr-workflows:git-workflow` from `{plugin_root}`
-  now to branch, commit, and open a PR. Until merged, the rule warns locally only
-  (global scope is always advisory/warn — no block tier at global scope).
+  To make it permanent: apply the same edit in a git checkout of the
+  StoryForge source repository, then branch, commit, and open a PR there.
+  Repository: https://github.com/markus-michalski/storyforge (fork steps
+  in CONTRIBUTING.md). Until merged, the rule warns locally only (global
+  scope is always advisory/warn — no block tier at global scope).
 ```
 
 ## Important Behavior
