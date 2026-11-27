@@ -161,8 +161,9 @@ Rule added:
   silently overwritten on the next plugin update or sync. This plugin installs
   into two deploy locations; only the active one received this edit.
   To make it permanent: branch, commit, and open a PR from `{plugin_root}`
-  now, using whatever git workflow you prefer. Until merged, the rule warns locally
-  only (global scope is always advisory/warn — no block tier at global scope).
+  now, using whatever git workflow you prefer. Until merged, the rule
+  warns locally only (global scope is always advisory/warn — no block
+  tier at global scope).
 ```
 
 ## Important Behavior
