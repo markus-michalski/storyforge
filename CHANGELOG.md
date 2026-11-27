@@ -20,10 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- `promote-rule` and `report-issue` no longer send users to a third-party git workflow command; both now describe the steps (branch, commit, PR) in tool-neutral wording, to be done in a git checkout of the source repository instead of the plugin install directory (#696)
+- Nothing yet
 
 ### Security
 - Nothing yet
+
+## [3.8.3] - 2026-11-27
+
+### Changed
+- Dependabot auf monatlichen Rhythmus umstellen (#694)
+
+### Fixed
+- use tool-neutral wording for shipping changes (#697)
 
 ## [3.8.2] - 2026-10-18
 
@@ -890,7 +898,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.6.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.2
 [3.6.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.3
 [3.6.4]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.4
-[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.8.2...HEAD
+[Unreleased]: https://github.com/markus-michalski/storyforge/compare/v3.8.3...HEAD
 [3.6.5]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.5
 [3.6.6]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.6
 [3.6.7]: https://github.com/markus-michalski/storyforge/releases/tag/v3.6.7
@@ -898,3 +906,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [3.8.0]: https://github.com/markus-michalski/storyforge/releases/tag/v3.8.0
 [3.8.1]: https://github.com/markus-michalski/storyforge/releases/tag/v3.8.1
 [3.8.2]: https://github.com/markus-michalski/storyforge/releases/tag/v3.8.2
+[3.8.3]: https://github.com/markus-michalski/storyforge/releases/tag/v3.8.3
