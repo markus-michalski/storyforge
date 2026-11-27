@@ -80,8 +80,16 @@ def test_no_third_party_git_workflow_command(skill_file: Path) -> None:
 
 @pytest.mark.parametrize(("skill", "uncommitted_notice"), GLOBAL_WRITE_NOTICES)
 def test_global_write_notice_names_the_steps(skill: str, uncommitted_notice: str) -> None:
-    """A global rule write is lost on the next update unless the user is told how to ship it."""
+    """A global rule write is lost on the next update unless the user is told how to ship it.
+
+    The write lands in the install directory, which need not be a git checkout,
+    so the notice has to send the user to a checkout of the source repository.
+    """
     text = " ".join((SKILLS_DIR / skill / "SKILL.md").read_text(encoding="utf-8").split())
 
     assert uncommitted_notice in text
-    assert "branch, commit, and open a PR from `{plugin_root}`" in text
+    assert (
+        "apply the same edit in a git checkout of the StoryForge source repository, "
+        "then branch, commit, and open a PR there"
+    ) in text
+    assert "PR from `{plugin_root}`" not in text
