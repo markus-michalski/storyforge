@@ -135,7 +135,7 @@ Run /storyforge:manuscript-checker to see existing violations across your librar
 Tell the user **all three of these things explicitly**:
 1. "Warns locally only (not blocks) for every book on this install — cannot be promoted to block-severity at global scope."
 2. "Only one of your two deploy locations received this edit. The other location is still unchanged."
-3. "This change is uncommitted. To make it permanent across installs, run `/git-pr-workflows:git-workflow` from `{plugin_root}` now. Until then the next plugin update will overwrite it."
+3. "This change is uncommitted. To make it permanent across installs, branch, commit, and open a PR from `{plugin_root}` now, using whatever git workflow you prefer. Until then the next plugin update will overwrite it."
 
 Do not claim the promotion is durably, universally active, or block-severity, the way a book/author-scope write can be.
 

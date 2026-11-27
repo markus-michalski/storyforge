@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Nothing yet
+- `promote-rule` and `report-issue` no longer send users to a third-party git workflow command; both now describe the steps (branch, commit, PR) in tool-neutral wording (#696)
 
 ### Security
 - Nothing yet
