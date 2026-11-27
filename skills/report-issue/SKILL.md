@@ -162,8 +162,9 @@ Rule added:
   into two deploy locations; only the active one received this edit.
   To make it permanent: apply the same edit in a git checkout of the
   StoryForge source repository, then branch, commit, and open a PR there.
-  Until merged, the rule warns locally only (global scope is always
-  advisory/warn — no block tier at global scope).
+  Repository: https://github.com/markus-michalski/storyforge (fork steps
+  in CONTRIBUTING.md). Until merged, the rule warns locally only (global
+  scope is always advisory/warn — no block tier at global scope).
 ```
 
 ## Important Behavior
